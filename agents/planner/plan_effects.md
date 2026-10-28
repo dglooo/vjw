@@ -678,7 +678,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - **Console:** 1 error, the deliberate `unknown ref isf/s51-missing`; nothing else.
   - **Gates:** lint and tsc clean, 129 tests (+8), build OK.
 
-### S5.2 `[ ]` `ui/Panel.tsx` + `ui/panel.css`: layers, controls, bindings, catalog, GPU hint
+### S5.2 `[x]` `ui/Panel.tsx` + `ui/panel.css`: layers, controls, bindings, catalog, GPU hint
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the minimal slider panel over the output (spec §2.4, design E6).
 - **Files:** `web/src/ui/Panel.tsx`, `web/src/ui/panel.css`, `web/src/main.tsx` (mount `<Panel />` next to `<Overlay />`).
@@ -686,6 +686,44 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none (UI).
 - **Done-check:** gates green. **Manual:** CP5 demo minus paste; dragging a slider shows no React re-render (React DevTools or a `console.count` in render during the drag).
 - **Depends on:** S5.1.
+- **Changed during implementation:**
+  - **The store is read per field** (`useSnap('panel' | 'edited' | 'editRev' | 'nodeErrors')`). The GPU hint is its own small component, so its 4×/s patch re-renders only that component. The layers sit in a container keyed `${edited} ${editRev}`: after a structural edit, every uncontrolled control remounts from the doc. With index keys, removing fx 0 would have shown its values on fx 1.
+  - **`Esc` with a focused control:** the panel's `onKeyDown` dispatches a fresh `keydown` Escape on `window`. app.ts's filter skips fields, and app.ts owns `setPanel` and the hold, so app.ts is unchanged. **Mouse use leaves no focus behind.** A button or a non-color input blurs on pointer-up, and a select blurs on change. Otherwise Space would press a focused button again (e.g. another ×), and a focused select would pick an effect by type-ahead. A slider focused from the keyboard keeps `←/→`.
+  - **Auto-hide is CSS only:** `:root:has(.bar.hidden) .panel { opacity: 0; pointer-events: none }`. It uses the bar's own idle class, with no second timer.
+  - **Binding controls (`Param`):**
+    - React state holds only what is drawn: bound or not, and whether the source takes a shape.
+    - A binding slider builds its new binding from the doc's current one (`bindingAt`). A ref is not used: eslint-plugin-react-hooks 7's `react-hooks/refs` rejects a ref read in a helper's callback.
+    - The dot turns a binding on at bass, `BIND_DEFAULTS`, min/max = the input's range.
+    - beat/bar/lfo add a shape (saw for beat/bar: 1 on the beat; sine for lfo) and rate 1. Back on a level source, they are dropped.
+    - Ranges: amount 0–4, attack/release 0–1 s, rate 0.05–4.
+    - A bound row's own slider dims (CSS `:has`).
+  - **Bindable in the UI:** float, long (min/max of its VALUES), each point2D component (`name.0` / `name.1`), layer opacity/speed. **Not bindable:** bool, event, color (the `name.i` key works, but it has no UI), res.
+  - **Controls:**
+    - Sliders: 100 steps over MIN–MAX (res: 0.05 steps).
+    - Color: the swatch and the alpha slider are read back from the DOM.
+    - Bands are listed as `N · <lower edge>`, from energy.ts's log 30 Hz–16 kHz layout.
+    - Toys resolve through `toyDef`, as in live.ts.
+    - The layer's speed row is labelled **`layer speed`** (the tunnel has its own `speed`).
+  - **Look, after reading the screenshots:**
+    - No scene title in the panel: the bar shows the same name right above.
+    - Background 94 % opaque: at 86 %, a white Truchet showed through as a grey diagonal. No backdrop blur, which would cost GPU every frame.
+    - No value readouts (calm). Add an imperative `<output>` in `onInput` if exact numbers are wanted.
+  - **Chrome check.** Playwright on :5189, installed Chrome, `--mute-audio`, 1200×800 @2x, 60F. The script and log are `s52_check.*` in the scratchpad. The served Panel.tsx got render counters (test only).
+    - `E`: panel, hold, Lock.
+    - A real mouse drag on `glow` (layer speed 0, silence) moves the mean brightness 51 → 125.
+    - **Render counters during ~14 s of drags: Panel/Param/Fx 0.** Gpu: 46 counts (StrictMode double).
+    - **rAF intervals:** median 16.7 ms, max 18.7 ms, 0 over 1.5× median, 0 governor drops. An idle 3 s window shows the same.
+    - **`Esc` with a focused range:** closes the panel, hold back off, Lock gone. `E` reopens with glow kept.
+    - **CP5 demo minus paste:**
+      - twist bound to bass, max set; Kaleidoscope added from the list (editRev 0 → 1); its × removes it (→ 2, no errors).
+    - **Moves with music (kicks128n.wav):**
+      - "+ layer" Truchet Tile, × on the tunnel layer.
+      - Unbound: 1 distinct picture of 10; Size bound to bass: 6–7; unbound again: 1.
+      - lfo brings the sine shape select and the rate knob, and the picture moves (4/10). Back to bass, they go.
+    - **Other controls:** the color swatch and the checkbox each change the picture and land in the doc.
+    - **Idle:** the bar hides, the panel opacity is 0 and pointer-events none.
+    - glError 0; no console errors or warnings.
+  - **Gates:** lint and tsc clean, 129 tests, build OK.
 
 ### S5.3 `[ ]` Paste Shadertoy dialog
 Invoke the `ponytail` skill (full) before writing code.
