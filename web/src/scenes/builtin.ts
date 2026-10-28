@@ -13,7 +13,8 @@ export const BUILTIN: readonly SceneDoc[] = [
   },
   {
     v: 1, id: 'builtin:particles', name: 'Particles', star: true,
-    layers: [{ gen: { ref: 'native/particles' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    // res 0.5: GPU p95 with kicks 6.4 → 3.2 ms at 1728×1118 (S4.2b); the points scale with the layer height
+    layers: [{ gen: { ref: 'native/particles' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   {
     v: 1, id: 'builtin:glitch', name: 'Glitch', star: true,
@@ -114,11 +115,51 @@ export const BUILTIN: readonly SceneDoc[] = [
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75,
     }],
   },
+  // S4.2b: the raymarchers dropped over budget at res 1 in S4.2, back at a res that fits.
+  {
+    v: 1, id: 'builtin:fractal', name: 'Fractal', star: true,
+    layers: [{
+      gen: {
+        ref: 'own/fractal',
+        bind: {
+          fold: { source: 'bass', amount: 1, attack: 0.03, release: 0.3, min: 0.06, max: 0.32 }, // the sponge twists into crystal
+          glow: { source: 'onset', amount: 1, attack: 0, release: 0.25, min: 0.4, max: 2.5 },
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:wave-landscape', name: 'Wave landscape', star: true,
+    layers: [{
+      gen: {
+        ref: 'own/wave-landscape',
+        bind: {
+          height: { source: 'bass', amount: 1, attack: 0.03, release: 0.3, min: 0.5, max: 1.8 }, // the mountains lift on a kick
+          glow: { source: 'onset', amount: 1, attack: 0, release: 0.2, min: 0.8, max: 2.5 },
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:sdf-shapes', name: 'SDF shapes', star: true,
+    layers: [{
+      gen: {
+        ref: 'own/sdf-shapes',
+        bind: {
+          morph: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 0, max: 1 }, // cube → dodecahedron on a kick
+          burst: { source: 'onset', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 },
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+    }],
+  },
   {
     v: 1, id: 'builtin:particles-over-tunnel', name: 'Particles over tunnel', star: true,
     layers: [
       { gen: { ref: 'native/tunnel' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 },
-      { gen: { ref: 'native/particles' }, fx: [], blend: 'add', opacity: 0.9, speed: 1, res: 1 },
+      { gen: { ref: 'native/particles' }, fx: [], blend: 'add', opacity: 0.9, speed: 1, res: 0.5 },
     ],
   },
   {
