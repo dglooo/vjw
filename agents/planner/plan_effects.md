@@ -391,7 +391,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - **Drops:** 15 over the run, which includes 30 full-frame `readPixels` at 1728×1118 and 3 first-visit test docs. The first run at 600×400 had 4.
   - **Gates:** lint and tsc clean, 119 tests, build OK. No new tests: no new pure logic (`sizeExpr` is S1.1's).
 
-### S3.4 `[ ]` Shadertoy node (`toy/<uuid>`, inline code) + an own `mainImage` fixture scene
+### S3.4 `[x]` Shadertoy node (`toy/<uuid>`, inline code) + an own `mainImage` fixture scene
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** a pasted single-pass shader runs as a generator (design E5); the paste UI comes in S5.3.
 - **Files:** `web/src/fx/catalog.ts`, `web/src/gl/live.ts`, `web/src/scenes/builtin.ts`.
@@ -399,6 +399,21 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none new (`wrapToy` tested in S3.1); `doc.test.ts` round-trips the inline-code doc.
 - **Done-check:** gates green. **Manual:** the toy scene plays and reacts via `iChannel0` (use `texture(iChannel0, vec2(0.05, 0.25)).r` for bass in the fixture). **Lead commits** `cp3-effects` after a 5-min Playwright run (0 GL errors, 0 late in fades).
 - **Depends on:** S3.3.
+- **Changed during implementation:**
+  - **The fixture reads bass at x = 0.004, not 0.05.** The toy texture's 512 bins run up to Nyquist (fftSize 1024, ≈ 47 Hz per bin at 48 kHz), so x = 0.05 is ≈ 1.2 kHz. x = 0.004 reads bins 1–2 (≈ 45–95 Hz). G5: Shadertoy's texture spans about 0–11 kHz, so a pasted toy's x reads about twice the frequency it would on shadertoy.com.
+  - **`#define HW_PERFORMANCE 1` is prepended in `toyDef`** (`glsl.ts` untouched), so a toy's `prefixLines` is wrapToy's + 1 (19). `toyDef` returns `ShaderDef & { prefixLines }`, for the log shift here and for S5.3.
+  - **The compile log comes from compiling the FS again (`toyLog` in `live.ts`), on a failure only.** The engine's `program()` sends twgl's log only to the console. `ERROR:`/`WARNING:` line numbers are shifted to the paste's. S5.3 can export `toyLog`.
+  - **`warm()` resolves toy nodes as well,** so Toy plasma compiles at Start like the rest (its `program()` returned in 0 ms before the first visit).
+  - **`iDate` follows Shadertoy:** month from 0, seconds with ms. ISF's `DATE` is unchanged. `iMouse`, `iFrameRate` and `iChannelTime` are not set and stay at GL's zero (iFrameRate was not in the step's list). `iResolution` shares `RENDERSIZE`'s memory (`RS` is a view on its first two floats), so the per-pass size write sets both.
+  - **`iFrame` is the scene's frame counter, which reads 1 on the first frame.** ISF's `FRAMEINDEX` already does this, though ISF says 0. Out of scope, so it is reported and not fixed.
+  - **`isf.test.ts`'s built-in-ref check now skips `toy/` refs,** as `doc.test.ts`'s already did. The fixture's ref is `toy/plasma` (a readable fixed id, not a UUID).
+  - **Chrome check.** Playwright on :5184, installed Chrome, `--mute-audio`, 1200×800 at 60A (600×400 internal), `s33_kicks_loop.wav`. Scripts and logs are `s34_*` in the scratchpad.
+    - **Toy plasma:** 0 errors, GPU 0.65 ms. Over 150 frames the stage luminance (94–144) follows the bass texel (0.34–1.0) with r = 0.994.
+    - **Probe toy into a 512×2 target:** `iChannel0` equals the toy audio texture, 1024/1024 texels. `iChannel1` is noise (220 distinct bytes). The comment param `gain` becomes the input {0.5, 0…1} and the uniform 0.5. After two 0.5 s frames, iTime is 1, iTimeDelta 0.5 and iFrame 2. iSampleRate is 44100.
+    - **Vector uniforms:** a second short run (`s34_uniforms.mjs`), because the first printed them as null. iResolution [320, 180, 1], iMouse 0, iDate [2026, 9, 28, 77222.68], iChannelResolution [512, 2, 1] then 3 × [256, 256, 1].
+    - **A broken paste (`o = foo;` on paste line 3):** `errors` = "toy/s34-bad: ERROR: 0:3: 'foo' : undeclared identifier …". The stage is black, the loop runs at 61 fps and there is no page error. Its 3 console errors are the expected ones (twgl ×2, `fail()`).
+    - **Errors:** glError 0, and 0 console errors outside the broken paste. 4 drops over the run, which reads pixels on 150 frames.
+  - **Gates:** lint and tsc clean, 121 tests, build OK.
 
 ### S4.1 `[ ]` Content batch 1: trails / feedback / kaleidoscope / mirrors (target ≥8)
 Invoke the `ponytail` skill (full) before writing code.
