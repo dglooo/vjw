@@ -5,7 +5,7 @@
 ## HEAD
 
 **Updated:** 2026-10-28 (session 3, in progress)
-**Stage:** 1 — pilot (CP1–CP4 done, CP5 coding) → 2a `effects` (spec grilled, research running). **Now: effects CP1 coding ‖ audio-features research; the user plays on :8080.**
+**Stage:** 1 — pilot (CP1–CP4 done, CP5 coding) → 2a `effects` (spec grilled, research running). **Now: effects CP2 wave 1 (3 parallel worktree coders); the user plays on :8080.**
 **Spec:** `thoughts/spec_veejay_wizard.md` (rewritten in session 3; see decisions below).
 **Team:** `.claude/agents/` → researcher, system-designer, planner, frontend-coder, tester, security-auditor. backend-coder is dormant. Models: planner + security-auditor on Fable 5.1, tester on Haiku 5.5, the rest on Opus 5.5.
 
@@ -24,18 +24,18 @@
 **Epic `effects` (Stage 2a):**
 - Spec `thoughts/spec_effects.md` (grilled + confirmed); research `research_editor_effects.md`; design `design_effects.md`.
 - ✅ **USER GATE 2026-10-28: Variant A** (own ISF loader on twgl). Counts default: ≥30 effects, ≥5 per category, ≥10 transitions.
-- ✅ planner → `plan_effects.md`: 27 steps / 7 CPs.
-  - CP1 ISF + bind + doc → kaleido on tunnel. CP2 bench + natives + compile-all. CP3 compositor/persistent/transitions/Shadertoy. CP4 content (5 batches). CP5 panel. CP6 library. CP7 closeout.
-  - Open source registry in place.
-- ✅ The lead fetched `donor/` (git-ignored): ISF parser, ISF-Files (327), gl-transitions 2.0.0 (125 glsl3), webgl-noise, hg_sdf.
-- ▶ frontend-coder on **effects CP1 (S1.1–S1.6)**. Note: spectrum/particles/glitch leave the autopilot until CP2; the :8080 snapshot is unaffected.
+- ✅ Plan `plan_effects.md`: 27 steps / 7 CPs (CP2 bench + natives, CP3 compositor/transitions/Shadertoy, CP4 content ×5, CP5 panel, CP6 library, CP7 closeout). `donor/` fetched (git-ignored).
+- ✅ **Effects CP1** `f421b38`: ISF loader + bindings + SceneDoc, KALEIDO TUNNEL on bass (lead-verified, 109 tests). The coder was stopped at ~4 h for context bloat.
+- 🔑 **USER (2026-10-28): one step per agent, parallel worktrees, time-boxed** (CLAUDE.md workflow #11, memory `one-step-per-agent`).
+- ▶ **Wave 1 (parallel worktrees):** S2.1 director hooks + GPU timer ‖ S2.3 glitch + spectrum natives ‖ S3.1 GLSL ES3 wrappers.
+  - Next: wave 2 = S2.2 bench ‖ S2.4 particles; wave 3 = S2.5. :8080 is not refreshed until CP2.
 
 **Next epic (requested 2026-10-28): flexible, genre-aware audio reactivity.**
 - ✅ `research_audio_features.md`: user bands + envelope followers are cheap (16 = 0.34% core); kick vs sustain via differential envelopes; drum classes on full mixes F 0.58–0.82; ML stems offline only; 40/60 Hz needs FFT 8192; genre tempo ranges fix the octave fold.
 - Next: a short grill + design once effects CP1/CP2 land (the user: "wait, then see").
 
-- 🕸 **graphify** (user, 2026-10-28): graph over `web/src` in `graphify-out/` (git-ignored); a post-commit hook rebuilds it on every commit. The first build flagged an import cycle `catalog → tunnel → engine → live → catalog` (in-progress CP1), and the coder was told.
-- ⏰ **Auto-resume cron** `b411fc38` (every 30 min, :17/:47 + offset; session-only, expires after 7 days). It re-dispatches agents that died on usage limits and continues the pipeline.
+- 🕸 **graphify**: root `.` → `graphify-out/` (git-ignored); a post-commit hook rebuilds it. A type-only cycle `catalog→tunnel→engine→live` remains (runtime-safe).
+- ⏰ **Auto-resume cron** `0fc53f5a` (every 30 min, :17/:47 + offset; session-only, expires after 7 days). It re-dispatches agents that died on usage limits and continues the pipeline.
 
 ### Key decisions
 - Session 2 (/grill-me): browser pilot, Chrome-first, localhost; Vite + React + TS; Electron later. Minimal auto-hiding overlay, REC via MediaRecorder, quality modes 60 adaptive / 60 full / 30. After the pilot: editor → camera → clip mixer.

@@ -5,3 +5,4 @@ dist/
 donor/
 graphify-out/
 .claude/scheduled_tasks.lock
+.claude/worktrees/
