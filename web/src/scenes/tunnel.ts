@@ -3,11 +3,16 @@
 // pulses the light and surges the flight forward.
 import { BAND_COUNT } from '../audio/energy'
 import { pulse } from '../audio/sync'
+import type { Input } from '../fx/types'
 import { fullscreenProgram } from '../gl/engine'
-import type { SceneFactory } from '../gl/scene'
+import type { NativeDef } from '../gl/scene'
 
-/** Look knobs, read as uniforms every frame (the stage-2 editor binds to these). */
-export const params = { speed: 0.6, twist: 0.12, glow: 1 }
+/** Look knobs, read as uniforms every frame; bindings and the panel drive them through `values`. */
+export const inputs: Input[] = [
+  { name: 'speed', type: 'float', min: 0, max: 2, default: 0.6 },
+  { name: 'twist', type: 'float', min: 0, max: 0.5, default: 0.12 },
+  { name: 'glow', type: 'float', min: 0, max: 3, default: 1 },
+]
 const BAND_RELEASE = 0.85 // per 60 Hz frame: a stripe lights at once and fades ≈1.4 dB/frame (raw bands flicker)
 const FLASH_TAU = 0.12 // s: onset flash decay
 const SURGE = 2 // knob: flight speed × (1 + SURGE) on the beat
@@ -57,25 +62,27 @@ void main() {
   outColor = vec4(col, 1.0);
 }`
 
-export const tunnel: SceneFactory = () => {
-  const draw = fullscreenProgram(FS)
-  const bands = new Float32Array(BAND_COUNT)
-  let travel = 0
-  return {
-    name: 'tunnel',
-    draw(f) {
-      const beat = pulse(f.sync)
-      travel += f.dt * params.speed * (1 + SURGE * beat)
-      const fall = BAND_RELEASE ** (f.dt * 60)
-      for (let i = 0; i < BAND_COUNT; i++) bands[i] = Math.max(f.energy.bands[i], bands[i] * fall)
-      // Decay by age, so a 30 fps frame still shows the right envelope. Clamped at 0: a line-in onset's t is ahead of
-      // audioNow by about the output latency when it arrives (R9: ≈43 ms on the M4). File onsets arrive audible (T1).
-      const o = f.lastOnset
-      const flash = o ? o.strength * Math.exp(-Math.max(0, f.audioNow - o.t) / FLASH_TAU) : 0
-      draw({
-        uRes: [f.width, f.height], uTime: f.time, uTravel: travel, uBass: f.energy.att.bass,
-        uTreb: f.energy.level.treb, uBands: bands, uTwist: params.twist, uGlow: params.glow, uFlash: flash, uPulse: beat,
-      })
-    },
-  }
+export const tunnel: NativeDef = {
+  id: 'native/tunnel', name: 'Tunnel', kind: 'generator', category: 'geometry', credit: 'VeeJay Wizard', inputs,
+  create() {
+    const draw = fullscreenProgram(FS)
+    const bands = new Float32Array(BAND_COUNT)
+    let travel = 0
+    return {
+      draw(f, v) {
+        const beat = pulse(f.sync)
+        travel += f.dt * (v.speed as number) * (1 + SURGE * beat)
+        const fall = BAND_RELEASE ** (f.dt * 60)
+        for (let i = 0; i < BAND_COUNT; i++) bands[i] = Math.max(f.energy.bands[i], bands[i] * fall)
+        // Decay by age, so a 30 fps frame still shows the right envelope. Clamped at 0: a line-in onset's t is ahead of
+        // audioNow by about the output latency when it arrives (R9: ≈43 ms on the M4). File onsets arrive audible (T1).
+        const o = f.lastOnset
+        const flash = o ? o.strength * Math.exp(-Math.max(0, f.audioNow - o.t) / FLASH_TAU) : 0
+        draw({
+          uRes: [f.width, f.height], uTime: f.time, uTravel: travel, uBass: f.energy.att.bass,
+          uTreb: f.energy.level.treb, uBands: bands, uTwist: v.twist, uGlow: v.glow, uFlash: flash, uPulse: beat,
+        })
+      },
+    }
+  },
 }

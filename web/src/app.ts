@@ -4,16 +4,14 @@ import { createEnergy } from './audio/energy'
 import { analyser, audioNow, ctx, odfQueue, onsetQueue, recDest } from './audio/input'
 import { createSync, ZERO_SYNC } from './audio/sync'
 import { createTempoSource } from './audio/tempo'
+import { sources, type Sources } from './bind'
 import { createDirector } from './director'
 import type { FrameInput } from './frame'
-import { gl, render, scenes, setOutput, stage } from './gl/engine'
-import { playlist } from './playlist'
+import { render, scenes, setOutput, stage } from './gl/engine'
+import { live } from './gl/live'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
 import { startRecording } from './recorder'
-import { glitch } from './scenes/glitch'
-import { particles } from './scenes/particles'
-import { spectrum } from './scenes/spectrum'
-import { tunnel } from './scenes/tunnel'
+import { BUILTIN } from './scenes/builtin'
 import { store } from './store'
 
 const QUALITY_KEY = 'vjw.quality'
@@ -24,11 +22,9 @@ const NUDGE_MS = 10 // `,` / `.`
 const DEBUG = location.search.includes('debug')
 const VIDEO_BPS = 12_000_000 // ≈24 Mbps real: Chrome's H.264 encodes ≈2× the request at 60 fps, 1× at 30 (measured, S4.3)
 
-scenes.tunnel = tunnel(gl)
-scenes.spectrum = spectrum(gl)
-scenes.particles = particles(gl)
-scenes.glitch = glitch(gl)
-const director = createDirector(playlist, { confidentTheta: CONFIDENT })
+scenes.live = live
+// The playlist is the starred built-ins (design E4); spectrum, particles and glitch return as docs in CP2.
+const director = createDirector(BUILTIN.filter((d) => d.star).map((d) => d.id), { confidentTheta: CONFIDENT })
 const tempo = createTempoSource()
 const sync = createSync(tempo)
 const governor = createGovernor()
@@ -124,6 +120,7 @@ const f: FrameInput = {
   energy: energy.update(magDb, 60), onsets: [], lastOnset: null, audioNow: 0, sync: ZERO_SYNC,
   time: 0, dt: 0, width: 0, height: 0,
 }
+const src: Sources = {} // binding sources, refilled every frame
 let last = 0
 let scale = 0 // the applied internal scale
 let tick = 0
@@ -178,8 +175,8 @@ function frame(now: number) {
   }
   f.time = now / 1000
   const shot = director.update(f.time, f.sync) // rAF's now is on the performance.now() clock
-  render(shot, f) // sets f.width/height to the internal size
-  const name = scenes[shot.to ?? shot.from]!.name // the incoming scene as soon as a fade starts
+  render(shot, f, sources(f, src)) // sets f.width/height to the internal size
+  const name = live(shot.to ?? shot.from).doc.name // the incoming scene as soon as a fade starts
   if (name !== store.getSnapshot().sceneName) store.patch({ sceneName: name })
   governor.frame(now, performance.now() - start) // fed only on rendered frames
   if (now - badgeAt >= BADGE_MS) {

@@ -1,9 +1,9 @@
 // The autopilot (design S3), pure: while the (c) phase is confident it switches on bar lines, otherwise on time.
 // `now` is seconds. `update` returns the same Shot object every frame.
 import type { Sync } from './audio/sync'
+import type { SceneId } from './doc'
 
-export type OwnSceneId = 'tunnel' | 'spectrum' | 'particles' | 'glitch'
-export interface Shot { from: OwnSceneId; to: OwnSceneId | null; mix: number }
+export interface Shot { from: SceneId; to: SceneId | null; mix: number }
 export interface Director { update(now: number, sync: Sync): Shot; next(): void; prev(): void; setHold(on: boolean): void }
 export interface DirectorOpts {
   barsPerShot: number // confident: switch this many bars after the last switch, on a bar line …
@@ -18,7 +18,7 @@ const DEFAULTS: DirectorOpts = {
   barsPerShot: 16, barsTransition: 1, confidentTheta: 0.6, confidentBars: 2, fallbackSeconds: 30, fallbackTransition: 2,
 }
 
-export function createDirector(playlist: readonly OwnSceneId[], opts?: Partial<DirectorOpts>): Director {
+export function createDirector(playlist: readonly SceneId[], opts?: Partial<DirectorOpts>): Director {
   const o = { ...DEFAULTS, ...opts }
   const shot: Shot = { from: playlist[0], to: null, mix: 0 }
   let cur = 0 // playlist index of the current scene: the incoming one during a fade

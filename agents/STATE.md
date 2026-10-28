@@ -5,27 +5,37 @@
 ## HEAD
 
 **Updated:** 2026-10-28 (session 3, in progress)
-**Stage:** 1 — pilot (CP1–CP4 done, CP5 coding) → 2a `effects` (spec grilled, research running). **Now: planner → `plan_effects.md`; the user can play CP5 live on :8080.**
+**Stage:** 1 — pilot (CP1–CP4 done, CP5 coding) → 2a `effects` (spec grilled, research running). **Now: effects CP1 coding ‖ audio-features research; the user plays on :8080.**
 **Spec:** `thoughts/spec_veejay_wizard.md` (rewritten in session 3; see decisions below).
 **Team:** `.claude/agents/` → researcher, system-designer, planner, frontend-coder, tester, security-auditor. backend-coder is dormant. Models: planner + security-auditor on Fable 5.1, tester on Haiku 5.5, the rest on Opus 5.5.
 
 ### Pipeline status
 **Pilot (`plan_pilot.md`): ALL steps done (CP1–CP5 + S6.1); gates green (75 tests).** Details are in TAIL and the plan's drift notes.
-- Verified by the lead and coders in the installed Chrome via Playwright. The user verified kicks and visuals live.
-- 60A fullscreen M4: 0 drops. Tempo 128 ± 1 at ~5 s; bar-line autopilot.
-- ⏳ USER (optional): the 30-min §7.5 run (60A, no REC; pass = Δdrops ≤ 30), the `?debug` channel check, the `?flash` lag video, the CP5 BPM vs rekordbox.
+- Verified in the installed Chrome (lead + coders) and live by the user. 60A M4: 0 drops; tempo 128 ± 1 at ~5 s.
+- ⏳ USER (optional): 30-min §7.5 run (Δdrops ≤ 30), `?debug` channels, `?flash` lag, CP5 BPM vs rekordbox.
 - REC is low priority:
   - MP4 1 s timeslice, keyframe 60 s, split every 20 min;
   - Chrome bugs (QuickTime drift ≈0.5 s / 30 min, 4 GiB crash on M156/157) are in `research_recording_mp4.md`;
   - backlog: a WebCodecs recorder.
-- Polish backlog: steppy bass bars; particles blow out white; keys don't wake the overlay; a key mid-fade cuts the fade; cut recovery 16 beats (accepted).
-- ✅ **S6.1 closeout:** THIRD_PARTY.md + `scripts/licenses.mjs`; probe deleted; `main.tsx` imports are static. Lead smoke in Chrome OK. **The pilot plan has no open steps.**
+- Polish backlog: steppy bass bars, white-out particles, keys don't wake the overlay, mid-fade key cuts, 16-beat recovery (accepted).
+- ✅ S6.1 closeout: THIRD_PARTY.md, probe deleted (commit `3ea87d2`).
 - 🎤 Live snapshot: scratchpad `live/` on :8080 (`python3 -m http.server`, lead bg task), refreshed with CP5. Test scripts use `--mute-audio`.
 
 **Epic `effects` (Stage 2a):**
 - Spec `thoughts/spec_effects.md` (grilled + confirmed); research `research_editor_effects.md`; design `design_effects.md`.
 - ✅ **USER GATE 2026-10-28: Variant A** (own ISF loader on twgl). Counts default: ≥30 effects, ≥5 per category, ≥10 transitions.
-- ▶ planner → `agents/planner/plan_effects.md`.
+- ✅ planner → `plan_effects.md`: 27 steps / 7 CPs.
+  - CP1 ISF + bind + doc → kaleido on tunnel. CP2 bench + natives + compile-all. CP3 compositor/persistent/transitions/Shadertoy. CP4 content (5 batches). CP5 panel. CP6 library. CP7 closeout.
+  - Open source registry in place.
+- ✅ The lead fetched `donor/` (git-ignored): ISF parser, ISF-Files (327), gl-transitions 2.0.0 (125 glsl3), webgl-noise, hg_sdf.
+- ▶ frontend-coder on **effects CP1 (S1.1–S1.6)**. Note: spectrum/particles/glitch leave the autopilot until CP2; the :8080 snapshot is unaffected.
+
+**Next epic (requested 2026-10-28): flexible, genre-aware audio reactivity.**
+- ✅ `research_audio_features.md`: user bands + envelope followers are cheap (16 = 0.34% core); kick vs sustain via differential envelopes; drum classes on full mixes F 0.58–0.82; ML stems offline only; 40/60 Hz needs FFT 8192; genre tempo ranges fix the octave fold.
+- Next: a short grill + design once effects CP1/CP2 land (the user: "wait, then see").
+
+- 🕸 **graphify** (user, 2026-10-28): graph over `web/src` in `graphify-out/` (git-ignored); a post-commit hook rebuilds it on every commit. The first build flagged an import cycle `catalog → tunnel → engine → live → catalog` (in-progress CP1), and the coder was told.
+- ⏰ **Auto-resume cron** `b411fc38` (every 30 min, :17/:47 + offset; session-only, expires after 7 days). It re-dispatches agents that died on usage limits and continues the pipeline.
 
 ### Key decisions
 - Session 2 (/grill-me): browser pilot, Chrome-first, localhost; Vite + React + TS; Electron later. Minimal auto-hiding overlay, REC via MediaRecorder, quality modes 60 adaptive / 60 full / 30. After the pilot: editor → camera → clip mixer.

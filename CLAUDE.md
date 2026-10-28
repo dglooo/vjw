@@ -186,4 +186,7 @@ On-demand only, on explicit user request. Never auto-triggered. Lead surfaces `C
 
 ## graphify
 
-No knowledge graph yet (no product code). Once code lands, run `graphify update .` after changes to keep `graphify-out/` current (AST-only, no API cost). For codebase questions once the graph exists: `graphify query "<question>"` first, `graphify path "<A>" "<B>"` for relationships, `graphify explain "<concept>"` for focused concepts — each returns a scoped subgraph, cheaper than `GRAPH_REPORT.md` or raw grep. Use `graphify-out/wiki/index.md` for broad navigation; read `GRAPH_REPORT.md` only for broad architecture review.
+Graph over the repo's code (root `.`, which in practice means `web/`; `.gitignore` excludes `donor/`, `node_modules` and `dist`). AST only, no API cost, in `graphify-out/` (git-ignored, built 2026-10-28).
+- **Auto-update:** a git post-commit hook (`graphify hook install`) rebuilds it after every commit. The lead commits at each green checkpoint, so the graph follows the code.
+- **Manual refresh** (uncommitted state, or after big refactors): `graphify update .` from the repo root. Never `graphify update web/src`: it writes `graphify-out/` inside the source tree.
+- For codebase questions, run `graphify query "<question>"` first. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for a single concept. Read `graphify-out/GRAPH_REPORT.md` only for broad architecture review; it also lists import cycles.

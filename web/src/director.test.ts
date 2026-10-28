@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { ZERO_SYNC, type Sync } from './audio/sync'
 import { createDirector, type Director, type Shot } from './director'
-import { playlist } from './playlist'
+
+const playlist = ['tunnel', 'spectrum', 'particles', 'glitch']
 
 type Frame = Shot & { t: number }
 
