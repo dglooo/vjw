@@ -18,7 +18,7 @@
   - **CP4:** 27 starred scenes, 34 effects (14 ISF, 16 own, 4 natives, 1 toy), 13 transitions.
   - All scenes ≤5 ms GPU at 1728×1118 (heavy gens at res 0.5), 0 errors. Contact sheet `scratchpad/cp4walk/contact.png`.
 - ✅ S5.1 panel engine (`edit.ts`, `live.panel`, E/Esc). 129 tests.
-- ▶ **Wave 6 (parallel worktrees):** ✅ S5.2 Panel UI (0 re-renders and 0 drops while dragging) ‖ ✅ S6.1 library (IndexedDB, stars → playlist, JSON; 142 tests) ‖ ▶ polish (3 ms stage-pass floor, wave-landscape shards).
+- ▶ **Wave 6 (parallel worktrees):** ✅ S5.2 Panel UI (0 re-renders and 0 drops while dragging) ‖ ✅ S6.1 library (IndexedDB, stars → playlist, JSON; 142 tests) ‖ ✅ polish (wave-landscape shards fixed, res 0.5 p95 ≤5 with ~1 ms headroom; the 3 ms stage "floor" is an ANGLE/Metal timer-query artifact, real pass ≈0.04 ms; scene gpuMs carry ~1 ms of overhead).
   - ▶ S5.3 paste dialog + S6.2 library buttons (one agent: both edit Panel.tsx). Then CP7 closeout (THIRD_PARTY shaders, regression).
 - Polish backlog:
   - Slit scan is weak;
