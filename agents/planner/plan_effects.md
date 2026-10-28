@@ -295,7 +295,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - The 3.5 ms GPU number: this branch has no GPU timer (S2.1/S2.2).
     - `dispose`: nothing calls `Live.dispose()`/`rebuild()` yet, so it first runs with S2.5's prepare-ahead.
 
-### S2.5 `[ ]` Compile-all at Start ("compiling n/N") + prepare-ahead (+ pool only if G2 says so)
+### S2.5 `[x]` Compile-all at Start ("compiling n/N") + prepare-ahead (+ pool only if G2 says so)
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** no shader compile and no target allocation inside a fade (design E2).
 - **Files:** `web/src/gl/live.ts`, `web/src/app.ts`, `web/src/store.ts` (+ `ui/Overlay.tsx` shows `store.compiling` under the Start button / in the bar, a 4th file, 3 lines ⚠️).
@@ -303,6 +303,24 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none (GL/DOM).
 - **Done-check:** gates green. **Manual:** Start shows "compiling n/N" briefly; a 5-min autopilot run in the lead's Playwright shows 0 late frames inside fades. **Lead commits** `cp2-effects`.
 - **Depends on:** S2.2 numbers, S2.4.
+- **Changed during implementation:**
+  - **ISF shaders compile through twgl's `createProgramInfoAsync`,** which polls `COMPLETION_STATUS_KHR`. The Freshness note says the twgl 7.0.0 typings lack it, but `dist/7.x/twgl.d.ts` declares it. Without the extension, `program()` runs 4 per frame as planned. Progress counts effects (5 today), not programs.
+  - **Natives warm through a throwaway instance:** `create(gl).dispose?.()`, one per frame. Their programs are built inside `create()` from sources private to each module, so these compiles are synchronous: 4 natives, 9 programs. The probe saw one 83 ms frame at Start. The CP4 growth is ISF, which compiles in parallel.
+  - **A second program cache, `ready`, in `live.ts`.** The engine's map is private and `engine.ts` was out of scope. `node()` reads `ready` before `program()` (a `ponytail:` comment marks it). S3.2 should fold it into the engine's `program()` when it warms the transitions.
+  - **Warm-up trigger.** `app.ts` doesn't call `start()` (the Overlay and `input.ts` do), so it warms on the audio context's first `statechange`, or at load when the context is already running.
+  - **Prepare-ahead runs on every frame without a fade,** not only on the frame `shot.to` turns null. `prepare([shot.from, director.peek()])` builds what's missing and disposes the rest. That needs no edge state and also covers load (Spectrum is built before Start), `setPlaylist` and hold. `←/→` to a freed scene build on demand.
+  - **Not fitted ahead.** Natives size their targets in `draw()`, so a pre-fit would need a hidden draw. Their first draw inside the fade allocates the targets instead. G2 and the probe below (0 late frames in all 5 first-visit fades) show that's harmless. Add a hidden draw if a run shows late frames at fade starts.
+  - **G2 clean, no pool.**
+  - **`?bench` G1** may now read warm-cache times for the starred effects, because `warm()` compiles them at Start first.
+  - **`Live.rebuild()` still has no caller** (S5.1). `dispose()` now runs on every switch.
+  - **Chrome check.** Playwright on :5178, installed Chrome, `--mute-audio`, 1200×800 (600×400 internal), kicks128n.wav, `→` ×10 (2 cycles). Scripts and logs are `s25_*` in the scratchpad.
+    - **Before:** Start +1 drop. First visits: Spectrum 0, Particles +1, Glitch +1, Kaleido 0, Tunnel 0. Revisits 0.
+    - **After, Start:** "compiling 1/5" at 79 ms, done at 214 ms after the click; +1 drop.
+    - **After, programs:** none compiled after Start (11 programs and 22 shaders throughout).
+    - **After, leaks:** live GL objects per scene are identical in both cycles (e.g. Spectrum 16 tex / 16 FB, Glitch 4 / 4, the engine's own). Nothing leaks.
+    - **After, errors:** glError 0; 0 console errors or warnings.
+    - **After, drops:** the walk saw 1 in 10 switches (Glitch, cycle 1, taken with screenshots between presses). A probe without screenshots logged 0 frames over 25 ms in all 5 first-visit switches; its only late frame was the 83 ms one at Start.
+  - **Gates:** lint and tsc clean, 119 tests, build OK. No new tests: the step adds no pure logic (GL/DOM only).
 
 ### S3.1 `[x]` `fx/glsl.ts`: `commentParams`, `wrapToy`, `wrapTransition`, with tests
 Invoke the `ponytail` skill (full) before writing code.

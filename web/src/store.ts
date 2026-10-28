@@ -13,6 +13,7 @@ export interface UiSnapshot {
   quality: QualityMode
   scale: number
   drops: number
+  compiling: string | null // 'compiling 7/41' while Start compiles every program (plan S2.5), null when done
   debug: { l: number; r: number; settings: MediaTrackSettings | null } | null // ?debug only: input RMS per channel, 10 Hz
   // ?debug only, 4×/s: |grid − onset| (ms) over the last 64 onsets on the grid, s from the first onset after bpm 0 to
   // confident, and the confidence itself (S5.4, the Q4 metrics on the rig)
@@ -21,7 +22,7 @@ export interface UiSnapshot {
 
 let snap: UiSnapshot = {
   devices: [], source: null, needsStart: true, sceneName: '', bpm: 0, confident: false,
-  hold: false, recording: false, quality: '60-adaptive', scale: 1, drops: 0, debug: null, debugSync: null,
+  hold: false, recording: false, quality: '60-adaptive', scale: 1, drops: 0, compiling: null, debug: null, debugSync: null,
 }
 const subs = new Set<() => void>()
 

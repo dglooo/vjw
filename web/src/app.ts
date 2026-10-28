@@ -8,7 +8,7 @@ import { sources, type Sources } from './bind'
 import { createDirector } from './director'
 import type { FrameInput } from './frame'
 import { render, scenes, setOutput, stage } from './gl/engine'
-import { live } from './gl/live'
+import { live, prepare, warm } from './gl/live'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
 import { startRecording } from './recorder'
 import { BUILTIN } from './scenes/builtin'
@@ -24,7 +24,14 @@ const VIDEO_BPS = 12_000_000 // ≈24 Mbps real: Chrome's H.264 encodes ≈2× t
 
 scenes.live = live
 // The playlist is the starred built-ins (design E4), in their order.
-const director = createDirector(BUILTIN.filter((d) => d.star).map((d) => d.id), { confidentTheta: CONFIDENT })
+const playlist = BUILTIN.filter((d) => d.star).map((d) => d.id)
+const director = createDirector(playlist, { confidentTheta: CONFIDENT })
+// Compile-all at Start (design E2): once the audio context runs (the Start click, or at load when autoplay is allowed),
+// every program of the playlist compiles while the loop plays on.
+const warmUp = () =>
+  void warm(playlist, (n, of) => store.patch({ compiling: `compiling ${n}/${of}` })).then(() => store.patch({ compiling: null }))
+if (ctx.state === 'running') warmUp()
+else ctx.addEventListener('statechange', warmUp, { once: true })
 const tempo = createTempoSource()
 const sync = createSync(tempo)
 const governor = createGovernor()
@@ -175,6 +182,7 @@ function frame(now: number) {
   }
   f.time = now / 1000
   const shot = director.update(f.time, f.sync) // rAF's now is on the performance.now() clock
+  if (!shot.to) prepare([shot.from, director.peek()]) // between fades: the next scene built, the others freed (E2)
   render(shot, f, sources(f, src)) // sets f.width/height to the internal size
   const name = live(shot.to ?? shot.from).doc.name // the incoming scene as soon as a fade starts
   if (name !== store.getSnapshot().sceneName) store.patch({ sceneName: name })
