@@ -237,6 +237,22 @@ Invoke the `ponytail` skill (full) before writing code.
     - **Sweep OK / usable by kind/category:** filter/none 86/81, filter/retro 32/27, filter/geometry 18/16, filter/feedback 17/17, generator/none 31/27, generator/geometry 15/15, transition/none 59/57, transition/retro 5/5. No ISF file maps to `liquid`.
     - **The 64 failures:** 33 are custom-`.vs` varyings (already `unsupported`). 19 hit GLSL ES 1.00 limits: non-constant loop bounds or indexing, const init declarations, an array constructor. 12 are desktop-GLSL typing or old ISF runtime names: int/float mixing (7), `vv_FragNormCoord` / `_<img>_imgRect` (3), `uvec2` (2).
 
+
+- **Lead fullscreen bench (2026-10-28):** design size 60A internal 1728×1118 (viewport 1728×1117 @ DPR 2), installed Chrome, M4.
+  - G3: timer + KHR_parallel_shader_compile both yes. G1: Kaleidoscope 5 ms.
+  - **G2: 10 bursts of 6 targets, +0 drops each, max rAF Δ 18.6 ms, so no target pool is needed.**
+  - Per effect, GPU median / p95 ms:
+
+    | effect | median | p95 |
+    |---|---|---|
+    | tunnel | 0.80 | 1.33 |
+    | spectrum | 3.00 | 3.10 |
+    | particles | 4.55 | 4.67 |
+    | glitch | 1.28 | 2.17 |
+    | Kaleidoscope | 1.05 | 3.18 |
+
+  - All are within the 5 ms budget; particles is the closest. glError 0, 0 console errors.
+
 ### S2.3 `[x]` Glitch and spectrum as `NativeDef`s + their built-ins
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** two more natives through the catalog.

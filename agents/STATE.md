@@ -32,8 +32,13 @@
     - S4.5 skips the ivec2 transitions, FlashFade, DisplacementMap and LumaWipe;
     - S3.4/S5.3 need `#define HW_PERFORMANCE`;
     - parallel coders must prefix their scratchpad file names (step id).
-- Wave 2: ✅ S2.4 particles native (6 min, `6620359`; Scene/SceneFactory gone; master walk: 5 scenes, 0 errors) ‖ ▶ S2.2 `?bench` + ISF sweep.
-- :8080 refreshed with master `6620359` (5 scenes incl. KALEIDO TUNNEL). Then wave 3: S2.5 compile-all + prepare-ahead → CP2 check → refresh :8080.
+- Wave 2: ✅ S2.4 particles native (6 min, `6620359`; Scene/SceneFactory gone; master walk: 5 scenes, 0 errors) ‖ ✅ S2.2 `?bench` + ISF sweep (16 min, `c30951c`).
+- :8080 refreshed with master `6620359` (5 scenes incl. KALEIDO TUNNEL).
+- Bench:
+  - sweep: 263/327 ISF compile, 245 usable (no "liquid" category in ISF-Files, so liquids are our own);
+  - cold ISF compile ~43 ms each;
+  - **lead run at 1728×1118: G2 0 drops (no pool needed); GPU tunnel 0.8, spectrum 3.0, particles 4.55, glitch 1.3, kaleido 1.05 ms (all ≤5).**
+- ▶ Wave 3: S2.5 compile-all at Start (async KHR) + prepare-ahead, no pool. Then the CP2 check. Then wave 3: S2.5 compile-all + prepare-ahead → CP2 check → refresh :8080.
   - Next: wave 2 = S2.2 bench ‖ S2.4 particles; wave 3 = S2.5. :8080 is not refreshed until CP2.
 
 **Next epic (requested 2026-10-28): flexible, genre-aware audio reactivity.**
