@@ -4,7 +4,10 @@ import type { Sync } from './audio/sync'
 import type { SceneId } from './doc'
 
 export interface Shot { from: SceneId; to: SceneId | null; mix: number }
-export interface Director { update(now: number, sync: Sync): Shot; next(): void; prev(): void; setHold(on: boolean): void }
+export interface Director {
+  update(now: number, sync: Sync): Shot; next(): void; prev(): void; setHold(on: boolean): void
+  setPlaylist(ids: readonly SceneId[]): void; peek(): SceneId // peek = the autopilot's next id
+}
 export interface DirectorOpts {
   barsPerShot: number // confident: switch this many bars after the last switch, on a bar line …
   barsTransition: number // … fading over this many bars (←/→ too)
@@ -21,7 +24,7 @@ const DEFAULTS: DirectorOpts = {
 export function createDirector(playlist: readonly SceneId[], opts?: Partial<DirectorOpts>): Director {
   const o = { ...DEFAULTS, ...opts }
   const shot: Shot = { from: playlist[0], to: null, mix: 0 }
-  let cur = 0 // playlist index of the current scene: the incoming one during a fade
+  let cur = 0 // playlist index of the current scene (the incoming one during a fade), or the slot it left (setPlaylist)
   let hold = false
   let step = 0 // ←/→ presses, applied on the next update
   let last: { now: number; bar: number } | null = null // the previous update
@@ -29,10 +32,18 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
   let switchedBar = 0 // … and its bar (the bar rule)
   let sureSince: number | null = null // the bar where confidence ≥ θ began
 
+  /** The playlist index `by` steps from the current scene. If it left the playlist, the scene that followed it now
+   *  holds its slot `cur`, so one step on lands there. */
+  function away(by: number) {
+    const n = playlist.length
+    const gone = by > 0 && playlist[cur] !== (shot.to ?? shot.from)
+    return (((cur + by - (gone ? 1 : 0)) % n) + n) % n
+  }
+
   /** Fades to the scene `by` steps away. Mid-fade, the incoming scene becomes current at once. */
   function begin(by: number, mix: number, at: number, bar: number) {
     if (shot.to) shot.from = shot.to
-    cur = (((cur + by) % playlist.length) + playlist.length) % playlist.length
+    cur = away(by)
     shot.to = playlist[cur]
     shot.mix = Math.min(1, mix)
     switchedAt = at
@@ -87,6 +98,15 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
     },
     setHold(on) {
       hold = on
+    },
+    setPlaylist(ids) {
+      // The shot (a fade too) plays on. A dropped current scene keeps its slot, clamped: the next switch continues there.
+      const i = ids.indexOf(shot.to ?? shot.from)
+      cur = i < 0 ? Math.min(cur, ids.length) : i
+      playlist = ids
+    },
+    peek() {
+      return playlist[away(1)]
     },
   }
 }

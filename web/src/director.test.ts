@@ -95,6 +95,60 @@ describe('confident phase: bar lines', () => {
   })
 })
 
+describe('setPlaylist and peek', () => {
+  test('setPlaylist keeps the current scene, mid-fade too; then → and the autopilot follow the new order', () => {
+    const d = createDirector(playlist)
+    d.update(0, ZERO_SYNC)
+    d.next()
+    d.update(0.1, ZERO_SYNC) // tunnel → spectrum, a 2 s fade
+    d.setPlaylist(['particles', 'glitch', 'spectrum', 'tunnel'])
+    const mid = { ...d.update(1.1, ZERO_SYNC) }
+    expect(mid).toMatchObject({ from: 'tunnel', to: 'spectrum' }) // the fade goes on
+    expect(mid.mix).toBeCloseTo(0.5, 9)
+    d.next()
+    expect({ ...d.update(1.2, ZERO_SYNC) }).toEqual({ from: 'spectrum', to: 'tunnel', mix: 0 })
+    expect(d.update(31.2, ZERO_SYNC)).toMatchObject({ from: 'tunnel', to: 'particles', mix: 0 }) // wraps in the new order
+  })
+
+  test('removing the current scene: it plays on, and the next switch continues from the slot it left', () => {
+    // After `secs` of the time fallback, playlist[secs / 30] is current; then it's dropped and a key decides.
+    const dropThenKey = (secs: number, ids: string[], key: 'next' | 'prev') => {
+      const d = createDirector(playlist)
+      frames(d, 0, secs)
+      d.setPlaylist(ids)
+      d[key]()
+      return { ...d.update(secs + 0.05, ZERO_SYNC) }
+    }
+    const noSpectrum = ['tunnel', 'particles', 'glitch']
+    expect(dropThenKey(32.05, noSpectrum, 'next')).toEqual({ from: 'spectrum', to: 'particles', mix: 0 }) // not glitch
+    expect(dropThenKey(32.05, noSpectrum, 'prev')).toEqual({ from: 'spectrum', to: 'tunnel', mix: 0 })
+    // glitch's slot 3 is past the end of the shorter list: clamped there, so → wraps to the first scene
+    expect(dropThenKey(92.05, ['tunnel', 'spectrum'], 'next')).toEqual({ from: 'glitch', to: 'tunnel', mix: 0 })
+  })
+
+  test('peek() matches the scene next() then fades to: mid-fade, after a reorder, after a drop; and the autopilot', () => {
+    const d = createDirector(playlist)
+    const peeked: string[] = []
+    const went: (string | null)[] = []
+    const press = (t: number) => {
+      peeked.push(d.peek())
+      d.next()
+      went.push(d.update(t, ZERO_SYNC).to)
+    }
+    d.update(0, ZERO_SYNC)
+    press(0.1)
+    press(0.2) // mid-fade
+    d.setPlaylist(['glitch', 'particles', 'tunnel'])
+    press(0.3)
+    d.setPlaylist(['spectrum', 'glitch']) // the incoming tunnel is dropped mid-fade
+    press(0.4)
+    peeked.push(d.peek())
+    went.push(d.update(31, ZERO_SYNC).to) // the autopilot, 30 s after the last key
+    expect(went).toEqual(peeked)
+    expect(peeked).toEqual(['spectrum', 'particles', 'tunnel', 'spectrum', 'glitch'])
+  })
+})
+
 // Fps independence: the shot is a function of time, whatever the frame times. The defaults schedule a switch every
 // `every` (s or bars) from 0, fading over `fade`. Frames within 1e-6 of a fade's end are skipped (float noise there).
 function scheduled(x: number, every: number, fade: number): Shot | null {
