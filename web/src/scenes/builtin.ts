@@ -31,4 +31,42 @@ export const BUILTIN: readonly SceneDoc[] = [
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  {
+    v: 1, id: 'builtin:vhs-tunnel', name: 'VHS tunnel', star: true,
+    layers: [{
+      gen: { ref: 'native/tunnel' },
+      fx: [
+        { ref: 'isf/Chromatic Aberration' }, // a steady RGB split, as a worn tape
+        { ref: 'isf/VHS Glitch', bind: { yScanlineAmount: { source: 'bass', amount: 1, attack: 0, release: 0.2, min: 0, max: 0.8 } } }, // tracking skew on a kick
+        { ref: 'own/flash', bind: { flash: { source: 'onset', amount: 1, attack: 0, release: 0.1, min: 0, max: 0.9 } } },
+      ],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
+  {
+    // Two filters at most over the spectrum: a third took the scene from 3.7 to 6.4 ms GPU p95 at 1728×1118 (S4.4).
+    v: 1, id: 'builtin:crt-spectrum', name: 'CRT spectrum', star: true,
+    layers: [{
+      gen: { ref: 'native/spectrum' },
+      fx: [
+        { ref: 'own/scanlines' },
+        // Last, so the scanlines bend with the glass, which bulges on a kick.
+        { ref: 'isf/v002-CRT-Displacement', bind: { Amount: { source: 'bass', amount: 1, attack: 0, release: 0.2, min: 0.3, max: 0.8 } } },
+      ],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:pixel-strobe', name: 'Pixel strobe', star: true,
+    layers: [{
+      gen: { ref: 'native/tunnel' },
+      fx: [
+        { ref: 'isf/Pixellate', bind: { cell_size: { source: 'bass', amount: 1, attack: 0, release: 0.2, min: 0.008, max: 0.025 } } }, // bigger pixels on a kick
+        { ref: 'isf/Posterize', values: { numColors: 5 } },
+        // On for the first part of every beat: the saw falls 1 → 0 over the beat, and a bool is on at ≥ 0.5.
+        { ref: 'own/strobe', bind: { strobe: { source: 'beat', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 0.65 } } },
+      ],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]

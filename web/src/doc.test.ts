@@ -15,6 +15,12 @@ describe('parseScene', () => {
     for (const d of BUILTIN) expect(parseScene(JSON.parse(JSON.stringify(d)))).toStrictEqual(d)
   })
 
+  test('every built-in ref is a native or a file under fx/isf or fx/own', () => {
+    const files = Object.keys(import.meta.glob(['./fx/isf/*.fs', './fx/own/*.fs'])).map((p) => p.slice('./fx/'.length, -'.fs'.length))
+    const refs = BUILTIN.flatMap((d) => d.layers.flatMap((l) => [l.gen, ...l.fx].map((n) => n.ref)))
+    expect(refs.filter((r) => !/^(native|toy)\//.test(r) && !files.includes(r))).toEqual([])
+  })
+
   test('rejections name the field', () => {
     expect(() => parseScene(doc({ v: 2 }))).toThrow(/^v: unsupported scene version 2/)
     expect(() => parseScene(doc({ layers: [] }))).toThrow(/^layers: /)
