@@ -7,6 +7,7 @@ export interface Shot { from: SceneId; to: SceneId | null; mix: number }
 export interface Director {
   update(now: number, sync: Sync): Shot; next(): void; prev(): void; setHold(on: boolean): void
   setPlaylist(ids: readonly SceneId[]): void; peek(): SceneId // peek = the autopilot's next id
+  cut(id: SceneId): void // to `id` at once, no fade (the panel's Save as)
 }
 export interface DirectorOpts {
   barsPerShot: number // confident: switch this many bars after the last switch, on a bar line …
@@ -107,6 +108,14 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
     },
     peek() {
       return playlist[away(1)]
+    },
+    cut(id) {
+      shot.from = id
+      shot.to = null
+      shot.mix = 0
+      const i = playlist.indexOf(id)
+      if (i >= 0) cur = i // off the playlist, `cur` stays the slot it cut from: the next switch lands there
+      last = null // the autopilot counts from the next update, as after a switch
     },
   }
 }

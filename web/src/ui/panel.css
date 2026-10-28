@@ -25,8 +25,53 @@
   pointer-events: none;
 }
 
+/* star · Save · Save as … GPU */
 .panel header {
-  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.panel header > .gpu {
+  margin-left: auto;
+}
+.panel .note {
+  margin: 6px 0 0;
+  opacity: 0.55;
+  animation: note-out 0.6s 2.4s forwards; /* a confirmation fades and goes; an error (.err) stays */
+}
+@keyframes note-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The library (S6.2): Export / Import, then every scene with its star; closed by default. */
+.lib {
+  margin-top: 8px;
+}
+.lib > summary {
+  cursor: pointer;
+  opacity: 0.55;
+}
+.lib .io {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 4px;
+}
+.lib ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lib li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+  opacity: 0.6;
+}
+.lib li.on {
+  opacity: 1; /* the scene on screen */
 }
 .panel .head > span {
   flex: 1;
@@ -119,6 +164,25 @@
 .panel button {
   cursor: pointer;
 }
+.panel button:disabled,
+.panel select:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.panel button.star {
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+  color: #d8d8d880;
+  background: none;
+  border: none;
+}
+.panel button.star:hover {
+  color: #f2c14e;
+}
+.panel button.star.on {
+  color: #f2c14e;
+}
 .panel button.x {
   padding: 0 4px;
   font-size: 15px;
@@ -194,4 +258,56 @@
 }
 .bind > .src > select {
   flex: 1;
+}
+
+/* The Shadertoy paste (S5.3): a modal in the top layer, so the panel's idle fade and scroll don't reach it; its
+   buttons and log take the panel's look. */
+.paste {
+  box-sizing: border-box;
+  width: min(640px, calc(100vw - 48px));
+  padding: 12px 14px;
+  color: inherit;
+  background: #0b0b0bf5;
+  border: 1px solid #ffffff17;
+  border-radius: 10px;
+  pointer-events: auto; /* the idle panel's pointer-events: none is inherited */
+}
+.paste::backdrop {
+  background: #0007;
+}
+.paste form {
+  display: grid;
+  gap: 8px;
+}
+.paste p {
+  margin: 0;
+  opacity: 0.55;
+}
+.paste textarea,
+.paste input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  font: 12px/1.45 ui-monospace, monospace;
+  color: inherit;
+  background: #161616;
+  border: 1px solid #ffffff24;
+  border-radius: 6px;
+}
+.paste textarea {
+  height: 46vh;
+  resize: vertical;
+}
+.paste input {
+  font: inherit;
+}
+.paste .err {
+  max-height: 22vh;
+  margin: 0;
+  overflow: auto;
+}
+.paste .buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }

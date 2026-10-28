@@ -759,7 +759,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - glError 0; no console errors or warnings.
   - **Gates:** lint and tsc clean, 129 tests, build OK.
 
-### S5.3 `[ ]` Paste Shadertoy dialog
+### S5.3 `[x]` Paste Shadertoy dialog
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** spec §4.4 through the UI.
 - **Files:** `web/src/ui/Panel.tsx`, `web/src/gl/live.ts`.
@@ -767,6 +767,22 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none new (the wrapper is tested).
 - **Done-check:** gates green. **Manual:** paste a known-good single-pass shader (the user's own or a CC BY-NC-SA one, allowed by spec §6) → it plays; paste `void mainImage(out vec4 o, vec2 p){ o = foo; }` → the log names the pasted line. **Lead commits** `cp5-effects`.
 - **Depends on:** S5.2.
+- **Changed during implementation:**
+  - **The dialog opens from the last entry of the "+ layer" list, "Shadertoy (paste)…",** not from its own button: a toy is a generator layer, the panel keeps one control, and the list is already disabled at 4 layers.
+  - **`CODE_MAX` is exported from `doc.ts`** (one word), so the paste is refused at the same limit `parseScene` checks: "70000 chars: a paste holds at most 65536".
+  - **`restructure()` returns false when an op is refused.** `pasteToy` uses it for the 4-layer case ("The scene has 4 layers: remove one first"). The compile goes first: `program()` puts the toy into the cache, and the rebuild finds it there. On a failure `toyLog` gives the log. twgl's 2 console errors for a broken paste are expected.
+  - **The `<dialog>` sits in the panel's DOM, but `showModal()` puts it in the top layer,** so the panel's idle fade (opacity) doesn't reach it (checked by eye). The idle panel's inherited `pointer-events: none` is overridden in `.paste`.
+    - Keys stop at the dialog: no hotkeys while typing, and Esc closes only the dialog. Pointer-up stops too, because the panel's blur-on-pointer-up would unfocus the credit field.
+    - On close, the focus the browser hands back to "+ layer" is blurred, so a type-ahead can't add a layer.
+  - **Small additions:** the code field is `required` (the native "fill out this field"). One dim line says what iChannel0 holds. The credit is trimmed.
+  - **Chrome check.** Playwright on :5192, installed Chrome, `--mute-audio`, 1200×800, kicks128n.wav. The script and log are `s53_check.*` in the scratchpad. 18/18 pass:
+    - The dialog opens modal with the focus in the code. `E`, `→` and Space inside don't reach app.ts (panel, hold and scene unchanged). Space on Cancel closes only the dialog, and no focus is left behind. Esc closes the dialog; the panel stays.
+    - **A good paste** (an own plasma reading `iChannel0`, with `uniform float zoom; // = 10.0`) becomes layer 2 `toy/<uuid>` with its code and credit, editRev +1, 0 node errors. It renders over the tunnel and moves (6/6 distinct frames). The panel shows "2 · Shadertoy" with a `zoom` slider. Screenshot `s53_pasted.png`.
+    - **A broken paste** (`o = foo;` on paste line 3) shows `ERROR: 0:3: 'foo' : undeclared identifier` (+2) under the code. The dialog stays open, nothing is added, and the loop runs at 62 fps. Screenshot `s53_bad-paste.png`. After 3 s idle, the bar and panel fade while the dialog stays visible and clickable (`s53_bad-paste-idle.png`). The log clears on reopen.
+    - Over-long and 5th-layer pastes are refused with their messages, and "+ layer" is disabled at 4.
+    - glError 0. Console: only twgl's 2 lines for the broken paste; nothing else.
+  - **Look (screenshots):** a calm dark modal like the panel, centred, the scene dimmed lightly behind it. The log is red monospace under the credit field, and the buttons sit bottom-right.
+  - **Gates:** lint and tsc clean, 142 tests, build OK.
 
 ### S6.1 `[x]` `library.ts`: IndexedDB, stars, playlist, export/import; `live` reads the library
 Invoke the `ponytail` skill (full) before writing code.
@@ -801,7 +817,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - glError 0. Console errors: 0.
   - **Gates:** lint and tsc clean, 142 tests (+13), build OK.
 
-### S6.2 `[ ]` Panel: Save / Save as / star / Export / Import (file picker + drop)
+### S6.2 `[x]` Panel: Save / Save as / star / Export / Import (file picker + drop)
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** CP6 demo.
 - **Files:** `web/src/ui/Panel.tsx`, `web/src/ui/panel.css`.
@@ -809,6 +825,52 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none (UI).
 - **Done-check:** gates green. **Manual:** CP6 demo. **Lead commits** `cp6-effects`.
 - **Depends on:** S6.1.
+- **Changed during implementation:**
+  - **Save as moves the edits to the new scene and cuts to it** (S6.1's heads-up). Two files outside the step's list:
+    - **`director.ts` gains `cut(id)`:** the scene shows at once, with no fade. A cut to a scene off the playlist leaves `cur` on the slot it cut from, so `→` and the autopilot land on the original next. The autopilot counts from the cut. `director.test.ts` has 2 tests, and all 5 hand mutations of `cut` are killed.
+    - **`panel.saveAs(name, id?)` in `live.ts`** takes the id the panel cuts to. After the write it drops the original's copy (`edit.docs`, `dirty`) and disposes its live instance, so the original shows its stored doc when it plays next. The bar shows the new name at once, and a later Save writes the new scene.
+  - **`Panel` became a gate plus `Open` (the open panel),** so the note state goes when the panel closes.
+  - **Header: ☆/★ · Save · Save as… · GPU.**
+    - Save is disabled on a built-in, with a title saying to use Save as, instead of showing the library's error.
+    - One note line sits under the header. A confirmation ("Saved", "Saved as “My tunnel”", "Imported <file>") fades in 3 s (a CSS animation, cleared on `animationend`). An error ("Save: …", "Import: …") stays until the next action or until the panel closes.
+  - **Library: a closed `<details>` under the header.**
+    - Export is disabled when there are no user scenes. Import is a button that clicks a hidden file input, so the keyboard reaches it.
+    - Below them, every scene with its star: the built-ins in BUILTIN order, then the user's. The scene on screen is at full opacity.
+    - Stars come from `library.get(id).star`. A module-level counter on `library.onChange` re-renders the panel through `useSyncExternalStore`.
+    - No Delete: the step has none, so S6.1's on-screen `del` heads-up stays open. A click on a row does nothing (out of scope); with `director.cut` it is one handler.
+  - **Drop:**
+    - The panel takes only a `.json` file and stops its propagation. Any other file falls through to the document's audio drop.
+    - **A `dragover` anywhere dispatches a synthetic `mousemove`,** which wakes the idle bar and panel. The panel is `pointer-events: none` when idle, which it always is after a trip to the Finder. Without this, a dropped library would land on the stage and be played as audio.
+  - **Disabled controls look disabled** (`.panel button:disabled, select:disabled` at 0.4). The "+ layer" select at 4 layers shows it now too.
+  - **Known: `prompt()` blocks the main thread,** so the picture freezes while the name is typed. The plan chose it; an inline input would avoid it.
+  - **Test-harness heads-up:** a dev server that has served HMR updates loads the changed modules as `…?t=`. A Playwright `import('/src/app.ts')` then evaluates a second app, with a second loop and key listener (`E` toggles twice). Restart the server, or don't import app.ts. `s62_check` asserts that there are no `?t=` URLs.
+  - **Chrome check.** Playwright on :5192, installed Chrome, `--mute-audio`, 1200×800, fresh profile, driven through the panel's buttons. The script and log are `s62_check.*` in the scratchpad. 24/24 pass:
+    - On the tunnel, Save is disabled and the star is ★. Edit (glow 3, twist bound to bass), then **Save as** (prompt, default "Tunnel") → "My tunnel":
+      - It is on screen at once: the bar shows it and there are 0 errors.
+      - It is stored unstarred with glow 3 and twist bound, and it is not in the playlist.
+      - The original tunnel's copy is gone, and it reads its built-in doc again.
+      - The note shows, the star is ☆, and Save is enabled.
+    - The header **star** makes it the 28th, last playlist entry. glow 2 + **Save** stores it ("Saved", which fades).
+    - **The list** has 28 rows, ending with ★ My tunnel, which is the row on screen. A built-in's list star takes it out of the playlist and puts it back.
+    - **Reload:** still there, starred, glow 2, binding intact, last in the playlist.
+    - **Export** (button) downloads `veejay-library-2026-10-28.json` (1 scene).
+    - **Delete the DB, reload, Import:**
+      - The DB is deleted by CDP (as DevTools does). After a reload the library is empty and Export is disabled.
+      - **Import** through the file chooser restores the scene ("Imported …").
+    - **Delete the DB again, then drop the file on the panel:**
+      - The panel is idle-hidden; a dragover wakes it.
+      - The dropped file restores the scene, and the audio source is untouched.
+      - An audio file dropped on the panel plays.
+    - A bad file's error stays after 3.4 s.
+    - **Unstar on screen:** `←` lands on the imported scene, and unstarring it from the list takes it out of the playlist with no cut.
+    - glError 0; no console errors or warnings.
+    - Screenshots: `s62_saved-as.png`, `s62_library.png`, `s62_bad-import.png`.
+    - After the `Panel`/`Open` split, a re-run of `s53_check` passes 18/18.
+  - **Look (screenshots):**
+    - The header is one quiet row with the GPU hint at the right.
+    - The note is dim text; an error is red monospace.
+    - The open library is a long column of amber stars that pushes the layers down; it is closed by default.
+  - **Gates:** lint and tsc clean, 144 tests (+2), build OK.
 
 ### S7.1 `[ ]` `THIRD_PARTY.md`: every ported shader file, the parser port, the shader libs
 Invoke the `ponytail` skill (full) before writing code.
