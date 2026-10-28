@@ -38,7 +38,10 @@
   - sweep: 263/327 ISF compile, 245 usable (no "liquid" category in ISF-Files, so liquids are our own);
   - cold ISF compile ~43 ms each;
   - **lead run at 1728×1118: G2 0 drops (no pool needed); GPU tunnel 0.8, spectrum 3.0, particles 4.55, glitch 1.3, kaleido 1.05 ms (all ≤5).**
-- ▶ Wave 3: S2.5 compile-all at Start (async KHR) + prepare-ahead, no pool. Then the CP2 check. Then wave 3: S2.5 compile-all + prepare-ahead → CP2 check → refresh :8080.
+- ✅ **CP2 done:** S2.5 compile-all + prepare-ahead (0 late frames on first visits, 214 ms warm-up, no leaks).
+  - Lead 5-min autopilot at 1728×1118: all 5 scenes on bar lines, 3 drops / 5 min (pass ≤1/min), 0 errors. :8080 refreshed.
+- ▶ Wave 4 (parallel worktrees): S3.2 engine (persistent targets, audio textures, transition pass) ‖ S4.4 retro batch ‖ S4.2 3D/geometry batch.
+  - S4.2/S4.4 don't need CP3; `res` is honoured after S3.3. Then S3.3 → S3.4 → S4.1 feedback + S4.3 liquids (need PERSISTENT) ‖ S4.5 transitions ‖ CP5 panel. Then wave 3: S2.5 compile-all + prepare-ahead → CP2 check → refresh :8080.
   - Next: wave 2 = S2.2 bench ‖ S2.4 particles; wave 3 = S2.5. :8080 is not refreshed until CP2.
 
 **Next epic (requested 2026-10-28): flexible, genre-aware audio reactivity.**
