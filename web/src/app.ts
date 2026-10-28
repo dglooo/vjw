@@ -8,7 +8,7 @@ import { sources, type Sources } from './bind'
 import { createDirector } from './director'
 import type { FrameInput } from './frame'
 import { catalog, transitions } from './fx/catalog'
-import { render, scenes, setAudio, setOutput, setTransition, stage } from './gl/engine'
+import { gpuMs, render, scenes, setAudio, setOutput, setTransition, stage } from './gl/engine'
 import { live, prepare, warm } from './gl/live'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
 import { startRecording } from './recorder'
@@ -65,12 +65,29 @@ watchDpr()
 /** Audio-clock time of what the room hears now: a file through our speakers, line-in live at capture (as T1). */
 const heard = (t = audioNow()) => t + (store.getSnapshot().source?.kind === 'file' ? 0 : ctx.baseLatency + ctx.outputLatency)
 
+let holdBefore = false // the hold when the panel opened
+/** The panel holds the autopilot while open, so the edited scene stays; closing restores the hold from before (E6). */
+function setPanel(open: boolean) {
+  const s = store.getSnapshot()
+  if (open === s.panel) return
+  if (open) holdBefore = s.hold
+  const hold = open || holdBefore
+  director.setHold(hold)
+  store.patch({ panel: open, hold })
+}
+
 // Physical keys (e.code), so they work in any layout. Modifier chords stay the browser's (Cmd+F = Find), and a focused
-// picker keeps its own keys.
+// picker or text field keeps its own keys.
 addEventListener('keydown', (e) => {
   if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
-  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return
   switch (e.code) {
+    case 'KeyE':
+      setPanel(!store.getSnapshot().panel)
+      break
+    case 'Escape':
+      setPanel(false)
+      break
     case 'ArrowLeft':
       director.prev()
       break
@@ -197,13 +214,21 @@ function frame(now: number) {
   fadingTo = shot.to
   if (!shot.to) prepare([shot.from, director.peek()]) // between fades: the next scene built, the others freed (E2)
   render(shot, f, sources(f, src)) // sets f.width/height to the internal size
-  const name = live(shot.to ?? shot.from).doc.name // the incoming scene as soon as a fade starts
-  if (name !== store.getSnapshot().sceneName) store.patch({ sceneName: name })
+  const id = shot.to ?? shot.from // the incoming scene as soon as a fade starts: the name shown, the scene edited
+  const { doc, errors } = live(id)
+  const snap = store.getSnapshot()
+  if (doc.name !== snap.sceneName || id !== snap.edited) store.patch({ sceneName: doc.name, edited: id })
   governor.frame(now, performance.now() - start) // fed only on rendered frames
   if (now - badgeAt >= BADGE_MS) {
     badgeAt = now
     const bpm = Math.round(f.sync.bpm * 10) / 10
-    store.patch({ quality: mode, scale, drops: governor.drops, bpm, confident: f.sync.confidence >= CONFIDENT })
+    const ms = gpuMs.get(id)
+    const prev = store.getSnapshot().nodeErrors
+    store.patch({
+      quality: mode, scale, drops: governor.drops, bpm, confident: f.sync.confidence >= CONFIDENT,
+      gpuMs: ms === undefined ? null : Math.round(ms * 10) / 10, // the panel's GPU hint
+      nodeErrors: errors.join('\n') === prev.join('\n') ? prev : [...errors], // a new array only when they changed
+    })
     if (DEBUG) {
       const o = offsets.slice().sort((a, b) => a - b)
       const med = o[o.length >> 1] ?? NaN
