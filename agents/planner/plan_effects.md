@@ -446,6 +446,31 @@ Invoke the `ponytail` skill (full) before writing code.
     - Flythrough is a green girder lattice with glowing edges; far cells show faint contour speckle (haze banding, unconverged rays) and fade to a dark red.
     - Tunnel mesh is a clean rainbow hexagonal wire tube with a bright vanishing point.
     - Worley cells are cyan gradient cells with dark borders, plus black wedges where the bass-widened borders meet.
+- **Changed during implementation:** (lead, S4.2b) a follow-up once S3.3 made `res` work.
+  - **All 3 dropped generators are back, at res 0.5.** The `s42_*.fs` copies are unchanged in `own/`: `fractal`, `wave-landscape` and `sdf-shapes`. Each has its own starred single-layer scene after Truchet. The gen bindings repeat each file's VJW_BIND: fold/height/morph ← bass, glow/glow/burst ← onset.
+  - **Particles: `res` 0.5 on both particles layers,** in `builtin:particles` and `builtin:particles-over-tunnel`. These are value edits only. The native honours `res` (it draws at its `FrameInput` size, and point size scales with height), so `particles.ts` is untouched and N stays 65 536.
+  - **Budget (GPU median / p95 ms, 1728×1118).**
+    - Setup: Playwright :5187, installed Chrome, `--mute-audio`, viewport 1728×1117 @ DPR 2. The quality badge read `60A · 1.00×` throughout.
+    - First the stock `?bench` (silence, res 1). Then on the same page: `s33_kicks_loop.wav`, plus copies of the built-ins at each `res`, faded in by the director and sampled for 1 s after a 2 s fade.
+    - The S4.1/S4.3 benches overlapped most runs. They inflated every number by up to 2×, the res-1 baselines too. The "quiet" column is the windows where no other bench ran (`ps`), or where the same round's other scenes read at their quiet values. Scripts and logs are `s42b_*` in the scratchpad.
+
+    | scene | committed res | `?bench` res 1, silence | kicks, res 1 | kicks, committed res, quiet | kicks, 0.75 |
+    |---|---|---|---|---|---|
+    | fractal | 0.5 | 2.30 / 4.38 | 4.80 / 5.04 | 2.48 / 2.51, 2.58 / 2.60 | 2.2–3.9 / 3.9–5.6 (borderline) |
+    | wave-landscape | 0.5 | 4.73 / 5.21 | 4.06 / 7.54 | 2.43 / 2.52, 2.46 / 2.50 | 2.5–3.9 / 4.0–6.1 |
+    | sdf-shapes | 0.5 | 7.60 / 8.14 | 9.50 / 11.77 | 3.45 / 3.60, 3.46 / 3.57 | 5.6–7.4 / 5.9–8.8 |
+    | particles | 0.5 | 4.62 / 5.29 | 5.45 / 6.38, 5.07 / 6.57 | 3.06 / 3.23, 3.12 / 3.21, 2.97 / 3.20 | 4.4–6.8 / 5.0–7.2 |
+    | particles over tunnel (particles layer) | 0.5 | – | 5.81 / 6.96, 5.45 / 7.47 | 3.48 / 3.57, 3.52 / 3.62, 3.54 / 4.55 | 4.7–7.9 / 6.2–8.6 |
+
+    - **Contended windows.** With another bench running, every scene's p95 spiked to 5–8 at its committed res, including wave-landscape at a 2.5 median. The paired res-1 copies went up just as far. Re-bench uncontended before reading any one row as a fail.
+  - **`sdf-shapes` is fill-bound after all.** Its median at res 1 / 0.75 / 0.5 is 9.5 / 6.7 / 3.65, so `res` fixes what march steps couldn't (S4.2). It stays over budget at 0.75.
+  - **Look** (one shot each, kicks).
+    - The fractal is a close, screen-filling orange/green folded sponge.
+    - SDF shapes is a clean gold dodecahedron with pink cubes and a magenta orbit ring.
+    - Particles at 0.5 is the same fine-grained blue disc.
+    - Wave landscape is the synthwave grid valley with a striped sun, but when the bass lifts the peaks, the coarse march leaves **floating yellow shards** near the mountain tops. That's the shader at any `res`, not the scale. The user prunes or asks for a fix (more STEPS fit at 0.5: median 2.5).
+  - **For S7.1:** hg_sdf code now ships, in `own/sdf-shapes.fs` (MIT option, full header kept). No webgl-noise code ships.
+  - **Tests and gates.** No new tests: the S4.2 test covers own files and built-in refs, and the doc round-trips cover the new scenes. Lint and tsc are clean, 121 tests pass, the build is OK. 0 console errors and glError 0 over all runs.
 
 ### S4.3 `[ ]` Content batch 3: liquids / metal (target ≥6)
 Invoke the `ponytail` skill (full) before writing code.
