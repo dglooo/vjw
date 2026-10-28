@@ -18,8 +18,8 @@
   - **CP4:** 27 starred scenes, 34 effects (14 ISF, 16 own, 4 natives, 1 toy), 13 transitions.
   - All scenes ≤5 ms GPU at 1728×1118 (heavy gens at res 0.5), 0 errors. Contact sheet `scratchpad/cp4walk/contact.png`.
 - ✅ S5.1 panel engine (`edit.ts`, `live.panel`, E/Esc). 129 tests.
-- ▶ **Wave 6 (parallel worktrees):** S5.2 Panel UI ‖ ✅ S6.1 library (IndexedDB, stars → playlist, JSON; 142 tests) ‖ ▶ polish (3 ms stage-pass floor, wave-landscape shards).
-  - Then S5.3 paste-Shadertoy dialog → S6.2 panel buttons → CP7 closeout (THIRD_PARTY shaders, regression).
+- ▶ **Wave 6 (parallel worktrees):** ✅ S5.2 Panel UI (0 re-renders and 0 drops while dragging) ‖ ✅ S6.1 library (IndexedDB, stars → playlist, JSON; 142 tests) ‖ ▶ polish (3 ms stage-pass floor, wave-landscape shards).
+  - ▶ S5.3 paste dialog + S6.2 library buttons (one agent: both edit Panel.tsx). Then CP7 closeout (THIRD_PARTY shaders, regression).
 - Polish backlog:
   - Slit scan is weak;
   - liquid chrome makes a ring every kick;
