@@ -2,11 +2,18 @@
 // for 0.15 s: blocks jump and swap channels, scanlines tear sideways, RGB splits. Calm between hits; the (c) beat
 // lifts the brightness.
 import { pulse } from '../audio/sync'
+import type { Input } from '../fx/types'
 import { fullscreenProgram } from '../gl/engine'
-import type { SceneFactory } from '../gl/scene'
+import type { NativeDef } from '../gl/scene'
 
-/** Look knobs, read every frame (the stage-2 editor binds to these). Sizes are px at a 1000 px tall target. */
-export const params = { pixel: 10, levels: 5, split: 14, hue: 0.62 }
+/** Look knobs, read as uniforms every frame; bindings and the panel drive them through `values`. Sizes are px at a
+ * 1000 px tall target. */
+export const inputs: Input[] = [
+  { name: 'pixel', type: 'float', min: 1, max: 40, default: 10 },
+  { name: 'levels', type: 'float', min: 2, max: 16, default: 5 }, // colour levels per channel; below 2 it divides by 0
+  { name: 'split', type: 'float', min: 0, max: 60, default: 14 },
+  { name: 'hue', type: 'float', min: 0, max: 1, default: 0.62 },
+]
 const HIT = 0.15 // s: a hit glitches this long after its onset, fading out (plan S3.5)
 
 const FS = `#version 300 es
@@ -65,23 +72,25 @@ void main() {
   outColor = vec4(col * (1.0 + 0.6 * g + 0.35 * uPulse), 1.0);
 }`
 
-export const glitch: SceneFactory = () => {
-  const draw = fullscreenProgram(FS)
-  return {
-    name: 'glitch',
-    draw(f) {
-      // Age clamped at 0 for line-in, as in the tunnel. Strength is (1.5, 4] (the detector's threshold and cap), as in
-      // the particles: prominent hits glitch fully, weak ones (hats) barely.
-      const o = f.lastOnset
-      const age = o ? Math.max(0, f.audioNow - o.t) : HIT
-      const hit = o && age < HIT ? ((o.strength - 1.5) / 2.5) * (1 - age / HIT) : 0
-      const k = f.height / 1000
-      draw({
-        uRes: [f.width, f.height], uTime: f.time, uPixel: params.pixel * k * (0.6 + 0.4 * Math.min(3, f.energy.att.mid)),
-        uLevels: params.levels, uBass: Math.min(3, f.energy.att.bass), uHit: hit, uPulse: pulse(f.sync),
-        uSeed: Math.floor(f.audioNow * 20) % 1000, // wrapped: the sin hash degrades on large inputs
-        uSplit: params.split * k, uHue: params.hue,
-      })
-    },
-  }
+export const glitch: NativeDef = {
+  id: 'native/glitch', name: 'Glitch', kind: 'generator', category: 'retro', credit: 'VeeJay Wizard', inputs,
+  create() {
+    const draw = fullscreenProgram(FS)
+    return {
+      draw(f, v) {
+        // Age clamped at 0 for line-in, as in the tunnel. Strength is (1.5, 4] (the detector's threshold and cap), as
+        // in the particles: prominent hits glitch fully, weak ones (hats) barely.
+        const o = f.lastOnset
+        const age = o ? Math.max(0, f.audioNow - o.t) : HIT
+        const hit = o && age < HIT ? ((o.strength - 1.5) / 2.5) * (1 - age / HIT) : 0
+        const k = f.height / 1000
+        draw({
+          uRes: [f.width, f.height], uTime: f.time, uPixel: (v.pixel as number) * k * (0.6 + 0.4 * Math.min(3, f.energy.att.mid)),
+          uLevels: v.levels, uBass: Math.min(3, f.energy.att.bass), uHit: hit, uPulse: pulse(f.sync),
+          uSeed: Math.floor(f.audioNow * 20) % 1000, // wrapped: the sin hash degrades on large inputs
+          uSplit: (v.split as number) * k, uHue: v.hue,
+        })
+      },
+    }
+  },
 }

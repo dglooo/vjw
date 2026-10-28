@@ -217,7 +217,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates green; `npm run build` passes; the lead's Playwright run records G1–G3 in STATE and the sweep's compile-OK list by category (the curation input for CP4). **Conditional for S2.5:** G1 total for the starred set > 500 ms ⚠️ knob → async compile; G2 shows ≥1 late frame per burst → add the target pool in S2.5.
 - **Depends on:** S2.1; pilot S6.1 closed (`main.tsx`).
 
-### S2.3 `[ ]` Glitch and spectrum as `NativeDef`s + their built-ins
+### S2.3 `[x]` Glitch and spectrum as `NativeDef`s + their built-ins
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** two more natives through the catalog.
 - **Files:** `web/src/scenes/glitch.ts`, `web/src/scenes/spectrum.ts`, `web/src/fx/catalog.ts` (+ 2 docs in `scenes/builtin.ts`, a 4th file, data only ⚠️).
@@ -225,6 +225,15 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** `doc.test.ts` round-trips the new docs automatically.
 - **Done-check:** gates green. **Manual:** both scenes look as in the pilot; GPU time within ±10 % of S3.3/S3.5 numbers (1.1–1.9 and 1.04 ms at 1200×800) in the lead's run.
 - **Depends on:** S1.6.
+- **Changed during implementation:**
+  - A 5th file: `gl/bloom.ts` gets `dispose()`, which deletes its 5 targets. Its targets are closure-private, so spectrum can't free them any other way, and particles (S2.4) reuses it.
+  - Spectrum's own target is deleted inline (`deleteFramebuffer` + `deleteTexture`). A `dispose` on `renderTarget` would be the single release point, but `engine.ts` belongs to S2.1, running in parallel. S2.5's pool finds the delete sites with `grep deleteFramebuffer`.
+  - Spectrum's bar program now goes through the engine's memoised `program()` instead of `createProgramInfo`. A re-created instance (rebuild, S2.5 prepare-ahead) neither recompiles nor leaks it, so `dispose` leaves programs alone.
+  - Glitch has no own targets, so it has no `dispose`.
+  - Ranges: glitch `pixel 1..40`, `levels 2..16` (a float: the panel maps `long` to a `<select>` that needs `values`; below 2 the shader divides by 0), `split 0..60`, `hue 0..1`; spectrum `glow 0..8`, `reflect 0..1`, `hue 0..1`, `exposure 0.2..4`. Defaults are the pilot `params`.
+  - Gates: lint and tsc clean, 109 tests, build OK.
+  - Chrome check (Playwright on :5175, `--mute-audio`, kicks128n.wav): `→` walked TUNNEL → SPECTRUM → GLITCH → KALEIDO TUNNEL with 0 console errors or warnings, and both look as in the pilot.
+  - The drop counter showed 1 at start and 2 from Spectrum on. Likely cause, not measured: `live()` creates a native on its first switch, so Spectrum compiles 5 programs then, where the pilot built every scene at load. S2.5's warm-up and prepare-ahead target this.
 
 ### S2.4 `[ ]` Particles as a `NativeDef`, remove `Scene`/`SceneFactory`
 Invoke the `ponytail` skill (full) before writing code.

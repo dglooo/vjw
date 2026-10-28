@@ -1,14 +1,20 @@
 // Spectrum: the 32 bands as 64 mirrored bars (bass in the middle) standing on a floor line, eased per bar, with bloom
 // and a reflection on a dark glossy floor. Onsets brighten the bars and the floor line, and so does the (c) beat.
-import { bindFramebufferInfo, createProgramInfo, setUniforms } from 'twgl.js'
+import { bindFramebufferInfo, setUniforms } from 'twgl.js'
 import { BAND_COUNT, easeBars } from '../audio/energy'
 import { pulse } from '../audio/sync'
+import type { Input } from '../fx/types'
 import { createBloom } from '../gl/bloom'
-import { fullscreenProgram, renderTarget } from '../gl/engine'
-import type { SceneFactory } from '../gl/scene'
+import { fullscreenProgram, program, renderTarget } from '../gl/engine'
+import type { NativeDef } from '../gl/scene'
 
-/** Look knobs, read every frame (the stage-2 editor binds to these). */
-export const params = { glow: 3, reflect: 0.35, hue: 0.55, exposure: 1.4 }
+/** Look knobs, read as uniforms every frame; bindings and the panel drive them through `values`. */
+export const inputs: Input[] = [
+  { name: 'glow', type: 'float', min: 0, max: 8, default: 3 },
+  { name: 'reflect', type: 'float', min: 0, max: 1, default: 0.35 },
+  { name: 'hue', type: 'float', min: 0, max: 1, default: 0.55 },
+  { name: 'exposure', type: 'float', min: 0.2, max: 4, default: 1.4 },
+]
 const ATTACK = 0.6 // per 60 Hz frame: the share of the gap a rising bar closes
 const RELEASE = 0.1 // per 60 Hz frame for a falling bar: slower, so bars sink smoothly
 const DB_LO = -75 // band dB (after the tilt) at height 0; bands are mean linear magnitudes (S1.3)
@@ -75,41 +81,48 @@ void main() {
   outColor = vec4(1.0 - exp(-c * uExposure), 1.0);
 }`
 
-export const spectrum: SceneFactory = (gl) => {
-  const bars = createProgramInfo(gl, [BAR_VS, BAR_FS])
-  const composite = fullscreenProgram(COMPOSITE_FS)
-  const bloom = createBloom(gl)
-  const target = renderTarget(true)
-  const goal = new Float32Array(BAND_COUNT)
-  const h = new Float32Array(BAND_COUNT)
-  return {
-    name: 'spectrum',
-    draw(f) {
-      for (let i = 0; i < BAND_COUNT; i++) {
-        const db = 20 * Math.log10(f.energy.bands[i] + 1e-9) + TILT * i
-        goal[i] = Math.min(1, Math.max(0, (db - DB_LO) / (DB_HI - DB_LO)))
-      }
-      const k = f.dt * 60 // rates are per 60 Hz frame
-      easeBars(h, goal, 1 - (1 - ATTACK) ** k, 1 - (1 - RELEASE) ** k)
-      const o = f.lastOnset // age clamped at 0 for line-in, as in the tunnel
-      const flash = o ? (o.strength / 4) * Math.exp(-Math.max(0, f.audioNow - o.t) / FLASH_TAU) : 0
-      const beat = pulse(f.sync)
+export const spectrum: NativeDef = {
+  id: 'native/spectrum', name: 'Spectrum', kind: 'generator', credit: 'VeeJay Wizard', inputs,
+  create(gl) {
+    const bars = program(BAR_VS, BAR_FS) // the engine's cache: a re-created instance doesn't recompile
+    const composite = fullscreenProgram(COMPOSITE_FS)
+    const bloom = createBloom(gl)
+    const target = renderTarget(true)
+    const goal = new Float32Array(BAND_COUNT)
+    const h = new Float32Array(BAND_COUNT)
+    return {
+      draw(f, v) {
+        for (let i = 0; i < BAND_COUNT; i++) {
+          const db = 20 * Math.log10(f.energy.bands[i] + 1e-9) + TILT * i
+          goal[i] = Math.min(1, Math.max(0, (db - DB_LO) / (DB_HI - DB_LO)))
+        }
+        const k = f.dt * 60 // rates are per 60 Hz frame
+        easeBars(h, goal, 1 - (1 - ATTACK) ** k, 1 - (1 - RELEASE) ** k)
+        const o = f.lastOnset // age clamped at 0 for line-in, as in the tunnel
+        const flash = o ? (o.strength / 4) * Math.exp(-Math.max(0, f.audioNow - o.t) / FLASH_TAU) : 0
+        const beat = pulse(f.sync)
 
-      const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
-      target.fit(f.width, f.height)
-      bindFramebufferInfo(gl, target)
-      gl.clearColor(0, 0, 0, 1)
-      gl.clear(gl.COLOR_BUFFER_BIT)
-      gl.useProgram(bars.program)
-      setUniforms(bars, { uH: h, uTime: f.time, uFlash: flash, uPulse: beat, uHue: params.hue })
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, BARS)
-      const lit = bloom.apply(target.attachments[0], f.width, f.height, params.glow)
-      gl.bindFramebuffer(gl.FRAMEBUFFER, out)
-      gl.viewport(0, 0, f.width, f.height)
-      composite({
-        uSrc: lit, uRes: [f.width, f.height], uReflect: params.reflect, uFlash: flash, uPulse: beat, uTime: f.time,
-        uExposure: params.exposure,
-      })
-    },
-  }
+        const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
+        target.fit(f.width, f.height)
+        bindFramebufferInfo(gl, target)
+        gl.clearColor(0, 0, 0, 1)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        gl.useProgram(bars.program)
+        setUniforms(bars, { uH: h, uTime: f.time, uFlash: flash, uPulse: beat, uHue: v.hue })
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, BARS)
+        const lit = bloom.apply(target.attachments[0], f.width, f.height, v.glow as number)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, out)
+        gl.viewport(0, 0, f.width, f.height)
+        composite({
+          uSrc: lit, uRes: [f.width, f.height], uReflect: v.reflect, uFlash: flash, uPulse: beat, uTime: f.time,
+          uExposure: v.exposure,
+        })
+      },
+      dispose() {
+        bloom.dispose()
+        gl.deleteFramebuffer(target.framebuffer)
+        gl.deleteTexture(target.attachments[0])
+      },
+    }
+  },
 }

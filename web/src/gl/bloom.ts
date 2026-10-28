@@ -74,5 +74,12 @@ export function createBloom(gl: WebGL2RenderingContext, levels = 4) {
       combine({ uSrc: srcTex, uGlow: chain[0].attachments[0], uRes: [w, h], uStrength: strength / levels })
       return out.attachments[0]
     },
+    /** Deletes the targets; the programs stay in the engine's cache. */
+    dispose() {
+      for (const t of [...chain, out]) {
+        gl.deleteFramebuffer(t.framebuffer)
+        gl.deleteTexture(t.attachments[0])
+      }
+    },
   }
 }
