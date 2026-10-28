@@ -635,7 +635,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - So the transitions add ≤ 1.3 ms p95 over the pilot's fade. The cause was not investigated.
   - ⚠️ **GPU timer numbers inflate when another Playwright Chrome shares the GPU.** A first run, with another agent's Chrome running, read up to 11 ms p95 for trivial passes. Bench runs need a quiet GPU.
 
-### S5.1 `[ ]` Panel actions in `live.ts`, store fields, keys `E`/`Esc`, hold on open
+### S5.1 `[x]` Panel actions in `live.ts`, store fields, keys `E`/`Esc`, hold on open
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the engine side of the panel (design E6), no React yet.
 - **Files:** `web/src/gl/live.ts`, `web/src/store.ts`, `web/src/app.ts`.
@@ -643,6 +643,40 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none (GL/DOM).
 - **Done-check:** gates green; `E` toggles `store.panel` and the hold (visible as the Lock badge), `Esc` restores it.
 - **Depends on:** S4.5.
+- **Changed during implementation:**
+  - **The pure edits live in a new `web/src/edit.ts`** (+ `edit.test.ts`, 8 tests; all 13 hand-made mutants killed). `live.ts` reads GL at import, so Vitest can't load it. It holds `NodePath`, clone-on-first-edit, `dirty: Set<SceneId>` (S6 clears it on save), the 7 ops and `newNode(ref, bind)` (VJW_BIND copied). The ops take the scene's current doc. A refused `addLayer` (4 layers) or `removeLayer` (1 layer) neither clones nor marks dirty, and the panel then skips the rebuild and the `editRev` bump.
+  - **`docs` moved to `edit.ts`.** It holds the edited copies as well as ?bench's test docs. `live.ts` re-exports `docs` and `NodePath`, so the contract paths are unchanged.
+  - **`create(id)` reads its doc through `find(id)`; `Live.doc` is a getter.** After a scene's first edit the same instance builds from the copy, with no rebuild for the switch.
+  - **`Live` gains two in-place hooks, `set(p, input, v)` and `rebind()`.** `set` writes the uniform, or the layer's live values; arrays are copied, because a component binding writes into them. `rebind` recompiles **every** binding of the scene from the doc, not only that node's. That is less code with the same result: each binding still bound keeps its smoothing state, and an input no longer bound gets its doc value back (the browser check shows the frame comes back bit for bit).
+  - **S3.3's question (layer opacity/speed copied at build):** `res` joined opacity/speed in the layer's live `v`, so `setValue({ node: 'layer' }, 'opacity' | 'speed' | 'res', v)` writes the doc and `v` in place. The res < 1 target is now also created lazily in `render()` the first time res drops below 1. It is kept until dispose. `blend` is read from the built layer, and `setBlend` rebuilds.
+  - **`setBinding` does not bump `editRev`.** S5.2's binding sliders call it at input rate. Structural ops bump it once each.
+  - **`fail()` lists a message once,** because `rebind()` meets a bad binding again on each call.
+  - **`pasteToy` is not on `panel` yet** (S5.3 adds it).
+  - **A new layer is normal / 1 / 1 / 1,** like S5.3's pasted layer. `addLayer` applies the generator's VJW_BIND suggestions too, through the same helper as `addFx`.
+  - **Events (`ponytail:`):** an event's `true` from `setValue` is stored in the doc too, so it fires once more on each build. No current effect has an event input.
+  - **Not fixed (out of scope): a structural edit restarts the scene.** Layer clocks go back to 0, and natives and persistent buffers are recreated, so adding or removing an fx or layer, or changing blend, makes a visible jump. Keep each layer's `t` across `rebuild()` if that bothers.
+  - **Heads-up for S5.2:** the key filter ignores focused `<input>`s, so `Esc` doesn't close the panel while a slider has focus. Blur on pointer-up, or accept it.
+  - **Store:** `gpuMs` is rounded to 0.1 ms, like the BPM, and patched on every 4×/s tick, open or not. `nodeErrors` is a new array only when its joined text changes. `edited` and `sceneName` are patched together whenever either one changes.
+  - **Chrome check.** Playwright on :5188, installed Chrome, `--mute-audio`, 1200×800 at 60F, in silence. Scripts and logs are `s51_*` in the scratchpad.
+    - **Keys:** `E` opens with hold and Lock; `Esc` restores hold off, and hold on when it was on before; `E E` closes; a focused `<textarea>` keeps its `E`.
+    - **Tunnel, layer speed 0 (still):**
+      - `glow` 3 raises the mean brightness 26.9 → 73.4; back at 1, the frame matches the original hash.
+      - An lfo square binding on `glow` gives 2 alternating frames; unbinding restores the original frame exactly.
+      - `res` 0.5 changes the frame; back at 1 it matches exactly.
+      - `opacity` 0.5 halves the mean (26.9 → 13.7); back at 1 it matches exactly.
+      - None of this changes `editRev`. The built-in stays untouched while the copy is marked dirty.
+    - **Structural edits:**
+      - Each one bumps `editRev`.
+      - Kaleidoscope added changes the frame; removing it gives the reference frame back exactly.
+      - `own/strobe` gets its VJW_BIND copied.
+      - An unknown ref shows in `nodeErrors` within 0.4 s and clears after `removeFx`.
+      - `gpuMs` reads 0.9 ms.
+      - Particles at `add` show over the tunnel.
+      - Layers stop at 4 (a 5th is refused, no bump) and at 1 (the last is refused); back at 1 the frame is the reference frame.
+    - **Leaks:** after 70 rebuilds (10 cycles of add fx ×2, add layer, blend, remove ×3, incl. Long Exposure and Spectrum), the live GL objects are identical: 8 tex / 4 FB / 1 buf / 16 prog / 32 sh / 4 queries. glError 0 throughout.
+    - **Walk:** all 15 starred scenes under `→`, each with 0 errors and glError 0.
+    - **Console:** 1 error, the deliberate `unknown ref isf/s51-missing`; nothing else.
+  - **Gates:** lint and tsc clean, 129 tests (+8), build OK.
 
 ### S5.2 `[ ]` `ui/Panel.tsx` + `ui/panel.css`: layers, controls, bindings, catalog, GPU hint
 Invoke the `ponytail` skill (full) before writing code.

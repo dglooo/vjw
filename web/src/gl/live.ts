@@ -4,28 +4,38 @@
 // layer is composited onto `acc` with its blend and opacity, except the fast path: a bottom layer at normal, opacity 1,
 // res 1 draws straight into `acc`.
 // Every layer runs its own clock (`speed`). Bindings write the nodes' uniforms and the layers' opacity/speed per frame.
+// The panel (design E6) edits the current scene through `panel`: values and bindings in place, structure by rebuild().
 import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { ctx } from '../audio/input'
 import { evaluate, type Binding, type BindState, type Sources } from '../bind'
-import { defaults, type Blend, type LayerDoc, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
+import { defaults, type Blend, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
+import * as edit from '../edit'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { sizeExpr } from '../fx/isf'
-import type { EffectDef, InputType, PassDef, ShaderDef, Value } from '../fx/types'
+import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { BUILTIN } from '../scenes/builtin'
+import { store } from '../store'
 import { audioTex, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
 import type { Native, NativeDef } from './scene'
 
-export interface Live { readonly doc: SceneDoc; readonly errors: readonly string[]; render(f: FrameInput, s: Sources, acc: Target): void; rebuild(): void; dispose(): void }
+export { docs, type NodePath } from '../edit'
+
+export interface Live {
+  readonly doc: SceneDoc; readonly errors: readonly string[]; render(f: FrameInput, s: Sources, acc: Target): void; rebuild(): void; dispose(): void
+  /** The panel, after it edited the doc: one input's live value at `p`, in place; every binding compiled again. */
+  set(p: edit.NodePath, input: string, v: Value): void; rebind(): void
+}
 
 /** A built node: a native, or a shader program and its passes; `u` holds its values (+ the ISF uniforms). A pass with
  *  a TARGET owns a read/write pair, swapped after it draws (design E2): a PERSISTENT one reads its last frame, and
  *  no pass samples the texture it draws into. `w`/`h`: the size the targets were fitted for. */
-interface Node { native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number }
-/** A built layer: its nodes (a null one blacks the layer out), the bindable opacity/speed, its clock, the reused
- *  FrameInput copy a native reads, and its own target when `res` < 1. */
-interface Layer { doc: LayerDoc; nodes: (Node | null)[]; v: { opacity: number; speed: number }; t: number; f: FrameInput; small: Target | null }
+interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number }
+/** A built layer: its nodes (a null one blacks the layer out), its live opacity/speed (bindable) and res, its clock,
+ *  the reused FrameInput copy a native reads, and its own target once `res` < 1. */
+interface Layer { blend: Blend; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null }
 interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState }
+const LAYER_INPUTS: readonly Input[] = [{ name: 'opacity', type: 'float' }, { name: 'speed', type: 'float' }] // bindable
 
 const SIZE = new Float32Array(2) // the shots' size: `inputImage`'s, even from a gen drawn at res < 1 (it is upscaled)
 const IRES = new Float32Array([0, 0, 1]) // a toy's iResolution: RENDERSIZE, z = 1 (Shadertoy's pixel aspect)
@@ -80,15 +90,17 @@ void main() {
 }`)
 const cu: Record<string, unknown> = { uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0 } // reused every composite
 
-function create(doc: SceneDoc): Live {
+function create(id: SceneId): Live {
   const errors: string[] = []
   let layers: Layer[] = []
   let bound: Bound[] = []
   let frames = 0
+  const doc = () => find(id)! // the panel's copy (edit.ts) from the scene's first edit on
 
   const fail = (msg: string) => {
+    if (errors.includes(msg)) return null // rebind() meets a bad binding again
     errors.push(msg)
-    console.error(`${doc.id}: ${msg}`)
+    console.error(`${id}: ${msg}`)
     return null
   }
 
@@ -97,21 +109,8 @@ function create(doc: SceneDoc): Live {
     const def = toy ?? catalog.get(n.ref)
     if (!def) return fail(`unknown ref ${n.ref}`)
     const u: Record<string, unknown> = { ...defaults(def), ...n.values }
-    for (const [key, b] of Object.entries(n.bind ?? {})) {
-      const [name, idx] = key.split('.')
-      const i = idx === undefined ? -1 : Number(idx)
-      const v = u[name]
-      const input = def.inputs.find((x) => x.name === name)
-      const ok = input && v !== undefined && (i < 0 ? !Array.isArray(v) : Array.isArray(v) && i < v.length)
-      if (!ok) {
-        fail(`${n.ref}: cannot bind ${key}`)
-        continue
-      }
-      if (i >= 0) u[name] = [...(v as number[])] // our own copy: never write into the def's or the doc's array
-      bound.push({ u, name, i, type: input.type, b, state: { y: 0 } })
-    }
     const events = def.inputs.filter((x) => x.type === 'event').map((x) => x.name)
-    if ('create' in def) return { native: (def as NativeDef).create(gl), u, events, passes: [], w: 0, h: 0 }
+    if ('create' in def) return { def, native: (def as NativeDef).create(gl), u, events, passes: [], w: 0, h: 0 }
     const { vs, fs, passes, inputs } = def as ShaderDef
     const info = program(vs, fs) // null when it fails to compile; twgl logged why
     if (!info) return fail(`${n.ref}: ${toy ? toyLog(fs, toy.prefixLines) : 'shader failed to compile'}`)
@@ -123,7 +122,41 @@ function create(doc: SceneDoc): Live {
       u[`_${name}_imgSize`] = AUDIO_SIZE
     }
     const pair = (p: PassDef) => (p.target ? [renderTarget(p.float, p.persistent), renderTarget(p.float, p.persistent)] : null)
-    return { info, u, events, passes: passes.map((p) => ({ p, pair: pair(p) })), w: 0, h: 0 }
+    return { def, info, u, events, passes: passes.map((p) => ({ p, pair: pair(p) })), w: 0, h: 0 }
+  }
+
+  /** Compiles `binds` onto `u` (a node's uniforms or a layer's values). An input bound before (in `old`) first gets
+   *  its value from `base` back; one still bound keeps its smoothing state. */
+  function bindInto(u: Record<string, unknown>, inputs: readonly Input[], base: Record<string, unknown>, binds: Record<string, Binding> = {}, ref: string, old: Bound[]) {
+    for (const x of old) if (x.u === u) u[x.name] = base[x.name]
+    for (const [key, b] of Object.entries(binds)) {
+      const [name, idx] = key.split('.')
+      const i = idx === undefined ? -1 : Number(idx)
+      const v = u[name]
+      const input = inputs.find((x) => x.name === name)
+      const ok = input && v !== undefined && (i < 0 ? !Array.isArray(v) : Array.isArray(v) && i < v.length)
+      if (!ok) {
+        fail(`${ref}: cannot bind ${key}`)
+        continue
+      }
+      if (i >= 0) u[name] = [...(v as number[])] // our own copy: never write into the def's or the doc's array
+      const state = old.find((x) => x.u === u && x.name === name && x.i === i)?.state ?? { y: 0 }
+      bound.push({ u, name, i, type: input.type, b, state })
+    }
+  }
+
+  /** The doc's bindings (design E3) onto the built layers and nodes: at build, and after the panel's setBinding. */
+  function bindAll() {
+    const old = bound
+    bound = []
+    doc().layers.forEach((ld, i) => {
+      const l = layers[i]
+      bindInto(l.v, LAYER_INPUTS, { opacity: ld.opacity, speed: ld.speed }, ld.bind, 'layer', old)
+      ;[ld.gen, ...ld.fx].forEach((n, k) => {
+        const x = l.nodes[k]
+        if (x) bindInto(x.u, x.def.inputs, { ...defaults(x.def), ...n.values }, n.bind, n.ref, old)
+      })
+    })
   }
 
   /** A pass's WIDTH/HEIGHT expression in px, or the node's size without one (or when it fails). */
@@ -191,16 +224,12 @@ function create(doc: SceneDoc): Live {
 
   function build() {
     errors.length = 0
-    bound = []
     frames = 0
-    layers = doc.layers.map((l) => {
-      const v = { opacity: l.opacity, speed: l.speed }
-      for (const k of ['opacity', 'speed'] as const) {
-        const b = l.bind?.[k]
-        if (b) bound.push({ u: v, name: k, i: -1, type: 'float', b, state: { y: 0 } })
-      }
-      return { doc: l, nodes: [node(l.gen), ...l.fx.map(node)], v, t: 0, f: {} as FrameInput, small: l.res < 1 ? renderTarget() : null }
-    })
+    layers = doc().layers.map((l) => ({
+      blend: l.blend, nodes: [node(l.gen), ...l.fx.map(node)], v: { opacity: l.opacity, speed: l.speed, res: l.res }, t: 0, f: {} as FrameInput,
+      small: l.res < 1 ? renderTarget() : null,
+    }))
+    bindAll()
   }
 
   function dispose() {
@@ -216,7 +245,9 @@ function create(doc: SceneDoc): Live {
 
   build()
   return {
-    doc,
+    get doc() {
+      return doc()
+    },
     errors,
     render(f, s, acc) {
       for (const x of bound) {
@@ -236,22 +267,23 @@ function create(doc: SceneDoc): Live {
         l.t += dt
         const ok = !l.nodes.includes(null)
         const last = l.nodes[l.nodes.length - 1]
+        const small = l.v.res < 1 ? (l.small ??= renderTarget()) : null // the panel may lower res after the build
         // The fast path (design E1): its last pass draws straight into acc, unless that pass writes an ISF TARGET.
-        const direct = i === 0 && ok && l.doc.blend === 'normal' && l.v.opacity === 1 && !l.small && !last?.passes.at(-1)?.pair
+        const direct = i === 0 && ok && l.blend === 'normal' && l.v.opacity === 1 && !small && !last?.passes.at(-1)?.pair
         if (i === 0 && !direct) {
           bindFramebufferInfo(gl, acc)
           gl.clearColor(0, 0, 0, 1)
           gl.clear(gl.COLOR_BUFFER_BIT)
         }
         if (!ok) continue
-        l.small?.fit(Math.max(1, Math.round(acc.width * l.doc.res)), Math.max(1, Math.round(acc.height * l.doc.res)))
+        small?.fit(Math.max(1, Math.round(acc.width * l.v.res)), Math.max(1, Math.round(acc.height * l.v.res)))
         let src: WebGLTexture | null = null
         for (let k = 0; k < l.nodes.length; k++) {
-          const dst = direct && k === l.nodes.length - 1 ? acc : k === 0 && l.small ? l.small : temps[k % 2]
+          const dst = direct && k === l.nodes.length - 1 ? acc : k === 0 && small ? small : temps[k % 2]
           src = run(l.nodes[k]!, l, f, dt, src, dst)
         }
         if (direct) continue
-        const [mode, sf, df] = BLENDS[l.doc.blend]
+        const [mode, sf, df] = BLENDS[l.blend]
         bindFramebufferInfo(gl, acc)
         gl.enable(gl.BLEND)
         gl.blendFunc(sf, df)
@@ -267,24 +299,60 @@ function create(doc: SceneDoc): Live {
       build()
     },
     dispose,
+    set(p, input, v) {
+      const l = layers[p.layer]
+      if (p.node === 'layer') l.v[input as 'res'] = v as number
+      else {
+        const n = l.nodes[p.node === 'gen' ? 0 : p.node + 1]
+        if (n) n.u[input] = Array.isArray(v) ? [...v] : v // our own copy: a binding may write into it
+      }
+    },
+    rebind: bindAll,
   }
 }
 
 const cache = new Map<SceneId, Live>()
-/** ?bench only (bench.ts): its test docs, found by `live` ahead of the built-ins. */
-export const docs = new Map<SceneId, SceneDoc>()
-
-const find = (id: SceneId) => docs.get(id) ?? BUILTIN.find((d) => d.id === id) // S6.1: the library
+const find = (id: SceneId) => edit.docs.get(id) ?? BUILTIN.find((d) => d.id === id) // S6.1: the library
 
 /** The live instance of a scene, built on first use and cached by id. */
 export function live(id: SceneId): Live {
   let l = cache.get(id)
   if (!l) {
-    const doc = find(id)
-    if (!doc) throw new Error(`unknown scene ${id}`)
-    cache.set(id, (l = create(doc)))
+    if (!find(id)) throw new Error(`unknown scene ${id}`)
+    cache.set(id, (l = create(id)))
   }
   return l
+}
+
+const edited = () => live(store.getSnapshot().edited)
+/** A structural edit (design E6): the doc changes, the scene rebuilds, the panel re-renders once. */
+function restructure(apply: (doc: SceneDoc) => boolean | void) {
+  const l = edited()
+  if (apply(l.doc) === false) return
+  l.rebuild()
+  store.patch({ editRev: store.getSnapshot().editRev + 1 })
+}
+const fresh = (ref: string) => edit.newNode(ref, catalog.get(ref)?.bind) // with its VJW_BIND suggestions
+
+/** The panel's actions on the edited scene (design E6, contract CP5; pasteToy comes with S5.3). setValue and
+ *  setBinding change the running scene in place, no rebuild and no store change: a dragged slider never re-renders
+ *  React. ponytail: an event's `true` is kept in the doc too, so it fires once more per build; skip it if that shows. */
+export const panel = {
+  setValue(p: edit.NodePath, input: string, v: Value) {
+    const l = edited()
+    edit.setValue(l.doc, p, input, v)
+    l.set(p, input, v)
+  },
+  setBinding(p: edit.NodePath, key: string, b: Binding | null) {
+    const l = edited()
+    edit.setBinding(l.doc, p, key, b)
+    l.rebind()
+  },
+  addFx: (layer: number, ref: string) => restructure((d) => edit.addFx(d, layer, fresh(ref))),
+  removeFx: (layer: number, i: number) => restructure((d) => edit.removeFx(d, layer, i)),
+  addLayer: (genRef: string) => restructure((d) => edit.addLayer(d, fresh(genRef))),
+  removeLayer: (i: number) => restructure((d) => edit.removeLayer(d, i)),
+  setBlend: (layer: number, b: Blend) => restructure((d) => edit.setBlend(d, layer, b)),
 }
 
 /** Prepare-ahead (design E2), between fades: builds these scenes now and disposes every other live instance, so a
