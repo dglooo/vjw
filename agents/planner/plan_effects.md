@@ -872,7 +872,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - The open library is a long column of amber stars that pushes the layers down; it is closed by default.
   - **Gates:** lint and tsc clean, 144 tests (+2), build OK.
 
-### S7.1 `[ ]` `THIRD_PARTY.md`: every ported shader file, the parser port, the shader libs
+### S7.1 `[x]` `THIRD_PARTY.md`: every ported shader file, the parser port, the shader libs
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** spec §6 bookkeeping in one place.
 - **Files:** `web/THIRD_PARTY.md`.
@@ -880,6 +880,22 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none.
 - **Done-check:** gates green; every file under `fx/isf`, `fx/own`, `fx/transitions` appears in the file; no entry without a license.
 - **Depends on:** S6.2.
+- **Changed during implementation:**
+  - **Added `web/scripts/shaders.mjs`** (27 lines, the lead's brief allowed it). It prints the three tables from the file headers and throws if a header gives no author, source or license. The 43 rows in the doc are its output pasted in: 14 `isf`, 16 `own`, 13 `transitions`. Regenerate with `node scripts/shaders.mjs`.
+  - **Where each cell comes from.**
+    - `isf/`: author is `CREDIT` (minus a leading "by "); source and license are the `// Source: <repo> · MIT` line that S3.3, S4.1, S4.2 and S4.4 added. ISF headers carry no license line, so MIT is the ISF-Files repo's LICENSE (it reads "Copyright (c) 2018", no holder named).
+    - `transitions/`: the file's own `// Author:` and `// License:` lines, and the upstream file URL from line 2. All 12 are MIT; none is BSD.
+    - `own/` and `transitions/crossfade.glsl`: "VeeJay Wizard (own)", MIT (the project's license, spec §6). A 3-entry table in the script spots inlined libraries by their own header line and adds them to the row: webgl-noise `snoise` in `domain-warp` and `ink`, `srdnoise` in `smoke`, hg_sdf in `sdf-shapes`.
+  - **Beyond the step's list:** short sections for the parser port (`isf.ts`, MIT, Michael Feldstein, 2025), the inlined libraries, and the upstreams that files name in comments (Truchet Tile, VHS Glitch, v002 CRT, Morgan McGuire's noise, and a few more). The old sentence "No other code or shaders are ported … in the pilot" now points at Shaders.
+  - ⚠️ **Upstream licenses not checked** (internet is docs-only for coders).
+    - `isf/Truchet Tile.fs` (adapted from pjkarlik/TruchetTiles), `isf/VHS Glitch.fs` (based on staffantan/unity-vhsglitch) and `isf/v002-CRT-Displacement.fs` (vade) rest on ISF-Files' MIT alone.
+    - `transitions/BurnThrough.glsl` and `transitions/PerlinDissolve.glsl` inline value noise "based on Morgan McGuire" (Shadertoy 4dS3Wd). The files state no license for it; Shadertoy's default is CC BY-NC-SA 3.0, which spec §6 allows.
+  - **The 1:1 check** (run in `web/`; it prints nothing when both directions hold, 43 files):
+    ```sh
+    for f in src/fx/isf/* src/fx/own/* src/fx/transitions/*; do grep -qF "\`${f#src/fx/}\`" THIRD_PARTY.md || echo "missing: $f"; done
+    grep -o '`\(isf\|own\|transitions\)/[^`]*`' THIRD_PARTY.md | tr -d '`' | sort -u | while read -r p; do [ -e "src/fx/$p" ] || echo "stale: $p"; done
+    ```
+  - **Gates:** lint and tsc clean, 144 tests, build OK. No new tests (the step names none).
 
 ### S7.2 `[ ]` Final gates, build, Playwright regression, 30-min run
 Invoke the `ponytail` skill (full) before writing code.
