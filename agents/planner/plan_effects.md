@@ -391,7 +391,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates green; `?bench`: every new item compiles, 0 GL/console errors, p95 ≤ 5 ms at 1728×1117 (over budget → lower `res` or drop); the lead's contact sheet; the user prunes.
 - **Depends on:** S3.4, S2.2 sweep list.
 
-### S4.2 `[ ]` Content batch 2: 3D / geometry (target ≥7 incl. tunnel, particles)
+### S4.2 `[x]` Content batch 2: 3D / geometry (target ≥7 incl. tunnel, particles)
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** raymarched and SDF generators within budget.
 - **Files:** `web/src/fx/own/*.fs` (~5: `fractal.fs` (mandelbulb/menger-class raymarch), `sdf-shapes.fs` rotating hg_sdf primitives, `flythrough.fs`, `wave-landscape.fs`, `tunnel-mesh.fs`; `res` 0.5–0.75 set in their built-ins), `web/src/fx/isf/*.fs` (1–2 generators from the sweep if any fit ⚠️), `web/src/scenes/builtin.ts` (+3 scenes, with `speed` bound to bass on one).
@@ -399,6 +399,34 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** doc round-trips.
 - **Done-check:** gates green; `?bench` p95 ≤ 5 ms at the scene's `res`; contact sheet; the user prunes.
 - **Depends on:** S4.1.
+- **Changed during implementation:**
+  - **Pulled ahead of CP3 by the lead** (worktree, parallel with S3.2 and S4.4). Single-pass generators render through the CP1 fast path, so each generator gets its **own single-layer starred scene**: 4 scenes, not +3 combos, because layers don't composite before S3.3. `res` (0.5 / 0.75) and the Flythrough layer's `speed` ← bass binding are in the docs and take effect from S3.3. Every scene also binds a shader input that works today.
+  - **Kept, 2 own + 2 ISF-Files.** GPU median / p95 ms at 1728×1118, full res, from the `?bench` runs:
+
+    | id | binding | median / p95 | |
+    |---|---|---|---|
+    | `own/flythrough` | glow ← bass, layer speed ← bass | 3.77–4.16 / 4.00–4.30 | p95 is 5.1–6.9 in the runs where the natives were inflated too |
+    | `own/tunnel-mesh` | twist ← bass, flash ← onset | 1.42–1.94 / 1.45–2.51 | |
+    | `isf/Worley Cells` | borderWidth ← bass | 3.58–4.06 / 3.62–4.89 | |
+    | `isf/Truchet Tile` | tSize ← bass | 0.67–0.91 / 0.80–1.70 | |
+
+  - **Dropped as over budget after 2 tuning iterations each.** Copies are in the scratchpad as `s42_<name>.fs`, so they can come back if the lead's uncontended bench, or `res` after S3.3, makes them fit.
+    - `fractal`: Menger KIFS, ITER 3, STEPS 32; 3.80 / 6.38 and 4.85 / 5.20.
+    - `wave-landscape`: synthwave grid terrain with sine ridges, 30 steps + secant refine; 4.24 / 5.95 and 4.71 / 5.39.
+    - `sdf-shapes`: hg_sdf cube ↔ dodecahedron, ring of cubes, orbit; 9.52 / 10.47 and 7.58 / 7.65. Its cost did not move with steps 64→48→40 or with per-object bounds, so the march isn't the driver; unresolved.
+    - Flythrough behaved the same way: 72→56→44 steps all gave a ~4.1 median. It stays at 72 steps, the version that passed.
+  - **Bench noise.**
+    - Other worktree agents shared the GPU. In some runs the natives read +20–40% (particles 5.4–6.3, spectrum 3.8–4.2), and those runs set the p95 highs above.
+    - The bench's p95 is taken over `gpuMs`, a running median of 8. Prepare-ahead compiles the next item synchronously just as the measure window opens, so one run read tunnel-mesh at 1.68 / 8.55.
+    - A clean re-measure pass (programs cached) failed: `import('/src/app.ts')` from the page made a second app instance.
+  - **No hg_sdf or webgl-noise code ships.** Only the dropped `sdf-shapes` (hg_sdf header + vmax/fBox/fTorus/fGDF-dodecahedron/pR/pModPolar/fOpUnionRound, ES 1.00 fixes) and the first `wave-landscape` (noise2D `snoise`) used them; simplex cost 2.5× the sine ridges.
+  - **Copied files (for S7.1):** `web/src/fx/isf/Truchet Tile.fs` (CREDIT pjkarlik, adapted from github.com/pjkarlik/TruchetTiles) and `web/src/fx/isf/Worley Cells.fs` (by VIDVOX), both from ISF-Files (MIT), header kept + `// Source:` line.
+  - **Catalog:** one glob for both folders, `import.meta.glob(['./isf/*.fs', './own/*.fs'], …)`, and the id is the path minus `./` and `.fs`. S4.4 adds the same: take either side.
+  - **Tests:** `isf.test.ts` +1. Every `own/*.fs` parses with a category, no `unsupported`, and VJW_BIND keys that name its inputs. Every non-native ref in `BUILTIN` names a bundled file, which guards the frozen ids. Doc round-trips already cover every built-in.
+  - **Look (Playwright 1280×800, kicks128n.wav):**
+    - Flythrough is a green girder lattice with glowing edges; far cells show faint contour speckle (haze banding, unconverged rays) and fade to a dark red.
+    - Tunnel mesh is a clean rainbow hexagonal wire tube with a bright vanishing point.
+    - Worley cells are cyan gradient cells with dark borders, plus black wedges where the bass-widened borders meet.
 
 ### S4.3 `[ ]` Content batch 3: liquids / metal (target ≥6)
 Invoke the `ponytail` skill (full) before writing code.
