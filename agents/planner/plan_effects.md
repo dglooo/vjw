@@ -871,6 +871,22 @@ Invoke the `ponytail` skill (full) before writing code.
     - The note is dim text; an error is red monospace.
     - The open library is a long column of amber stars that pushes the layers down; it is closed by default.
   - **Gates:** lint and tsc clean, 144 tests (+2), build OK.
+- **Changed during implementation:** (lead, fix) **Save as… is an inline name field, not `prompt()`.** The prompt blocked the main thread, so the picture froze while the name was typed (the "Known" line above). Only `Panel.tsx` and `panel.css` changed.
+  - **Save as… swaps the header row for `[name] OK Cancel`.** The field opens focused, holding the scene's name selected (as the prompt did). Enter or OK saves, cuts to the new scene and closes the field; Esc or Cancel closes only the field. The star, Save and the GPU hint come back with the row. An empty name doesn't submit (`required`).
+  - **Keys and pointer-up stop at the form, as in S5.3's Paste.** No hotkeys fire while typing, and Esc doesn't reach the panel's close re-dispatch. Without the pointer-up stop, the panel's blur would unfocus the field.
+  - **The panel stays visible while the field has focus** (`:not(:has(header input:focus))` in the idle rule). Keys don't wake the bar, so the panel would fade 2.5 s into the typing.
+  - **Chrome check.** Playwright on :5193 (a fresh server), installed Chrome, `--mute-audio`, 1200×800 @2x, silence. The script and log are `fix_check.*` in the scratchpad. 22/22 pass:
+    - **rAF** (median / max, frames over 1.5× the median, governor drops):
+      - panel open, no field: 16.7 / 17.7 ms, 0, 0;
+      - field open: 16.7 / 17.7 ms, 0, 0;
+      - typing a key every 250 ms (173 frames): 16.7 / 17.7 ms, 0, 0.
+    - The picture moves under the open field.
+    - E, F, →, ←, Space in the field type or move the caret (the value reads "e f"). The panel, hold, scene and fullscreen don't change, and the field keeps the focus.
+    - Enter stores "My tunnel" (glow 3), and it is on screen at once. The field closes with no focus left, the note says "Saved as “My tunnel”", and the row is back.
+    - Esc closes only the field: the panel and hold stay, nothing is saved, and Space toggles hold again. Cancel closes it too.
+    - The bar idles during the typing while the panel stays at opacity 1. glError 0; no native dialogs; no console errors or warnings. Screenshot `fix_field.png`.
+    - `s62_check`'s Save as step still answers a prompt, so a re-run fails there; `fix_check` covers that step now.
+  - **Gates:** lint and tsc clean, 144 tests, build OK.
 
 ### S7.1 `[ ]` `THIRD_PARTY.md`: every ported shader file, the parser port, the shader libs
 Invoke the `ponytail` skill (full) before writing code.

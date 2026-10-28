@@ -270,6 +270,7 @@ function Open({ id }: { id: SceneId }) {
   const paste = useRef<HTMLDialogElement>(null)
   const file = useRef<HTMLInputElement>(null)
   const [note, setNote] = useState<{ text: string; err: boolean }>()
+  const [naming, setNaming] = useState(false) // Save as… swaps the header row for its name field
   const say = (err: string | null, what: string, done: string) => setNote(err ? { text: `${what}: ${err}`, err: true } : { text: done, err: false })
   const load = async (f: File) => say(await library.importFile(f), 'Import', `Imported ${f.name}`)
   const { layers, name } = live(id).doc // its name is the bar's, right above
@@ -299,31 +300,60 @@ function Open({ id }: { id: SceneId }) {
       }}
     >
       <header>
-        <button
-          className={star ? 'star on' : 'star'}
-          aria-pressed={star}
-          aria-label={`Star ${name}`}
-          title={star ? 'Starred: in the autopilot' : 'Star it into the autopilot'}
-          onClick={() => panel.toggleStar()}
-        >
-          {star ? '★' : '☆'}
-        </button>
-        <button disabled={builtin} title={builtin ? 'A built-in: Save as a new scene' : undefined} onClick={async () => say(await panel.save(), 'Save', 'Saved')}>
-          Save
-        </button>
-        <button
-          onClick={async () => {
-            const as = prompt('Save as', name)?.trim()
-            if (!as) return
-            const to = crypto.randomUUID()
-            const err = await panel.saveAs(as, to)
-            if (!err) director.cut(to) // on screen at once: the panel edits the new scene
-            say(err, 'Save as', `Saved as “${as}”`)
-          }}
-        >
-          Save as…
-        </button>
-        <Gpu />
+        {naming ? (
+          // Not a prompt(): it blocks the main thread, so the picture froze while the name was typed. Keys stay in the
+          // field as in Paste (no hotkeys while typing; Esc closes the field only), and so does pointer-up (the panel's
+          // blur would unfocus it).
+          <form
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.code === 'Escape') setNaming(false)
+            }}
+            onPointerUp={(e) => e.stopPropagation()}
+            onSubmit={async (e) => {
+              e.preventDefault()
+              const as = String(new FormData(e.currentTarget).get('as')).trim()
+              if (!as) return
+              setNaming(false)
+              const to = crypto.randomUUID()
+              const err = await panel.saveAs(as, to)
+              if (!err) director.cut(to) // on screen at once: the panel edits the new scene
+              say(err, 'Save as', `Saved as “${as}”`)
+            }}
+          >
+            <input
+              name="as"
+              aria-label="Save as"
+              defaultValue={name}
+              required
+              autoFocus
+              autoComplete="off"
+              spellCheck={false}
+              onFocus={(e) => e.currentTarget.select()} // as prompt() did: typing replaces the old name
+            />
+            <button>OK</button>
+            <button type="button" onClick={() => setNaming(false)}>
+              Cancel
+            </button>
+          </form>
+        ) : (
+          <>
+            <button
+              className={star ? 'star on' : 'star'}
+              aria-pressed={star}
+              aria-label={`Star ${name}`}
+              title={star ? 'Starred: in the autopilot' : 'Star it into the autopilot'}
+              onClick={() => panel.toggleStar()}
+            >
+              {star ? '★' : '☆'}
+            </button>
+            <button disabled={builtin} title={builtin ? 'A built-in: Save as a new scene' : undefined} onClick={async () => say(await panel.save(), 'Save', 'Saved')}>
+              Save
+            </button>
+            <button onClick={() => setNaming(true)}>Save as…</button>
+            <Gpu />
+          </>
+        )}
       </header>
       {note && (
         <p key={note.text} className={note.err ? 'err' : 'note'} onAnimationEnd={() => setNote(undefined)}>
