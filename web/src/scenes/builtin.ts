@@ -129,4 +129,35 @@ export const BUILTIN: readonly SceneDoc[] = [
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Liquids / metal (S4.3): procedural, plus feedback advection (smoke), no Navier–Stokes (design E8). The noise-heavy
+  // generators run at res 0.5–0.75; the bindings repeat each file's VJW_BIND suggestion.
+  {
+    v: 1, id: 'builtin:liquid-chrome', name: 'Liquid chrome', star: true,
+    layers: [{
+      gen: { ref: 'own/liquid-chrome', bind: { burst: { source: 'onset', amount: 1, attack: 0, release: 0.35, min: 0, max: 1 } } }, // a drop on every hit
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:fluid', name: 'Fluid', star: true,
+    layers: [{
+      gen: { ref: 'own/domain-warp', bind: { warp: { source: 'bass', amount: 1, attack: 0.05, release: 0.4, min: 1, max: 2.2 } } }, // folds deeper on bass
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:lava-smoke', name: 'Lava smoke', star: true,
+    layers: [{
+      gen: { ref: 'own/metaballs', bind: { size: { source: 'bass', amount: 1, attack: 0.03, release: 0.3, min: 0.9, max: 1.3 } } },
+      fx: [{ ref: 'own/smoke', bind: { curl: { source: 'bass', amount: 1, attack: 0.05, release: 0.5, min: 0.2, max: 0.7 } } }], // the blobs steam
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:ink', name: 'Ink', star: true,
+    layers: [{
+      gen: { ref: 'own/ink', bind: { spread: { source: 'bass', amount: 1, attack: 0.05, release: 0.5, min: 0.4, max: 0.75 } } }, // the clouds swell
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+    }],
+  },
 ]
