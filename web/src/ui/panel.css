@@ -20,12 +20,13 @@
   pointer-events: auto;
   transition: opacity 0.5s ease;
 }
-:root:has(.bar.hidden) .panel {
+/* Typing a name for Save as… keeps it: keys don't wake the bar. */
+:root:has(.bar.hidden) .panel:not(:has(header input:focus)) {
   opacity: 0;
   pointer-events: none;
 }
 
-/* star · Save · Save as … GPU */
+/* star · Save · Save as … GPU, or Save as…'s name · OK · Cancel */
 .panel header {
   display: flex;
   align-items: center;
@@ -33,6 +34,14 @@
 }
 .panel header > .gpu {
   margin-left: auto;
+}
+.panel header form {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+}
+.panel header input {
+  flex: 1;
 }
 .panel .note {
   margin: 6px 0 0;
@@ -152,7 +161,8 @@
   margin: 0;
 }
 .panel select,
-.panel button {
+.panel button,
+.panel header input {
   min-width: 0;
   padding: 2px 6px;
   font: inherit;
