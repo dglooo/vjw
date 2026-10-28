@@ -393,7 +393,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates green; `?bench` budget; contact sheet.
 - **Depends on:** S4.2.
 
-### S4.4 `[ ]` Content batch 4: retro — VHS / CRT / strobe / flashes (target ≥8 incl. glitch)
+### S4.4 `[x]` Content batch 4: retro — VHS / CRT / strobe / flashes (target ≥8 incl. glitch)
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the retro category; count check for §4.1.
 - **Files:** `web/src/fx/isf/*.fs` (~5 from the sweep: VHS, CRT, RGB split, pixelate, posterize ⚠️ names), `web/src/fx/own/*.fs` (~3: `strobe.fs` (bool/event bound to beat), `flash.fs` colour flash with `VJW_BIND` on onset (the "drop" proxy, design E8 ⚠️), `scanlines.fs`), `web/src/scenes/builtin.ts` (+3 scenes).
@@ -402,6 +402,27 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** doc round-trips; add one assertion in `doc.test.ts` that every `BUILTIN` ref (except `native/*`, `toy/*`) matches a file stem under `fx/isf` or `fx/own` (`import.meta.glob` is Vite-only; in Vitest read the directories with `fs.readdirSync` ⚠️ `environment: 'node'` allows it).
 - **Done-check:** gates green; `?bench` budget; contact sheet; counts met.
 - **Depends on:** S4.3.
+- **Changed during implementation:**
+  - **Run ahead of CP3 and S4.1–S4.3** (lead's call, a parallel worktree with S3.2 and S4.2): retro needs only single-pass filters, which the CP1/CP2 pipeline renders. So every pick is single-pass with no `PERSISTENT`, and every scene has one layer.
+  - **Copied from `donor/ISF-Files/ISF` (MIT), header kept, `// Source:` line added** (for S7.1): `VHS Glitch.fs` (David Lublin, after Staffan Widegarn Åhlvik), `v002-CRT-Displacement.fs` (vade), `Chromatic Aberration.fs` (VIDVOX), `Pixellate.fs` (VIDVOX), `Posterize.fs` (VIDVOX).
+  - **Own files in `fx/own/`:** `strobe.fs` (bool `strobe` plus `color`), `flash.fs` (float `flash` screens `color`), `scanlines.fs` (`lines`, `darkness`; at least 3 px per line, so a small target shows no moiré). All have `CATEGORIES: ["Retro"]` and a `VJW_BIND` suggestion.
+  - **`catalog.ts`:** the existing glob takes `['./isf/*.fs', './own/*.fs']`, and the id is the path without `./` and `.fs`. S4.2 adds the same, and the lead resolves the merge.
+  - **The `doc.test.ts` assertion uses `import.meta.glob`, not `fs.readdirSync`.** Vitest runs Vite's glob transform. The app tsconfig has no Node types, so `node:fs` would not typecheck.
+  - **Scenes (starred, appended):**
+    - `builtin:vhs-tunnel`: tunnel → Chromatic Aberration (static) → VHS Glitch (`yScanlineAmount` ← bass) → flash (← onset).
+    - `builtin:crt-spectrum`: spectrum → scanlines → v002-CRT-Displacement (`Amount` ← bass, so the glass bulges on a kick).
+    - `builtin:pixel-strobe`: tunnel → Pixellate (`cell_size` ← bass) → Posterize (5 colours) → strobe.
+    - The strobe binding is `beat` + `saw` with `max: 0.65`. A bool is on at ≥ 0.5, so the strobe fires for the first ≈ 20% of each beat when confidence is 0.95–1 (measured 0.94–0.999 on the kick loop). It never fires below confidence 0.77.
+  - **Budget, Playwright on :5180:** installed Chrome, muted, viewport 1728×1117 @ DPR 2 (internal 1728×1118), a 24-beat seamless loop of `kicks128n.wav`. Files are `s44_*` in the scratchpad.
+    - `?bench` per effect over the tunnel, GPU median / p95 ms: Chromatic Aberration 1.83 / 1.97, Pixellate 1.80 / 1.92, Posterize 2.06 / 2.29, VHS Glitch 2.03 / 2.25, CRT 1.97 / 2.17, flash 2.20 / 2.48, scanlines 2.06 / 2.43, strobe 1.70 / 2.04. The tunnel alone was 1.34 / 1.43.
+    - glError 0 and 0 console errors on every item. No effect was dropped.
+    - Scenes, GPU median / p95 ms: VHS tunnel 3.03 / 3.11, CRT spectrum 3.51 / 3.67, Pixel strobe 2.46 / 2.53. 0 errors, 1 drop over the run.
+  - **The spectrum carries at most 2 filters.** Over the spectrum, a third filter took the scene from 3.5 to 6.1–6.2 ms p95 (two runs). Three filters over the tunnel stay at 2.4 ms. Cause unknown; this step does not touch the engine. So Chromatic Aberration moved from the CRT scene into the VHS one.
+  - **Not mine, seen in the bench:** `native/particles` measured 5.18 / 6.36 ms with the kick loop playing. The lead's silent run had 4.67 p95.
+  - **Measuring trap:** after a source edit, Vite serves the app's modules with `?t=`, so a bare `import('/src/app.ts')` from the page builds a second app. Restart the dev server before driving the page through module imports.
+  - **Tally after this step (`parseIsf` over `fx/isf` + `fx/own`, plus the natives):**
+    - Total 13: retro 7 (glitch, VHS Glitch, CRT, Posterize, strobe, flash, scanlines), geometry 2 (tunnel, particles), feedback 1 (Kaleidoscope), liquid 0, none 3 (spectrum, Chromatic Aberration, Pixellate: their ISF categories are "Color Effect/Distortion" and "Stylize").
+    - **Shortfall for the lead:** total −17, feedback −4, geometry −3, liquid −5. These are S4.1–S4.3's batches, S4.2 running in parallel.
 
 ### S4.5 `[ ]` Content batch 5: 12 gl-transitions + bench transition loop
 Invoke the `ponytail` skill (full) before writing code.
