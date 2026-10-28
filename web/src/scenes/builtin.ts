@@ -31,4 +31,19 @@ export const BUILTIN: readonly SceneDoc[] = [
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  {
+    v: 1, id: 'builtin:particles-over-tunnel', name: 'Particles over tunnel', star: true,
+    layers: [
+      { gen: { ref: 'native/tunnel' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 },
+      { gen: { ref: 'native/particles' }, fx: [], blend: 'add', opacity: 0.9, speed: 1, res: 1 },
+    ],
+  },
+  {
+    v: 1, id: 'builtin:trails-spectrum', name: 'Trails spectrum', star: true,
+    layers: [{
+      gen: { ref: 'native/spectrum' },
+      fx: [{ ref: 'isf/Long Exposure', values: { absorptionRate: 0.1, dischargeRate: 0.12 } }], // longer, softer trails
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]

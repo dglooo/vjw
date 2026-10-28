@@ -1,33 +1,67 @@
-// A live scene (design E2/E3, Variant A): renders a SceneDoc into a target every frame, outside React. Per layer the
-// generator draws, then each effect reads the previous texture as `inputImage`, ping-ponging the two engine temps;
-// the last draw lands in `acc`. Bindings are evaluated into the nodes' uniform objects every frame.
+// A live scene (design E1–E3, Variant A): renders a SceneDoc into a target every frame, outside React. Per layer the
+// generator draws (at size × res), then each effect reads the previous texture as `inputImage`, ping-ponging the two
+// engine temps; an ISF file runs its PASSES through its own TARGETs. Each layer is composited onto `acc` with its
+// blend and opacity, except the fast path: a bottom layer at normal, opacity 1, res 1 draws straight into `acc`.
+// Every layer runs its own clock (`speed`). Bindings write the nodes' uniforms and the layers' opacity/speed per frame.
 import { bindFramebufferInfo, type ProgramInfo } from 'twgl.js'
 import { evaluate, type Binding, type BindState, type Sources } from '../bind'
-import { defaults, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
+import { defaults, type Blend, type LayerDoc, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
 import type { FrameInput } from '../frame'
 import { catalog, transitions } from '../fx/catalog'
-import type { EffectDef, InputType, ShaderDef, Value } from '../fx/types'
+import { sizeExpr } from '../fx/isf'
+import type { EffectDef, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { BUILTIN } from '../scenes/builtin'
-import { draw, gl, program, programAsync, temps, type Target } from './engine'
+import { audioTex, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
 import type { Native, NativeDef } from './scene'
 
 export interface Live { readonly doc: SceneDoc; readonly errors: readonly string[]; render(f: FrameInput, s: Sources, acc: Target): void; rebuild(): void; dispose(): void }
 
-/** A built node: a native, or a shader program; `u` holds its values (+ the ISF uniforms for a shader). */
-interface Node { native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[] }
+/** A built node: a native, or a shader program and its passes; `u` holds its values (+ the ISF uniforms). A pass with
+ *  a TARGET owns a read/write pair, swapped after it draws (design E2): a PERSISTENT one reads its last frame, and
+ *  no pass samples the texture it draws into. `w`/`h`: the size the targets were fitted for. */
+interface Node { native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number }
+/** A built layer: its nodes (a null one blacks the layer out), the bindable opacity/speed, its clock, the reused
+ *  FrameInput copy a native reads, and its own target when `res` < 1. */
+interface Layer { doc: LayerDoc; nodes: (Node | null)[]; v: { opacity: number; speed: number }; t: number; f: FrameInput; small: Target | null }
 interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState }
 
-// One size for RENDERSIZE and every image: CP1 renders all targets at the shots' size. ponytail: per-target sizes
-// arrive with ISF passes (S3.3).
-const SIZE = new Float32Array(2)
+const SIZE = new Float32Array(2) // the shots' size: `inputImage`'s, even from a gen drawn at res < 1 (it is upscaled)
+const RS = new Float32Array(2) // RENDERSIZE: the size of the target each pass draws into, set before its draw
 const DATE = new Float32Array(4)
+const AUDIO_SIZE = [512, 1] // the engine's audio textures
+const MAX_SIZE = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number
 const PARALLEL = !!gl.getExtension('KHR_parallel_shader_compile') // warm() compiles off the main thread
+const free = (t: Target) => {
+  gl.deleteFramebuffer(t.framebuffer)
+  gl.deleteTexture(t.attachments[0])
+}
+
+// The layer composite (design E2): the shader pre-scales the source, fixed-function blending does the rest.
+const BLENDS: Record<Blend, [mode: number, sf: GLenum, df: GLenum]> = {
+  normal: [0, gl.ONE, gl.ONE_MINUS_SRC_ALPHA], // alpha-over × opacity
+  add: [1, gl.ONE, gl.ONE], // dst + op·src
+  screen: [1, gl.ONE_MINUS_DST_COLOR, gl.ONE], // 1 − (1 − dst)(1 − op·src)
+  multiply: [2, gl.DST_COLOR, gl.ZERO], // dst · mix(1, src, op)
+}
+// Alpha 0 (add, screen) and 1 (multiply) leave acc's alpha as it was.
+const composite = fullscreenProgram(`#version 300 es
+precision highp float;
+uniform sampler2D uSrc;
+uniform vec2 uRes;
+uniform float uOpacity;
+uniform int uMode;
+out vec4 outColor;
+void main() {
+  vec4 c = texture(uSrc, gl_FragCoord.xy / uRes);
+  float op = uOpacity;
+  outColor = uMode == 0 ? vec4(c.rgb * c.a, c.a) * op : uMode == 1 ? vec4(c.rgb * op, 0.0) : vec4(1.0 - op + op * c.rgb, 1.0);
+}`)
+const cu: Record<string, unknown> = { uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0 } // reused every composite
 
 function create(doc: SceneDoc): Live {
   const errors: string[] = []
-  let layers: (Node | null)[][] = [] // per layer: gen, then fx; a null node blacks the layer out
+  let layers: Layer[] = []
   let bound: Bound[] = []
-  let t0 = 0
   let frames = 0
 
   const fail = (msg: string) => {
@@ -54,24 +88,105 @@ function create(doc: SceneDoc): Live {
       bound.push({ u, name, i, type: input.type, b, state: { y: 0 } })
     }
     const events = def.inputs.filter((x) => x.type === 'event').map((x) => x.name)
-    if ('create' in def) return { native: (def as NativeDef).create(gl), u, events }
-    const { vs, fs } = def as ShaderDef
+    if ('create' in def) return { native: (def as NativeDef).create(gl), u, events, passes: [], w: 0, h: 0 }
+    const { vs, fs, passes, inputs } = def as ShaderDef
     const info = program(vs, fs) // null when it fails to compile; twgl logged why
     if (!info) return fail(`${n.ref}: shader failed to compile`)
-    Object.assign(u, { RENDERSIZE: SIZE, PASSINDEX: 0, DATE, _inputImage_imgSize: SIZE })
-    return { info, u, events }
+    Object.assign(u, { RENDERSIZE: RS, PASSINDEX: 0, DATE, _inputImage_imgSize: SIZE })
+    for (const { name, type } of inputs) {
+      if (type !== 'audio' && type !== 'audioFFT') continue
+      u[name] = type === 'audio' ? audioTex.wave : audioTex.fft
+      u[`_${name}_imgSize`] = AUDIO_SIZE
+    }
+    const pair = (p: PassDef) => (p.target ? [renderTarget(p.float, p.persistent), renderTarget(p.float, p.persistent)] : null)
+    return { info, u, events, passes: passes.map((p) => ({ p, pair: pair(p) })), w: 0, h: 0 }
+  }
+
+  /** A pass's WIDTH/HEIGHT expression in px, or the node's size without one (or when it fails). */
+  function dim(expr: string | undefined, vars: Record<string, number>, fallback: number) {
+    if (expr === undefined) return fallback
+    try {
+      return Math.min(MAX_SIZE, Math.max(1, Math.round(sizeExpr(expr, vars))))
+    } catch (e) {
+      fail((e as Error).message)
+      return fallback
+    }
+  }
+
+  /** Fits a shader node's pass targets to its new size (persistent ones are resampled: design E2).
+   *  ponytail: inputs named in a size expression are read here only, so binding one resizes nothing until the next
+   *  resize; re-check them per frame if an effect needs it. */
+  function resize(n: Node, w: number, h: number) {
+    n.w = w
+    n.h = h
+    const vars: Record<string, number> = { WIDTH: w, HEIGHT: h }
+    for (const [k, v] of Object.entries(n.u)) if (typeof v === 'number') vars[k] = v
+    for (const { p, pair } of n.passes) {
+      if (!pair) continue
+      const tw = dim(p.width, vars, w)
+      const th = dim(p.height, vars, h)
+      for (const t of pair) t.fit(tw, th)
+      n.u[p.target!] = pair[0].attachments[0] // a persistent fit() swaps in a new texture
+      n.u[`_${p.target}_imgSize`] = [tw, th]
+    }
+  }
+
+  /** One node into `dst` on its layer's clock; returns the texture it produced: dst's, or its last pass's TARGET. */
+  function run(n: Node, l: Layer, f: FrameInput, dt: number, src: WebGLTexture | null, dst: Target) {
+    let out = dst
+    if (n.native) {
+      bindFramebufferInfo(gl, dst)
+      const fl = Object.assign(l.f, f) // no allocation: the layer's own copy, on its clock and at its size
+      fl.time = l.t
+      fl.dt = dt
+      fl.width = dst.width
+      fl.height = dst.height
+      n.native.draw(fl, n.u as Record<string, Value>)
+    } else {
+      if (n.w !== dst.width || n.h !== dst.height) resize(n, dst.width, dst.height)
+      n.u.TIME = l.t
+      n.u.TIMEDELTA = dt
+      n.u.FRAMEINDEX = frames
+      n.u.inputImage = src // the previous draw; unused by a generator
+      for (let j = 0; j < n.passes.length; j++) {
+        const { p, pair } = n.passes[j]
+        out = pair ? pair[1] : dst
+        bindFramebufferInfo(gl, out)
+        RS[0] = out.width
+        RS[1] = out.height
+        n.u.PASSINDEX = j
+        draw(n.info!, n.u)
+        if (!pair) continue
+        pair.reverse() // what it drew is now the one later passes (and the next frame) read
+        n.u[p.target!] = pair[0].attachments[0]
+      }
+    }
+    for (const e of n.events) n.u[e] = false
+    return out.attachments[0]
   }
 
   function build() {
     errors.length = 0
     bound = []
-    t0 = performance.now() / 1000 // rAF's clock, as f.time
     frames = 0
-    layers = doc.layers.map((l) => [node(l.gen), ...l.fx.map(node)])
+    layers = doc.layers.map((l) => {
+      const v = { opacity: l.opacity, speed: l.speed }
+      for (const k of ['opacity', 'speed'] as const) {
+        const b = l.bind?.[k]
+        if (b) bound.push({ u: v, name: k, i: -1, type: 'float', b, state: { y: 0 } })
+      }
+      return { doc: l, nodes: [node(l.gen), ...l.fx.map(node)], v, t: 0, f: {} as FrameInput, small: l.res < 1 ? renderTarget() : null }
+    })
   }
 
   function dispose() {
-    for (const n of layers.flat()) n?.native?.dispose?.()
+    for (const l of layers) {
+      if (l.small) free(l.small)
+      for (const n of l.nodes) {
+        n?.native?.dispose?.()
+        for (const { pair } of n?.passes ?? []) pair?.forEach(free)
+      }
+    }
     layers = []
   }
 
@@ -90,31 +205,36 @@ function create(doc: SceneDoc): Live {
       const d = new Date()
       DATE.set([d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()])
       frames++
-      // ponytail: CP1 fast path, each layer straight into acc (one layer in every CP1 doc); blend, opacity, res and the
-      // layer clock arrive in S3.3.
-      for (const chain of layers) {
-        if (chain.includes(null)) {
+      for (let i = 0; i < layers.length; i++) {
+        const l = layers[i]
+        const dt = f.dt * l.v.speed
+        l.t += dt
+        const ok = !l.nodes.includes(null)
+        const last = l.nodes[l.nodes.length - 1]
+        // The fast path (design E1): its last pass draws straight into acc, unless that pass writes an ISF TARGET.
+        const direct = i === 0 && ok && l.doc.blend === 'normal' && l.v.opacity === 1 && !l.small && !last?.passes.at(-1)?.pair
+        if (i === 0 && !direct) {
           bindFramebufferInfo(gl, acc)
           gl.clearColor(0, 0, 0, 1)
           gl.clear(gl.COLOR_BUFFER_BIT)
-          continue
         }
-        let src: Target | null = null
-        for (let k = 0; k < chain.length; k++) {
-          const n = chain[k]!
-          const dst = k === chain.length - 1 ? acc : temps[k % 2]
-          bindFramebufferInfo(gl, dst)
-          if (n.native) n.native.draw(f, n.u as Record<string, Value>)
-          else {
-            n.u.TIME = f.time - t0
-            n.u.TIMEDELTA = f.dt
-            n.u.FRAMEINDEX = frames
-            n.u.inputImage = src?.attachments[0] // the previous draw; unused by a generator
-            draw(n.info!, n.u)
-          }
-          for (const e of n.events) n.u[e] = false
-          src = dst
+        if (!ok) continue
+        l.small?.fit(Math.max(1, Math.round(acc.width * l.doc.res)), Math.max(1, Math.round(acc.height * l.doc.res)))
+        let src: WebGLTexture | null = null
+        for (let k = 0; k < l.nodes.length; k++) {
+          const dst = direct && k === l.nodes.length - 1 ? acc : k === 0 && l.small ? l.small : temps[k % 2]
+          src = run(l.nodes[k]!, l, f, dt, src, dst)
         }
+        if (direct) continue
+        const [mode, sf, df] = BLENDS[l.doc.blend]
+        bindFramebufferInfo(gl, acc)
+        gl.enable(gl.BLEND)
+        gl.blendFunc(sf, df)
+        cu.uSrc = src
+        cu.uOpacity = l.v.opacity
+        cu.uMode = mode
+        composite(cu) // linear: a layer drawn at res < 1 is upscaled here
+        gl.disable(gl.BLEND)
       }
     },
     rebuild() {

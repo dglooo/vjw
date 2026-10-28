@@ -362,7 +362,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - **Not run:** the 2-min `?debug` drop count.
   - **Gates:** lint and tsc clean, 119 tests, build OK. No new tests: the step adds no pure logic (GL only).
 
-### S3.3 `[ ]` `live.ts`: ISF passes, layers with blend/opacity, layer clock + `res`, audio inputs
+### S3.3 `[x]` `live.ts`: ISF passes, layers with blend/opacity, layer clock + `res`, audio inputs
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the full layer compositor and ISF multipass (design E1, E2, E3).
 - **Files:** `web/src/gl/live.ts`, `web/src/scenes/builtin.ts`, `web/src/fx/isf/<one PERSISTENT filter>.fs`.
@@ -371,6 +371,25 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none new (GL); `sizeExpr` is tested in S1.1.
 - **Done-check:** gates green. **Manual:** both new scenes play; trails keep flowing when the governor steps 1 → 0.85 (force it with a heavy tab, `?debug` shows the scale) with no pop; the 4 pilot built-ins still take the fast path (GPU numbers ±10 %).
 - **Depends on:** S3.2.
+- **Changed during implementation:**
+  - **The PERSISTENT filter is `isf/Long Exposure`** (VIDVOX, "Feedback"). It has 2 passes: a persistent FLOAT `feedbackBuffer`, then a pass that samples it by name. Trails spectrum sets absorption 0.1 and discharge 0.12 for longer, softer trails.
+  - **The fast path is the bottom layer, as in design E1, not only 1-layer docs.** A bottom layer at normal, opacity 1 and res 1 draws straight into `acc` even with layers above it, so Particles over tunnel's tunnel skips a composite. A bottom layer then looks the same with or without layers on top.
+  - **Every TARGET is a read/write pair, persistent or not,** as in the official runtime's `ISFBuffer`. A pass reads the pair's last texture, draws into the other, then swaps, so later passes in the frame read what it drew. No pass samples the texture it draws into. With one target, a pass whose sampler is live would be a WebGL feedback loop (`INVALID_OPERATION`), because ISF declares a sampler per target. The cost: a non-persistent target takes 2 textures, not 1.
+  - **A last pass with a TARGET** (11 of the 29 compile-OK persistent filters, e.g. Comet Tails) makes that target the node's output, with no copy. For such a node the fast path composites instead.
+  - **`res` < 1:** the gen draws into the layer's own RGBA8 target. Its fx still run at the shots' size, and `_inputImage_imgSize` stays the shots' size, so the input reads as already upscaled and `IMG_PIXEL(inputImage, gl_FragCoord.xy)` still works. Natives get the layer size in their `FrameInput` copy. `RENDERSIZE` is set per pass to the target it draws into.
+  - **Size expressions are evaluated on resize only** (a `ponytail:` comment). A bound input named in one resizes nothing until the next resize. Results are clamped to 1…`MAX_TEXTURE_SIZE`. One that throws goes to `errors` and falls back to the node's size.
+  - **A broken upper layer is skipped.** A broken bottom layer still clears `acc` to black, as before. Clearing `acc` for an upper layer would erase the layers below it.
+  - **Natives' `time` is the layer clock** from instance creation, no longer rAF's clock. Nothing visible changes. Layer `opacity`/`speed` are copied at build, as node values are; S5.1 decides how panel edits reach them.
+  - **Chrome check.** Playwright on :5182, installed Chrome, `--mute-audio`, 1728×1118 at 60F (internal 1728×1118, scale 1), `s33_kicks_loop.wav`. Scripts and logs are `s33_*` in the scratchpad.
+    - **Walk:** under hold, `→` through all 7 built-ins. The 5 existing ones look as before.
+    - **Particles over tunnel:** particles are added over the tunnel.
+    - **Trails spectrum:** fading ghost columns stand above bars that just dropped.
+    - **Fast-path GPU (ms, median over 1 s, music playing):** Tunnel 1.33, Spectrum 3.08, Particles 5.3, Glitch 2.24, Kaleido 1.82. The 2 new scenes: Particles over tunnel 6.14, Trails spectrum 4.07. The lead's CP2 numbers (0.8 / 3.0 / 4.55 / 1.3 / 1.05) were taken in silence, so this is not a same-conditions ±10 % check. The fast path issues the same draws as before, by construction.
+    - **`res` 1 → 0.5, composite included (GPU ms):** Tunnel 1.37 → 0.96, Spectrum 3.08 → 1.82, Particles 5.35 → 4.03. At 600×400 internal (60A in a 1200×800 window) the gain disappears: Spectrum went 1.16 → 1.58, because there per-pass overhead outweighs fill.
+    - **Governor step:** `setOutput(w, h, 0.85)` forced on Trails spectrum. Stage luminance per frame around the step stays on the kick pattern: 34.66 → 42.6, matching the pre-kick rise 29.02 → 40.63 seen before the step. No dip, so the feedback buffer was resampled, not cleared.
+    - **Errors:** glError 0; 0 console errors or warnings.
+    - **Drops:** 15 over the run, which includes 30 full-frame `readPixels` at 1728×1118 and 3 first-visit test docs. The first run at 600×400 had 4.
+  - **Gates:** lint and tsc clean, 119 tests, build OK. No new tests: no new pure logic (`sizeExpr` is S1.1's).
 
 ### S3.4 `[ ]` Shadertoy node (`toy/<uuid>`, inline code) + an own `mainImage` fixture scene
 Invoke the `ponytail` skill (full) before writing code.
