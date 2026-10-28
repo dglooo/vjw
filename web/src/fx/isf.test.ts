@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { BUILTIN } from '../scenes/builtin'
 import { parseIsf, sizeExpr } from './isf'
 
 const BODY = '\nvoid main() {\n  gl_FragColor = IMG_THIS_PIXEL(inputImage);\n}\n'
@@ -109,6 +110,19 @@ describe('parseIsf', () => {
     expect(() => parseIsf(isf({ INPUTS: [{ TYPE: 'float' }] }), 'isf/n')).toThrow('input NAME undefined is not a GLSL name')
     expect(() => parseIsf(isf({ INPUTS: [{ NAME: 'a;b', TYPE: 'float' }] }), 'isf/n')).toThrow('is not a GLSL name')
     expect(() => parseIsf(isf({ PASSES: [{ TARGET: 'x y' }] }), 'isf/p')).toThrow('pass TARGET')
+  })
+
+  test('our own files parse with a category and VJW_BIND on their inputs; built-in refs name a bundled file', () => {
+    const files = import.meta.glob(['./isf/*.fs', './own/*.fs'], { query: '?raw', import: 'default', eager: true })
+    const ids = Object.keys(files).map((p) => p.slice(2, -3))
+    for (const [path, src] of Object.entries(files).filter(([p]) => p.startsWith('./own/'))) {
+      const d = parseIsf(src as string, path)
+      expect(d.category, path).toBeDefined()
+      expect(d.unsupported, path).toBeUndefined()
+      for (const k of Object.keys(d.bind ?? {})) expect(d.inputs.map((i) => i.name), `${path} ${k}`).toContain(k)
+    }
+    const refs = BUILTIN.flatMap((s) => s.layers.flatMap((l) => [l.gen, ...l.fx])).map((n) => n.ref)
+    for (const r of refs.filter((r) => !r.startsWith('native/'))) expect(ids, r).toContain(r)
   })
 })
 
