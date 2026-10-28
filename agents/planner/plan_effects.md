@@ -199,7 +199,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - the runtime import cycle is broken: `engine.ts → live.ts` is `import type` only, and graphify still lists the type edge.
   - Not done by the stopped coder: drift notes for S1.5/S1.6 and the CP1 user demo text.
 
-### S2.1 `[ ]` Director `setPlaylist` + `peek`, engine GPU timer ring
+### S2.1 `[x]` Director `setPlaylist` + `peek`, engine GPU timer ring
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the two hooks the bench and prepare-ahead need.
 - **Files:** `web/src/director.ts`, `web/src/director.test.ts`, `web/src/gl/engine.ts`.
@@ -207,6 +207,10 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests (`director.test.ts`, +3):** `setPlaylist` keeps the current scene and `next()` follows the new order; removing the current scene continues from its old position; `peek()` matches the scene `next()` then fades to.
 - **Done-check:** gates green.
 - **Depends on:** S1.6.
+- **Changed during implementation:**
+  - **A dropped current scene keeps its slot.** `cur` stays at its old index, clamped to `n`. The scene that followed it now sits in that slot, so `→` and the autopilot land there, and `←` lands on the scene before it. `peek()` uses the same rule (`playlist[away(1)]`). Why: the literal `playlist[(cur + 1) % n]` with `cur` clamped to `n − 1` skips the scene that followed the dropped one. It also changes `peek()`, so prepare-ahead would warm the wrong scene. 9 mutations of this logic were tried; the new tests catch all of them.
+  - **Engine.** Each scene has at most 8 queries in flight. Query objects are recycled through one spare list rather than 8 fixed objects per scene. With an even count of 8 results, `gpuMs` takes the upper median (`sorted[n >> 1]`), the same convention as `quality.ts` and `app.ts`. `live(id)` resolves before `beginQuery`, so an unknown id throws without leaving a query active.
+  - **Browser smoke (coder, :5174, installed Chrome, Playwright):** the extension is present. `gpuMs` fills per id (tunnel ≈0.2–0.3 ms, kaleido-tunnel ≈0.2–0.3 ms, both timed mid-fade), `gl.getError()` = 0, and the console shows no errors.
 
 ### S2.2 `[ ]` `?bench` page: G1 compile timing + ISF-Files sweep, G2 allocation hitches, G3 timer presence, per-effect GPU cost
 Invoke the `ponytail` skill (full) before writing code.
