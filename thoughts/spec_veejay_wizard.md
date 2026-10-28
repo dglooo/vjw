@@ -78,6 +78,7 @@ MilkDrop/Butterchurn (next step), effect editor, camera, clip mixer, tab/system/
 - **Next step: MilkDrop.** 20–30 curated Butterchurn presets in the shared playlist, plus compositing both engines into one recorded canvas. Facts are in `research_donor_milkdrop.md`.
 - **Later: sync from the rig.** rekordbox MIDI Clock / Link as a tempo+beat source; the bar line still needs alignment. Research is pending.
 - **Stage 2a — Many effects** (layers, effect chains, audio bindings, ISF/Shadertoy/own): see `thoughts/spec_effects.md` (grilled 2026-10-28).
+- **Stage 2c — Genre-aware audio reactivity** (kick/snare/hats, sub/reese/wobble, build/drop, custom bands, genre presets, Auto-style mode): see `thoughts/spec_audio_reactivity.md` (grilled 2026-10-28).
 - **Stage 2b — Effect editor**: browse shaders, bars, pixels and other building blocks, pick and keep the ones you like, build presets. Calm UI, React. Details to be settled in a dedicated grill before design.
 - **Stage 3 — Camera scene**: camera/capture device as video input, person segmentation (cut the person out), filters on the person (negative, etc.), composited into the graphics. Needs an ML segmentation model (`⚠️` MediaPipe or similar, to be chosen in research).
 - **Stage 4 — Clip mixer** (`⚠️ Assumption` on placement): video-loop layers, the third leg of the hybrid.

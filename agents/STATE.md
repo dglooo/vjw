@@ -5,7 +5,7 @@
 ## HEAD
 
 **Updated:** 2026-10-28 ~22:00 (session 3, in progress)
-**Stage:** pilot ✅ → Stage 2a `effects` ✅ (tag `cp7-effects`). **Now: idle; next is the audio-reactivity epic (grill with the user). :8080 refreshed.**
+**Stage:** pilot ✅ → Stage 2a `effects` ✅ (tag `cp7-effects`). **Now: epic `audio-reactivity`: spec done, design running.**
 **Spec:** `thoughts/spec_veejay_wizard.md` + `thoughts/spec_effects.md`. **Team:** `.claude/agents/`; planner and security-auditor on Fable 5.1, tester on Haiku 5.5, the rest on Opus 5.5.
 
 ### Pipeline status
@@ -37,11 +37,11 @@
 **🗣 USER FEEDBACK on effects (2026-10-28):** not everything is liked. Some effects and old shaders need rework or improvement; the user will give a **separate brief** on what and how to redo, including the built-in scenes. Don't polish effects on our own until that brief.
 
 **Next epic: flexible, genre-aware audio reactivity** (DnB reese/kick/snare/hats as sources).
-- `research_audio_features.md` done. ▶ **Grill in progress.** R1 (user):
-  - sources = kick/snare/hats + sub & reese separately + drop/build-up + custom bands;
-  - genre = manual preset + a hint from tempo;
-  - latency = two speeds (hits fast; sub/reese/wobble precise, ~85 ms OK);
-  - built-in scenes are remapped, but as a **MODE that adapts to the music style when on**.
+- `research_audio_features.md`; grill (2 rounds + confirm) → **`thoughts/spec_audio_reactivity.md`**.
+  - Sources: kick/snare/hats, sub/reese/wobble, build/drop, custom bands. Presets: DnB, dubstep, techno/house.
+  - Auto-style mode (default on; manual overrides; smooth). Drop: heat-up, then flash + cut. "Sources" tab in the panel.
+- ▶ system-designer → `design_audio_reactivity.md`, then the USER GATE.
+- The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
 
 **Infra:**
 - 🕸 graphify: root `.` → `graphify-out/`, post-commit hook.

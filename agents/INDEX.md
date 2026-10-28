@@ -17,3 +17,4 @@
 - `agents/planner/plan_effects.md`: Stage 2a plan, 27 steps / 7 CPs (Variant A); CP1 = ISF parser + bind + doc → kaleido over tunnel on bass; open binding-source registry. 2026-10-28. Current.
 - `donor/`: interactive-shader-format-js (MIT), ISF-Files (327 .fs, MIT), gl-transitions-2.0.0 (125 glsl3, MIT), webgl-noise (MIT), hg_sdf (MIT|CC-BY-NC). Git-ignored. 2026-10-28.
 - `agents/research/research_audio_features.md`: genre-aware audio features — drum-class detection (full-mix F 0.58–0.82), reese/sustain (diff envelopes, HPSS 43–80 ms look-ahead), ML stems offline-only (HTDemucs 7.8 s), FFT 8192 for 40/60 Hz, genre tempo ranges + octave fold, tool UIs, worklet cost (16 bands 0.34% core). 2026-10-28. Fresh.
+- `thoughts/spec_audio_reactivity.md`: Stage 2c spec — kick/snare/hats, sub/reese/wobble, build/drop, custom bands, genre presets (DnB/dubstep/techno), Auto-style mode, Sources panel. 2026-10-28. Current.
