@@ -4,54 +4,39 @@
 
 ## HEAD
 
-**Updated:** 2026-10-28 (session 3, in progress)
-**Stage:** 1 — pilot (CP1–CP4 done, CP5 coding) → 2a `effects` (spec grilled, research running). **Now: effects CP2 wave 1 (3 parallel worktree coders); the user plays on :8080.**
-**Spec:** `thoughts/spec_veejay_wizard.md` (rewritten in session 3; see decisions below).
-**Team:** `.claude/agents/` → researcher, system-designer, planner, frontend-coder, tester, security-auditor. backend-coder is dormant. Models: planner + security-auditor on Fable 5.1, tester on Haiku 5.5, the rest on Opus 5.5.
+**Updated:** 2026-10-28 ~22:00 (session 3, in progress)
+**Stage:** pilot ✅ → Stage 2a `effects`: CP1–CP4 ✅, CP5 panel + CP6 library coding. **Now: wave 6 (3 parallel worktree coders); the user plays on :8080.**
+**Spec:** `thoughts/spec_veejay_wizard.md` + `thoughts/spec_effects.md`. **Team:** `.claude/agents/`; planner and security-auditor on Fable 5.1, tester on Haiku 5.5, the rest on Opus 5.5.
 
 ### Pipeline status
-**Pilot (`plan_pilot.md`): ALL steps done (CP1–CP5 + S6.1); gates green (75 tests).** Details are in TAIL and the plan's drift notes.
-- Verified in the installed Chrome (lead + coders) and live by the user. 60A M4: 0 drops; tempo 128 ± 1 at ~5 s.
-- ⏳ USER (optional): 30-min §7.5 run (Δdrops ≤ 30), `?debug` channels, `?flash` lag, CP5 BPM vs rekordbox.
-- REC is low priority:
-  - MP4 1 s timeslice, keyframe 60 s, split every 20 min;
-  - Chrome bugs (QuickTime drift ≈0.5 s / 30 min, 4 GiB crash on M156/157) are in `research_recording_mp4.md`;
-  - backlog: a WebCodecs recorder.
-- Polish backlog: **stage/transition pass has a ~3 ms GPU floor even for a crossfade at 1728×1118 (S4.5); investigate**; wave-landscape shows floating shards on bass peaks (raymarch steps); spectrum takes ≤2 filters (3 → 6.2 ms); strobe is a full-white flash every beat (check taste/safety); steppy bass bars, white-out particles, keys don't wake the overlay, mid-fade key cuts, 16-beat recovery (accepted).
-- ✅ S6.1 closeout: THIRD_PARTY.md, probe deleted (commit `3ea87d2`).
-- 🎤 Live snapshot: scratchpad `live/` on :8080 (`python3 -m http.server`, lead bg task), refreshed with CP5. Test scripts use `--mute-audio`.
+**Pilot (`plan_pilot.md`): ALL done** (CP1–CP5 + S6.1). Verified in Chrome and live by the user.
+- ⏳ USER (optional): 30-min §7.5 run, `?debug` channels, `?flash` lag, BPM vs rekordbox.
+- REC is low priority: MP4 1 s timeslice, keyframe 60 s, 20-min split. Chrome bugs are in `research_recording_mp4.md`. Backlog: a WebCodecs recorder.
 
-**Epic `effects` (Stage 2a):**
-- Spec `thoughts/spec_effects.md` (grilled + confirmed); research `research_editor_effects.md`; design `design_effects.md`.
-- ✅ **USER GATE 2026-10-28: Variant A** (own ISF loader on twgl). Counts default: ≥30 effects, ≥5 per category, ≥10 transitions.
-- ✅ Plan `plan_effects.md`: 27 steps / 7 CPs (CP2 bench + natives, CP3 compositor/transitions/Shadertoy, CP4 content ×5, CP5 panel, CP6 library, CP7 closeout). `donor/` fetched (git-ignored).
-- ✅ **Effects CP1** `f421b38`: ISF loader + bindings + SceneDoc, KALEIDO TUNNEL on bass (lead-verified, 109 tests). The coder was stopped at ~4 h for context bloat.
-- 🔑 **USER (2026-10-28): one step per agent, parallel worktrees, time-boxed** (CLAUDE.md workflow #11, memory `one-step-per-agent`).
-- Wave 1: ✅ S2.3 natives (7 min, `9b98f74`) ‖ ✅ S3.1 GLSL ES3 wrappers (12 min, `02f1505`, 116 tests; all 125 gl-transitions link) ‖ ✅ S2.1 director hooks + GPU timer (13 min, `d87b694`, 119 tests).
-  - Heads-ups for later briefs:
-    - S4.5 skips the ivec2 transitions, FlashFade, DisplacementMap and LumaWipe;
-    - S3.4/S5.3 need `#define HW_PERFORMANCE`;
-    - parallel coders must prefix their scratchpad file names (step id).
-- Wave 2: ✅ S2.4 particles native (6 min, `6620359`; Scene/SceneFactory gone; master walk: 5 scenes, 0 errors) ‖ ✅ S2.2 `?bench` + ISF sweep (16 min, `c30951c`).
-- :8080 refreshed with master `6620359` (5 scenes incl. KALEIDO TUNNEL).
-- Bench:
-  - sweep: 263/327 ISF compile, 245 usable (no "liquid" category in ISF-Files, so liquids are our own);
-  - cold ISF compile ~43 ms each;
-  - **lead run at 1728×1118: G2 0 drops (no pool needed); GPU tunnel 0.8, spectrum 3.0, particles 4.55, glitch 1.3, kaleido 1.05 ms (all ≤5).**
-- ✅ **CP2 done:** S2.5 compile-all + prepare-ahead (0 late frames on first visits, 214 ms warm-up, no leaks).
-  - Lead 5-min autopilot at 1728×1118: all 5 scenes on bar lines, 3 drops / 5 min (pass ≤1/min), 0 errors. :8080 refreshed.
-- ✅ CP3 (S3.1–S3.4, tag `cp3-effects`) + S4.2b/S4.5.
-- ✅ S5.1 panel engine (`edit.ts`, `live.panel`, E/Esc; 129 tests).
-- ▶ Wave 6 (parallel): S5.2 Panel UI ‖ S6.1 library (IndexedDB, stars → playlist, JSON) ‖ polish (stage-pass 3 ms floor, wave-landscape shards). Then S5.3 paste dialog → S6.2 panel buttons → CP7.
-- ✅ **CP4 content done (2026-10-28):** 27 starred scenes; 34 effects/generators (14 ISF + 16 own + 4 natives + toy) ≥30 ✓; 13 transitions ≥10 ✓; categories retro/geometry/feedback/liquid each ≥5.
-  - Lead: full `?bench` at 1728×1118 shows 0 errors and transitions p95 ≤4.9; the heavy gens are over 5 at res 1 but scenes use res 0.5. Walk of all 27 scenes: 0 errors, contact sheet `scratchpad/cp4walk/contact.png`. :8080 refreshed; tag `cp4-effects`.
+**Epic `effects` (Stage 2a, `plan_effects.md`, Variant A):**
+- ✅ CP1 `f421b38` · CP2 `cp2-effects` (bench, natives, compile-all) · CP3 `cp3-effects` (compositor, transitions, Shadertoy) · CP4 `cp4-effects`.
+  - **CP4:** 27 starred scenes, 34 effects (14 ISF, 16 own, 4 natives, 1 toy), 13 transitions.
+  - All scenes ≤5 ms GPU at 1728×1118 (heavy gens at res 0.5), 0 errors. Contact sheet `scratchpad/cp4walk/contact.png`.
+- ✅ S5.1 panel engine (`edit.ts`, `live.panel`, E/Esc). 129 tests.
+- ▶ **Wave 6 (parallel worktrees):** S5.2 Panel UI ‖ S6.1 library (IndexedDB, stars → playlist, JSON) ‖ polish (3 ms stage-pass floor, wave-landscape shards).
+  - Then S5.3 paste-Shadertoy dialog → S6.2 panel buttons → CP7 closeout (THIRD_PARTY shaders, regression).
+- Polish backlog:
+  - Slit scan is weak;
+  - liquid chrome makes a ring every kick;
+  - strobe is full-white every beat (taste, safety);
+  - spectrum takes ≤2 filters;
+  - a structural panel edit restarts the scene;
+  - steppy bass bars; keys don't wake the overlay.
+- Heads-ups: the bench needs a quiet GPU (parallel benches inflate 2×); parallel coders prefix scratch files; `builtin.ts` append conflicts are resolved by the lead (keep both).
 
-**Next epic (requested 2026-10-28): flexible, genre-aware audio reactivity.**
-- ✅ `research_audio_features.md`: user bands + envelope followers are cheap (16 = 0.34% core); kick vs sustain via differential envelopes; drum classes on full mixes F 0.58–0.82; ML stems offline only; 40/60 Hz needs FFT 8192; genre tempo ranges fix the octave fold.
-- Next: a short grill + design once effects CP1/CP2 land (the user: "wait, then see").
+**Next epic: flexible, genre-aware audio reactivity** (DnB reese/kick/snare/hats as sources).
+- `research_audio_features.md` done. Next: a short grill + design after effects CP5/CP6.
 
-- 🕸 **graphify**: root `.` → `graphify-out/` (git-ignored); a post-commit hook rebuilds it. A type-only cycle `catalog→tunnel→engine→live` remains (runtime-safe).
-- ⏰ **Auto-resume cron** `0fc53f5a` (every 30 min, :17/:47 + offset; session-only, expires after 7 days). It re-dispatches agents that died on usage limits and continues the pipeline.
+**Infra:**
+- 🕸 graphify: root `.` → `graphify-out/`, post-commit hook.
+- ⏰ cron `0fc53f5a` (auto-resume, 30 min).
+- 🎤 :8080 = scratchpad `live/` (`http.server`, lead bg task), refreshed at CP4.
+- 🔑 Dispatch rule: one step per agent, parallel worktrees, time-boxed (CLAUDE.md #11).
 
 ### Key decisions
 - Session 2 (/grill-me): browser pilot, Chrome-first, localhost; Vite + React + TS; Electron later. Minimal auto-hiding overlay, REC via MediaRecorder, quality modes 60 adaptive / 60 full / 30. After the pilot: editor → camera → clip mixer.
