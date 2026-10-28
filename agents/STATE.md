@@ -17,7 +17,7 @@
   - MP4 1 s timeslice, keyframe 60 s, split every 20 min;
   - Chrome bugs (QuickTime drift ≈0.5 s / 30 min, 4 GiB crash on M156/157) are in `research_recording_mp4.md`;
   - backlog: a WebCodecs recorder.
-- Polish backlog: **particles 6.36 ms p95 with kicks (over budget)**; spectrum takes ≤2 filters (3 → 6.2 ms); strobe is a full-white flash every beat (check taste/safety); steppy bass bars, white-out particles, keys don't wake the overlay, mid-fade key cuts, 16-beat recovery (accepted).
+- Polish backlog: **stage/transition pass has a ~3 ms GPU floor even for a crossfade at 1728×1118 (S4.5); investigate**; **particles 6.36 ms p95 with kicks (over budget)**; spectrum takes ≤2 filters (3 → 6.2 ms); strobe is a full-white flash every beat (check taste/safety); steppy bass bars, white-out particles, keys don't wake the overlay, mid-fade key cuts, 16-beat recovery (accepted).
 - ✅ S6.1 closeout: THIRD_PARTY.md, probe deleted (commit `3ea87d2`).
 - 🎤 Live snapshot: scratchpad `live/` on :8080 (`python3 -m http.server`, lead bg task), refreshed with CP5. Test scripts use `--mute-audio`.
 
@@ -40,7 +40,7 @@
   - **lead run at 1728×1118: G2 0 drops (no pool needed); GPU tunnel 0.8, spectrum 3.0, particles 4.55, glitch 1.3, kaleido 1.05 ms (all ≤5).**
 - ✅ **CP2 done:** S2.5 compile-all + prepare-ahead (0 late frames on first visits, 214 ms warm-up, no leaks).
   - Lead 5-min autopilot at 1728×1118: all 5 scenes on bar lines, 3 drops / 5 min (pass ≤1/min), 0 errors. :8080 refreshed.
-- Wave 4: ✅ S3.2 engine ‖ ✅ S4.4 retro (8 fx) ‖ ✅ S4.2 3D (4 gens) ‖ ✅ S3.3 compositor (blend/res/multipass; `res` 0.5 = −25–41% GPU) ‖ ▶ S4.5 transitions. 14 scenes, 121 tests.
+- Wave 4: ✅ S3.2 engine ‖ ✅ S4.4 retro (8 fx) ‖ ✅ S4.2 3D (4 gens) ‖ ✅ S3.3 compositor (blend/res/multipass; `res` 0.5 = −25–41% GPU) ‖ ✅ S4.5 12 gl-transitions (p95 ≤4.9 ms; CrossZoom dropped). 14 scenes, 13 transitions, 121 tests.
 - ▶ Wave 5 (parallel): S3.4 Shadertoy node ‖ S4.1 feedback/kaleido/mirrors ‖ S4.3 liquids/metal ‖ S4.2b (dropped 3D retried with `res` + particles budget fix). Then CP5 panel (S5.1 after S3.4).
   - S4.2/S4.4 don't need CP3; `res` is honoured after S3.3. Then S3.3 → S3.4 → S4.1 feedback + S4.3 liquids (need PERSISTENT) ‖ S4.5 transitions ‖ CP5 panel. Then wave 3: S2.5 compile-all + prepare-ahead → CP2 check → refresh :8080.
   - Next: wave 2 = S2.2 bench ‖ S2.4 particles; wave 3 = S2.5. :8080 is not refreshed until CP2.
