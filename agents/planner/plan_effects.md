@@ -415,7 +415,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - **Errors:** glError 0, and 0 console errors outside the broken paste. 4 drops over the run, which reads pixels on 150 frames.
   - **Gates:** lint and tsc clean, 121 tests, build OK.
 
-### S4.1 `[ ]` Content batch 1: trails / feedback / kaleidoscope / mirrors (target ≥8)
+### S4.1 `[x]` Content batch 1: trails / feedback / kaleidoscope / mirrors (target ≥8)
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the feedback category filled, budget-checked.
 - **Files:** `web/src/fx/isf/*.fs` (~5 from the sweep's compile-OK list: kaleidoscope, mirror variants, tiling, one PERSISTENT feedback; the user's picks from the contact sheet ⚠️ names from the sweep), `web/src/fx/own/*.fs` (~3: `feedback-zoom.fs` MilkDrop-style zoom-rotate warp with `VJW_BIND` on onset, `trails.fs` half-float decay (`PERSISTENT` + `FLOAT`), `echo.fs` slit-scan), `web/src/scenes/builtin.ts` (+3 starred scenes using them).
@@ -424,6 +424,46 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** `doc.test.ts` round-trips the new docs.
 - **Done-check:** gates green; `?bench`: every new item compiles, 0 GL/console errors, p95 ≤ 5 ms at 1728×1117 (over budget → lower `res` or drop); the lead's contact sheet; the user prunes.
 - **Depends on:** S3.4, S2.2 sweep list.
+- **Changed during implementation:**
+  - **Run before S3.4** (lead's call, a parallel worktree): only CP3's `PERSISTENT` targets and layers were needed (S3.3).
+  - **Copied from `donor/ISF-Files/ISF` (MIT), header kept, `// Source:` line added** (for S7.1):
+    - `Comet Tails.fs` (VIDVOX);
+    - `Circular Feedback Mask.fs` (VIDVOX);
+    - `Kaleidoscope Tile.fs` (by VIDVOX);
+    - `Sine Warp Tile.fs` (by VIDVOX);
+    - `Mirror.fs` (by VIDVOX).
+  - **Own files in `fx/own/`,** all `CATEGORIES: ["Feedback"]` with a `VJW_BIND` suggestion. Per-frame amounts are at 60 fps, rescaled by `TIMEDELTA`.
+    - `feedback-zoom.fs`: MilkDrop-style. It keeps the last frame zoomed, turned and decayed under `max()` of the new one, in a half-float persistent target. `zoom` ← onset.
+    - `trails.fs`: half-float decay. The trail drifts up and its hue walks round the grey axis. `rise` ← bass.
+    - `echo.fs`: slit-scan. A live band runs across the middle, and its edges stream out to the top and bottom in whole-pixel steps, so the stream never blurs. `speed` ← bass. RGBA8 persistent.
+  - **Mirror's ISF category is "Geometry Adjustment",** so it counts as geometry. **Feedback after this step: 9** (Kaleidoscope, Long Exposure, the 4 ISF above and the 3 own files), up from 2.
+  - **Scenes (starred, appended):**
+    - `builtin:spiral-mesh`: tunnel-mesh (res 0.75, its usual bindings) → feedback-zoom.
+    - `builtin:slit-scan`: tunnel → Sine Warp Tile (`angle` ← a 33 s lfo saw) → echo.
+    - `builtin:kaleido-maze`: Truchet (res 0.75; lines are `color2`, so cyan on navy) → Kaleidoscope Tile (`rotation` ← a 20 s lfo saw, `angle` ← bass) → Comet Tails.
+    - `builtin:feedback-ring`: spectrum (res 0.5) → Mirror (vertical) → Circular Feedback Mask (`twirlAmount` ← bass, `feedbackRate` ← onset).
+    - `builtin:rainbow-trails`: spectrum (res 0.5) → trails.
+  - **All single-layer.** The tried 2-layer Rainbow trails measured 6.1 / 6.3 ms and looked washed out: warped tunnel at the bottom, spectrum + trails `screen` 0.9 on top, and the bright tunnel drowned the trails. Mirror over the trails spectrum was also dropped.
+  - **Budget, Playwright on :5185:** installed Chrome, muted, viewport 1728×1117 @ DPR 2 (internal 1728×1118), `s44_kicks_loop.wav`. Files are `s41_*` in the scratchpad.
+    - **`?bench` per effect over the tunnel, GPU median / p95 ms.** That run's tunnel read 1.99 / 3.04 against the usual 1.3: Circular Feedback Mask 3.33 / 4.86, Comet Tails 3.73 / 4.58, Kaleidoscope Tile 1.73 / 2.95, Sine Warp Tile 1.51 / 1.57, Mirror 1.83 / 1.89, echo 2.55 / 2.61, feedback-zoom 3.07 / 3.14, trails 3.04 / 3.10. A half-float feedback pass costs about 1 ms at this size.
+    - **glError 0 and 0 console errors** on every item and scene. No effect was dropped.
+    - **Scenes, GPU median / p95 ms, all ≤ 5 in the runs that count:**
+
+      | scene | first run (after `?bench`) | tunnel ref 1.7–1.8 | tunnel ref 1.37 |
+      |---|---|---|---|
+      | Spiral mesh | 2.73 / 2.82 | 4.02 / 4.51 | |
+      | Slit scan | 1.78 / 2.67 (no Sine Warp Tile yet) | 2.98 / 3.06 | |
+      | Kaleido maze | 2.48 / 2.90 | 4.02 / 4.24 | |
+      | Feedback ring | 2.88 / 3.18 | 2.88 / 3.13 | 2.88 / 3.23 |
+      | Rainbow trails | | | 3.42 / 3.77 |
+  - **Bench noise.** Other worktree agents shared the GPU (S4.2/S4.3/S3.4 benches were running). In loaded runs the same docs read 2–4× higher, e.g. Feedback ring 10.1 / 13.0 and Rainbow trails 10–15, while builtin:spectrum alone read 5.5–6.8. Every doc was re-measured with a `builtin:tunnel` reference in the same run, and only near-clean runs count above.
+  - **Look (screenshots `s41_out/`, `s41_ab/`):**
+    - Spiral mesh: the neon wire tube with stacked, zooming echo copies of its grid. It is bright and busy.
+    - Feedback ring: the mirrored spectrum sits in a central disc, and concentric pink/yellow/green rings stream out and fade to black. Clean.
+    - Kaleido maze: cyan maze lines on navy in a rotating kaleido tiling (rosettes, nested squares), with faint comet ghosts.
+    - Rainbow trails: glowing spectrum bars with dimmer ghosts rising above the tops.
+    - Slit scan: the warped tunnel in a centre band, with beat-spaced horizontal bands streaming out. It reads as a glitchy time-smear, the weakest look, for the user to prune.
+  - **Tests:** none new. `doc.test.ts` round-trips every built-in and checks every ref against a bundled file. `isf.test.ts` checks the own files' category, `unsupported` and `VJW_BIND` keys. 121 pass.
 
 ### S4.2 `[x]` Content batch 2: 3D / geometry (target ≥7 incl. tunnel, particles)
 Invoke the `ponytail` skill (full) before writing code.
