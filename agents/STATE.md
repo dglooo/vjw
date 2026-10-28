@@ -32,7 +32,8 @@
     - S4.5 skips the ivec2 transitions, FlashFade, DisplacementMap and LumaWipe;
     - S3.4/S5.3 need `#define HW_PERFORMANCE`;
     - parallel coders must prefix their scratchpad file names (step id).
-- ▶ Wave 2: S2.4 particles native ‖ S2.2 `?bench` + ISF sweep (started after S2.1). Then wave 3: S2.5 compile-all + prepare-ahead → CP2 check → refresh :8080.
+- Wave 2: ✅ S2.4 particles native (6 min, `6620359`; Scene/SceneFactory gone; master walk: 5 scenes, 0 errors) ‖ ▶ S2.2 `?bench` + ISF sweep.
+- :8080 refreshed with master `6620359` (5 scenes incl. KALEIDO TUNNEL). Then wave 3: S2.5 compile-all + prepare-ahead → CP2 check → refresh :8080.
   - Next: wave 2 = S2.2 bench ‖ S2.4 particles; wave 3 = S2.5. :8080 is not refreshed until CP2.
 
 **Next epic (requested 2026-10-28): flexible, genre-aware audio reactivity.**
