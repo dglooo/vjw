@@ -5,7 +5,7 @@
 ## HEAD
 
 **Updated:** 2026-10-28 ~22:00 (session 3, in progress)
-**Stage:** pilot ✅ → Stage 2a `effects`: CP1–CP4 ✅, CP5 panel + CP6 library coding. **Now: wave 6 (3 parallel worktree coders); the user plays on :8080.**
+**Stage:** pilot ✅ → Stage 2a `effects` ✅ (tag `cp7-effects`). **Now: idle; next is the audio-reactivity epic (grill with the user). :8080 refreshed.**
 **Spec:** `thoughts/spec_veejay_wizard.md` + `thoughts/spec_effects.md`. **Team:** `.claude/agents/`; planner and security-auditor on Fable 5.1, tester on Haiku 5.5, the rest on Opus 5.5.
 
 ### Pipeline status
@@ -20,7 +20,11 @@
 - ✅ S5.1 panel engine (`edit.ts`, `live.panel`, E/Esc). 129 tests.
 - ▶ **Wave 6 (parallel worktrees):** ✅ S5.2 Panel UI (0 re-renders and 0 drops while dragging) ‖ ✅ S6.1 library (IndexedDB, stars → playlist, JSON; 142 tests) ‖ ✅ polish (wave-landscape shards fixed, res 0.5 p95 ≤5 with ~1 ms headroom; the 3 ms stage "floor" is an ANGLE/Metal timer-query artifact, real pass ≈0.04 ms; scene gpuMs carry ~1 ms of overhead).
   - ✅ S5.3 paste dialog + S6.2 library buttons + `director.cut` (144 tests; Chrome 18/18 and 24/24). **CP5 + CP6 done.**
-  - ▶ CP7: S7.1 THIRD_PARTY shaders (Sonnet) ‖ fix: inline Save-as field (`prompt()` froze the picture). Then S7.2, the lead's regression + 5-min run → `cp7-effects`.
+  - ✅ **CP7 (2026-10-28): epic `effects` COMPLETE (27/27 steps), tag `cp7-effects`.**
+    - S7.1: THIRD_PARTY 43 shader rows (`scripts/shaders.mjs`). Unverified upstreams: Truchet, VHS Glitch, v002 CRT, McGuire noise.
+    - Fix: inline Save-as field.
+    - S7.2 lead regression: all keys, REC 30 s clean, 5-min 60A 3 drops, 0 errors.
+    - **Final count:** 27 starred scenes; 34 effects (ISF 14, own 16, natives 4, toy 1); 13 transitions; retro ≥7, geometry ≥8, feedback 9, liquid 5.
 - Polish backlog:
   - Slit scan is weak;
   - liquid chrome makes a ring every kick;

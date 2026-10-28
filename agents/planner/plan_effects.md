@@ -913,7 +913,7 @@ Invoke the `ponytail` skill (full) before writing code.
     ```
   - **Gates:** lint and tsc clean, 144 tests, build OK. No new tests (the step names none).
 
-### S7.2 `[ ]` Final gates, build, Playwright regression, 30-min run
+### S7.2 `[x]` Final gates, build, Playwright regression, 30-min run
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** closeout; fixes only if the regression finds something.
 - **Files:** none planned (fixes land where found, ≤3 files, noted under this step).
@@ -921,6 +921,14 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** the whole suite.
 - **Done-check:** all green; **lead commits** `cp7-effects` and records the final effect count per category in STATE.
 - **Depends on:** S7.1.
+
+- **Changed during implementation (lead, 2026-10-28):** the regression was run by the lead in the installed Chrome via Playwright (`--mute-audio`).
+  - Gates: lint, tsc, 144 tests, build.
+  - Keys: E opens the panel (LOCK, library, GPU hint), Esc, Space lock on/off, Q 60F → 30 → 60A, ←/→, F fullscreen on/off.
+  - R: 30.9 s MP4 (H.264 + AAC), clean ffmpeg decode.
+  - 5-min autopilot at 1728×1118: built-ins cycle through transitions (Tunnel … CRT spectrum, Pixel strobe, Tunnel mesh), 3 drops / 5 min (pass ≤1/min), 0 console/page/GL errors.
+  - Earlier walk of all 27 starred scenes: 0 errors (`scratchpad/cp4walk/contact.png`).
+  - No fixes were needed.
 
 ## Acceptance mapping
 | spec_effects §4 | Proven by |
