@@ -34,8 +34,14 @@
   - steppy bass bars; keys don't wake the overlay.
 - Heads-ups: S6.2 must handle "Save as keeps editing the on-screen scene", plus stars from `library.get(id)?.star`; `library.del` of the on-screen scene must not crash. The bench needs a quiet GPU (parallel benches inflate 2×); parallel coders prefix scratch files; `builtin.ts` append conflicts are resolved by the lead (keep both).
 
+**🗣 USER FEEDBACK on effects (2026-10-28):** not everything is liked. Some effects and old shaders need rework or improvement; the user will give a **separate brief** on what and how to redo, including the built-in scenes. Don't polish effects on our own until that brief.
+
 **Next epic: flexible, genre-aware audio reactivity** (DnB reese/kick/snare/hats as sources).
-- `research_audio_features.md` done. Next: a short grill + design after effects CP5/CP6.
+- `research_audio_features.md` done. ▶ **Grill in progress.** R1 (user):
+  - sources = kick/snare/hats + sub & reese separately + drop/build-up + custom bands;
+  - genre = manual preset + a hint from tempo;
+  - latency = two speeds (hits fast; sub/reese/wobble precise, ~85 ms OK);
+  - built-in scenes are remapped, but as a **MODE that adapts to the music style when on**.
 
 **Infra:**
 - 🕸 graphify: root `.` → `graphify-out/`, post-commit hook.
