@@ -527,7 +527,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - **For S7.1:** hg_sdf code now ships, in `own/sdf-shapes.fs` (MIT option, full header kept). No webgl-noise code ships.
   - **Tests and gates.** No new tests: the S4.2 test covers own files and built-in refs, and the doc round-trips cover the new scenes. Lint and tsc are clean, 121 tests pass, the build is OK. 0 console errors and glError 0 over all runs.
 
-### S4.3 `[ ]` Content batch 3: liquids / metal (target ≥6)
+### S4.3 `[x]` Content batch 3: liquids / metal (target ≥6)
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** procedural and feedback-advection liquids; no Navier–Stokes (design E8).
 - **Files:** `web/src/fx/own/*.fs` (~5: `domain-warp.fs` fluid, `smoke.fs` feedback advection (`PERSISTENT`), `liquid-chrome.fs` with an onset-bound burst via `VJW_BIND`, `metaballs.fs`, `ink.fs`), `web/src/fx/isf/*.fs` (~1 from the sweep ⚠️), `web/src/scenes/builtin.ts` (+3 scenes).
@@ -535,6 +535,42 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** doc round-trips.
 - **Done-check:** gates green; `?bench` budget; contact sheet.
 - **Depends on:** S4.2.
+- **Changed during implementation:**
+  - **5 own effects, no ISF-Files pick.** No sweep file has a liquid category; the near misses (Ripples, Smoke Screen) are distortion/stylize filters. With the 5 own effects, the liquid category reaches 5.
+    - Generators: `domain-warp`, `liquid-chrome`, `metaballs`, `ink`.
+    - Filter: `smoke`.
+    - All are `CATEGORIES: ["Liquid"]` with a `VJW_BIND` suggestion.
+  - **+4 starred scenes, not +3, one per generator.** All are appended to `builtin.ts`:
+    - `builtin:liquid-chrome`: burst ← onset, res 0.75.
+    - `builtin:fluid`: domain-warp, warp ← bass 1–2.2, res 0.5.
+    - `builtin:lava-smoke`: metaballs (size ← bass) → smoke (curl ← bass), res 1.
+    - `builtin:ink`: spread ← bass, res 0.5.
+  - **Smoke is a 2-pass filter.** Pass 0 writes a `PERSISTENT` + `FLOAT` target at `$WIDTH/2 × $HEIGHT/2`. It is a semi-Lagrangian step through a curl-noise velocity (the `srdnoise` gradient turned 90°, plus a rise), a 4-tap diffuse, `exp(−fade·dt)` decay, and `max` with the input. Pass 1, at full size, is `max(buffer, input)`, so the image stays sharp. The last pass has no TARGET, so the fast path still applies.
+    - First version: one full-size pass. Over the tunnel it was 3.81 / 5.09 ms; the 2-pass version is 2.41 / 3.30.
+  - **Liquid chrome burst:** the ring radius is `RING·(1 − burst)` and its amplitude is `burst`. When the onset envelope decays, the ring moves outward and slows, with no state.
+  - **webgl-noise inlined (MIT, header lines kept; for S7.1).** No ISF-Files were copied.
+    - `snoise` (noise2D.glsl, Ian McEwan / Ashima Arts) in `domain-warp.fs` and `ink.fs`.
+    - `srdnoise` + `rgrad2`/`permute`/`mod289` (psrdnoise2D.glsl, Stefan Gustavson; the sin/cos branch of `rgrad2`) in `smoke.fs`.
+    - Inline comments in the function bodies were trimmed.
+  - **Transcendentals drove the cost, not noise or loops.**
+    - Metaballs, full size: 4.59 → 2.67 ms. Each blob's `sin()` paths became a smoothstepped triangle, and the per-blob palette became one palette of the field-weighted blob index.
+    - Domain-warp: 4 palette calls became 2. `palette(t + 1/3) = palette(t).gbr` and `palette(t + 0.5) = 1 − palette(t)`.
+  - **Tunings.**
+    - Fluid, 2: warp 2.2–4.5 → 1–2.2, scale 1.6 → 1, octaves 4 → 3, hue 0.55 → 0.3 (the first version was a grainy green "moss"); then the palette.
+    - Ink, 1: its first version filled the screen with a pink/blue ridged plasma. It became sparse clouds (mask threshold) of billows, `|noise|`, and 14 → 10 noise calls.
+    - Metaballs, 2: the cost, then a broader specular (60 → 24).
+    - Smoke, 1: the half-size buffer.
+  - **Budget, Playwright on :5186.** Installed Chrome, muted, viewport 1728×1117 @ DPR 2 (internal 1728×1118). Files are `s43_*` in the scratchpad.
+    - Scenes, with `s44_kicks_loop.wav` playing, GPU median / p95 ms at their res: Liquid chrome 2.27 / 2.36, Fluid 3.49 / 3.60, Lava smoke 3.64 / 3.82, Ink 1.23 / 2.24. 0 glError, 0 console errors.
+    - `?bench`, silent, per effect at full size (generators alone, filters over the tunnel; tunnel alone 1.35): domain-warp 9.11 / 9.14, ink 6.22 / 9.19, liquid-chrome 2.02 / 7.18 (a prepare-ahead spike, as in S4.2), metaballs 2.67 / 2.71, smoke 2.41 / 3.30.
+    - So **domain-warp and ink must stay at res ≤ 0.5.** At res 1 a user-built scene with either goes over 5 ms.
+    - The GPU was shared. In the previous run, the unchanged chrome read +29% and Fluid read 5.13 / 5.89; this re-measure is the one above. No effect was dropped.
+  - **Look (screenshots `s43_<scene>_<k>.jpg`):**
+    - Liquid chrome: mercury with a blue sky, a sharp dark floor and white strip highlights. On a 4-on-the-floor kick loop a new ring starts on every beat (release 0.35 s, beat 0.47 s), so concentric rings fill the frame most of the time. ⚠️ The user may prefer a longer release or a smaller `RING_K`.
+    - Fluid: a glossy blue/teal liquid marble with olive pockets.
+    - Lava smoke: soft glossy purple/pink/cyan blobs, steaming curls. A very fast highlight still leaves a short beaded streak in the smoke: `max` stamps it once per frame, and the broader specular reduced but did not remove it.
+    - Ink: blue and pink ink clouds in black water, with clear water between them. The creases stretch into fine streaks, a slight "wood grain".
+  - **Tests:** none new. The S4.2 check in `isf.test.ts` covers the own files (category, no `unsupported`, VJW_BIND keys) and every built-in ref; `doc.test.ts` round-trips the 4 new docs.
 
 ### S4.4 `[x]` Content batch 4: retro — VHS / CRT / strobe / flashes (target ≥8 incl. glitch)
 Invoke the `ponytail` skill (full) before writing code.
