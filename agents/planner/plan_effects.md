@@ -487,7 +487,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - Total 13: retro 7 (glitch, VHS Glitch, CRT, Posterize, strobe, flash, scanlines), geometry 2 (tunnel, particles), feedback 1 (Kaleidoscope), liquid 0, none 3 (spectrum, Chromatic Aberration, Pixellate: their ISF categories are "Color Effect/Distortion" and "Stylize").
     - **Shortfall for the lead:** total −17, feedback −4, geometry −3, liquid −5. These are S4.1–S4.3's batches, S4.2 running in parallel.
 
-### S4.5 `[ ]` Content batch 5: 12 gl-transitions + bench transition loop
+### S4.5 `[x]` Content batch 5: 12 gl-transitions + bench transition loop
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** ≥10 transitions in the random set.
 - **Files:** `web/src/fx/transitions/*.glsl` (12 curated from the package, e.g. fade-class, wipes, zoom, glitch-class ⚠️ names from the tarball), `web/src/bench.ts` (adds: each transition between `builtin:tunnel` and `builtin:spectrum`, measured over the fade), `web/src/app.ts` only if the pick needs a change (it reads `transitions`, so likely none).
@@ -495,6 +495,29 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none new.
 - **Done-check:** gates green; `?bench` transition items p95 ≤ 11 ms (two scenes + transition at 1728×1117, the pilot's worst fade) and 0 errors. **Lead commits** `cp4-effects` after a full autopilot cycle in Playwright with 0 console/GL errors.
 - **Depends on:** S4.4.
+- **Changed during implementation:**
+  - **Copied files (for S7.1).** 12 files from `donor/gl-transitions-2.0.0/glsl3/` → `web/src/fx/transitions/`, all MIT (none of the BSD ones). Each keeps its header, with `// Source: https://github.com/gl-transitions/gl-transitions · MIT` added as line 1. Ids are `gl/<Name>`:
+    - fades: `FadeColor`, `Overexposure`
+    - wipes: `DirectionalWipe`, `CircleOpen`
+    - dissolves: `PerlinDissolve`, `BurnThrough`
+    - zoom: `DreamyZoom`, `CrossWarp`
+    - glitch: `GlitchMemories`
+    - swirl and kaleidoscope: `Swirl`, `Kaleidoscope`
+    - pixel: `Hexagonalize`
+  - With `own/crossfade`, the random set has 13 ids. Every param of these 12 parses (no ivec2, image or expression defaults). `app.ts` is unchanged.
+  - **CrossZoom was picked first and dropped.** Its 41-tap zoom blur measured p95 10.1 ms for the pass alone. CrossWarp took its slot.
+  - **How the bench times a transition.** The engine times scenes only, so the bench wraps `gl.drawArrays` with a timer query while the transition's program is current. That measures the pass alone, at the output size.
+    - Each transition fades Tunnel ↔ Spectrum (2 s in silence). It is set every frame, over the app's random pick.
+    - Rows go into `__bench.results` next to the effects, plus a line with the scenes' medians.
+    - Budget used: the lead's p95 ≤ 5 ms for the pass alone. The plan's ≤ 11 ms total is that plus the two scenes.
+  - **Run.** Lead's design size (1728×1117 @2), :5183, installed Chrome, only our Chrome on the GPU (process count logged every 3 s).
+    - Every pass reads 3.2–3.5 ms median and 3.5–3.9 ms p95. BurnThrough reads 4.43 / 4.88.
+    - `own/crossfade` reads 3.20 / 3.55. Scenes: Tunnel 1.35, Spectrum 2.43 ms. The worst fade is ≈ 8.7 ms in all.
+    - glError 0, 0 console errors.
+  - ⚠️ **The stage pass has a ~3 ms floor on ANGLE/Metal (M4), even for the crossfade.**
+    - A scratch probe drew the same pass again into an offscreen target of the same size and read the same ~3.4 ms. An empty query reads 0.
+    - So the transitions add ≤ 1.3 ms p95 over the pilot's fade. The cause was not investigated.
+  - ⚠️ **GPU timer numbers inflate when another Playwright Chrome shares the GPU.** A first run, with another agent's Chrome running, read up to 11 ms p95 for trivial passes. Bench runs need a quiet GPU.
 
 ### S5.1 `[ ]` Panel actions in `live.ts`, store fields, keys `E`/`Esc`, hold on open
 Invoke the `ponytail` skill (full) before writing code.

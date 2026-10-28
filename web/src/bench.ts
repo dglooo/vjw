@@ -1,14 +1,15 @@
 // ?bench (plan S2.2, design_effects.md gaps G1–G3), the page the lead runs with Playwright. Line 1 is G3 (timer query,
 // parallel compile). After Start: G1 (compile+link ms of every catalog shader), G2 (late frames per target-allocation
-// burst on Tunnel), then each generator alone and each filter over Tunnel for 3 s (GPU ms, GL error, console errors)
-// into window.__bench. With &sweep, every ISF-Files .fs is compiled last (run `node scripts/isf-sweep.mjs` first) into
-// window.__sweep: last, because its compile storm makes the governor step the scale down. Lines also go to a <pre>.
+// burst on Tunnel), then each generator alone and each filter over Tunnel for 3 s, then each transition over a fade
+// between Tunnel and Spectrum (GPU ms, GL error, console errors) into window.__bench. With &sweep, every ISF-Files .fs
+// is compiled last (run `node scripts/isf-sweep.mjs` first) into window.__sweep: last, because its compile storm makes
+// the governor step the scale down. Lines also go to a <pre>.
 import { bindFramebufferInfo } from 'twgl.js'
 import { director } from './app'
-import { catalog } from './fx/catalog'
+import { catalog, transitions } from './fx/catalog'
 import { parseIsf } from './fx/isf'
 import type { ShaderDef } from './fx/types'
-import { gl, gpuMs, renderTarget, temps } from './gl/engine'
+import { gl, gpuMs, program, renderTarget, setTransition, stage, temps } from './gl/engine'
 import { docs } from './gl/live'
 import { store } from './store'
 
@@ -20,7 +21,7 @@ const BURST = [false, false, false, false, true, true]
 const ITEM_MS = 3000
 const MEASURE_MS = 1000
 
-const items = [...catalog.values()].filter((d) => d.kind !== 'transition') // transitions get their loop in S4.5
+const items = [...catalog.values()].filter((d) => d.kind !== 'transition') // transitions: their own loop, after these
 const results: { id: string; gpuMed: number | null; gpuP95: number | null; glError: number; consoleErrors: number; compileMs: number | null }[] = []
 const bench = { items: items.map(({ id, kind, category }) => ({ id, kind, category })), results, done: false }
 Object.assign(window, { __bench: bench })
@@ -140,6 +141,45 @@ async function run() {
     results.push(r)
     print(`${d.id}: GPU ${fmt(r.gpuMed)} / ${fmt(r.gpuP95)}, glError ${r.glError}, console errors ${r.consoleErrors}`)
   }
+
+  // Each transition fades Tunnel ↔ Spectrum (2 s in silence), set every frame over the app's random pick. The engine
+  // times scenes only, so drawArrays gets a timer query while the transition's program is current: the pass alone.
+  director.setPlaylist(['builtin:tunnel', 'builtin:spectrum'])
+  director.next() // off the last test doc
+  await sleep(ITEM_MS)
+  const timer: { TIME_ELAPSED_EXT: GLenum } | null = gl.getExtension('EXT_disjoint_timer_query_webgl2')
+  const drawArrays = gl.drawArrays.bind(gl)
+  const flight: WebGLQuery[] = []
+  let timed: WebGLProgram | null = null
+  gl.drawArrays = (mode, first, count) => {
+    if (!timer || gl.getParameter(gl.CURRENT_PROGRAM) !== timed) return drawArrays(mode, first, count)
+    const query = gl.createQuery()
+    gl.beginQuery(timer.TIME_ELAPSED_EXT, query)
+    drawArrays(mode, first, count)
+    gl.endQuery(timer.TIME_ELAPSED_EXT)
+    flight.push(query)
+  }
+  print(`transitions at ${stage.width}×${stage.height}: the pass's GPU median / p95 ms over a fade`)
+  for (const id of transitions) {
+    const n = errors
+    const def = catalog.get(id) as ShaderDef
+    timed = program(def.vs, def.fs).program
+    director.next()
+    const ms: number[] = []
+    await frames(ITEM_MS, () => {
+      setTransition(id)
+      while (flight.length && gl.getQueryParameter(flight[0], gl.QUERY_RESULT_AVAILABLE)) {
+        const query = flight.shift()!
+        ms.push(gl.getQueryParameter(query, gl.QUERY_RESULT) / 1e6)
+        gl.deleteQuery(query)
+      }
+    })
+    const r = { id, gpuMed: q(ms, 0.5), gpuP95: q(ms, 0.95), glError: gl.getError(), consoleErrors: errors - n, compileMs: compileMs.get(id) ?? null }
+    results.push(r)
+    print(`${id}: GPU ${fmt(r.gpuMed)} / ${fmt(r.gpuP95)} over ${ms.length} frames, glError ${r.glError}, console errors ${r.consoleErrors}`)
+  }
+  gl.drawArrays = drawArrays
+  print(`scenes over those fades, GPU median: Tunnel ${fmt(gpuMs.get('builtin:tunnel') ?? null)}, Spectrum ${fmt(gpuMs.get('builtin:spectrum') ?? null)} ms`)
   console.error = error
   console.table(results)
   if (location.search.includes('sweep')) await sweep()
