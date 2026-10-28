@@ -129,4 +129,77 @@ export const BUILTIN: readonly SceneDoc[] = [
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Feedback / kaleidoscope / mirrors (S4.1).
+  {
+    v: 1, id: 'builtin:spiral-mesh', name: 'Spiral mesh', star: true,
+    layers: [{
+      gen: {
+        ref: 'own/tunnel-mesh',
+        bind: {
+          twist: { source: 'bass', amount: 1, attack: 0.03, release: 0.35, min: 0.01, max: 0.1 },
+          flash: { source: 'onset', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 },
+        },
+      },
+      fx: [{ ref: 'own/feedback-zoom', bind: { zoom: { source: 'onset', amount: 1, attack: 0, release: 0.2, min: 0.01, max: 0.06 } } }], // the trails punch out on a hit
+      blend: 'normal', opacity: 1, speed: 1, res: 0.75,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:slit-scan', name: 'Slit scan', star: true,
+    layers: [{
+      gen: { ref: 'native/tunnel' },
+      fx: [
+        { ref: 'isf/Sine Warp Tile', bind: { angle: { source: 'lfo', shape: 'saw', rate: 0.03, amount: 1, attack: 0, release: 0, min: 0, max: 1 } } },
+        { ref: 'own/echo', bind: { speed: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 2, max: 10 } } }, // the stream rushes on a kick
+      ],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:kaleido-maze', name: 'Kaleido maze', star: true,
+    layers: [{
+      gen: {
+        ref: 'isf/Truchet Tile',
+        values: { color1: [0.03, 0, 0.08, 1], color2: [0.2, 0.9, 1, 1], lineMode: true }, // color2 is the line
+        bind: { tSize: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 0.06, max: 0.1 } },
+      },
+      fx: [
+        {
+          ref: 'isf/Kaleidoscope Tile',
+          bind: {
+            rotation: { source: 'lfo', shape: 'saw', rate: 0.05, amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // one turn per 20 s
+            angle: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 0, max: 0.08 },
+          },
+        },
+        { ref: 'isf/Comet Tails', values: { dischargeRate: 0.08 } },
+      ],
+      blend: 'normal', opacity: 1, speed: 1, res: 0.75,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:feedback-ring', name: 'Feedback ring', star: true,
+    layers: [{
+      gen: { ref: 'native/spectrum' },
+      fx: [
+        { ref: 'isf/Mirror', values: { horizontal: false, vertical: true } }, // bars from the top and the bottom
+        {
+          ref: 'isf/Circular Feedback Mask',
+          values: { maskRadius: 0.22, fadeRate: 0.6 },
+          bind: {
+            twirlAmount: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 0.01, max: 0.08 }, // the rings spiral on a kick
+            feedbackRate: { source: 'onset', amount: 1, attack: 0, release: 0.2, min: 3, max: 10 },
+          },
+        },
+      ],
+      blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:rainbow-trails', name: 'Rainbow trails', star: true,
+    layers: [{
+      gen: { ref: 'native/spectrum' },
+      fx: [{ ref: 'own/trails', bind: { rise: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 1, max: 8 } } }], // kicks blow the trails up
+      blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+    }],
+  },
 ]
