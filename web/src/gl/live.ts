@@ -376,14 +376,20 @@ export const panel = {
       return (e as Error).message
     }
   },
-  /** The edited scene as a new, unstarred user scene; the panel goes on editing the scene on screen. */
-  async saveAs(name: string) {
+  /** The edited scene as a new, unstarred user scene `id`, which takes its edits: the original goes back to its stored
+   *  doc, built again when next shown. The caller cuts to `id` (director.cut), so the panel edits the new scene. */
+  async saveAs(name: string, id: SceneId = crypto.randomUUID()) {
+    const { doc } = edited()
     try {
-      await library.put({ ...edited().doc, id: crypto.randomUUID(), name, star: false, created: Date.now() })
-      return null
+      await library.put({ ...doc, id, name, star: false, created: Date.now() })
     } catch (e) {
       return (e as Error).message
     }
+    edit.docs.delete(doc.id)
+    edit.dirty.delete(doc.id)
+    cache.get(doc.id)?.dispose()
+    cache.delete(doc.id)
+    return null
   },
   toggleStar() {
     const { id } = edited().doc

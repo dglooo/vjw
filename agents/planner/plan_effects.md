@@ -783,7 +783,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - glError 0. Console errors: 0.
   - **Gates:** lint and tsc clean, 142 tests (+13), build OK.
 
-### S6.2 `[ ]` Panel: Save / Save as / star / Export / Import (file picker + drop)
+### S6.2 `[x]` Panel: Save / Save as / star / Export / Import (file picker + drop)
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** CP6 demo.
 - **Files:** `web/src/ui/Panel.tsx`, `web/src/ui/panel.css`.
@@ -791,6 +791,52 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none (UI).
 - **Done-check:** gates green. **Manual:** CP6 demo. **Lead commits** `cp6-effects`.
 - **Depends on:** S6.1.
+- **Changed during implementation:**
+  - **Save as moves the edits to the new scene and cuts to it** (S6.1's heads-up). Two files outside the step's list:
+    - **`director.ts` gains `cut(id)`:** the scene shows at once, with no fade. A cut to a scene off the playlist leaves `cur` on the slot it cut from, so `→` and the autopilot land on the original next. The autopilot counts from the cut. `director.test.ts` has 2 tests, and all 5 hand mutations of `cut` are killed.
+    - **`panel.saveAs(name, id?)` in `live.ts`** takes the id the panel cuts to. After the write it drops the original's copy (`edit.docs`, `dirty`) and disposes its live instance, so the original shows its stored doc when it plays next. The bar shows the new name at once, and a later Save writes the new scene.
+  - **`Panel` became a gate plus `Open` (the open panel),** so the note state goes when the panel closes.
+  - **Header: ☆/★ · Save · Save as… · GPU.**
+    - Save is disabled on a built-in, with a title saying to use Save as, instead of showing the library's error.
+    - One note line sits under the header. A confirmation ("Saved", "Saved as “My tunnel”", "Imported <file>") fades in 3 s (a CSS animation, cleared on `animationend`). An error ("Save: …", "Import: …") stays until the next action or until the panel closes.
+  - **Library: a closed `<details>` under the header.**
+    - Export is disabled when there are no user scenes. Import is a button that clicks a hidden file input, so the keyboard reaches it.
+    - Below them, every scene with its star: the built-ins in BUILTIN order, then the user's. The scene on screen is at full opacity.
+    - Stars come from `library.get(id).star`. A module-level counter on `library.onChange` re-renders the panel through `useSyncExternalStore`.
+    - No Delete: the step has none, so S6.1's on-screen `del` heads-up stays open. A click on a row does nothing (out of scope); with `director.cut` it is one handler.
+  - **Drop:**
+    - The panel takes only a `.json` file and stops its propagation. Any other file falls through to the document's audio drop.
+    - **A `dragover` anywhere dispatches a synthetic `mousemove`,** which wakes the idle bar and panel. The panel is `pointer-events: none` when idle, which it always is after a trip to the Finder. Without this, a dropped library would land on the stage and be played as audio.
+  - **Disabled controls look disabled** (`.panel button:disabled, select:disabled` at 0.4). The "+ layer" select at 4 layers shows it now too.
+  - **Known: `prompt()` blocks the main thread,** so the picture freezes while the name is typed. The plan chose it; an inline input would avoid it.
+  - **Test-harness heads-up:** a dev server that has served HMR updates loads the changed modules as `…?t=`. A Playwright `import('/src/app.ts')` then evaluates a second app, with a second loop and key listener (`E` toggles twice). Restart the server, or don't import app.ts. `s62_check` asserts that there are no `?t=` URLs.
+  - **Chrome check.** Playwright on :5192, installed Chrome, `--mute-audio`, 1200×800, fresh profile, driven through the panel's buttons. The script and log are `s62_check.*` in the scratchpad. 24/24 pass:
+    - On the tunnel, Save is disabled and the star is ★. Edit (glow 3, twist bound to bass), then **Save as** (prompt, default "Tunnel") → "My tunnel":
+      - It is on screen at once: the bar shows it and there are 0 errors.
+      - It is stored unstarred with glow 3 and twist bound, and it is not in the playlist.
+      - The original tunnel's copy is gone, and it reads its built-in doc again.
+      - The note shows, the star is ☆, and Save is enabled.
+    - The header **star** makes it the 28th, last playlist entry. glow 2 + **Save** stores it ("Saved", which fades).
+    - **The list** has 28 rows, ending with ★ My tunnel, which is the row on screen. A built-in's list star takes it out of the playlist and puts it back.
+    - **Reload:** still there, starred, glow 2, binding intact, last in the playlist.
+    - **Export** (button) downloads `veejay-library-2026-10-28.json` (1 scene).
+    - **Delete the DB, reload, Import:**
+      - The DB is deleted by CDP (as DevTools does). After a reload the library is empty and Export is disabled.
+      - **Import** through the file chooser restores the scene ("Imported …").
+    - **Delete the DB again, then drop the file on the panel:**
+      - The panel is idle-hidden; a dragover wakes it.
+      - The dropped file restores the scene, and the audio source is untouched.
+      - An audio file dropped on the panel plays.
+    - A bad file's error stays after 3.4 s.
+    - **Unstar on screen:** `←` lands on the imported scene, and unstarring it from the list takes it out of the playlist with no cut.
+    - glError 0; no console errors or warnings.
+    - Screenshots: `s62_saved-as.png`, `s62_library.png`, `s62_bad-import.png`.
+    - After the `Panel`/`Open` split, a re-run of `s53_check` passes 18/18.
+  - **Look (screenshots):**
+    - The header is one quiet row with the GPU hint at the right.
+    - The note is dim text; an error is red monospace.
+    - The open library is a long column of amber stars that pushes the layers down; it is closed by default.
+  - **Gates:** lint and tsc clean, 144 tests (+2), build OK.
 
 ### S7.1 `[ ]` `THIRD_PARTY.md`: every ported shader file, the parser port, the shader libs
 Invoke the `ponytail` skill (full) before writing code.

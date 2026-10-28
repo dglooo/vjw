@@ -1,9 +1,12 @@
 import { useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
+import { director } from '../app'
 import { BIND_DEFAULTS, SOURCE_IDS, type Binding, type Shape } from '../bind'
-import { defaults, type Blend, type NodeDoc } from '../doc'
+import { defaults, type Blend, type NodeDoc, type SceneId } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
 import type { Kind, Value } from '../fx/types'
 import { live, panel, type NodePath } from '../gl/live'
+import { library } from '../library'
+import { BUILTIN } from '../scenes/builtin'
 import { store, type UiSnapshot } from '../store'
 import './panel.css'
 
@@ -45,6 +48,10 @@ function bindingAt({ layer, node }: NodePath, k: string): Binding {
   return o.bind![k]
 }
 const useSnap = <K extends keyof UiSnapshot>(k: K) => useSyncExternalStore(store.subscribe, () => store.getSnapshot()[k])
+let libRev = 0 // +1 per library change (subscribed first, so React reads the new count): stars and lists re-render
+library.onChange(() => libRev++)
+// A file dragged in wakes the idle overlay as a mouse move does, so the panel is there to take a dropped library.
+addEventListener('dragover', () => dispatchEvent(new MouseEvent('mousemove')))
 
 /** Uncontrolled: dragging calls `set` and nothing re-renders. */
 const slider = (lo: number, hi: number, v: number, set: (v: number) => void, step = (hi - lo) / 100) => (
@@ -246,16 +253,28 @@ function Paste({ ref }: { ref: RefObject<HTMLDialogElement | null> }) {
 }
 
 /** The effects panel (spec §2.4, design E6) over the output: the edited scene's layers, their nodes' controls and
- *  bindings, add/remove. It renders on a structural edit (editRev) or another scene, never while a slider moves: the
- *  controls are uncontrolled and call `panel`, which edits the running scene in place. It fades out with the bar. */
+ *  bindings, add/remove; the scene's star and saving, and the library (E4). It renders on a structural edit (editRev),
+ *  another scene or a library change, never while a slider moves: the controls are uncontrolled and call `panel`,
+ *  which edits the running scene in place. It fades out with the bar. */
 export function Panel() {
   const open = useSnap('panel')
   const id = useSnap('edited')
+  return open && id ? <Open id={id} /> : null
+}
+
+/** The open panel. Its state (the last library note) goes when it closes. */
+function Open({ id }: { id: SceneId }) {
   const rev = useSnap('editRev')
   const errors = useSnap('nodeErrors')
+  useSyncExternalStore(library.onChange, () => libRev)
   const paste = useRef<HTMLDialogElement>(null)
-  if (!open || !id) return null
-  const { layers } = live(id).doc // its name is the bar's, right above
+  const file = useRef<HTMLInputElement>(null)
+  const [note, setNote] = useState<{ text: string; err: boolean }>()
+  const say = (err: string | null, what: string, done: string) => setNote(err ? { text: `${what}: ${err}`, err: true } : { text: done, err: false })
+  const load = async (f: File) => say(await library.importFile(f), 'Import', `Imported ${f.name}`)
+  const { layers, name } = live(id).doc // its name is the bar's, right above
+  const star = !!library.get(id)?.star
+  const builtin = id.startsWith('builtin:')
   return (
     <div
       className="panel"
@@ -271,10 +290,76 @@ export function Panel() {
       onChange={(e) => {
         if (e.target instanceof HTMLSelectElement) e.target.blur() // a focused select picks by type-ahead
       }}
+      onDrop={(e) => {
+        const f = e.dataTransfer.files[0]
+        if (!f?.name.toLowerCase().endsWith('.json')) return // audio: the document's drop plays it
+        e.preventDefault()
+        e.stopPropagation()
+        void load(f)
+      }}
     >
       <header>
+        <button
+          className={star ? 'star on' : 'star'}
+          aria-pressed={star}
+          aria-label={`Star ${name}`}
+          title={star ? 'Starred: in the autopilot' : 'Star it into the autopilot'}
+          onClick={() => panel.toggleStar()}
+        >
+          {star ? '★' : '☆'}
+        </button>
+        <button disabled={builtin} title={builtin ? 'A built-in: Save as a new scene' : undefined} onClick={async () => say(await panel.save(), 'Save', 'Saved')}>
+          Save
+        </button>
+        <button
+          onClick={async () => {
+            const as = prompt('Save as', name)?.trim()
+            if (!as) return
+            const to = crypto.randomUUID()
+            const err = await panel.saveAs(as, to)
+            if (!err) director.cut(to) // on screen at once: the panel edits the new scene
+            say(err, 'Save as', `Saved as “${as}”`)
+          }}
+        >
+          Save as…
+        </button>
         <Gpu />
       </header>
+      {note && (
+        <p key={note.text} className={note.err ? 'err' : 'note'} onAnimationEnd={() => setNote(undefined)}>
+          {note.text}
+        </p>
+      )}
+      <details className="lib">
+        <summary>Library</summary>
+        <div className="io">
+          <button disabled={!library.all().length} onClick={() => library.exportLibrary()}>
+            Export
+          </button>
+          <button onClick={() => file.current!.click()}>Import</button>
+          <input
+            ref={file}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = '' // the same file can come in again
+              if (f) void load(f)
+            }}
+          />
+        </div>
+        <ul>
+          {[...BUILTIN.map((b) => library.get(b.id)!), ...library.all()].map((d) => (
+            <li key={d.id} className={d.id === id ? 'on' : undefined}>
+              <button className={d.star ? 'star on' : 'star'} aria-pressed={d.star} aria-label={`Star ${d.name}`} onClick={() => library.setStar(d.id, !d.star)}>
+                {d.star ? '★' : '☆'}
+              </button>
+              {d.name}
+            </li>
+          ))}
+        </ul>
+      </details>
       {errors.map((e) => (
         <pre key={e} className="err">
           {e}

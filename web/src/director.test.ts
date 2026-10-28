@@ -149,6 +149,30 @@ describe('setPlaylist and peek', () => {
   })
 })
 
+describe('cut', () => {
+  test('shows a scene at once; off the playlist, → and the autopilot go on from the slot it cut from', () => {
+    const d = createDirector(playlist)
+    frames(d, 0, 40) // spectrum since the 30–32 s fade
+    d.cut('mine')
+    expect({ ...d.update(40.05, ZERO_SYNC) }).toEqual({ from: 'mine', to: null, mix: 0 })
+    expect(d.peek()).toBe('spectrum')
+    // The autopilot counts 30 s from the cut, not from the last switch (which would fire at 60 s).
+    expect(frames(d, 40.1, 70).every((x) => x.from === 'mine' && x.to === null)).toBe(true)
+    expect(d.update(70.1, ZERO_SYNC)).toMatchObject({ from: 'mine', to: 'spectrum' })
+  })
+
+  test('mid-fade it ends the fade; a listed scene becomes the current slot', () => {
+    const d = createDirector(playlist)
+    d.update(0, ZERO_SYNC)
+    d.next()
+    d.update(0.1, ZERO_SYNC) // tunnel → spectrum
+    d.cut('glitch')
+    expect({ ...d.update(0.2, ZERO_SYNC) }).toEqual({ from: 'glitch', to: null, mix: 0 })
+    d.next()
+    expect({ ...d.update(0.3, ZERO_SYNC) }).toEqual({ from: 'glitch', to: 'tunnel', mix: 0 }) // wraps after glitch
+  })
+})
+
 // Fps independence: the shot is a function of time, whatever the frame times. The defaults schedule a switch every
 // `every` (s or bars) from 0, fading over `fade`. Frames within 1e-6 of a fade's end are skipped (float noise there).
 function scheduled(x: number, every: number, fade: number): Shot | null {
