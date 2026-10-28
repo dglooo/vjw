@@ -239,7 +239,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Chrome check (Playwright on :5175, `--mute-audio`, kicks128n.wav): `→` walked TUNNEL → SPECTRUM → GLITCH → KALEIDO TUNNEL with 0 console errors or warnings, and both look as in the pilot.
   - The drop counter showed 1 at start and 2 from Spectrum on. Likely cause, not measured: `live()` creates a native on its first switch, so Spectrum compiles 5 programs then, where the pilot built every scene at load. S2.5's warm-up and prepare-ahead target this.
 
-### S2.4 `[ ]` Particles as a `NativeDef`, remove `Scene`/`SceneFactory`
+### S2.4 `[x]` Particles as a `NativeDef`, remove `Scene`/`SceneFactory`
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the last native; the old contract goes.
 - **Files:** `web/src/scenes/particles.ts`, `web/src/gl/scene.ts`, `web/src/fx/catalog.ts` (+ 1 doc in `builtin.ts` ⚠️ data only).
@@ -247,6 +247,21 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none new.
 - **Done-check:** gates green; grep shows no `SceneFactory` left. **Manual:** particles burst on kicks as before; 3.5 ms GPU at 1200×800 ±10 %.
 - **Depends on:** S2.3.
+- **Changed during implementation:**
+  - The transform feedback program is compiled once at module level and shared by all instances (`tfProgram ??= createProgramInfo(…)`). The engine's memoised `program()` takes no TF varyings, and `engine.ts` belongs to S2.1, running in parallel.
+    - As with spectrum's bar program (S2.3), a re-created instance neither recompiles nor leaks it, so `dispose` leaves it alone.
+    - Sharing is safe because the program holds no state: every draw sets all 9 uniforms the VS reads. Buffers, VAOs, TF objects, the ping-pong index, the target and the bloom all stay per instance inside `create`, so two particle layers simulate independently.
+    - Once `program()` accepts varyings, this memo can go.
+  - `dispose` deletes more than the step lists: besides the 4 TF buffers, the target and the bloom (`bloom.dispose()` from S2.3), it also deletes the 2 VAOs and the 2 TF objects.
+  - Ranges: `burst 0..6`, `swirl 0..5`, `size 1..16`, `glow 0..8`. Defaults are the pilot `params`.
+  - `credit: 'VeeJay Wizard, after Gregg Tavares (twgl.js)'`: the file adapts his MIT example, and its header is unchanged.
+  - A 5th file: the stale playlist comment at `app.ts:26` was updated, one line, at the lead's request.
+  - Gates: lint and tsc clean, 109 tests, build OK; `grep SceneFactory` finds nothing.
+  - Chrome check (Playwright on :5176, `--mute-audio`, kicks128n.wav): `→` walked TUNNEL → SPECTRUM → PARTICLES → GLITCH → KALEIDO TUNNEL → TUNNEL with 0 console errors or warnings. The particles shot shows a kick burst (hot rim, cool core) as in the pilot.
+  - Drops: 3 at start, 4 at Particles. Likely the same cause as in S2.3's note: the native is created on its first switch, and particles also seeds 65 536 points and compiles its TF program at that point. S2.5 targets this.
+  - Not measured here:
+    - The 3.5 ms GPU number: this branch has no GPU timer (S2.1/S2.2).
+    - `dispose`: nothing calls `Live.dispose()`/`rebuild()` yet, so it first runs with S2.5's prepare-ahead.
 
 ### S2.5 `[ ]` Compile-all at Start ("compiling n/N") + prepare-ahead (+ pool only if G2 says so)
 Invoke the `ponytail` skill (full) before writing code.
