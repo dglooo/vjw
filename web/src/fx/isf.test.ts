@@ -122,7 +122,7 @@ describe('parseIsf', () => {
       for (const k of Object.keys(d.bind ?? {})) expect(d.inputs.map((i) => i.name), `${path} ${k}`).toContain(k)
     }
     const refs = BUILTIN.flatMap((s) => s.layers.flatMap((l) => [l.gen, ...l.fx])).map((n) => n.ref)
-    for (const r of refs.filter((r) => !r.startsWith('native/'))) expect(ids, r).toContain(r)
+    for (const r of refs.filter((r) => !/^(native|toy)\//.test(r))) expect(ids, r).toContain(r) // a toy's code is inline
   })
 })
 

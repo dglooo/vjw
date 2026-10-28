@@ -129,4 +129,25 @@ export const BUILTIN: readonly SceneDoc[] = [
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  {
+    // The Shadertoy node's own fixture (S3.4): inline `mainImage` code, as a paste. iChannel0 row 0 is the FFT, 512 bins
+    // up to Nyquist, so x = 0.004 reads bins 1–2 (≈ 45–95 Hz): the kick swells the rings and the light.
+    v: 1, id: 'builtin:toy-plasma', name: 'Toy plasma', star: true,
+    layers: [{
+      gen: {
+        ref: 'toy/plasma', credit: 'VeeJay Wizard',
+        code: `// Toy plasma (VeeJay Wizard, own): four sine fields through a cosine palette.
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec2 p = (2.0 * fragCoord - iResolution.xy) / iResolution.y;
+    float bass = texture(iChannel0, vec2(0.004, 0.25)).r;
+    float t = iTime * 0.5;
+    float v = sin(p.x * 3.0 + t) + sin(p.y * 2.5 - t * 1.3) + sin((p.x + p.y) * 2.0 + t * 0.7)
+            + sin(length(p) * (7.0 - 3.0 * bass) - t * 2.0);
+    vec3 col = 0.5 + 0.5 * cos(v * 1.6 + vec3(0.0, 2.1, 4.2) + iTime * 0.15);
+    fragColor = vec4(col * (0.5 + 0.7 * bass), 1.0);
+}`,
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]

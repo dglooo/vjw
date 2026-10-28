@@ -1,13 +1,15 @@
-// A live scene (design E1–E3, Variant A): renders a SceneDoc into a target every frame, outside React. Per layer the
+// A live scene (design E1–E3, E5, Variant A): renders a SceneDoc into a target every frame, outside React. Per layer the
 // generator draws (at size × res), then each effect reads the previous texture as `inputImage`, ping-ponging the two
-// engine temps; an ISF file runs its PASSES through its own TARGETs. Each layer is composited onto `acc` with its
-// blend and opacity, except the fast path: a bottom layer at normal, opacity 1, res 1 draws straight into `acc`.
+// engine temps; an ISF file runs its PASSES through its own TARGETs; a pasted Shadertoy (`toy/…`) is a generator. Each
+// layer is composited onto `acc` with its blend and opacity, except the fast path: a bottom layer at normal, opacity 1,
+// res 1 draws straight into `acc`.
 // Every layer runs its own clock (`speed`). Bindings write the nodes' uniforms and the layers' opacity/speed per frame.
-import { bindFramebufferInfo, type ProgramInfo } from 'twgl.js'
+import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
+import { ctx } from '../audio/input'
 import { evaluate, type Binding, type BindState, type Sources } from '../bind'
 import { defaults, type Blend, type LayerDoc, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
 import type { FrameInput } from '../frame'
-import { catalog, transitions } from '../fx/catalog'
+import { catalog, toyDef, transitions } from '../fx/catalog'
 import { sizeExpr } from '../fx/isf'
 import type { EffectDef, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { BUILTIN } from '../scenes/builtin'
@@ -26,11 +28,31 @@ interface Layer { doc: LayerDoc; nodes: (Node | null)[]; v: { opacity: number; s
 interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState }
 
 const SIZE = new Float32Array(2) // the shots' size: `inputImage`'s, even from a gen drawn at res < 1 (it is upscaled)
-const RS = new Float32Array(2) // RENDERSIZE: the size of the target each pass draws into, set before its draw
+const IRES = new Float32Array([0, 0, 1]) // a toy's iResolution: RENDERSIZE, z = 1 (Shadertoy's pixel aspect)
+const RS = IRES.subarray(0, 2) // RENDERSIZE: the size of the target each pass draws into, set before its draw
 const DATE = new Float32Array(4)
+const IDATE = new Float32Array(4) // a toy's iDate, as Shadertoy's: year, month from 0, day, seconds with ms
 const AUDIO_SIZE = [512, 1] // the engine's audio textures
 const MAX_SIZE = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number
 const PARALLEL = !!gl.getExtension('KHR_parallel_shader_compile') // warm() compiles off the main thread
+// A toy's fixed uniforms (design E5); iMouse stays 0 (GL zero-fills uniforms). iChannel0 is the audio (row 0 FFT, row 1
+// waveform); iChannel1–3 share one 256² RGBA noise texture, mipmapped and repeating as Shadertoy's.
+const noise = createTexture(gl, { width: 256, height: 256, src: Uint8Array.from({ length: 256 * 256 * 4 }, () => Math.random() * 256) })
+const TOY = {
+  iResolution: IRES, iDate: IDATE, iSampleRate: ctx.sampleRate, iChannel0: audioTex.toy, iChannel1: noise, iChannel2: noise, iChannel3: noise,
+  iChannelResolution: [512, 2, 1, 256, 256, 1, 256, 256, 1, 256, 256, 1],
+}
+/** A pasted Shadertoy node's def, from its inline code (design E5); other refs are the catalog's. */
+const toyOf = (n: NodeDoc) => (n.ref.startsWith('toy/') ? toyDef(n) : undefined)
+/** A toy's compile log, its line numbers counted in the paste. Compiles the shader again: on a failure only. */
+function toyLog(fs: string, prefixLines: number) {
+  const sh = gl.createShader(gl.FRAGMENT_SHADER)!
+  gl.shaderSource(sh, fs)
+  gl.compileShader(sh)
+  const log = gl.getShaderInfoLog(sh)?.trim() || 'failed to link'
+  gl.deleteShader(sh)
+  return log.replace(/(ERROR|WARNING): (\d+):(\d+)/g, (_, k: string, s: string, n: string) => `${k}: ${s}:${Number(n) - prefixLines}`)
+}
 const free = (t: Target) => {
   gl.deleteFramebuffer(t.framebuffer)
   gl.deleteTexture(t.attachments[0])
@@ -71,7 +93,8 @@ function create(doc: SceneDoc): Live {
   }
 
   function node(n: NodeDoc): Node | null {
-    const def = catalog.get(n.ref)
+    const toy = toyOf(n)
+    const def = toy ?? catalog.get(n.ref)
     if (!def) return fail(`unknown ref ${n.ref}`)
     const u: Record<string, unknown> = { ...defaults(def), ...n.values }
     for (const [key, b] of Object.entries(n.bind ?? {})) {
@@ -91,8 +114,9 @@ function create(doc: SceneDoc): Live {
     if ('create' in def) return { native: (def as NativeDef).create(gl), u, events, passes: [], w: 0, h: 0 }
     const { vs, fs, passes, inputs } = def as ShaderDef
     const info = program(vs, fs) // null when it fails to compile; twgl logged why
-    if (!info) return fail(`${n.ref}: shader failed to compile`)
+    if (!info) return fail(`${n.ref}: ${toy ? toyLog(fs, toy.prefixLines) : 'shader failed to compile'}`)
     Object.assign(u, { RENDERSIZE: RS, PASSINDEX: 0, DATE, _inputImage_imgSize: SIZE })
+    if (toy) Object.assign(u, TOY)
     for (const { name, type } of inputs) {
       if (type !== 'audio' && type !== 'audioFFT') continue
       u[name] = type === 'audio' ? audioTex.wave : audioTex.fft
@@ -144,9 +168,9 @@ function create(doc: SceneDoc): Live {
       n.native.draw(fl, n.u as Record<string, Value>)
     } else {
       if (n.w !== dst.width || n.h !== dst.height) resize(n, dst.width, dst.height)
-      n.u.TIME = l.t
-      n.u.TIMEDELTA = dt
-      n.u.FRAMEINDEX = frames
+      n.u.TIME = n.u.iTime = l.t // ISF's names and a toy's
+      n.u.TIMEDELTA = n.u.iTimeDelta = dt
+      n.u.FRAMEINDEX = n.u.iFrame = frames
       n.u.inputImage = src // the previous draw; unused by a generator
       for (let j = 0; j < n.passes.length; j++) {
         const { p, pair } = n.passes[j]
@@ -204,6 +228,7 @@ function create(doc: SceneDoc): Live {
       SIZE[1] = acc.height
       const d = new Date()
       DATE.set([d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()])
+      IDATE.set([d.getFullYear(), d.getMonth(), d.getDate(), DATE[3] + d.getMilliseconds() / 1000])
       frames++
       for (let i = 0; i < layers.length; i++) {
         const l = layers[i]
@@ -281,7 +306,7 @@ const frame = () => new Promise(requestAnimationFrame)
  *  programs live inside its create(), so a throwaway instance compiles them into the engine's cache, one per frame. */
 export async function warm(ids: readonly SceneId[], onProgress?: (done: number, total: number) => void) {
   const nodes = ids.flatMap((id) => find(id)?.layers.flatMap((l) => [l.gen, ...l.fx]) ?? [])
-  const defs = [...new Set([...nodes.map((n) => n.ref), ...transitions].map((r) => catalog.get(r)))].filter((d): d is EffectDef => !!d) // live() reports bad refs
+  const defs = [...new Set([...nodes.map((n) => toyOf(n) ?? catalog.get(n.ref)), ...transitions.map((r) => catalog.get(r))])].filter((d): d is EffectDef => !!d) // live() reports bad refs
   const natives = defs.filter((d) => 'create' in d) as NativeDef[]
   const shaders = defs.filter((d) => !('create' in d)) as ShaderDef[]
   let done = 0

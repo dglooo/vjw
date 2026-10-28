@@ -3,8 +3,9 @@
 import { glitch } from '../scenes/glitch'
 import { particles } from '../scenes/particles'
 import { spectrum } from '../scenes/spectrum'
+import type { NodeDoc } from '../doc'
 import { tunnel } from '../scenes/tunnel'
-import { wrapTransition } from './glsl'
+import { wrapToy, wrapTransition } from './glsl'
 import { parseIsf } from './isf'
 import type { EffectDef, ShaderDef } from './types'
 
@@ -29,3 +30,17 @@ export const transitions: readonly string[] = Object.entries(transitionFiles).ma
   catalog.set(def.id, def)
   return def.id
 })
+
+const toys = new Map<string, ShaderDef & { prefixLines: number }>()
+/** A pasted Shadertoy node (design E5): its inline code as a generator, memoised by the code. Line n of the paste is
+ *  line n + prefixLines of `fs`. Shadertoy's own prefix defines HW_PERFORMANCE (1: a capable GPU), so ours does too. */
+export function toyDef(node: NodeDoc) {
+  const code = node.code ?? ''
+  let def = toys.get(code)
+  if (!def) {
+    const w = wrapToy(`#define HW_PERFORMANCE 1\n${code}`)
+    def = { id: node.ref, name: 'Shadertoy', kind: 'generator', credit: node.credit ?? '', glsl: 300, passes: [{ persistent: false, float: false }], ...w, prefixLines: w.prefixLines + 1 }
+    toys.set(code, def)
+  }
+  return def
+}
