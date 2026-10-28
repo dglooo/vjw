@@ -191,3 +191,4 @@ function frame(now: number) {
   }
 }
 requestAnimationFrame(frame)
+export { director } // ?bench drives the autopilot (bench.ts, plan S2.2)

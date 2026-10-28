@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ?bench&sweep input, copied from donor/ by scripts/isf-sweep.mjs (plan S2.2)
+public/isf-sweep/

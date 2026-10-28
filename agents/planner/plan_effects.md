@@ -212,7 +212,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - **Engine.** Each scene has at most 8 queries in flight. Query objects are recycled through one spare list rather than 8 fixed objects per scene. With an even count of 8 results, `gpuMs` takes the upper median (`sorted[n >> 1]`), the same convention as `quality.ts` and `app.ts`. `live(id)` resolves before `beginQuery`, so an unknown id throws without leaving a query active.
   - **Browser smoke (coder, :5174, installed Chrome, Playwright):** the extension is present. `gpuMs` fills per id (tunnel ≈0.2–0.3 ms, kaleido-tunnel ≈0.2–0.3 ms, both timed mid-fade), `gl.getError()` = 0, and the console shows no errors.
 
-### S2.2 `[ ]` `?bench` page: G1 compile timing + ISF-Files sweep, G2 allocation hitches, G3 timer presence, per-effect GPU cost
+### S2.2 `[x]` `?bench` page: G1 compile timing + ISF-Files sweep, G2 allocation hitches, G3 timer presence, per-effect GPU cost
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** one page the lead runs with Playwright; its `window.__bench` is the curation gate for every content batch.
 - **Files:** `web/src/bench.ts`, `web/src/main.tsx` (`if (location.search.includes('bench')) import('./bench')` after `./app`), `web/scripts/isf-sweep.mjs`.
@@ -220,6 +220,22 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none (DOM/GL).
 - **Done-check:** gates green; `npm run build` passes; the lead's Playwright run records G1–G3 in STATE and the sweep's compile-OK list by category (the curation input for CP4). **Conditional for S2.5:** G1 total for the starred set > 500 ms ⚠️ knob → async compile; G2 shows ≥1 late frame per burst → add the target pool in S2.5.
 - **Depends on:** S2.1; pilot S6.1 closed (`main.tsx`).
+- **Changed during implementation:**
+  - **`app.ts` gets one line at its end, `export { director }`.** The director is module-local there, and the bench needs `setPlaylist`, `setHold` and `next`. The line sits at the end of the file, clear of S2.4's comment edit.
+  - **The sweep runs last, not after G1.** Compiling 327 programs stalls frames, and the 60A governor then steps the scale down, so G2 and the per-effect numbers would be measured at a smaller size. `done` is set after the sweep.
+  - **`index.json` is `[{ name, vs }]`.** `vs` means a sibling `.vs` exists. This is S1.1's check for `3d Rotate` and `Vertex Manipulator`, which feed no varying. The sweep marks those files `custom vertex shader`.
+  - **Script input.** `isf-sweep.mjs` reads the argument or `ISF_FILES`. Its default is the main checkout's absolute `donor/ISF-Files`, because worktrees have no `donor/`.
+  - **G1 compiles with raw WebGL, not twgl.** That avoids twgl's console spam, gives the sweep its logs, and lets the programs be deleted afterwards. A unique comment tail misses our map and any cache keyed by source. A lower cache that ignores comments still hits: Kaleidoscope took 0.8–2 ms, against a 43 ms median for first-time programs. A program already built on this machine reports its warm time.
+  - **G1 covers the catalog's `ShaderDef`s only.** Natives build their programs inside `create()`, so `compileMs` is `null` for them.
+  - **Output.** Line 1 (G3) prints before Start, so the user can read it without clicking. Lines go to the console and to a `<pre>` overlay. The G2 and per-effect headers carry the internal size.
+  - **Coder's run.** Playwright, installed Chrome, 1200×800 viewport at DPR 1. 60A halves that, so the run is at **600×400 internal**; the lead's fullscreen run is the real one. `?bench` took 35.6 s, `?bench&sweep` 46.2 s. Saved as `s22_*` in the scratchpad.
+    - **G3:** timer query yes; `KHR_parallel_shader_compile` yes.
+    - **G1:** 1 catalog program (Kaleidoscope): 2.0 ms, then 0.8 ms on the second load.
+    - **G2:** 10/10 bursts gave +0 drops on both loads; max rAF Δ 18.4–18.7 ms. Clean at 600×400.
+    - **Per effect** (GPU median/p95, ms): tunnel 0.24/0.25, spectrum 1.01/1.23, glitch 0.35/0.36, Kaleidoscope over tunnel 0.32/0.33. glError 0, 0 console errors and 0 page errors. Particles join automatically once S2.4 registers it.
+    - **Sweep:** 263 of 327 compile OK, 245 of them usable. First-time compile+link: median 42.7 ms, p10 13.3, p90 47.4, max 111.9; total 10.6 s for the 263.
+    - **Sweep OK / usable by kind/category:** filter/none 86/81, filter/retro 32/27, filter/geometry 18/16, filter/feedback 17/17, generator/none 31/27, generator/geometry 15/15, transition/none 59/57, transition/retro 5/5. No ISF file maps to `liquid`.
+    - **The 64 failures:** 33 are custom-`.vs` varyings (already `unsupported`). 19 hit GLSL ES 1.00 limits: non-constant loop bounds or indexing, const init declarations, an array constructor. 12 are desktop-GLSL typing or old ISF runtime names: int/float mixing (7), `vv_FragNormCoord` / `_<img>_imgRect` (3), `uvec2` (2).
 
 ### S2.3 `[x]` Glitch and spectrum as `NativeDef`s + their built-ins
 Invoke the `ponytail` skill (full) before writing code.
