@@ -40,7 +40,8 @@
 - `research_audio_features.md`; grill (2 rounds + confirm) → **`thoughts/spec_audio_reactivity.md`**.
   - Sources: kick/snare/hats, sub/reese/wobble, build/drop, custom bands. Presets: DnB, dubstep, techno/house.
   - Auto-style mode (default on; manual overrides; smooth). Drop: heat-up, then flash + cut. "Sources" tab in the panel.
-- ▶ system-designer → `design_audio_reactivity.md`, then the USER GATE.
+- ✅ system-designer → `design_audio_reactivity.md`: A main-thread 8192 analyser (sustained lag 85–102 ms) / B worklet IIR bank + fast/slow envelopes (30–70 ms, recommended). 8 research gaps, none blocking.
+- ⏳ USER GATE: A or B.
 - The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
 
 **Infra:**
