@@ -634,6 +634,40 @@ Invoke the `ponytail` skill (full) before writing code.
     - A scratch probe drew the same pass again into an offscreen target of the same size and read the same ~3.4 ms. An empty query reads 0.
     - So the transitions add ≤ 1.3 ms p95 over the pilot's fade. The cause was not investigated.
   - ⚠️ **GPU timer numbers inflate when another Playwright Chrome shares the GPU.** A first run, with another agent's Chrome running, read up to 11 ms p95 for trivial passes. Bench runs need a quiet GPU.
+- **Changed during implementation:** (lead, polish) the stage-pass floor and the wave-landscape shards. Playwright :5191, installed Chrome, muted, 1728×1117 @2; scripts and shots are `pol_*` in the scratchpad.
+  - **The ~3 ms stage-pass floor is the timer, not `engine.ts`.**
+    - The engine is clean. Output is 1728×1118, the same as the internal size (60A, k = 4, so no 2× upscale). The shots are RGBA8. There is one pass per frame, no clear, and 1:1 linear sampling.
+    - `pol_stage.mjs` times `own/crossfade` over fades between scene pairs of rising cost. GPU median ms:
+
+      | query around the pass | tunnel↔tunnel | tunnel↔spectrum | tunnel↔sdf-shapes |
+      |---|---|---|---|
+      | as `?bench` | 2.2–2.6 | 2.9–3.4 | 3.9–4.2 |
+      | 1-px `readPixels` first (GPU drained) | 1.02 | 0.95 | 1.03 |
+      | drained, 8 draws | 1.28 | 1.22 | 1.32 |
+
+    - The pass itself costs ≈ 0.04 ms per draw. On ANGLE/Metal a TIME_ELAPSED query reads ~1 ms even on an idle GPU, plus the wait for the scene passes it samples. `gl.finish()` first changed nothing (it doesn't drain here).
+    - Scene `gpuMs` carries the same overhead. Only the panel's GPU hint reads it, not the governor. **No code change.** A truer bench row needs a `readPixels` drain before the transition's query (`bench.ts` untouched).
+    - `?bench` after (the engine is unchanged): transitions 1.6–4.4 median / 3.3–4.9 p95, crossfade 1.94 / 3.67, 0 errors. The natives, sdf-shapes, Worley and ink match the lead's run within ±0.05 ms, so the GPU was quiet.
+  - **wave-landscape shards: the march jumped over the ridge tips** (`own/wave-landscape.fs` only).
+    - Cause: the crests are V-shaped, with slopes ~2.5–3.5 × `height`. The least step 0.15·t (1.5–4.5 units at t 10–30) skips their tips, so a ray misses the near crest and lands on a far one, or on nothing.
+    - Fix, three parts:
+      - steps shrink by ÷ (1 + `STEEP` 4 × height) over the mountains;
+      - STEPS goes from 30 to 64;
+      - a ridge-line test: `terrain()` also returns the sheets' product q, whose sign flips across a ridge line. A step whose q flips also tests the ray at the interpolated crossing.
+    - Tried first:
+      - STEPS 40 alone: the shards stay.
+      - `STEEP` 2/64, 4/64 and 4/96 without the test: the shards go, but a spiky fringe stays on the far crests at any step count.
+      - The test with the old steps: torn far silhouettes.
+      - The test with `STEEP` 2 / STEPS 48: small notches.
+      - The test with `STEEP` 4 / STEPS 64 is crisp.
+    - GPU, uncontended `?bench` (res 1, silence): 7.26 / 7.59 ms. It was 4.71 / 5.19 in the lead's run.
+    - GPU at res 0.5 with kicks, the same protocol as the before run:
+      - built-in: 3.32–3.59 / 3.84–4.17;
+      - held at `height` 1.8: 3.97–4.83 / 4.45–4.99;
+      - before: 2.47 / 2.54 and 2.54 / 2.59.
+    - So it stays within p95 ≤ 5, but the headroom is now ~1 ms. The later runs crept up for both shaders. Same-session A/B: new = old + 5–28 %.
+    - Shots: `pol_wave_before_*` vs `pol_wave_after_new_*`.
+    - Gates: lint and tsc clean, 129 tests, build OK. glError 0 and 0 console errors in every run.
 
 ### S5.1 `[x]` Panel actions in `live.ts`, store fields, keys `E`/`Esc`, hold on open
 Invoke the `ponytail` skill (full) before writing code.

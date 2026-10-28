@@ -17,9 +17,11 @@
 }*/
 
 // Knobs: march steps (the GPU cost; bench budget p95 ≤ 5 ms at 1728×1118), the least step (a fraction of the
-// distance), far plane, grid spacing, flight m/s.
-#define STEPS 30
+// distance), how much shorter steps get over the mountains (× height: their slopes grow with it), far plane, grid
+// spacing, flight m/s.
+#define STEPS 64
 #define STRIDE 0.15
+#define STEEP 4.0
 #define FAR 60.0
 #define GRID 2.0
 #define FLY 8.0
@@ -27,11 +29,14 @@
 vec3 palette(float t) { return 0.5 + 0.5 * cos(6.28318 * (t + vec3(0.0, 0.33, 0.67))); }
 
 // Mountains from two warped sine sheets (ridges where either crosses zero; simplex noise cost 2.5× as much), zero in
-// the valley, plus waves rolling towards the camera.
-float terrain(vec2 p) {
+// the valley, plus waves rolling towards the camera. q = the sheets' product (0 in the valley): it changes sign across a
+// ridge line.
+float terrain(vec2 p, out float q) {
     float h = 0.25 * sin(p.y * 0.4 - TIME * 3.0) * smoothstep(0.0, 5.0, abs(p.x));
+    q = 0.0;
     if (abs(p.x) > 2.0) { // the valley floor skips the mountains
-        float r = 1.0 - abs(sin(p.x * 0.23 + 1.3 * sin(p.y * 0.11)) * sin(p.y * 0.17 + 1.1 * sin(p.x * 0.13 + 1.7)));
+        q = sin(p.x * 0.23 + 1.3 * sin(p.y * 0.11)) * sin(p.y * 0.17 + 1.1 * sin(p.x * 0.13 + 1.7));
+        float r = 1.0 - abs(q);
         h += smoothstep(2.0, 9.0, abs(p.x)) * 5.0 * r * r * r;
     }
     return height * h;
@@ -58,27 +63,38 @@ void main() {
     // Terrain: rays going up leave the tallest mountain's height early.
     float top = height * 5.3 + 0.3;
     float tmax = rd.y > 0.0 ? min(FAR, (top - ro.y) / rd.y) : FAR;
-    // Coarse steps (at least STRIDE × the distance), then two secant steps between the last point above the ground
-    // (tp, hp) and the first below (t, h).
+    // Coarse steps (at least STRIDE × the distance, shorter over the mountains), then two secant steps between the last
+    // point above the ground (tp, hp) and the first below (t, h). A ridge's tip is thinner than a step, so a step over a
+    // ridge line also tests the ray where it crossed the line: else bass peaks show floating shards.
     float t = 0.4;
     float tp = t;
     float hp = 1.0;
     float h = 1.0;
+    float q;
+    float qc;
+    float qp = 0.0;
     bool hit = false;
     for (int i = 0; i < STEPS; i++) {
         vec3 p = ro + rd * t;
-        h = p.y - terrain(p.xz);
+        h = p.y - terrain(p.xz, q);
         if (h < 0.0) { hit = true; break; }
+        if (q * qp < 0.0) {
+            float tc = mix(tp, t, qp / (qp - q));
+            vec3 c = ro + rd * tc;
+            float hc = c.y - terrain(c.xz, qc);
+            if (hc < 0.0) { t = tc; h = hc; hit = true; break; }
+        }
         tp = t;
         hp = h;
-        t += max(0.5 * h, STRIDE * t);
+        qp = q;
+        t += max(0.5 * h, STRIDE * t) / (1.0 + STEEP * height * smoothstep(2.0, 9.0, abs(p.x)));
         if (t > tmax) break;
     }
     if (hit) {
         for (int j = 0; j < 2; j++) {
             float tm = tp + (t - tp) * hp / (hp - h);
             vec3 m = ro + rd * tm;
-            float hm = m.y - terrain(m.xz);
+            float hm = m.y - terrain(m.xz, q);
             if (hm < 0.0) { t = tm; h = hm; } else { tp = tm; hp = hm; }
         }
         t = tp + (t - tp) * hp / (hp - h);
