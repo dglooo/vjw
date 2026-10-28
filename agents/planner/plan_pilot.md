@@ -853,7 +853,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - Line-in path (Chrome's fake capture device playing the track, 44.1 kHz): 127.8 at 5.1 s, confident at 5.9 s, `1.5 / p95 4.4 ms`, and a bar-line fade on bar 4.000 (test-only `barsPerShot: 4`).
     - Every run had 0 GL errors and 0 console or page errors.
 
-### S6.1 `[ ]` Closeout: `THIRD_PARTY.md` (R4), delete the probe, final gates
+### S6.1 `[x]` Closeout: `THIRD_PARTY.md` (R4), delete the probe, final gates
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** licenses recorded; throwaway code removed.
 - **Files:** `web/scripts/licenses.mjs`, `web/THIRD_PARTY.md`, delete `web/src/probe/` (+ the `?probe` branch in `main.tsx`).
@@ -861,6 +861,16 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none.
 - **Done-check:** gates green; `npm run build` succeeds; `THIRD_PARTY.md` lists every entry in `package.json`.
 - **Depends on:** all previous steps.
+- **Changed during implementation:**
+  - **`main.tsx` imports are static now**, as the S1.6 note allowed: `import './app'` and `import { Overlay }`, with no top-level await. The dynamic imports only existed so `?probe` never loaded the singletons.
+    - The build used to split the app into `index`, `app`, `Overlay`, `quality` and `jsx-runtime` chunks. It now emits one `index-*.js` (298.8 kB, 94.8 kB gz), `onset.worklet-*.js` and the CSS. The worklet hash is unchanged.
+    - `app.ts` and `engine.ts` only touch the static `#stage` canvas at load, so the module order does not matter.
+  - **One comment-only edit outside the step's file list:** `audio/onset.worklet.ts` said "(as the probe does)". The reference dangled once the probe was gone, so it was dropped.
+  - **`vite.config.ts` is untouched.** `optimizeDeps.include: ['fft.js']` stays: `onset.worklet.ts` imports `fft.js` and the dep scanner does not crawl worklet imports.
+  - **`licenses.mjs` prints one sorted table**, as the step says. `THIRD_PARTY.md` splits it by `package.json` section: `dependencies` → Runtime, `devDependencies` → Toolchain (`playwright-core` is the lead's verification tool and stays there). Checked by script: the doc's 18 rows equal the script's 18 rows, so every `package.json` entry is listed.
+  - **Attribution checked against the repo:** `examples/transform-feedback-particles-va.html` exists in greggman/twgl.js and its header matches the one quoted in `particles.ts`. `THIRD_PARTY.md` names `src/scenes/particles.ts` as the adapting file. fft.js also gets its author and repo URL, and the note that its README says MIT.
+  - **No other leftovers:** the S1.2 extras (`hann.ts`, the copy button, the download link) all lived inside `src/probe/`. A repo-wide search found no other `probe`-named files, and `dist/assets` has no `probe` chunk after a fresh build.
+  - **Final gates:** `npm run lint` and `npm run typecheck` clean, `npm test` 75/75 in 10 files, `npm run build` OK.
 
 ## Acceptance mapping
 | Spec §7 | Proven by |

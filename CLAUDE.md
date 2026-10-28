@@ -49,6 +49,7 @@ npm test                            # vitest run   (npm run test:watch = watch m
 npm run build && npm run preview    # bundle check, http://localhost:4173/
 ```
 **Gates** = `npm run lint && npm run typecheck && npm test`.
+**Git** (user, 2026-10-28): local repo, no remote. The lead commits after each green checkpoint, with gates passing. Never push.
 **Toolchain:** Node ≥ 20.19 (Vite 8), currently 20.20.2 via nvm. On Node 20, Vitest stays 4.x and TS stays 6.0.x (typescript-eslint caps it at <6.1).
 
 ## Repo layout
