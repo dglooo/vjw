@@ -27,7 +27,8 @@
 - ✅ Plan `plan_effects.md`: 27 steps / 7 CPs (CP2 bench + natives, CP3 compositor/transitions/Shadertoy, CP4 content ×5, CP5 panel, CP6 library, CP7 closeout). `donor/` fetched (git-ignored).
 - ✅ **Effects CP1** `f421b38`: ISF loader + bindings + SceneDoc, KALEIDO TUNNEL on bass (lead-verified, 109 tests). The coder was stopped at ~4 h for context bloat.
 - 🔑 **USER (2026-10-28): one step per agent, parallel worktrees, time-boxed** (CLAUDE.md workflow #11, memory `one-step-per-agent`).
-- ▶ **Wave 1 (parallel worktrees):** S2.1 director hooks + GPU timer ‖ S2.3 glitch + spectrum natives ‖ S3.1 GLSL ES3 wrappers.
+- Wave 1: ✅ S2.3 glitch + spectrum natives (7 min, merged `9b98f74`, 109 tests) ‖ ▶ S2.1 director hooks + GPU timer ‖ ▶ S3.1 GLSL ES3 wrappers.
+- ▶ S2.4 particles native (started right after S2.3, its own worktree).
   - Next: wave 2 = S2.2 bench ‖ S2.4 particles; wave 3 = S2.5. :8080 is not refreshed until CP2.
 
 **Next epic (requested 2026-10-28): flexible, genre-aware audio reactivity.**
