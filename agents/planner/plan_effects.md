@@ -244,7 +244,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates green. **Manual:** Start shows "compiling n/N" briefly; a 5-min autopilot run in the lead's Playwright shows 0 late frames inside fades. **Lead commits** `cp2-effects`.
 - **Depends on:** S2.2 numbers, S2.4.
 
-### S3.1 `[ ]` `fx/glsl.ts`: `commentParams`, `wrapToy`, `wrapTransition`, with tests
+### S3.1 `[x]` `fx/glsl.ts`: `commentParams`, `wrapToy`, `wrapTransition`, with tests
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the two ES 3.00 wrappers (design E5, E7), pure.
 - **Files:** `web/src/fx/glsl.ts`, `web/src/fx/glsl.test.ts`.
@@ -252,6 +252,12 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests (`glsl.test.ts`):** `commentParams` on 3 lines (float, a non-numeric comment ignored, a `vec2` default); `wrapToy` output starts with `#version 300 es`, contains every `i*` uniform once, ends with the `main` wrapper, `prefixLines` equals the number of lines before the pasted code (checked by locating a marker line); `wrapTransition` contains `getFromColor`, `transition(`, keeps the body, strips `#version`, and its `inputs` come from the comments.
 - **Done-check:** gates green.
 - **Depends on:** S1.1 (types).
+- **Changed during implementation:**
+  - `commentParams` also maps `int` → `long` and `bool` → `bool` (E7: "uniform defaults are parsed"). GL zero-initialises uniforms, so the 22 of the 125 glsl3 files with int/bool params would otherwise run with 0/false. `min` is `min(0, 2·default)` rather than 0, so a negative default stays in range (`direction = -1.0`, `endy = -1` in the corpus). `max` is as planned.
+  - Still skipped, so S4.5 should leave these out at curation or extend the parser then: the `ivec2` params (GridFlip, Pixelize, RandomSquares, SquaresWipe, TilesWave), FlashFade's `/* = */` default, and the image params of DisplacementMap and LumaWipe. An expression default (`1.0/3.0`, `vec2(1.0 / 3.0, 0.5)`) is skipped, not truncated.
+  - Both prefixes are `#version 300 es` + `precision highp float;` + `precision highp int;`. The plan's list left out the float precision (ES 3.00 fragment shaders have no default) and `out vec4 outColor;`; both upstream hosts declare highp int. A `#version` line is stripped wherever it sits, including after leading comments, because GLSL allows comments before it.
+  - `glsl.test.ts` pins the duplicated VS to `gl/engine.ts` through a `?raw` import. If S3.2 edits the engine VS, update the copy here. The lead's alternative: have the engine import the VS from here.
+  - Verified outside the gates with a scratchpad Playwright sweep on ANGLE Metal (M4). All 125 wrapped donor transitions and an all-uniforms toy (uint hash, `texelFetch`, non-constant loop) link. A paste error on line 3 is logged as line 21, and `prefixLines` is 18.
 
 ### S3.2 `[ ]` Engine services: persistent targets with resample, audio textures, the transition pass
 Invoke the `ponytail` skill (full) before writing code.
