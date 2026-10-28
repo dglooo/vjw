@@ -27,7 +27,11 @@
 - ✅ Plan `plan_effects.md`: 27 steps / 7 CPs (CP2 bench + natives, CP3 compositor/transitions/Shadertoy, CP4 content ×5, CP5 panel, CP6 library, CP7 closeout). `donor/` fetched (git-ignored).
 - ✅ **Effects CP1** `f421b38`: ISF loader + bindings + SceneDoc, KALEIDO TUNNEL on bass (lead-verified, 109 tests). The coder was stopped at ~4 h for context bloat.
 - 🔑 **USER (2026-10-28): one step per agent, parallel worktrees, time-boxed** (CLAUDE.md workflow #11, memory `one-step-per-agent`).
-- Wave 1: ✅ S2.3 glitch + spectrum natives (7 min, merged `9b98f74`, 109 tests) ‖ ▶ S2.1 director hooks + GPU timer ‖ ▶ S3.1 GLSL ES3 wrappers.
+- Wave 1: ✅ S2.3 natives (7 min, `9b98f74`) ‖ ✅ S3.1 GLSL ES3 wrappers (12 min, `02f1505`, 116 tests; all 125 gl-transitions link) ‖ ▶ S2.1 director hooks + GPU timer.
+  - Heads-ups for later briefs:
+    - S4.5 skips the ivec2 transitions, FlashFade, DisplacementMap and LumaWipe;
+    - S3.4/S5.3 need `#define HW_PERFORMANCE`;
+    - parallel coders must prefix their scratchpad file names (step id).
 - ▶ S2.4 particles native (started right after S2.3, its own worktree).
   - Next: wave 2 = S2.2 bench ‖ S2.4 particles; wave 3 = S2.5. :8080 is not refreshed until CP2.
 
