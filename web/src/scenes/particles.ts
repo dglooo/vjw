@@ -9,15 +9,21 @@
 // Available via the MIT license. see: http://github.com/greggman/twgl.js for details"
 import {
   bindFramebufferInfo, createBufferInfoFromArrays, createProgramInfo, createTransformFeedback, createVertexArrayInfo,
-  setUniforms,
+  setUniforms, type ProgramInfo,
 } from 'twgl.js'
 import { pulse } from '../audio/sync'
+import type { Input } from '../fx/types'
 import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, renderTarget } from '../gl/engine'
-import type { SceneFactory } from '../gl/scene'
+import type { NativeDef } from '../gl/scene'
 
-/** Look knobs, read every frame (the stage-2 editor binds to these). */
-export const params = { burst: 2.5, swirl: 1.5, size: 6, glow: 2 }
+/** Look knobs, read every frame; bindings and the panel drive them through `values`. */
+export const inputs: Input[] = [
+  { name: 'burst', type: 'float', min: 0, max: 6, default: 2.5 },
+  { name: 'swirl', type: 'float', min: 0, max: 5, default: 1.5 },
+  { name: 'size', type: 'float', min: 1, max: 16, default: 6 },
+  { name: 'glow', type: 'float', min: 0, max: 8, default: 2 },
+]
 const N = 65536 // knob: point count
 const SPRING = 40 // knob: 1/s², pull back to the rest radius: a burst returns within ~¼ s, and frequent onsets
 // (≈4/s with hats) only push the disc out by their mean impulse / SPRING
@@ -81,64 +87,81 @@ uniform vec2 uRes;
 out vec4 outColor;
 void main() { outColor = vec4(1.0 - exp(-texture(uSrc, gl_FragCoord.xy / uRes).rgb * ${EXPOSURE.toFixed(2)}), 1.0); }`
 
-export const particles: SceneFactory = (gl) => {
-  const prog = createProgramInfo(gl, [VS, FS], { transformFeedbackVaryings: ['posOut', 'velOut'] })
-  const composite = fullscreenProgram(COMPOSITE_FS)
-  const bloom = createBloom(gl)
-  const target = renderTarget(true)
-  const start = new Float32Array(2 * N) // a random disc, at rest
-  for (let i = 0; i < N; i++) {
-    const a = Math.random() * 2 * Math.PI
-    const r = 0.06 + 0.66 * Math.sqrt(Math.random())
-    start[2 * i] = r * Math.cos(a)
-    start[2 * i + 1] = r * Math.sin(a)
-  }
-  const a = createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: start }, vel: { numComponents: 2, data: 2 * N } })
-  const b = createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: 2 * N }, vel: { numComponents: 2, data: 2 * N } })
-  // Ping-pong: each set reads one pair of buffers through its VAO and writes the other pair through its TF object.
-  const sets = [[a, b], [b, a]].map(([src, dst]) => ({
-    vao: createVertexArrayInfo(gl, prog, src).vertexArrayObject!,
-    tf: createTransformFeedback(gl, prog, { posOut: dst.attribs!.pos, velOut: dst.attribs!.vel }),
-  }))
-  gl.bindBuffer(gl.ARRAY_BUFFER, null) // as in the example: don't leave a TF buffer on a generic binding
-  let cur = 0
+// Compiled once and shared: instances differ only in their buffers, and every draw sets all the uniforms. Kept here
+// because the engine's program() cache takes no transform feedback varyings.
+let tfProgram: ProgramInfo | undefined
 
-  return {
-    name: 'particles',
-    draw(f) {
-      // Onsets new this frame (a file's once audible, T1). The detector fires above strength 1.5 (its threshold) and caps
-      // at 4, so prominent hits burst fully and weak ones (hats) barely push.
-      let kick = 0
-      for (const o of f.onsets) kick = Math.max(kick, (o.strength - 1.5) / 2.5)
-      const { vao, tf } = sets[cur]
-      cur ^= 1
+export const particles: NativeDef = {
+  id: 'native/particles', name: 'Particles', kind: 'generator', category: 'geometry',
+  credit: 'VeeJay Wizard, after Gregg Tavares (twgl.js)', inputs,
+  create(gl) {
+    const prog = (tfProgram ??= createProgramInfo(gl, [VS, FS], { transformFeedbackVaryings: ['posOut', 'velOut'] }))
+    const composite = fullscreenProgram(COMPOSITE_FS)
+    const bloom = createBloom(gl)
+    const target = renderTarget(true)
+    const start = new Float32Array(2 * N) // a random disc, at rest
+    for (let i = 0; i < N; i++) {
+      const a = Math.random() * 2 * Math.PI
+      const r = 0.06 + 0.66 * Math.sqrt(Math.random())
+      start[2 * i] = r * Math.cos(a)
+      start[2 * i + 1] = r * Math.sin(a)
+    }
+    const a = createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: start }, vel: { numComponents: 2, data: 2 * N } })
+    const b = createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: 2 * N }, vel: { numComponents: 2, data: 2 * N } })
+    // Ping-pong: each set reads one pair of buffers through its VAO and writes the other pair through its TF object.
+    const sets = [[a, b], [b, a]].map(([src, dst]) => ({
+      vao: createVertexArrayInfo(gl, prog, src).vertexArrayObject!,
+      tf: createTransformFeedback(gl, prog, { posOut: dst.attribs!.pos, velOut: dst.attribs!.vel }),
+    }))
+    gl.bindBuffer(gl.ARRAY_BUFFER, null) // as in the example: don't leave a TF buffer on a generic binding
+    let cur = 0
 
-      const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
-      target.fit(f.width, f.height)
-      bindFramebufferInfo(gl, target)
-      gl.clearColor(0, 0, 0, 1)
-      gl.clear(gl.COLOR_BUFFER_BIT)
-      gl.useProgram(prog.program)
-      gl.bindVertexArray(vao)
-      setUniforms(prog, {
-        uDt: Math.min(f.dt, 0.05), uTime: f.time, uKick: kick * params.burst, uBass: Math.min(3, f.energy.att.bass),
-        uPulse: pulse(f.sync),
-        uAspect: f.width / f.height, uSize: params.size, uScale: f.height / 1000, uSwirl: params.swirl,
-      })
-      gl.enable(gl.BLEND)
-      gl.blendFunc(gl.ONE, gl.ONE)
-      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf)
-      gl.beginTransformFeedback(gl.POINTS)
-      gl.drawArrays(gl.POINTS, 0, N)
-      gl.endTransformFeedback()
-      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null)
-      gl.disable(gl.BLEND)
-      gl.bindVertexArray(null) // fullscreen passes set their attributes on the default VAO
+    return {
+      draw(f, v) {
+        // Onsets new this frame (a file's once audible, T1). The detector fires above strength 1.5 (its threshold) and caps
+        // at 4, so prominent hits burst fully and weak ones (hats) barely push.
+        let kick = 0
+        for (const o of f.onsets) kick = Math.max(kick, (o.strength - 1.5) / 2.5)
+        const { vao, tf } = sets[cur]
+        cur ^= 1
 
-      const lit = bloom.apply(target.attachments[0], f.width, f.height, params.glow)
-      gl.bindFramebuffer(gl.FRAMEBUFFER, out)
-      gl.viewport(0, 0, f.width, f.height)
-      composite({ uSrc: lit, uRes: [f.width, f.height] })
-    },
-  }
+        const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
+        target.fit(f.width, f.height)
+        bindFramebufferInfo(gl, target)
+        gl.clearColor(0, 0, 0, 1)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        gl.useProgram(prog.program)
+        gl.bindVertexArray(vao)
+        setUniforms(prog, {
+          uDt: Math.min(f.dt, 0.05), uTime: f.time, uKick: kick * (v.burst as number),
+          uBass: Math.min(3, f.energy.att.bass), uPulse: pulse(f.sync),
+          uAspect: f.width / f.height, uSize: v.size, uScale: f.height / 1000, uSwirl: v.swirl,
+        })
+        gl.enable(gl.BLEND)
+        gl.blendFunc(gl.ONE, gl.ONE)
+        gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf)
+        gl.beginTransformFeedback(gl.POINTS)
+        gl.drawArrays(gl.POINTS, 0, N)
+        gl.endTransformFeedback()
+        gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null)
+        gl.disable(gl.BLEND)
+        gl.bindVertexArray(null) // fullscreen passes set their attributes on the default VAO
+
+        const lit = bloom.apply(target.attachments[0], f.width, f.height, v.glow as number)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, out)
+        gl.viewport(0, 0, f.width, f.height)
+        composite({ uSrc: lit, uRes: [f.width, f.height] })
+      },
+      dispose() {
+        bloom.dispose()
+        gl.deleteFramebuffer(target.framebuffer)
+        gl.deleteTexture(target.attachments[0])
+        for (const s of sets) {
+          gl.deleteVertexArray(s.vao)
+          gl.deleteTransformFeedback(s.tf)
+        }
+        for (const x of [a, b]) for (const at of Object.values(x.attribs!)) gl.deleteBuffer(at.buffer)
+      },
+    }
+  },
 }

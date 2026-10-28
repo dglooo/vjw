@@ -23,7 +23,7 @@ const DEBUG = location.search.includes('debug')
 const VIDEO_BPS = 12_000_000 // ≈24 Mbps real: Chrome's H.264 encodes ≈2× the request at 60 fps, 1× at 30 (measured, S4.3)
 
 scenes.live = live
-// The playlist is the starred built-ins (design E4); spectrum, particles and glitch return as docs in CP2.
+// The playlist is the starred built-ins (design E4), in their order.
 const director = createDirector(BUILTIN.filter((d) => d.star).map((d) => d.id), { confidentTheta: CONFIDENT })
 const tempo = createTempoSource()
 const sync = createSync(tempo)
