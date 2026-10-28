@@ -39,6 +39,13 @@ describe('parseScene', () => {
     expect(() => parseScene(withLayer({ fx: {} }))).toThrow(/^layers\[0\]\.fx: /)
   })
 
+  test('created is optional: kept when a finite number, absent otherwise', () => {
+    expect(parseScene(doc({ created: 1761681600000 })).created).toBe(1761681600000)
+    expect(parseScene(doc())).not.toHaveProperty('created')
+    expect(() => parseScene(doc({ created: '2026-10-28' }))).toThrow(/^created: /)
+    expect(() => parseScene(doc({ created: Infinity }))).toThrow(/^created: /)
+  })
+
   test('code may be exactly CODE_MAX chars; opacity, speed and res clamp', () => {
     expect(parseScene(withLayer({ gen: { ref: 'a', code: 'x'.repeat(65536) } })).layers[0].gen.code).toHaveLength(65536)
     expect(parseScene(withLayer({ opacity: 2, speed: 9, res: 0.1 })).layers[0]).toMatchObject({ opacity: 1, speed: 4, res: 0.25 })

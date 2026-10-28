@@ -696,7 +696,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates green. **Manual:** paste a known-good single-pass shader (the user's own or a CC BY-NC-SA one, allowed by spec §6) → it plays; paste `void mainImage(out vec4 o, vec2 p){ o = foo; }` → the log names the pasted line. **Lead commits** `cp5-effects`.
 - **Depends on:** S5.2.
 
-### S6.1 `[ ]` `library.ts`: IndexedDB, stars, playlist, export/import; `live` reads the library
+### S6.1 `[x]` `library.ts`: IndexedDB, stars, playlist, export/import; `live` reads the library
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** persistence (design E4), native APIs only.
 - **Files:** `web/src/library.ts`, `web/src/gl/live.ts`, `web/src/app.ts`.
@@ -704,6 +704,30 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none (IndexedDB); the parse layer is tested in S1.3. Add `created` to `doc.test.ts` (optional field survives).
 - **Done-check:** gates green; a DevTools session shows the `vjw` DB after a save.
 - **Depends on:** S5.3.
+- **Changed during implementation:**
+  - **Pulled ahead of S5.2/S5.3 by the lead** (no shared files with S5.2). S5.3 adds `pasteToy` to the same `panel` object in `live.ts`: a merge touch point.
+  - **Tests after all (lead's brief).** The browser side is three seams: `createLibrary(db: Db, kv, download)`, and `library = createLibrary(idb(), localStorage, download)`. `library.test.ts` has 12 tests over an in-memory "browser" (rows + localStorage + downloads, `open()` = a page load): export → import round-trip, versions and bad JSON, star → playlist with the empty-star fallback, id collisions, corrupt rows, persist, onChange, the local-date file name. Of 25 hand mutations of `library.ts`, 24 are killed. The survivor (`get` looks in the built-ins first) is equivalent: a user id is never a built-in's. `doc.test.ts` gains 1 test for `created`.
+  - **`put` checks what it stores** (`own()` = `parseScene` + a `builtin:` id refused), so whatever is stored loads back. `saveAs('')` is refused with `name: …` instead of being skipped at the next load. `panel.save()` on a built-in resolves to `id: builtin:… is a built-in, save it as a new scene`.
+  - **Import collisions:** an existing user id is overwritten and keeps its `created` (its playlist place) when the file has none; a repeated id: the last wins; a `builtin:` id comes in as a new scene (fresh uuid) instead of shadowing the built-in. Validation is all-or-nothing (`parseLibrary` before any write).
+  - **`get(id)` of a built-in is the library's shallow copy with the user's star** (the contract has no `starred(id)`), so `get(id).star` is the truth for every scene. `setStar` also stars the panel's unsaved copy in `edit.docs`, so `live(id).doc.star` and a later `save()` agree.
+  - **`persist()` is asked on each save until granted,** then remembered in `vjw.persisted` (the plan: once). A first denial (Chrome decides by engagement, without a prompt) doesn't stick forever.
+  - **IndexedDB:** a write resolves on the transaction's `complete` (durable), not on the request's success. A connection closed under us (DevTools' delete: `versionchange`/`close`) is let go and reopened by the next call, so the demo's "delete the DB in DevTools, Import" works without a reload.
+  - **`app.ts`:** the director starts from `library.playlist()` (the built-ins with the user's stars, read synchronously from localStorage). One `onChange` handler sets the playlist; `load()` notifies too. Compile-all at Start waits for the load, so starred user scenes are warmed. A failed load logs `library …`, and the built-ins play on.
+  - **`panel`:** `save()` and `saveAs(name)` resolve to an error message or null (as `importFile`); `save()` clears `edit.dirty`. `toggleStar()` flips the edited scene's star.
+  - **Not done (heads-up for S6.2):**
+    - After Save as, the panel keeps editing the scene on screen; the original's copy stays dirty. "My tunnel" plays when the autopilot reaches it once starred (S6.2's list stars it). Showing it at once needs a director cut-to-id, which is outside this step's files.
+    - An import over the scene on screen (or over one with an unsaved copy) shows at its next build. The panel reads the new doc meanwhile.
+    - `library.del()` has no caller. Deleting the scene on screen would leave `live(id).doc` undefined, and app.ts reads `.name` every frame. Keep the last doc in `create()` when a delete button lands.
+    - `download()` repeats the recorder's 5 lines; a shared helper needs `recorder.ts`.
+  - **Chrome check.** Playwright on :5190, installed Chrome, `--mute-audio`, in silence; `s61_*` in the scratchpad. 18/18 checks pass:
+    - Save on the tunnel is refused; Save as "My tunnel" (glow 3, twist bound to bass) is stored unstarred, and the `vjw` DB exists.
+    - The star makes it the 28th, last playlist entry. After a reload it is still there, starred, with the value and the binding intact.
+    - `←` from the first scene fades to it ("My tunnel", 0 node errors). Save on it stores glow 2.
+    - Unstar takes it out of the playlist while it stays on screen; star puts it back.
+    - Export downloads `veejay-library-2026-10-28.json` (1 scene). CDP `IndexedDB.deleteDatabase` (as DevTools) removes the DB. Import without a reload restores it and recreates the DB, and a reload shows it restored.
+    - A second round with a reload between the delete and the import: the library is empty (27 built-ins), then it is restored after the import.
+    - glError 0. Console errors: 0.
+  - **Gates:** lint and tsc clean, 142 tests (+13), build OK.
 
 ### S6.2 `[ ]` Panel: Save / Save as / star / Export / Import (file picker + drop)
 Invoke the `ponytail` skill (full) before writing code.

@@ -10,9 +10,9 @@ import type { FrameInput } from './frame'
 import { catalog, transitions } from './fx/catalog'
 import { gpuMs, render, scenes, setAudio, setOutput, setTransition, stage } from './gl/engine'
 import { live, prepare, warm } from './gl/live'
+import { library } from './library'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
 import { startRecording } from './recorder'
-import { BUILTIN } from './scenes/builtin'
 import { store } from './store'
 
 const QUALITY_KEY = 'vjw.quality'
@@ -27,13 +27,17 @@ scenes.live = live
 scenes.catalog = catalog
 let transition = 'own/crossfade' // the fades' look (design E7): a random pick per fade, never the same twice in a row
 setTransition(transition)
-// The playlist is the starred built-ins (design E4), in their order.
-const playlist = BUILTIN.filter((d) => d.star).map((d) => d.id)
-const director = createDirector(playlist, { confidentTheta: CONFIDENT })
-// Compile-all at Start (design E2): once the audio context runs (the Start click, or at load when autoplay is allowed),
-// every program of the playlist compiles while the loop plays on.
+// The playlist is the starred scenes (design E4): built-ins first, then the user's, in step with the library. It starts
+// with the built-ins; the user's join once IndexedDB is read.
+const director = createDirector(library.playlist(), { confidentTheta: CONFIDENT })
+library.onChange(() => director.setPlaylist(library.playlist()))
+const loaded = library.load().catch((e: unknown) => console.error('library', e)) // no IndexedDB: the built-ins only
+// Compile-all at Start (design E2): once the audio context runs (the Start click, or at load when autoplay is allowed)
+// and the library is read, every program of the playlist compiles while the loop plays on.
 const warmUp = () =>
-  void warm(playlist, (n, of) => store.patch({ compiling: `compiling ${n}/${of}` })).then(() => store.patch({ compiling: null }))
+  void loaded
+    .then(() => warm(library.playlist(), (n, of) => store.patch({ compiling: `compiling ${n}/${of}` })))
+    .then(() => store.patch({ compiling: null }))
 if (ctx.state === 'running') warmUp()
 else ctx.addEventListener('statechange', warmUp, { once: true })
 const tempo = createTempoSource()

@@ -8,7 +8,8 @@ export type SceneId = string // 'builtin:<slug>' | crypto.randomUUID()
 export type Blend = 'normal' | 'add' | 'screen' | 'multiply'
 export interface NodeDoc { ref: string; code?: string; credit?: string; values?: Record<string, Value>; bind?: Record<string, Binding> }
 export interface LayerDoc { gen: NodeDoc; fx: NodeDoc[]; blend: Blend; opacity: number; speed: number; res: number; bind?: Partial<Record<'opacity' | 'speed', Binding>> }
-export interface SceneDoc { v: 1; id: SceneId; name: string; star: boolean; layers: LayerDoc[] } // 1..4, bottom first
+// layers: 1..4, bottom first; created: ms since 1970, a user scene's (its place in the autopilot after the built-ins)
+export interface SceneDoc { v: 1; id: SceneId; name: string; star: boolean; created?: number; layers: LayerDoc[] }
 export interface LibraryFile { v: 1; scenes: SceneDoc[] }
 
 const CODE_MAX = 65536 // knob: chars of inline shader code per node
@@ -95,7 +96,9 @@ export function parseScene(x: unknown): SceneDoc {
   if (o.v !== 1) fail('v', `unsupported scene version ${JSON.stringify(o.v)}`)
   if (typeof o.star !== 'boolean') fail('star', 'not a boolean')
   if (!Array.isArray(o.layers) || o.layers.length < 1 || o.layers.length > LAYERS_MAX) fail('layers', `not an array of 1..${LAYERS_MAX} layers`)
-  return { v: 1, id: str(o.id, 'id'), name: str(o.name, 'name'), star: o.star, layers: o.layers.map((l, i) => layer(l, `layers[${i}]`)) }
+  const d: SceneDoc = { v: 1, id: str(o.id, 'id'), name: str(o.name, 'name'), star: o.star, layers: o.layers.map((l, i) => layer(l, `layers[${i}]`)) }
+  if (o.created !== undefined) d.created = num(o.created, 'created')
+  return d
 }
 
 /** A `LibraryFile` or a single scene. */
