@@ -52,6 +52,7 @@ export function Overlay() {
           ))}
         </select>
         <span className="hint">{s.source?.kind === 'file' ? `▶ ${s.source.name}` : 'Drop an audio file anywhere'}</span>
+        {s.compiling && <span className="hint">{s.compiling}</span>}
         <span className="scene">{s.sceneName}</span>
         {s.bpm > 0 && <span className={s.confident ? 'bpm' : 'bpm unsure'}>BPM {s.bpm.toFixed(1)}</span>}
         {s.hold && <span className="lock">Lock</span>}
