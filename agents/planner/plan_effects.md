@@ -725,7 +725,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - glError 0; no console errors or warnings.
   - **Gates:** lint and tsc clean, 129 tests, build OK.
 
-### S5.3 `[ ]` Paste Shadertoy dialog
+### S5.3 `[x]` Paste Shadertoy dialog
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** spec §4.4 through the UI.
 - **Files:** `web/src/ui/Panel.tsx`, `web/src/gl/live.ts`.
@@ -733,6 +733,22 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none new (the wrapper is tested).
 - **Done-check:** gates green. **Manual:** paste a known-good single-pass shader (the user's own or a CC BY-NC-SA one, allowed by spec §6) → it plays; paste `void mainImage(out vec4 o, vec2 p){ o = foo; }` → the log names the pasted line. **Lead commits** `cp5-effects`.
 - **Depends on:** S5.2.
+- **Changed during implementation:**
+  - **The dialog opens from the last entry of the "+ layer" list, "Shadertoy (paste)…",** not from its own button: a toy is a generator layer, the panel keeps one control, and the list is already disabled at 4 layers.
+  - **`CODE_MAX` is exported from `doc.ts`** (one word), so the paste is refused at the same limit `parseScene` checks: "70000 chars: a paste holds at most 65536".
+  - **`restructure()` returns false when an op is refused.** `pasteToy` uses it for the 4-layer case ("The scene has 4 layers: remove one first"). The compile goes first: `program()` puts the toy into the cache, and the rebuild finds it there. On a failure `toyLog` gives the log. twgl's 2 console errors for a broken paste are expected.
+  - **The `<dialog>` sits in the panel's DOM, but `showModal()` puts it in the top layer,** so the panel's idle fade (opacity) doesn't reach it (checked by eye). The idle panel's inherited `pointer-events: none` is overridden in `.paste`.
+    - Keys stop at the dialog: no hotkeys while typing, and Esc closes only the dialog. Pointer-up stops too, because the panel's blur-on-pointer-up would unfocus the credit field.
+    - On close, the focus the browser hands back to "+ layer" is blurred, so a type-ahead can't add a layer.
+  - **Small additions:** the code field is `required` (the native "fill out this field"). One dim line says what iChannel0 holds. The credit is trimmed.
+  - **Chrome check.** Playwright on :5192, installed Chrome, `--mute-audio`, 1200×800, kicks128n.wav. The script and log are `s53_check.*` in the scratchpad. 18/18 pass:
+    - The dialog opens modal with the focus in the code. `E`, `→` and Space inside don't reach app.ts (panel, hold and scene unchanged). Space on Cancel closes only the dialog, and no focus is left behind. Esc closes the dialog; the panel stays.
+    - **A good paste** (an own plasma reading `iChannel0`, with `uniform float zoom; // = 10.0`) becomes layer 2 `toy/<uuid>` with its code and credit, editRev +1, 0 node errors. It renders over the tunnel and moves (6/6 distinct frames). The panel shows "2 · Shadertoy" with a `zoom` slider. Screenshot `s53_pasted.png`.
+    - **A broken paste** (`o = foo;` on paste line 3) shows `ERROR: 0:3: 'foo' : undeclared identifier` (+2) under the code. The dialog stays open, nothing is added, and the loop runs at 62 fps. Screenshot `s53_bad-paste.png`. After 3 s idle, the bar and panel fade while the dialog stays visible and clickable (`s53_bad-paste-idle.png`). The log clears on reopen.
+    - Over-long and 5th-layer pastes are refused with their messages, and "+ layer" is disabled at 4.
+    - glError 0. Console: only twgl's 2 lines for the broken paste; nothing else.
+  - **Look (screenshots):** a calm dark modal like the panel, centred, the scene dimmed lightly behind it. The log is red monospace under the credit field, and the buttons sit bottom-right.
+  - **Gates:** lint and tsc clean, 142 tests, build OK.
 
 ### S6.1 `[x]` `library.ts`: IndexedDB, stars, playlist, export/import; `live` reads the library
 Invoke the `ponytail` skill (full) before writing code.

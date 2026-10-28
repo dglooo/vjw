@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
 import { BIND_DEFAULTS, SOURCE_IDS, type Binding, type Shape } from '../bind'
 import { defaults, type Blend, type NodeDoc } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
@@ -12,6 +12,7 @@ const LAYERS_MAX = 4 // doc.ts's limit
 const BLENDS: readonly Blend[] = ['normal', 'add', 'screen', 'multiply']
 const SHAPES: readonly Shape[] = ['sine', 'tri', 'saw', 'square', 'random']
 const PHASES = ['beat', 'bar', 'lfo'] // counts, not levels: bound through a shape
+const PASTE = 'toy/' // the "+ layer" entry that opens the Shadertoy paste
 const byName = (k: Kind) => [...catalog.values()].filter((d) => d.kind === k).sort((a, b) => a.name.localeCompare(b.name))
 const GENERATORS = byName('generator')
 const FILTERS = (['feedback', 'geometry', 'liquid', 'retro', undefined] as const)
@@ -201,6 +202,49 @@ function Gpu() {
   return <span className={ms > GPU_BUDGET ? 'gpu over' : ms > 0.8 * GPU_BUDGET ? 'gpu near' : 'gpu'}>GPU {ms.toFixed(1)} ms</span>
 }
 
+/** The Shadertoy paste (spec §4.4, design E5): a single-pass `mainImage` becomes a new top layer, or its compile log
+ *  shows under the code. A modal: keys stay in it (no hotkeys while typing; Esc closes the dialog only). */
+function Paste({ ref }: { ref: RefObject<HTMLDialogElement | null> }) {
+  const [log, setLog] = useState('')
+  return (
+    <dialog
+      ref={ref}
+      className="paste"
+      onKeyDown={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()} // the panel's blur-on-pointer-up would unfocus the credit field
+      onClose={() => {
+        setLog('')
+        ;(document.activeElement as HTMLElement | null)?.blur() // focus came back to "+ layer": no type-ahead
+      }}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          const f = new FormData(e.currentTarget)
+          const err = panel.pasteToy(String(f.get('code')), String(f.get('credit')).trim())
+          setLog(err ?? '')
+          if (err) return
+          e.currentTarget.reset()
+          ref.current!.close()
+        }}
+      >
+        <p>
+          A single-pass Shadertoy shader becomes a new layer. iChannel0 is the music: spectrum in row 0, waveform in row 1.
+        </p>
+        <textarea name="code" required spellCheck={false} placeholder="void mainImage(out vec4 fragColor, in vec2 fragCoord) { … }" />
+        <input name="credit" autoComplete="off" placeholder="Credit: author · URL · license" />
+        {log && <pre className="err">{log}</pre>}
+        <div className="buttons">
+          <button type="button" onClick={() => ref.current!.close()}>
+            Cancel
+          </button>
+          <button>Add layer</button>
+        </div>
+      </form>
+    </dialog>
+  )
+}
+
 /** The effects panel (spec §2.4, design E6) over the output: the edited scene's layers, their nodes' controls and
  *  bindings, add/remove. It renders on a structural edit (editRev) or another scene, never while a slider moves: the
  *  controls are uncontrolled and call `panel`, which edits the running scene in place. It fades out with the bar. */
@@ -209,6 +253,7 @@ export function Panel() {
   const id = useSnap('edited')
   const rev = useSnap('editRev')
   const errors = useSnap('nodeErrors')
+  const paste = useRef<HTMLDialogElement>(null)
   if (!open || !id) return null
   const { layers } = live(id).doc // its name is the bar's, right above
   return (
@@ -283,7 +328,12 @@ export function Panel() {
             </section>
           )
         })}
-        <select className="add" value="" disabled={layers.length >= LAYERS_MAX} onChange={(e) => panel.addLayer(e.target.value)}>
+        <select
+          className="add"
+          value=""
+          disabled={layers.length >= LAYERS_MAX}
+          onChange={(e) => (e.target.value === PASTE ? paste.current!.showModal() : panel.addLayer(e.target.value))}
+        >
           <option value="" disabled>
             {layers.length >= LAYERS_MAX ? `${LAYERS_MAX} layers` : '+ layer'}
           </option>
@@ -292,8 +342,10 @@ export function Panel() {
               {d.name}
             </option>
           ))}
+          <option value={PASTE}>Shadertoy (paste)…</option>
         </select>
       </div>
+      <Paste ref={paste} />
     </div>
   )
 }

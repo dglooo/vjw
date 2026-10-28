@@ -12,7 +12,7 @@ export interface LayerDoc { gen: NodeDoc; fx: NodeDoc[]; blend: Blend; opacity: 
 export interface SceneDoc { v: 1; id: SceneId; name: string; star: boolean; created?: number; layers: LayerDoc[] }
 export interface LibraryFile { v: 1; scenes: SceneDoc[] }
 
-const CODE_MAX = 65536 // knob: chars of inline shader code per node
+export const CODE_MAX = 65536 // knob: chars of inline shader code per node
 const LAYERS_MAX = 4
 const BLENDS: readonly string[] = ['normal', 'add', 'screen', 'multiply'] satisfies Blend[]
 const SHAPES: readonly string[] = ['sine', 'tri', 'saw', 'square', 'random'] satisfies Shape[]

@@ -195,3 +195,55 @@
 .bind > .src > select {
   flex: 1;
 }
+
+/* The Shadertoy paste (S5.3): a modal in the top layer, so the panel's idle fade and scroll don't reach it; its
+   buttons and log take the panel's look. */
+.paste {
+  box-sizing: border-box;
+  width: min(640px, calc(100vw - 48px));
+  padding: 12px 14px;
+  color: inherit;
+  background: #0b0b0bf5;
+  border: 1px solid #ffffff17;
+  border-radius: 10px;
+  pointer-events: auto; /* the idle panel's pointer-events: none is inherited */
+}
+.paste::backdrop {
+  background: #0007;
+}
+.paste form {
+  display: grid;
+  gap: 8px;
+}
+.paste p {
+  margin: 0;
+  opacity: 0.55;
+}
+.paste textarea,
+.paste input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  font: 12px/1.45 ui-monospace, monospace;
+  color: inherit;
+  background: #161616;
+  border: 1px solid #ffffff24;
+  border-radius: 6px;
+}
+.paste textarea {
+  height: 46vh;
+  resize: vertical;
+}
+.paste input {
+  font: inherit;
+}
+.paste .err {
+  max-height: 22vh;
+  margin: 0;
+  overflow: auto;
+}
+.paste .buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

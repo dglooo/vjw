@@ -9,7 +9,7 @@
 import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { ctx } from '../audio/input'
 import { evaluate, type Binding, type BindState, type Sources } from '../bind'
-import { defaults, type Blend, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
+import { CODE_MAX, defaults, type Blend, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
 import * as edit from '../edit'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
@@ -326,18 +326,19 @@ export function live(id: SceneId): Live {
 }
 
 const edited = () => live(store.getSnapshot().edited)
-/** A structural edit (design E6): the doc changes, the scene rebuilds, the panel re-renders once. */
+/** A structural edit (design E6): the doc changes, the scene rebuilds, the panel re-renders once. False: refused. */
 function restructure(apply: (doc: SceneDoc) => boolean | void) {
   const l = edited()
-  if (apply(l.doc) === false) return
+  if (apply(l.doc) === false) return false
   l.rebuild()
   store.patch({ editRev: store.getSnapshot().editRev + 1 })
+  return true
 }
 const fresh = (ref: string) => edit.newNode(ref, catalog.get(ref)?.bind) // with its VJW_BIND suggestions
 
-/** The panel's actions on the edited scene (design E6, contract CP5; pasteToy comes with S5.3). setValue and
- *  setBinding change the running scene in place, no rebuild and no store change: a dragged slider never re-renders
- *  React. ponytail: an event's `true` is kept in the doc too, so it fires once more per build; skip it if that shows. */
+/** The panel's actions on the edited scene (design E6, contract CP5). setValue and setBinding change the running
+ *  scene in place, no rebuild and no store change: a dragged slider never re-renders React.
+ *  ponytail: an event's `true` is kept in the doc too, so it fires once more per build; skip it if that shows. */
 export const panel = {
   setValue(p: edit.NodePath, input: string, v: Value) {
     const l = edited()
@@ -354,6 +355,15 @@ export const panel = {
   addLayer: (genRef: string) => restructure((d) => edit.addLayer(d, fresh(genRef))),
   removeLayer: (i: number) => restructure((d) => edit.removeLayer(d, i)),
   setBlend: (layer: number, b: Blend) => restructure((d) => edit.setBlend(d, layer, b)),
+  /** A pasted Shadertoy `mainImage` (spec §4.4, design E5) as a new top layer. Returns why not (too long, its compile
+   *  log with the paste's line numbers, 4 layers), or null once the layer plays. */
+  pasteToy(code: string, credit: string) {
+    if (code.length > CODE_MAX) return `${code.length} chars: a paste holds at most ${CODE_MAX}`
+    const gen: NodeDoc = { ref: `toy/${crypto.randomUUID()}`, code, credit }
+    const { vs, fs, prefixLines } = toyDef(gen)
+    if (!program(vs, fs)) return toyLog(fs, prefixLines) // compiled into the cache, where the rebuild finds it
+    return restructure((d) => edit.addLayer(d, gen)) ? null : 'The scene has 4 layers: remove one first'
+  },
   // Storage (design E4, plan S6.1). Each resolves to an error message, or null once stored.
   /** The edited scene into the library. A built-in can't be saved in place: its message says Save as. */
   async save() {
