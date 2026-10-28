@@ -125,12 +125,14 @@ function create(doc: SceneDoc): Live {
 }
 
 const cache = new Map<SceneId, Live>()
+/** ?bench only (bench.ts): its test docs, found by `live` ahead of the built-ins. */
+export const docs = new Map<SceneId, SceneDoc>()
 
 /** The live instance of a scene, built on first use and cached by id. */
 export function live(id: SceneId): Live {
   let l = cache.get(id)
   if (!l) {
-    const doc = BUILTIN.find((d) => d.id === id) // S6.1: the library
+    const doc = docs.get(id) ?? BUILTIN.find((d) => d.id === id) // S6.1: the library
     if (!doc) throw new Error(`unknown scene ${id}`)
     cache.set(id, (l = create(doc)))
   }
