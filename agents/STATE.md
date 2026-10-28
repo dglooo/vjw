@@ -17,7 +17,7 @@
   - MP4 1 s timeslice, keyframe 60 s, split every 20 min;
   - Chrome bugs (QuickTime drift ≈0.5 s / 30 min, 4 GiB crash on M156/157) are in `research_recording_mp4.md`;
   - backlog: a WebCodecs recorder.
-- Polish backlog: **stage/transition pass has a ~3 ms GPU floor even for a crossfade at 1728×1118 (S4.5); investigate**; **particles 6.36 ms p95 with kicks (over budget)**; spectrum takes ≤2 filters (3 → 6.2 ms); strobe is a full-white flash every beat (check taste/safety); steppy bass bars, white-out particles, keys don't wake the overlay, mid-fade key cuts, 16-beat recovery (accepted).
+- Polish backlog: **stage/transition pass has a ~3 ms GPU floor even for a crossfade at 1728×1118 (S4.5); investigate**; wave-landscape shows floating shards on bass peaks (raymarch steps); spectrum takes ≤2 filters (3 → 6.2 ms); strobe is a full-white flash every beat (check taste/safety); steppy bass bars, white-out particles, keys don't wake the overlay, mid-fade key cuts, 16-beat recovery (accepted).
 - ✅ S6.1 closeout: THIRD_PARTY.md, probe deleted (commit `3ea87d2`).
 - 🎤 Live snapshot: scratchpad `live/` on :8080 (`python3 -m http.server`, lead bg task), refreshed with CP5. Test scripts use `--mute-audio`.
 
