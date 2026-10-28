@@ -18,7 +18,7 @@
   - **CP4:** 27 starred scenes, 34 effects (14 ISF, 16 own, 4 natives, 1 toy), 13 transitions.
   - All scenes ≤5 ms GPU at 1728×1118 (heavy gens at res 0.5), 0 errors. Contact sheet `scratchpad/cp4walk/contact.png`.
 - ✅ S5.1 panel engine (`edit.ts`, `live.panel`, E/Esc). 129 tests.
-- ▶ **Wave 6 (parallel worktrees):** S5.2 Panel UI ‖ S6.1 library (IndexedDB, stars → playlist, JSON) ‖ polish (3 ms stage-pass floor, wave-landscape shards).
+- ▶ **Wave 6 (parallel worktrees):** S5.2 Panel UI ‖ ✅ S6.1 library (IndexedDB, stars → playlist, JSON; 142 tests) ‖ ▶ polish (3 ms stage-pass floor, wave-landscape shards).
   - Then S5.3 paste-Shadertoy dialog → S6.2 panel buttons → CP7 closeout (THIRD_PARTY shaders, regression).
 - Polish backlog:
   - Slit scan is weak;
@@ -27,7 +27,7 @@
   - spectrum takes ≤2 filters;
   - a structural panel edit restarts the scene;
   - steppy bass bars; keys don't wake the overlay.
-- Heads-ups: the bench needs a quiet GPU (parallel benches inflate 2×); parallel coders prefix scratch files; `builtin.ts` append conflicts are resolved by the lead (keep both).
+- Heads-ups: S6.2 must handle "Save as keeps editing the on-screen scene", plus stars from `library.get(id)?.star`; `library.del` of the on-screen scene must not crash. The bench needs a quiet GPU (parallel benches inflate 2×); parallel coders prefix scratch files; `builtin.ts` append conflicts are resolved by the lead (keep both).
 
 **Next epic: flexible, genre-aware audio reactivity** (DnB reese/kick/snare/hats as sources).
 - `research_audio_features.md` done. Next: a short grill + design after effects CP5/CP6.
