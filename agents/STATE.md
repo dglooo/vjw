@@ -41,7 +41,7 @@
 - ✅ **CP2 done:** S2.5 compile-all + prepare-ahead (0 late frames on first visits, 214 ms warm-up, no leaks).
   - Lead 5-min autopilot at 1728×1118: all 5 scenes on bar lines, 3 drops / 5 min (pass ≤1/min), 0 errors. :8080 refreshed.
 - Wave 4: ✅ S3.2 engine ‖ ✅ S4.4 retro (8 fx) ‖ ✅ S4.2 3D (4 gens) ‖ ✅ S3.3 compositor (blend/res/multipass; `res` 0.5 = −25–41% GPU) ‖ ✅ S4.5 12 gl-transitions (p95 ≤4.9 ms; CrossZoom dropped). 14 scenes, 13 transitions, 121 tests.
-- Wave 5: ✅ S3.4 Shadertoy node (Toy plasma, iChannel0 = audio, error line numbers; **CP3 complete**) ‖ ▶ S4.1 feedback/kaleido/mirrors ‖ S4.3 liquids/metal ‖ S4.2b (dropped 3D retried with `res` + particles budget fix). ‖ ▶ S5.1 panel engine side. Then S5.2 Panel UI → S5.3 paste dialog → CP6 library → CP7.
+- Wave 5: ✅ S3.4 Shadertoy node (Toy plasma, iChannel0 = audio, error line numbers; **CP3 complete**) ‖ ✅ S4.1 feedback (8 fx, 5 scenes; feedback category 2 → 9; Slit scan weakest) ‖ S4.3 liquids/metal ‖ S4.2b (dropped 3D retried with `res` + particles budget fix). ‖ ▶ S5.1 panel engine side. Then S5.2 Panel UI → S5.3 paste dialog → CP6 library → CP7.
   - S4.2/S4.4 don't need CP3; `res` is honoured after S3.3. Then S3.3 → S3.4 → S4.1 feedback + S4.3 liquids (need PERSISTENT) ‖ S4.5 transitions ‖ CP5 panel. Then wave 3: S2.5 compile-all + prepare-ahead → CP2 check → refresh :8080.
   - Next: wave 2 = S2.2 bench ‖ S2.4 particles; wave 3 = S2.5. :8080 is not refreshed until CP2.
 
