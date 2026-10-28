@@ -337,7 +337,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - `glsl.test.ts` pins the duplicated VS to `gl/engine.ts` through a `?raw` import. If S3.2 edits the engine VS, update the copy here. The lead's alternative: have the engine import the VS from here.
   - Verified outside the gates with a scratchpad Playwright sweep on ANGLE Metal (M4). All 125 wrapped donor transitions and an all-uniforms toy (uint hash, `texelFetch`, non-constant loop) link. A paste error on line 3 is logged as line 21, and `prefixLines` is 18.
 
-### S3.2 `[ ]` Engine services: persistent targets with resample, audio textures, the transition pass
+### S3.2 `[x]` Engine services: persistent targets with resample, audio textures, the transition pass
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the engine side of CP3 (design E2 persistent targets, E3 audio textures, E7 transition pass).
 - **Files:** `web/src/gl/engine.ts`, `web/src/app.ts`, `web/src/fx/transitions/crossfade.glsl` (+ `fx/catalog.ts` globs `./transitions/*.glsl` through `wrapTransition` → `gl/<stem>` defs and `transitions` ids; a 4th file, ~6 lines ⚠️).
@@ -345,6 +345,22 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** none new (GL).
 - **Done-check:** gates green. **Manual:** looks identical to CP2; `?debug` 0 drops over 2 min.
 - **Depends on:** S3.1, S2.5.
+- **Changed during implementation:**
+  - **The engine reads the catalog through `scenes.catalog`, which `app.ts` fills next to `scenes.live`.** The catalog's natives import the engine, so a direct import would add a runtime import cycle. `app.ts` calls `setTransition('own/crossfade')` at boot.
+  - **Without a fade, the stage pass is a plain copy, not the transition at progress 0.** This is design E7 ("with no fade, it is a plain copy"). The `copy` program also does the persistent resample and replaces `final`. So a gl-transition that isn't exact at progress 0 can't show between fades and costs nothing then.
+  - **A transition is picked whenever `shot.to` changes to a new id,** not only on null → id. That also covers a fade begun mid-fade by `←/→` and one begun on the frame the last one ended. The code is the same size.
+  - **Ids come from the file:** a source with a `// Author:` line (all 125 gl-transitions files have one) becomes `gl/<stem>` with that author as `credit`. Our files have no such line, so they become `own/<stem>` (credit "VeeJay Wizard"). Transitions sit in `catalog` with `kind: 'transition'` and `passes: []`.
+  - **The byte array is a `Uint8ClampedArray`,** so −∞ dB (silence) and out-of-window values clamp to 0…255 with no extra code. `texSubImage2D` takes it for `UNSIGNED_BYTE`. One 1024-byte array holds both rows: `toy` uploads all of it, `fft`/`wave` each upload a row through the WebGL2 `srcOffset`. The textures are LINEAR and CLAMP_TO_EDGE.
+  - **S2.5's `ready` cache is folded in.** The engine's `programAsync(vs, fs)` compiles through `createProgramInfoAsync` into `program()`'s cache. It skips a source already cached and keeps the first program if a sync compile wins the race. `live.ts` dropped `ready`. `warm()` now also compiles every transition ("compiling n/N" counts them: 6 today).
+  - **The engine VS is unchanged,** so the `glsl.test.ts` pin holds.
+  - **Chrome check.** Playwright on :5179, installed Chrome, `--mute-audio`, 1200×800, kicks128n.wav. Scripts and logs are `s32_*` in the scratchpad.
+    - **Walk:** `→` ×5 went Tunnel → Spectrum → Particles → Glitch → Kaleido Tunnel → Tunnel. glError 0.
+    - **Fades:** mid-fade shots (0.9 s after each press) show the straight blend of the pilot crossfade.
+    - **Probe while the wav plays:** RGBA8 and RGBA16F persistent targets keep their red through a 4→8 refit, and a transient one comes back cleared. `fft` bytes move every frame (bass bins ≈200, top bins ≈0), `wave` reads 123–132 around 128, and the `toy` rows equal `fft`/`wave`. `transitions` = `['own/crossfade']`.
+    - **Errors:** glError 0 and 0 console errors after the probe. The walk's only console error was the first probe's own `readPixels` of a half-float target as bytes. Fixed in `s32_probe.mjs`.
+    - **Drops:** 1 at Start, as in CP2.
+    - **Not run:** the 2-min `?debug` drop count.
+  - **Gates:** lint and tsc clean, 119 tests, build OK. No new tests: the step adds no pure logic (GL only).
 
 ### S3.3 `[ ]` `live.ts`: ISF passes, layers with blend/opacity, layer clock + `res`, audio inputs
 Invoke the `ponytail` skill (full) before writing code.

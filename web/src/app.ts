@@ -7,7 +7,8 @@ import { createTempoSource } from './audio/tempo'
 import { sources, type Sources } from './bind'
 import { createDirector } from './director'
 import type { FrameInput } from './frame'
-import { render, scenes, setOutput, stage } from './gl/engine'
+import { catalog, transitions } from './fx/catalog'
+import { render, scenes, setAudio, setOutput, setTransition, stage } from './gl/engine'
 import { live, prepare, warm } from './gl/live'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
 import { startRecording } from './recorder'
@@ -23,6 +24,9 @@ const DEBUG = location.search.includes('debug')
 const VIDEO_BPS = 12_000_000 // ≈24 Mbps real: Chrome's H.264 encodes ≈2× the request at 60 fps, 1× at 30 (measured, S4.3)
 
 scenes.live = live
+scenes.catalog = catalog
+let transition = 'own/crossfade' // the fades' look (design E7): a random pick per fade, never the same twice in a row
+setTransition(transition)
 // The playlist is the starred built-ins (design E4), in their order.
 const playlist = BUILTIN.filter((d) => d.star).map((d) => d.id)
 const director = createDirector(playlist, { confidentTheta: CONFIDENT })
@@ -123,6 +127,7 @@ addEventListener('keydown', (e) => {
 
 const energy = createEnergy(ctx.sampleRate, analyser.fftSize)
 const magDb = new Float32Array(analyser.frequencyBinCount).fill(-Infinity) // silence until the first read
+const wave = new Float32Array(analyser.frequencyBinCount) // the first 512 samples of the analyser's 1024
 const f: FrameInput = {
   energy: energy.update(magDb, 60), onsets: [], lastOnset: null, audioNow: 0, sync: ZERO_SYNC,
   time: 0, dt: 0, width: 0, height: 0,
@@ -132,6 +137,7 @@ let last = 0
 let scale = 0 // the applied internal scale
 let tick = 0
 let badgeAt = -Infinity
+let fadingTo: string | null = null // the previous frame's shot.to: a new id starts a fade
 // ?debug (c) metrics (S5.4): each onset's distance to the grid before it corrects it, and time to confident.
 const offsets: number[] = [] // ms, the last 64 onsets within ±⅛ beat
 let lastHeard = 0
@@ -152,6 +158,8 @@ function frame(now: number) {
   f.dt = last ? (now - last) / 1000 : 0
   last = now
   analyser.getFloatFrequencyData(magDb)
+  analyser.getFloatTimeDomainData(wave)
+  setAudio(magDb, wave)
   f.energy = energy.update(magDb, 1 / f.dt) // first frame: dt 0 → fps ∞ → averages hold
   f.audioNow = audioNow()
   // T1: a file is heard through our speakers ≈ the output latency after the worklet stamps its onset, so a file's
@@ -182,6 +190,11 @@ function frame(now: number) {
   }
   f.time = now / 1000
   const shot = director.update(f.time, f.sync) // rAF's now is on the performance.now() clock
+  if (shot.to && shot.to !== fadingTo) {
+    const others = transitions.filter((id) => id !== transition) // empty with one transition: it stays
+    if (others.length) setTransition((transition = others[Math.floor(Math.random() * others.length)]))
+  }
+  fadingTo = shot.to
   if (!shot.to) prepare([shot.from, director.peek()]) // between fades: the next scene built, the others freed (E2)
   render(shot, f, sources(f, src)) // sets f.width/height to the internal size
   const name = live(shot.to ?? shot.from).doc.name // the incoming scene as soon as a fade starts
