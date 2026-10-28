@@ -4,7 +4,8 @@
 // layer is composited onto `acc` with its blend and opacity, except the fast path: a bottom layer at normal, opacity 1,
 // res 1 draws straight into `acc`.
 // Every layer runs its own clock (`speed`). Bindings write the nodes' uniforms and the layers' opacity/speed per frame.
-// The panel (design E6) edits the current scene through `panel`: values and bindings in place, structure by rebuild().
+// The panel (design E6) edits the current scene through `panel`: values and bindings in place, structure by rebuild();
+// it saves into the library (E4), where `live` finds every scene.
 import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { ctx } from '../audio/input'
 import { evaluate, type Binding, type BindState, type Sources } from '../bind'
@@ -14,7 +15,7 @@ import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { sizeExpr } from '../fx/isf'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
-import { BUILTIN } from '../scenes/builtin'
+import { library } from '../library'
 import { store } from '../store'
 import { audioTex, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
 import type { Native, NativeDef } from './scene'
@@ -312,7 +313,7 @@ function create(id: SceneId): Live {
 }
 
 const cache = new Map<SceneId, Live>()
-const find = (id: SceneId) => edit.docs.get(id) ?? BUILTIN.find((d) => d.id === id) // S6.1: the library
+const find = (id: SceneId) => edit.docs.get(id) ?? library.get(id) // the panel's copy first (edit.ts)
 
 /** The live instance of a scene, built on first use and cached by id. */
 export function live(id: SceneId): Live {
@@ -353,6 +354,31 @@ export const panel = {
   addLayer: (genRef: string) => restructure((d) => edit.addLayer(d, fresh(genRef))),
   removeLayer: (i: number) => restructure((d) => edit.removeLayer(d, i)),
   setBlend: (layer: number, b: Blend) => restructure((d) => edit.setBlend(d, layer, b)),
+  // Storage (design E4, plan S6.1). Each resolves to an error message, or null once stored.
+  /** The edited scene into the library. A built-in can't be saved in place: its message says Save as. */
+  async save() {
+    const { doc } = edited()
+    try {
+      await library.put(doc)
+      edit.dirty.delete(doc.id)
+      return null
+    } catch (e) {
+      return (e as Error).message
+    }
+  },
+  /** The edited scene as a new, unstarred user scene; the panel goes on editing the scene on screen. */
+  async saveAs(name: string) {
+    try {
+      await library.put({ ...edited().doc, id: crypto.randomUUID(), name, star: false, created: Date.now() })
+      return null
+    } catch (e) {
+      return (e as Error).message
+    }
+  },
+  toggleStar() {
+    const { id } = edited().doc
+    library.setStar(id, !library.get(id)?.star)
+  },
 }
 
 /** Prepare-ahead (design E2), between fades: builds these scenes now and disposes every other live instance, so a
