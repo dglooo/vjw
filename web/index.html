@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VeeJay Wizard</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color-scheme: dark; }
+      #stage, #ui { position: fixed; inset: 0; width: 100%; height: 100%; }
+      #stage { object-fit: contain; } /* a size frozen for REC letterboxes instead of stretching */
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <div id="ui"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

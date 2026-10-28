@@ -1,0 +1,133 @@
+#ui {
+  pointer-events: none; /* the stage and the document drop target stay reachable */
+  font: 13px/1.4 system-ui, sans-serif;
+  color: #d8d8d8;
+}
+
+.bar {
+  position: absolute;
+  inset: 0 0 auto;
+  isolation: isolate; /* the gradient (::before, z-index −1) stays behind the items */
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 18px 28px;
+  pointer-events: auto;
+}
+/* The bar fades item by item, not as a group, so the REC dot can stay: a forgotten take is never invisible. */
+.bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(#000b, #0000);
+}
+.bar::before,
+.bar > * {
+  transition: opacity 0.5s ease, color 0.5s ease;
+}
+.bar.hidden {
+  pointer-events: none;
+}
+.bar.hidden::before,
+.bar.hidden > :not(.rec) {
+  opacity: 0;
+}
+:root:has(.bar.hidden) {
+  cursor: none; /* the cursor hides with the bar */
+}
+
+.bar select {
+  max-width: 40ch;
+  padding: 5px 8px;
+  font: inherit;
+  color: inherit;
+  background: #121212cc;
+  border: 1px solid #ffffff2a;
+  border-radius: 6px;
+}
+
+.hint {
+  opacity: 0.55;
+}
+
+.scene {
+  margin-left: auto;
+  opacity: 0.55;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bpm {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+.bpm.unsure {
+  opacity: 0.35; /* (c) not trusted: the scenes react to energy and onsets only */
+}
+
+.lock {
+  padding: 1px 9px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #f2c14e;
+  border: 1px solid #f2c14e88;
+  border-radius: 999px;
+}
+
+.quality {
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums; /* the counter doesn't jitter */
+}
+
+.rec {
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: #ff4d4d;
+}
+.rec::before {
+  content: '● ';
+  color: #ff4d4d; /* its own colour: the word fades with the bar, the dot stays */
+}
+.bar.hidden .rec {
+  color: transparent;
+}
+
+.start {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 14px 44px;
+  font: 600 15px system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #eee;
+  background: #111c;
+  border: 1px solid #ffffff40;
+  border-radius: 999px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.start:hover {
+  background: #222d;
+}
+
+.debug {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  padding: 10px 12px;
+  font: 12px/1.5 ui-monospace, monospace;
+  background: #000b;
+  border-radius: 6px;
+}
+.debug meter {
+  width: 240px;
+  vertical-align: middle;
+}
+.debug pre {
+  margin: 8px 0 0;
+  font: inherit;
+}

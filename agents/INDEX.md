@@ -1,0 +1,16 @@
+# INDEX — VeeJay Wizard artifacts
+
+> One line per artifact. Lead-owned. Mark `⚠️ STALE` per CLAUDE.md § Context economy #4.
+
+- `thoughts/spec_veejay_wizard.md`: pilot spec (scope, roadmap, locked stack, licensing, acceptance). 2026-10-27. Current.
+- `agents/research/_adhoc/audio_capture_feasibility_2026-10-27.md`: macOS browser audio capture (getUserMedia, getDisplayMedia, DRM, streams, Electron/Tauri, latency). 2026-10-27. Fresh. Only §1 and §6 are relevant to the pilot scope.
+- `agents/research/research_render_stack.md`: WebGL2 libs, WebGPU status, rAF outside React, dynamic resolution, MediaRecorder, M4 thermals, Shadertoy license. 2026-10-27. Fresh.
+- `agents/research/research_donor_milkdrop.md`: Butterchurn status/API, own GL context, compositing for recording, presets + licensing, perf, projectM/alternatives, gotchas. Web-only (no donor/). 2026-10-27. Fresh.
+- `agents/research/research_audio_analysis.md`: BPM/onset libs + licenses, AnalyserNode vs AudioWorklet (+COOP/COEP), onset/tempo/phase algorithms, bands + auto-gain, latency budget, multichannel gUM. 2026-10-27. Fresh.
+- `agents/system-designer/design_pilot.md`: pilot architecture, rev 3. Variants A twgl / B three imperative / C R3F; hybrid analysis (AnalyserNode + AudioWorklet onsets); (c) sync behind own controller; 9 gate questions, research gaps R1–R10. 2026-10-27. Current.
+- `agents/research/research_audio_copyleft_libs.md`: real-time beat/tempo/phase candidates of any license (aubiojs, essentia.js, BTrack, beatfinder, BeatTrackerJS, BeatDetektor, rba validPeak) mapped to tasks a/b/c; audioMotion/projectM; rekordbox Link/MIDI clock; latency notes. 2026-10-27. Fresh.
+- `agents/planner/plan_pilot.md`: pilot plan, 25 steps / CP1–CP5 + closeout; Variant A + H + own ACF/PLL (c) last; S1.2 probe run by the user on the M4. 2026-10-27. Current.
+- `agents/research/research_recording_mp4.md`: Chrome MP4 REC bugs (1/30 s fragment-tail durations → QuickTime drift; 4 GiB renderer crash fixed in M158), MediaRecorder keyframe-interval workaround, WebCodecs + mediabunny path, disk streaming, ffmpeg post-fix. 2026-10-28. Fresh.
+- `thoughts/spec_effects.md`: Stage 2a spec — layers + effect chains, audio bindings, ISF/gl-transitions/Shadertoy/own effects (4 categories), slider panel, scene JSON. 2026-10-28. Current.
+- `agents/research/research_editor_effects.md`: ISF spec/runtime/collections (ISF-Files 327, isf.video 10.5k), gl-transitions 125 MIT, Shadertoy format/API, lygia/noise libs + licenses, node editors (xyflow etc.), audio-mapping conventions (Resolume/VDMX/Synesthesia/MilkDrop/hydra), storage options. 2026-10-28. Fresh.
+- `agents/system-designer/design_effects.md`: Stage 2a architecture. A own ISF loader on twgl (rec) / B vendored ISF lib / C own format; SceneDoc v1, bindings, transition pass, resampled feedback buffers, 5 ms/scene budget, ?bench curation; gaps G1–G3. 2026-10-28. Current.
