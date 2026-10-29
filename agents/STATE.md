@@ -42,7 +42,7 @@
   - Auto-style mode (default on; manual overrides; smooth). Drop: heat-up, then flash + cut. "Sources" tab in the panel.
 - ✅ system-designer → `design_audio_reactivity.md`: A main-thread 8192 analyser (sustained lag 85–102 ms) / B worklet IIR bank + fast/slow envelopes (30–70 ms, recommended). 8 research gaps, none blocking.
 - ✅ **USER GATE (2026-10-28): Variant B** (worklet IIR bank + fast/slow envelopes). Designer defaults accepted (F1 ≥ 0.70 at ±30 ms; ≤8 custom bands; heat strobe ≤0.15).
-- ▶ planner, 4th attempt: an ad-hoc general-purpose agent on Opus in the planner role, **writing the plan incrementally** (Write header + Edit per CP, ≤6 KB per call). Three planner runs today (2× Fable, 1× Opus, effort max) all stalled: the single huge response hit 15-min API timeouts, so the cause is response size, not the model.
+- ▶ planner, 5th attempt: Sonnet, reads only exact line ranges (spec + design C1–C10 + Variant B), incremental writes ≤5 KB per call. The 4th (Opus, incremental) also stalled after reading. Pattern today: every long-context planning response times out at ~15 min.
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
 - The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
 
