@@ -4,8 +4,8 @@
 
 ## HEAD
 
-**Updated:** 2026-10-28 ~22:00 (session 3, in progress)
-**Stage:** pilot ✅ → Stage 2a `effects` ✅ (tag `cp7-effects`). **Now: epic `audio-reactivity`: spec done, design running.**
+**Updated:** 2026-10-29 (session 4)
+**Stage:** pilot ✅ → Stage 2a `effects` ✅ (tag `cp7-effects`). **Now: epic `audio-reactivity`: gate passed (Variant B), planner running.**
 **Spec:** `thoughts/spec_veejay_wizard.md` + `thoughts/spec_effects.md`. **Team:** `.claude/agents/`; planner and security-auditor on Fable 5.1, tester on Haiku 5.5, the rest on Opus 5.5.
 
 ### Pipeline status
@@ -41,12 +41,13 @@
   - Sources: kick/snare/hats, sub/reese/wobble, build/drop, custom bands. Presets: DnB, dubstep, techno/house.
   - Auto-style mode (default on; manual overrides; smooth). Drop: heat-up, then flash + cut. "Sources" tab in the panel.
 - ✅ system-designer → `design_audio_reactivity.md`: A main-thread 8192 analyser (sustained lag 85–102 ms) / B worklet IIR bank + fast/slow envelopes (30–70 ms, recommended). 8 research gaps, none blocking.
-- ⏳ USER GATE: A or B.
+- ✅ **USER GATE (2026-10-28): Variant B** (worklet IIR bank + fast/slow envelopes). Designer defaults accepted (F1 ≥ 0.70 at ±30 ms; ≤8 custom bands; heat strobe ≤0.15).
+- ▶ planner → `agents/planner/plan_audio_reactivity.md`.
 - The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
 
 **Infra:**
 - 🕸 graphify: root `.` → `graphify-out/`, post-commit hook.
-- ⏰ cron `0fc53f5a` (auto-resume, 30 min).
+- ⏰ auto-resume cron: session-only, re-created each session.
 - 🎤 :8080 = scratchpad `live/` (`http.server`, lead bg task), refreshed at CP4.
 - 🔑 Dispatch rule: one step per agent, parallel worktrees, time-boxed (CLAUDE.md #11).
 
@@ -63,7 +64,7 @@
 Tracked in `design_pilot.md` § "Spec §8 and STATE ⚠️ ledger"; the gate (Q4–Q9) resolves them.
 
 ### User preferences
-Talk in Russian. **Decide minor/technical choices yourself with the recommended default; ask only for real gates/scope** (user, 2026-10-28). REC is low priority. No Docker (user asked; host tooling is enough). Run decision rounds via AskUserQuestion. Artifacts in English. The user may paste external AI reviews: treat them as leads to verify, not facts.
+Talk in Russian. **Grill/AskUserQuestion ONLY at new-feature discovery (+ the one variant gate); never during execution** (user, 2026-10-29). **Decide minor/technical choices yourself with the recommended default; ask only for real gates/scope** (user, 2026-10-28). REC is low priority. No Docker (user asked; host tooling is enough). Run decision rounds via AskUserQuestion. Artifacts in English. The user may paste external AI reviews: treat them as leads to verify, not facts.
 
 ## TAIL
 
