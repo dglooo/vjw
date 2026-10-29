@@ -1,0 +1,313 @@
+# Plan — Genre-aware audio reactivity (Variant B)
+
+## TL;DR
+- 7 checkpoints, 22 atomic steps, one step per coder (fresh context), parallel worktrees by wave (table at the end).
+- Order: pure DSP first (analysis/drums/bands/tempo/style/arrange/settings, all Node-testable), wiring in `app.ts` after, panel last.
+- Every DSP step ships mutation-sensitive Vitest tests; fixtures are synthesised in code (`audio/synth.ts`, design C10), no binaries.
+- Existing effects, shaders and scenes are NOT retuned (effects re-brief pending). Only one built-in binding changes (S1.4).
+
+## Freshness
+- 2026-10-29. Inputs: `thoughts/spec_audio_reactivity.md` §1–§5; `agents/system-designer/design_audio_reactivity.md` shared core C1–C10 + Variant B.
+- File paths below are from the design; a coder confirms a module's exact path with `graphify query` and records drift as `**Changed during implementation:**`.
+
+## Chosen variant: B (user gate 2026-10-28; designer defaults accepted)
+Worklet DSP: `audio/analysis.ts` (pure worklet body) + `audio/drums.ts` + `audio/bands.ts` (IIR bank, e1/e2/held).
+
+## Conventions (apply to every step)
+- First line of every step: invoke the `ponytail` skill (full) before writing code.
+- `GATES` = `cd web && npm run lint && npm run typecheck && npm test && npm run build`.
+- Browser check = ONE targeted run by the lead (no sweeps) with `?debug`, a fixture from `scratchpad/fx_audio/dnb174.wav`, `fx_audio/dubstep140.wav` or `cp5/house128-long.wav`.
+- Time box ~45 min per step. "Mutants" = knobs that, broken alone, must fail >=1 test.
+- Hot files, never edited by two steps of the same wave: `app.ts`, `audio/onset.worklet.ts`, `ui/Panel.tsx`.
+
+## CP list and frozen contracts (TS from design C9 / Variant B)
+
+**CP1 Hits.** User demo: `?debug` shows kick/snare/hats hits live; one built-in scene flashes on `kick`.
+```ts
+// audio/analysis.ts
+export function createAnalysis(sampleRate: number): { configure(c: WorkletIn): void; block(chans: Float32Array[], frame: number, post: (m: WorkletMsg) => void): void }
+// audio/drums.ts
+export type Drum = 'kick'|'snare'|'hats'; export interface Hit { drum: Drum; t: number; strength: number }
+export function createDrums(sampleRate: number, fftSize: number): { configure(b: Record<Drum, Band>): void; detect(mag: Float32Array, t: number): readonly Hit[] }
+// WorkletMsg += { kind:'hit'; drum: Drum; t: number; strength: number }; bind.ts SOURCE_IDS += kick snare hats
+// features.ts: hit(h: Hit): void; fill(out: Sources, dt: number, s: AudioSettings, p: Preset): void
+```
+**CP2 Sustained + custom bands.** User demo: sub/reese/wobble meters in `?debug` follow a bass fixture; a 40-60 Hz custom band (set in code/settings) moves.
+```ts
+// audio/bands.ts
+export interface BandSpec { id: string; lo: number; hi: number }
+export function createBank(sampleRate: number): { configure(specs: readonly BandSpec[]): void; process(x: Float32Array): void; read(out: Float32Array): void /* [e2, held] per band */ }
+// WorkletMsg += { kind:'feat'; rev: number; t0: number; hop: number; values: Float32Array }
+// WorkletIn = { kind:'config'; rev: number; drums: Record<Drum, Band>; bands: BandSpec[] }
+// features.ts: push(m: Extract<WorkletMsg,{kind:'feat'}>): void; at(t: number): void; readonly raw: { sub: number; reese: number; wobbleDepth: number }
+// presets.ts / settings.ts exactly as C9 (Genre, PresetId, Band, Preset, PRESETS; CustomBand, AudioSettings, parseSettings, createSettings, activePreset)
+```
+**CP3 Tempo range.** User demo: DnB preset on dnb174.wav reads 174 (not 87/116); Default reading unchanged.
+```ts
+// audio/tempo.ts: TempoSource += setRange(bpm: Band | null): void; families(windows: readonly Band[]): number[]
+```
+**CP4 Auto-style.** User demo: Auto on, a DnB fixture flips preset to DnB and Fractal's `fold` follows reese; Auto off reverts.
+```ts
+// audio/style.ts
+export interface StyleIn { families: Record<Genre, number>; kickPerBeat: number|null; hatsPerBeat: number|null; wobble: number; bass: number; freeze: boolean }
+export interface StyleOut { detected: Genre|null; scores: Record<Genre, number>; confidence: number }
+export function createStyle(opts?: Partial<StyleOpts>): { update(x: StyleIn, now: number): StyleOut }
+// bind.ts: restyle(s: Sources, from: Readonly<Record<string,string>>, to: Readonly<Record<string,string>>, w: number, out: Sources): Sources
+// gl/engine.ts: render(shot, f, s: Sources, styled: Sources|null, post: Post); store.ts: style: { active: PresetId; detected: Genre|null; confidence: number }
+```
+**CP5 Build/drop.** User demo: on a build-up fixture the scene heats, then flash + scene cut at the drop; no cut under LOCK/open panel.
+```ts
+// audio/arrange.ts
+export interface ArrangeIn { low: number; high: number; total: number; kick: boolean; beat: number|null; now: number }
+export interface ArrangeOut { build: number; drop: number; heat: number; sparse: boolean; fired: number|null }
+export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: ArrangeIn): ArrangeOut }
+// gl/engine.ts: interface Post { gain: number; flash: number }
+```
+**CP6 Panel.** User demo: Sources tab with live meters, preset picker, Auto toggle, "+ Custom band", settings survive reload.
+(no new signatures; consumes C9 `createSettings`, `store.style`, exported `src`)
+
+**CP7 Closeout.** User demo: spec §4 items 1-7 each ticked with evidence.
+
+## Steps
+
+### CP1 — Pure analysis + hit sources
+
+### S1.1 [ ] Extract the worklet body into pure `analysis.ts`
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: move `process()` (FFT 512, onset, bass ODF) into `createAnalysis`; worklet = ~20 lines of glue. No behaviour change.
+- Files: `web/src/audio/analysis.ts` (new), `web/src/audio/onset.worklet.ts`, `web/src/audio/analysis.test.ts` (new).
+- Behaviour: `block()` posts exactly today's `onset`/`odf` messages; `configure()` accepts `WorkletIn` (ignored fields allowed); worklet bundle stays one plain-JS IIFE (Variant B "Bundling").
+- Tests: run a synthetic kick train through `block()` and assert the same onset times/ODF as the old code (golden values captured from the pre-move code); existing tempo/sync/bench tests stay green. Mutants: hop size, FFT window, ODF floor.
+- Done-check: GATES + browser: dnb174.wav still reads the same BPM as before; check `AudioContext.playbackStats.underrunEvents` is 0 (Variant B risk).
+- Depends on: none.
+
+### S1.2 [ ] `synth.ts` fixtures + `drums.ts` + `DetectorOpts.floor`
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: three band detectors over the worklet's 257 magnitudes (C2) and the test-only synthetic stems (C10).
+- Files: `web/src/audio/drums.ts` (new, +test), `web/src/audio/synth.ts` (new, test-only), the module exporting `createDetector` (add `floor` to `DetectorOpts`, default = today's `FLOOR`).
+- Behaviour: bands kick 40-150 / snare 1k-5k / hats 7k-16k Hz; crosstalk rule (snare dropped when same hop kick is not weaker); `configure()` re-maps Hz to bins; existing detector callers unchanged.
+- Tests: crosstalk matrix (each solo stem drives only its drum: own >=0.3, others <=0.1 mapped to hit counts); DnB two-step F1 >=0.70 per drum at +-30 ms; reese solo = 0 kicks. Mutants: each band edge, crosstalk rule, per-band floor, strength formula.
+- Done-check: GATES (no browser check, pure).
+- Depends on: none.
+
+### S1.3 [ ] `features.ts` hit envelopes + new source ids
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: `kick`/`snare`/`hats` as sources with C1 formula `clamp((strength-1.5)/2.5)*exp(-age/tau)`, event at 0.5 crossing.
+- Files: `web/src/audio/features.ts` (new, +test), `web/src/bind.ts`.
+- Behaviour: `hit()` stores last strength/time per drum; `fill()` writes ids, tau 0.12/0.12/0.06 s, times user `sens` x preset `sens`; `SOURCE_IDS` gains kick snare hats; unknown ids still read 0.
+- Tests: decay curve, tau per drum, sens scaling (0, 1, 2), event fires once per hit. Mutants: tau values, 1.5/2.5 constants, sens product, threshold 0.5.
+- Done-check: GATES.
+- Depends on: S1.2 (types `Hit`, `Drum`), S2.2 (`AudioSettings`, `Preset` types).
+
+### S1.4 [ ] Wire hits end to end + one built-in on `kick`
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: worklet posts `hit`, `app.ts` drains it, `?debug` shows hits, one built-in binding uses `kick`.
+- Files: `web/src/audio/analysis.ts` (call `drums.detect` in `block`, post `hit`), `web/src/app.ts` (drain via the same T1 rule as onsets, `features.hit`, `features.fill` into `src`), the one built-in scene doc that binds `onset` today (grep `builtin:`; swap that single binding to `kick`).
+- Behaviour: no added latency (C2); `onset`/ODF path untouched; debug overlay prints last hit per drum.
+- Tests: analysis test: dnb fixture through `block()` emits hits with t within +-30 ms of truth.
+- Done-check: GATES + browser: dnb174.wav, `?debug` shows kick/snare/hats lamps ticking on the beat; the chosen scene flashes on kick.
+- Depends on: S1.1, S1.3.
+
+### CP2 — Sustained sources + custom bands
+
+### S2.1 [ ] `bands.ts` IIR bank with fast/slow envelopes and kick gate
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: pure bank of up to 11 bands (2 cascaded RBJ band-pass biquads, Q from edges), followers `e1` (~1 ms attack) and `e2` (~20 ms), `held` output gated by `e1/e2 > ~2` for ~60 ms (Variant B).
+- Files: `web/src/audio/bands.ts` (new), `web/src/audio/bands.test.ts` (new), `web/src/audio/synth.ts` (add stems if S1.2 merged; else local helpers).
+- Behaviour: `configure()` swaps coefficients, keeps follower state per id (no jump); `read()` order = spec order `[e2, held]`; a 2 ms kick trips the gate, a >=40 ms wobble rise does not.
+- Tests: 50 Hz sine reads >=5x a 120 Hz sine in a 40-60 Hz band; kick-vs-sustain (reese + kicks: `held` stays flat through kicks, `e2` jumps); wobble stem passes the gate; configure keeps state. Mutants: Q, attack/release, TRANSIENT ratio, hold time, cascade count.
+- Done-check: GATES.
+- Depends on: none.
+
+### S2.2 [ ] Presets data + `settings.ts` (de)serialisation
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: C3 table as code and C7 settings with custom-band validation.
+- Files: `web/src/audio/presets.ts` (new), `web/src/audio/settings.ts` (new), `web/src/audio/settings.test.ts` (new).
+- Behaviour: `PRESETS` verbatim from C3 (no tempo logic yet); `parseSettings` replaces invalid fields with defaults; `createSettings(kv)` stores `vjw.audio`; `addBand` validates (lo>=20, hi>=1.1 lo, hi<=0.45 sr, gain 0-4, gate 0-1, attack/release 0-2 s, name 1-24, max 8) and returns message or null; `activePreset` per C4 state machine.
+- Tests: round-trip, corrupt JSON -> defaults, every validation bound (both sides), 9th band rejected, removeBand, onChange unsubscribe, `activePreset` for all (auto,pick,detected) combos. Mutants: each bound, max count, id stability.
+- Done-check: GATES.
+- Depends on: none.
+
+### S2.3 [ ] Worklet feeds the bank: `feat` messages + config
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: `analysis.ts` runs `bands.ts` per quantum and posts `feat` every 2 hops; `config` with `rev` re-configures drums and bands.
+- Files: `web/src/audio/analysis.ts`, `web/src/audio/onset.worklet.ts` (types + glue only), `web/src/audio/analysis.test.ts`.
+- Behaviour: `values` = hops x bands x 2 floats with `t0`/`hop`; batches keep their `rev`; a config change mid-stream does not glitch followers; message rate ~93.75/s.
+- Tests: fixture through `block()`: sub-only stem lights band 0 not 1; batch count/size; rev mapping. Mutants: batch size 2 hops, rev tagging, band order.
+- Done-check: GATES + browser: dnb174.wav, underrunEvents stays 0 with 11 bands (Variant B risk; record the number).
+- Depends on: S1.1, S2.1.
+
+### S2.4 [ ] `features.ts` sustained sources: sub, reese, wobble, wobbleDepth
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: normalise `feat` frames into C1 values at hop rate, level independent.
+- Files: `web/src/audio/features.ts`, `web/src/audio/features.test.ts`, `web/src/bind.ts`.
+- Behaviour: `push()`/`at(t)` as in B (file: newest <= audioNow; line-in: newest); sub/reese = held / running average / 2; `wobble = max(0,(g-gbar)/gbar)`; `wobbleDepth` ~1 s EMA of `|g-gbar|/gbar`; `raw` exposed; SOURCE_IDS += sub reese wobble wobbleDepth.
+- Tests: gain-invariance (x0.25 input same output +-5%); 8 Hz wobble stem gives wobbleDepth high, steady reese gives ~0; kick-gated: kicks do not move reese. Mutants: running-average tau, /2 factor, gate use, EMA tau, sens.
+- Done-check: GATES.
+- Depends on: S1.3, S2.3.
+
+### S2.5 [ ] Custom bands `u:<id>` + config pipeline
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: settings drive worklet config and `u:*` sources (normalised x gain, gate, dt-based attack/release one-pole).
+- Files: `web/src/audio/features.ts` (u:* fill), `web/src/audio/input.ts` (`featQueue`, `configure()`), `web/src/app.ts` (send config on settings change, push feat frames, debug meters for sub/reese/wobble/u:*).
+- Behaviour: removed band reads 0; ids never change on rename; config only sent on change.
+- Tests: u:* gate/attack/release curve; 50 Hz sine vs 120 Hz sine through full analysis -> >=5x on a 40-60 Hz band. Mutants: gate compare, attack/release dt, gain.
+- Done-check: GATES + browser: dubstep140.wav, `?debug` meters follow bass; add a 40-60 Hz band in code, see it move, reload keeps it (CP2 demo).
+- Depends on: S1.4, S2.2, S2.4.
+
+### CP3 — Tempo range per preset
+
+### S3.1 [ ] `tempo.ts`: `setRange` + `families`
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: C3 "Tempo range": candidate lags restricted to `[lo/1.1, hi*1.1] x {1/2,1,2}`, fold into window, prior centred on sqrt(lo*hi); `null` = today exactly; ACF always over full 45-370 BPM; `families(windows)` returns prominence per window via `PROM_NONE/PROM_FULL`.
+- Files: `web/src/audio/tempo.ts`, `web/src/audio/tempo.test.ts`, `web/src/audio/synth.ts` (patterns: DnB two-step 174/182, dubstep 140, techno 128).
+- Behaviour: no classifier feedback from the active range; existing tempo tests unchanged.
+- Tests: DnB two-step 174 with range 160-185 -> 174 +-1 within 10 s (also 182 -> 182, not 91; assert the 116 lag is not a candidate); `null` golden = old output; families picks the right genre window. Log Default reading for dnb. Mutants: margin 1.1, octave set, prior centre, fold, full-span ACF.
+- Done-check: GATES.
+- Depends on: S2.2 (`Band` type; use local alias if not merged).
+
+### S3.2 [ ] Wire active preset: range, octave snap, band configs
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: active preset changes call `tempo.setRange`, snap sync grid with `sync.double()/halve()` only on change, and re-send `config` with the preset's bands.
+- Files: `web/src/app.ts`, `web/src/audio/presets.ts` (only if a helper is missing), `web/src/audio/sync.test.ts` (or nearest existing sync test).
+- Behaviour: `[`/`]` user presses preserved after the snap; temporary dev hook `?debug` picks preset via URL param `?preset=dnb` until CP6.
+- Tests: pure helper `snapOctave(bpm, band)` unit-tested; no snap when already inside the window. Mutants: bounds inclusive/exclusive, halve vs double.
+- Done-check: GATES + browser: dnb174.wav with `?debug&preset=dnb` reads 174; without it, unchanged.
+- Depends on: S3.1, S2.5.
+
+### CP4 — Classifier, Auto-style, styled remap
+
+### S4.1 [ ] `style.ts` classifier with hysteresis
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: C4 score `S_g = T_g*(0.5+0.5*match_g)` plus no-flap logic.
+- Files: `web/src/audio/style.ts` (new), `web/src/audio/style.test.ts` (new), `web/src/audio/synth.ts` (`crossfade(a,b,16 bars)`, patterns with 2 variants per genre).
+- Behaviour: score EMA tau 4 s; challenger needs margin 0.15 for 16 s dwell; min-hold 32 s after a switch; floor 0.35 keeps current; `freeze` holds state (silence, sparse); knobs in `StyleOpts`.
+- Tests (fed by feature vectors derived from fixtures): each genre detected within 20 s; a 16-bar crossfade switches <=1 time and ends on B; breakdown/silence switch 0 times; stable under noise. Mutants: EMA tau, margin, dwell, min-hold, floor, freeze, match closeness, tempo-necessity (T_g=0 -> never wins).
+- Done-check: GATES.
+- Depends on: S2.2 (Genre/Preset types).
+
+### S4.2 [ ] `restyle` + engine styled overlay
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: C5 overlay: built-ins (`builtin:` ids) read `styled`, every other scene reads `src`.
+- Files: `web/src/bind.ts` (`restyle`), `web/src/gl/engine.ts` (`render(shot,f,src,styled,post)`; `post` is accepted but may be a no-op until S5.2), `web/src/bind.test.ts`.
+- Behaviour: `out[k]=(1-w)*src[from[k]??k]+w*src[to[k]??k]` over `from ∪ to`; `styled=null` -> all scenes read `src` (today); no change to `live.ts`, `evaluate()`, docs, library, exports.
+- Tests: alias, w=0/0.5/1, Auto-off fade to `{}`, source scale preserved; `drawScene` id routing via a 2-line seam test. Mutants: the `??k` fallbacks, `(1-w)` weighting, prefix check.
+- Done-check: GATES.
+- Depends on: none (touches `engine.ts`; avoid wave overlap with S5.2).
+
+### S4.3 [ ] Wire classifier -> active preset -> remap + `store.style`
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: features -> `style.update` each frame; active preset by `activePreset`; `w` ramps 0->1 over 2 s on map change; K/H per beat from `sync` when confidence >=0.3; badge patch at 4x/s.
+- Files: `web/src/app.ts`, `web/src/store.ts`, `web/src/audio/style.ts` (adapter `styleIn(...)` pure helper + test in `style.test.ts`).
+- Behaviour: classifier always runs; manual `pick` locks; `?preset=` hook from S3.2 becomes `settings.patch({pick})`; the detected hint is `detected != active`.
+- Tests: `styleIn` kicks/hats per beat, ignored below confidence 0.3; w ramp timing. Mutants: 0.3 gate, 2 s ramp, K/H window 8 s.
+- Done-check: GATES + browser: dnb174.wav -> `?debug` shows detected DnB; Fractal `fold` tracks reese with Auto on and `bass` with Auto off.
+- Depends on: S4.1, S4.2, S3.2.
+
+### CP5 — Build, drop, heat, cut
+
+### S5.1 [ ] `arrange.ts` build/drop detector
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: C6 heuristic, pure.
+- Files: `web/src/audio/arrange.ts` (new), `web/src/audio/arrange.test.ts` (new), `web/src/audio/synth.ts` (arrangement fixture: 16 groove bars, 8-bar breakdown with riser + snare roll, drop; teaser-kick and 2-bar-break variants).
+- Behaviour: G EMA tau 20 s outside sparse; sparse = 1 s EMA of low < 0.35 G; armed after 6 s; drop (a) bass back >=4x sparse mean and >=0.6 G within 150 ms of a kick or (b) 2nd kick within 1.2 beats and low >=0.6 G; refractory 30 s; warm-up 20 s; confidence gate; heat = build smoothed tau 0.5 s, 0 within 1 s after drop.
+- Tests: drop fires <=150 ms after the drop's first kick with confidence >=0.6; `build` >=0.5 at end of breakdown; 3 min groove = 0 drops; teaser kick = 0; 2-bar break = no fire >=0.6; second drop inside 30 s ignored. Mutants: arming 6 s, return ratio 4x, 0.6 G, kick-only path, refractory, warm-up, confidence gate, silence rule.
+- Done-check: GATES.
+- Depends on: S2.2 (types only).
+
+### S5.2 [ ] Heat post pass in `engine.ts`
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: constant-colour quad after `copy`/`fade`: multiply by `gain`, mix to white by `flash`; transition shaders untouched.
+- Files: `web/src/gl/engine.ts`, `web/src/gl/post.ts` (new, pure helper `postFor(heat,drop,beatPhase,conf)` returning `Post` + test in `web/src/gl/post.test.ts`).
+- Behaviour: `gain = 1 + 0.25 heat + strobe`; strobe amplitude <=0.15, 1/4 -> 1/8 notes with heat, x sync.confidence; flash peak 0.8, tau 0.2 s; `Post {gain:1, flash:0}` = identical output to today.
+- Tests: caps respected (gain <= 1.4, strobe <= 0.15), identity at rest, tau decay. Mutants: caps, tau, 1/4->1/8 switch, confidence scaling.
+- Done-check: GATES + browser: `?debug` force-flash key shows the pass; `Post` identity leaves a scene pixel-identical (eye check) and 60A holds in `?bench`.
+- Depends on: S4.2 (same file; run after it).
+
+### S5.3 [ ] Wire arrangement: heat speed, flash, `director.cut`
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: per-frame `arrange.update`, `f.dt *= 1+0.5 heat`, `post` from heat/drop, cut on drop.
+- Files: `web/src/app.ts`, `web/src/audio/arrange.ts` (export pure `shouldCut(fired, hold)`), `web/src/audio/arrange.test.ts`.
+- Behaviour: `if (fired >= 0.6 && !store.hold) director.cut(director.peek())`; `hold` covers LOCK and open panel; `build`/`drop` also in `src`; style freeze while sparse.
+- Tests: `shouldCut` truth table (0.59/0.6, hold on/off). Mutants: threshold, hold negation.
+- Done-check: GATES + browser: `cp5/house128-long.wav` (drop section) shows heat then flash + cut; Space (LOCK) -> no cut.
+- Depends on: S5.1, S5.2, S4.3.
+
+### CP6 — Sources tab + persistence
+
+### S6.1 [ ] Panel tabs + Sources meters (rAF -> CSS)
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: header tabs Scene/Sources; Sources tab with Drums, Bass, Arrangement, Custom meter groups driven without React state.
+- Files: `web/src/ui/Panel.tsx` (tab switch only), `web/src/ui/SourcesTab.tsx` (new), `web/src/app.ts` (export per-frame `src`).
+- Behaviour: one `useEffect` rAF loop writes `--v` per meter, stops on unmount; tab state local; Scene tab content unchanged.
+- Tests: pure `meterGroups(settings)` (ids and order incl. `u:*`) in `web/src/ui/SourcesTab.test.ts`. Mutants: group membership, custom id append.
+- Done-check: GATES + browser: dnb174.wav, meters blink/breathe; no React re-render storm (React Profiler sanity, one look).
+- Depends on: S2.5, S5.3 (app.ts); not parallel with S6.2/S6.3 (same panel file).
+
+### S6.2 [ ] Preset picker, Auto toggle, sens sliders, custom-band form
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: C8 controls wired to `createSettings` so everything persists in `vjw.audio`.
+- Files: `web/src/ui/SourcesTab.tsx`, `web/src/ui/Panel.tsx` (hint badge only if needed), `web/src/store.ts` (instantiate settings singleton if absent).
+- Behaviour: picker `Auto/Default/DnB/Dubstep/Techno/house` (Auto = `pick:null`); detected label "detected: DnB 0.8" from `store.style` in its own small component; sliders uncontrolled (apply on input, persist on change); "+ Custom band" form shows `addBand` error text; remove button.
+- Tests: pure `pickToPatch(choice)` (Auto/toggle off => state machine of C4) unit-tested. Mutants: Auto vs pick null, toggle-off keeps active as pick.
+- Done-check: GATES + browser: add a 40-60 Hz band, reload, it persists and moves; manual pick locks Auto.
+- Depends on: S6.1, S4.3.
+
+### S6.3 [ ] Binding source select groups + "-> reese (auto-style)" hint
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: binding row select grouped levels/drums/bass/arrangement/custom/band; dim hint when the active map rewrites a built-in's source.
+- Files: `web/src/ui/Panel.tsx`, `web/src/bind.ts` (export `sourceGroups(custom)` pure), `web/src/bind.test.ts`.
+- Behaviour: hint only for `builtin:` ids and only while Auto-style is on; a removed custom band shows as unknown (reads 0).
+- Tests: `sourceGroups` covers every `SOURCE_IDS` entry once. Mutants: missing id, duplicate.
+- Done-check: GATES + browser: a built-in's row shows "-> reese (auto-style)" with DnB.
+- Depends on: S6.2.
+
+### CP7 — Closeout
+
+### S7.1 [ ] Acceptance regression suite from fixtures
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: one integration test file proving spec §4.1, §4.2, §4.3, §4.5, §4.6 end to end through `analysis.ts` + features + tempo + style + arrange.
+- Files: `web/src/audio/acceptance.test.ts` (new), `web/src/audio/synth.ts` (only if a pattern is missing).
+- Behaviour: no product code changes except bug fixes found (marked `**Changed during implementation:**`).
+- Tests: DnB F1 >=0.70 per drum; 174/182 read right under DnB; 3 genres x 2 variants detected; crossfade <=1 switch; drop + no-cut-under-hold; custom band round-trip.
+- Done-check: GATES; test runtime under ~30 s.
+- Depends on: S5.3, S6.3.
+
+### S7.2 [ ] Closeout checklist and perf/license notes
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: verify spec §4 items 1-7 by hand and record evidence; no new features.
+- Files: `agents/planner/plan_audio_reactivity.md` (tick boxes only), `web/src/app.ts` (only if `?bench` needs a hook for sources).
+- Behaviour: lead runs: DnB meters (§4.1), 174 vs rekordbox (§4.2), 16-bar mix (§4.3), Auto on/off scenes (§4.4), drop + LOCK (§4.5), custom band reload (§4.6), `?bench` 60A on M4 + underrun count (§4.7); lists open knob tunings.
+- Tests: none new; full GATES green.
+- Done-check: GATES + the manual list above.
+- Depends on: S7.1.
+
+## Acceptance map (spec §4 -> steps)
+| §4 | Steps | Evidence |
+|---|---|---|
+| 1 sources + F1 >=0.70 | S1.2 S1.4 S2.4 S6.1 S7.1 | crosstalk matrix, F1 test, meters |
+| 2 174 reads 174 | S3.1 S3.2 S7.1 | tempo test, browser vs rekordbox |
+| 3 Auto-style, no flap, manual lock | S4.1 S4.3 S6.2 S7.1 | style tests, crossfade fixture |
+| 4 built-ins remapped on/off | S1.4 S4.2 S4.3 S6.3 | restyle tests, Fractal `fold` check |
+| 5 build -> drop -> cut, LOCK | S5.1 S5.2 S5.3 S7.1 | arrangement fixture, `shouldCut`, house128-long.wav |
+| 6 custom band persists | S2.2 S2.5 S6.2 | settings tests, reload check |
+| 7 60A, gates, mutants | S2.3 S5.2 S7.2 (+ every DSP step) | `?bench`, underrunEvents, mutant lists |
+
+## Wave table (parallel worktrees; hot files `app.ts`, `onset.worklet.ts`, `Panel.tsx` never twice in a wave)
+| Wave | Steps in parallel | Note |
+|---|---|---|
+| W1 | S1.1, S1.2, S2.1, S2.2, S4.2 | all pure/separate files (S1.1 owns the worklet) |
+| W2 | S1.3, S3.1, S4.1, S5.1 | S1.3 needs S1.2; others need S2.2 |
+| W3 | S1.4, S2.3 | S1.4 owns `app.ts`; S2.3 owns the worklet |
+| W4 | S2.4, S5.2 | features.ts vs engine.ts |
+| W5 | S2.5 | `app.ts` |
+| W6 | S3.2 | `app.ts` |
+| W7 | S4.3 | `app.ts` |
+| W8 | S5.3 | `app.ts` |
+| W9 | S6.1 | `Panel.tsx` |
+| W10 | S6.2 | `Panel.tsx` |
+| W11 | S6.3 | `Panel.tsx` |
+| W12 | S7.1 | |
+| W13 | S7.2 | |
+
+Notes: S5.2 touches `engine.ts` after S4.2 (W1) merged, so no overlap. S1.3 refers to settings types: they exist after S2.2 (W1), so no stubs are needed.

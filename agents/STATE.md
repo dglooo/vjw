@@ -5,7 +5,7 @@
 ## HEAD
 
 **Updated:** 2026-10-29 (session 4)
-**Stage:** pilot ✅ → Stage 2a `effects` ✅ (tag `cp7-effects`). **Now: epic `audio-reactivity`: gate passed (Variant B), planner running.**
+**Stage:** pilot ✅ → Stage 2a `effects` ✅ (tag `cp7-effects`). **Now: epic `audio-reactivity`, wave W1 coding (5 parallel worktrees).**
 **Spec:** `thoughts/spec_veejay_wizard.md` + `thoughts/spec_effects.md`. **Team:** `.claude/agents/`; planner and security-auditor on Fable 5.1, tester on Haiku 5.5, the rest on Opus 5.5.
 
 ### Pipeline status
@@ -42,7 +42,9 @@
   - Auto-style mode (default on; manual overrides; smooth). Drop: heat-up, then flash + cut. "Sources" tab in the panel.
 - ✅ system-designer → `design_audio_reactivity.md`: A main-thread 8192 analyser (sustained lag 85–102 ms) / B worklet IIR bank + fast/slow envelopes (30–70 ms, recommended). 8 research gaps, none blocking.
 - ✅ **USER GATE (2026-10-28): Variant B** (worklet IIR bank + fast/slow envelopes). Designer defaults accepted (F1 ≥ 0.70 at ±30 ms; ≤8 custom bands; heat strobe ≤0.15).
-- ▶ planner, 5th attempt: Sonnet, reads only exact line ranges (spec + design C1–C10 + Variant B), incremental writes ≤5 KB per call. The 4th (Opus, incremental) also stalled after reading. Pattern today: every long-context planning response times out at ~15 min.
+- ✅ Plan `plan_audio_reactivity.md`: 7 CPs, 22 steps, 13 waves. The 5th attempt (Sonnet, exact line-range reads, incremental writes) finished in 2 min.
+  - Lesson: planners must read narrowly and write incrementally (this is now standard in planner briefs).
+- ▶ **Wave W1 (parallel worktrees):** S1.1 analysis.ts extraction ‖ S1.2 drums + synth fixtures ‖ S2.1 IIR band bank ‖ S2.2 presets + settings ‖ S4.2 restyle + engine styled overlay.
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
 - The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
 
