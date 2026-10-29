@@ -42,7 +42,7 @@
   - Auto-style mode (default on; manual overrides; smooth). Drop: heat-up, then flash + cut. "Sources" tab in the panel.
 - ✅ system-designer → `design_audio_reactivity.md`: A main-thread 8192 analyser (sustained lag 85–102 ms) / B worklet IIR bank + fast/slow envelopes (30–70 ms, recommended). 8 research gaps, none blocking.
 - ✅ **USER GATE (2026-10-28): Variant B** (worklet IIR bank + fast/slow envelopes). Designer defaults accepted (F1 ≥ 0.70 at ±30 ms; ≤8 custom bands; heat strobe ≤0.15).
-- ▶ planner, 3rd attempt, **model override → Opus 5.5** → `plan_audio_reactivity.md`. Both Fable runs today stalled in 15-min API request timeouts with no output (the 2nd also hit the 5-h usage limit). This is a deviation from the planner = Fable policy, for this run only.
+- ▶ planner, 4th attempt: an ad-hoc general-purpose agent on Opus in the planner role, **writing the plan incrementally** (Write header + Edit per CP, ≤6 KB per call). Three planner runs today (2× Fable, 1× Opus, effort max) all stalled: the single huge response hit 15-min API timeouts, so the cause is response size, not the model.
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
 - The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
 
