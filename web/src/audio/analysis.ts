@@ -1,5 +1,6 @@
 // The onset worklet's body, pure (plan S1.1): mono → Hann → 512-point FFT every 256 samples → createDetector → post.
 // Each quantum also feeds the IIR band bank, whose [e2, held] per band goes out as `feat` (plan S2.3, Variant B).
+// The tempo ODF is the transient excess of drums.ts's kick and snare bands, from an always-on bank (plan S3.1b).
 // onset.worklet.ts is the glue around it; Vitest runs whole signals through block().
 import FFT from 'fft.js'
 import { createBank } from './bands'
@@ -11,7 +12,9 @@ const N = 512 // FFT size
 const HOP = 256
 const BLOCK = 128 // render quantum (no renderSizeHint is set)
 const ODF_BATCH = 8
-const BASS_BINS = 4 // knob: 0–330 Hz at 48 kHz, the kick body
+// The gate ratio of a steady sub/reese stays ≤ 1.30 and a kick reaches ≥ 1.65 (bands.ts), so a full mix's bass doesn't
+// flood the ODF as it did the 4-bin flux. The snare band carries the DnB two-step's beat: its kicks sit 1.5 beats apart.
+const TEMPO_BANDS = [{ id: 'kick', lo: 40, hi: 150 }, { id: 'snare', lo: 1000, hi: 5000 }] // knob, not preset-tuned
 const FEAT_HOPS = 2 // hops per `feat` batch: 93.75 msgs/s at 48 kHz, shorter than a 60 Hz frame (Variant B)
 
 export function createAnalysis(sampleRate: number): {
@@ -29,7 +32,8 @@ export function createAnalysis(sampleRate: number): {
   let hops = 0
   const hop = HOP / sampleRate
   const detector = createDetector()
-  const bass = createDetector() // (c) only its flux is used
+  const tempo = createBank(sampleRate)
+  tempo.configure(TEMPO_BANDS)
   const drums = createDrums(sampleRate, N)
 
   // S2.3: the band bank. A config's bands apply at the next batch start, so a batch is made with one band list (its rev).
@@ -68,6 +72,7 @@ export function createAnalysis(sampleRate: number): {
         ring[pos + i] = chans.length ? s / chans.length : 0
       }
       bank.process(quanta[pos / BLOCK])
+      tempo.process(quanta[pos / BLOCK])
       pos = (pos + BLOCK) % N
       if (pos % HOP) return
 
@@ -78,8 +83,7 @@ export function createAnalysis(sampleRate: number): {
       const onset = detector.detect(mag, t)
       if (onset) post({ kind: 'onset', ...onset })
       for (const h of drums.detect(mag, t)) post({ kind: 'hit', ...h }) // same hop as the onset: no added latency (C2)
-      bass.detect(mag.subarray(0, BASS_BINS), t)
-      odf[hops % ODF_BATCH] = bass.odf
+      odf[hops % ODF_BATCH] = Math.max(0, tempo.ratio(0) - 1) + Math.max(0, tempo.ratio(1) - 1)
       if (++hops % ODF_BATCH === 0) {
         post({ kind: 'odf', t0: t - (ODF_BATCH - 1) * hop, hop, values: odf.slice() })
       }

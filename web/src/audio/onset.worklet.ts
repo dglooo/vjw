@@ -5,8 +5,8 @@ import type { BandSpec } from './bands'
 import type { Drum, Hit } from './drums'
 import type { Band } from './presets'
 
-/** Worklet → main thread (frozen contract CP2). The ODF is batched per ODF_BATCH hops, for (c): the flux of the lowest
- * BASS_BINS only (kicks), since the full-band log flux scores off-beat hats as high as kicks (plan S5.3 drift). */
+/** Worklet → main thread (frozen contract CP2). The ODF is batched per ODF_BATCH hops, for (c): the kick and snare bands'
+ * transient excess (plan S3.1b), since the full-band log flux scores off-beat hats as high as kicks (plan S5.3 drift). */
 export type WorkletMsg = { kind: 'onset'; t: number; strength: number } | { kind: 'odf'; t0: number; hop: number; values: Float32Array }
   | { kind: 'feat'; rev: number; t0: number; hop: number; values: Float32Array } // FEAT_HOPS hops × bands × [e2, held]
   | ({ kind: 'hit' } & Hit) // drums.ts, posted in the onset's hop (CP1)

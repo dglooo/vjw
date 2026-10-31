@@ -278,6 +278,46 @@ Invoke the `ponytail` skill (full) before writing code.
   - Equivalent here, because all candidates fold into one window, so the prior only picks the octave: prior call site at 128; centre lo/hi/arithmetic mean; drop ×2; add 1.5/¼; clamp 0.4; loop start lo+2 (silence only).
 - **Fix-forward after merge (`f183a0d` turned master red).** The S3.1 branch predates S1.4/S2.3. Its `listen()` harness sent every non-`onset` message to `pushOdf`, including S1.4's `hit` (no `values`, so tsc failed and 9 tests threw "values is not iterable"). It now routes by `kind` the way `input.ts` does: `onset` → `push`, `odf` → `pushOdf`, while `hit`/`feat` are ignored. `tempo.ts` is unchanged. Re-measured with the same numbers as above: DnB 174.01/0.84 and 181.99/0.90, dubstep 140.00/1, techno 127.74/1, Default 115.98/121.34 (goldens bit-exact), full mix 150.4/0.08 (still `.fails`), families unchanged.
 
+### S3.1b [x] Tempo ODF from bass transients (lead, 2026-10-31)
+Invoke the `ponytail` skill (full) before writing code.
+- Goal: the tempo ODF follows hits, not the bass bed (S3.1's full-mix gap). `analysis.ts` runs an always-on band bank, independent of the preset config. Each hop's ODF value is that bank's transient excess `max(0, gf/gs − 1)`, from S2.1's gate pair: sustained material peaks at ≤ 1.30, kicks at ≥ 1.65. The `odf` message shape and batching stay as they were, and `tempo.ts` is untouched.
+- Files: `web/src/audio/analysis.ts`, `web/src/audio/bands.ts` (`ratio(i)`), `web/src/audio/onset.worklet.ts` (comment only), `web/src/audio/analysis.test.ts`, `web/src/audio/tempo.test.ts`.
+- Tests:
+  - Full-mix synth fixtures (sub + reese) read 174/140/128 ±1 at conf > 0.8 within 10 s under their ranges. S3.1's `.fails` is now this passing `test.each`.
+  - A steady reese reads ≤ 0.35 once it has started, and a kick on it > 2.
+  - S1.1's onsets are unchanged.
+- Done-check: GATES.
+- **Changed during implementation:**
+  - **Two bands, not one:** kick 40–150 Hz plus snare 1–5 kHz (drums.ts's bands), summed.
+    - A kick band alone gives the DnB two-step no beat, because its kicks sit 1.5 beats apart. Under the DnB range the synth full mix read 174 at conf 0.00, and dnb174.wav 145–187 at 0.00.
+    - The snare on beats 2 and 4 supplies the beat lag.
+    - A 150–400 Hz snare-body band instead fails dnb174.wav (0.00). Kick + snare + body reaches only 0.21–0.32.
+  - **Offset 1 (ratio − 1).**
+    - Offsets of 1.3 or 1.5 (and `gf − 1.5 gs`) drop dubstep140.wav's 8th-note wobble pulses, which peak at ratio 1.3–1.48. Its reading then jumps between 92 and 179, and its families between 1 and 0. That, not a section change, is the previous attempt's "1.0 at 10 s, 0 at 30 s".
+    - The track has no section change: band levels are flat, and a downbeat transient (ratio 2.1–3.6) recurs every bar for 60 s.
+  - **Re-captured:**
+    - S1.1's two ODF sums. The onsets stand.
+    - tempo.test.ts's null goldens for DnB: 174 now reads 174.01, since Default sees the beat instead of the ⅔ lag (116); 182 folds to 90.96. Dubstep and techno are bit-exact and unchanged.
+    - Families: dubstep140 lights the DnB window at 0.26 (was 0), now asserted < 0.3.
+  - **Real WAVs** (Node, `createAnalysis` → tempo; BPM/conf at 10, 20, 30, 45, 59 s):
+    - `dnb174.wav`, DnB range: 173.8/0.42, 173.9/0.41, 173.9/0.35, 174.0/0.42, 173.5/0.32. It now locks (was 195/0.12).
+    - `dnb174.wav`, Default: 116/1.00, the ⅔ lag (was 132.5/0.13). The DnB range is still needed (S3.2).
+    - `dubstep140.wav`, dubstep range: 140.3/0.07, 147.6/0.02, 135.6/0.04, 134.5/0.06, 134.9/0.04. **Still no lock** (was 147/≤0.14).
+      - Its only clear transient is each bar's downbeat, and 1.714 s is past the ACF's 1.333 s span.
+      - The half-time snare doesn't show in 1–5 kHz, so the ODF is left with the weak 8th-note wobble pulses.
+    - `house128-long.wav`, Default: 127.9–128.0/1.00, unchanged.
+  - **Optional kick veto: measured, not shipped.**
+    - `ratio(0) > 1.5` at the hit's hop:
+      - bare-reese false kicks 13 → 0;
+      - snare + room false kicks 98 → 11 (16 snares);
+      - full-DnB kick precision 0.76 → 1.00, but recall 0.81 → 0.75.
+    - The lost kick is seen by the FFT 4 ms after its onset, before the bank's band-pass shows it (ratio 1.03; a few ms of group delay).
+    - The gate-hold variant (`e2 ≠ held`) does worse (precision 0.80).
+    - A clean veto needs a 1-hop delay (latency, C2) or a later re-check. That is a design call.
+  - **Mutants, 8/8 killed:** offset 0.5 and 1.5, kick only, snare only, snare band 150–400, kick band 40–400, no `tempo.process`, abs excess `gf − gs`. Offset 1.5 dies only on the S1.1 sums, since it also locks the synth.
+  - **Cost:** 2 more bands per quantum, ≈1 µs at S2.1's 5.4 µs per 11 bands. The 4-bin flux detector is gone.
+  - **Out of scope, stale:** `tempo.ts`'s header still says the ODF is "the worklet's bass band (kicks)".
+
 ### S3.2 [ ] Wire active preset: range, octave snap, band configs
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: active preset changes call `tempo.setRange`, snap sync grid with `sync.double()/halve()` only on change, and re-send `config` with the preset's bands.
