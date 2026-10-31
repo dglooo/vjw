@@ -1,6 +1,7 @@
 // Audio input (design S2): one AudioContext; the line-in or file source feeds a fan-out hub.
 // Module-level singletons, never created in Effects (design S1).
 import { pickSaved, store, type UiSnapshot } from '../store'
+import type { Hit } from './drums'
 import { rms } from './energy'
 import type { Onset } from './onset'
 import type { WorkletMsg } from './onset.worklet'
@@ -19,6 +20,7 @@ hub.connect(analyser)
 hub.connect(recDelay).connect(recDest)
 
 export const onsetQueue: Onset[] = [] // (b) drained by app.ts each frame
+export const hitQueue: Hit[] = [] // kick/snare/hats, drained by app.ts like the onsets (S1.4)
 export const odfQueue: Extract<WorkletMsg, { kind: 'odf' }>[] = [] // (c) drained by app.ts each frame
 
 // (ii) the onset worklet: hub → node, no outputs. addModule works on a suspended context, so it loads at import.
@@ -29,6 +31,10 @@ ctx.audioWorklet.addModule(onsetWorklet).then(
     worklet.port.onmessage = ({ data }: MessageEvent<WorkletMsg>) => {
       if (data.kind === 'odf') {
         if (odfQueue.push(data) > ODF_KEEP) odfQueue.shift()
+        return
+      }
+      if (data.kind === 'hit') {
+        hitQueue.push(data) // a hit has t and strength too: without this it would type-check as an onset
         return
       }
       onsetQueue.push(data)

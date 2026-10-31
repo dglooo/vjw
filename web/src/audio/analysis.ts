@@ -1,6 +1,7 @@
 // The onset worklet's body, pure (plan S1.1): mono → Hann → 512-point FFT every 256 samples → createDetector → post.
 // onset.worklet.ts is the glue around it; Vitest runs whole signals through block().
 import FFT from 'fft.js'
+import { createDrums } from './drums'
 import { createDetector } from './onset'
 import type { WorkletIn, WorkletMsg } from './onset.worklet'
 
@@ -25,6 +26,7 @@ export function createAnalysis(sampleRate: number): {
   let hops = 0
   const detector = createDetector()
   const bass = createDetector() // (c) only its flux is used
+  const drums = createDrums(sampleRate, N) // kick/snare/hats over the same magnitudes (S1.4)
 
   return {
     configure() {}, // nothing reads the config yet (drums: S1.4, bands: S2.3)
@@ -45,6 +47,7 @@ export function createAnalysis(sampleRate: number): {
       const t = (frame + BLOCK) / sampleRate // end of the window: the block that completed this hop
       const onset = detector.detect(mag, t)
       if (onset) post({ kind: 'onset', ...onset })
+      for (const h of drums.detect(mag, t)) post({ kind: 'hit', ...h }) // same hop as the onset: no added latency (C2)
       bass.detect(mag.subarray(0, BASS_BINS), t)
       odf[hops % ODF_BATCH] = bass.odf
       if (++hops % ODF_BATCH === 0) {

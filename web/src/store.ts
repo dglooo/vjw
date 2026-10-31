@@ -1,3 +1,4 @@
+import type { Drum } from './audio/drums'
 import type { SceneId } from './doc'
 import type { QualityMode } from './quality'
 
@@ -17,8 +18,8 @@ export interface UiSnapshot {
   compiling: string | null // 'compiling 7/41' while Start compiles every program (plan S2.5), null when done
   debug: { l: number; r: number; settings: MediaTrackSettings | null } | null // ?debug only: input RMS per channel, 10 Hz
   // ?debug only, 4×/s: |grid − onset| (ms) over the last 64 onsets on the grid, s from the first onset after bpm 0 to
-  // confident, and the confidence itself (S5.4, the Q4 metrics on the rig)
-  debugSync: { med: number; p95: number; toConfident: number | null; confidence: number } | null
+  // confident, and the confidence itself (S5.4, the Q4 metrics on the rig); hits drained per drum so far (S1.4)
+  debugSync: { med: number; p95: number; toConfident: number | null; confidence: number; hits: Record<Drum, number> } | null
   // The effects panel (design E6, contract CP5):
   panel: boolean // open (key E)
   editRev: number // +1 per structural edit: the panel re-renders on it, never per frame

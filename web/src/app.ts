@@ -1,7 +1,10 @@
 // The rAF loop (Variant A): read (a) → drain (b) → (c) phase → director → engine.render. Per-frame data never goes
 // through React: the store hears about scene and lock changes, and gets the badge and the BPM at most 4×/s.
 import { createEnergy } from './audio/energy'
-import { analyser, audioNow, ctx, odfQueue, onsetQueue, recDest } from './audio/input'
+import { createFeatures } from './audio/features'
+import { analyser, audioNow, ctx, hitQueue, odfQueue, onsetQueue, recDest } from './audio/input'
+import { PRESETS } from './audio/presets'
+import { activePreset, createSettings } from './audio/settings'
 import { createSync, ZERO_SYNC } from './audio/sync'
 import { createTempoSource } from './audio/tempo'
 import { sources, type Sources } from './bind'
@@ -154,6 +157,9 @@ const f: FrameInput = {
   time: 0, dt: 0, width: 0, height: 0,
 }
 const src: Sources = {} // binding sources, refilled every frame
+const features = createFeatures() // kick/snare/hats envelopes from the worklet's hits (S1.4)
+const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
+const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
 const rest = { gain: 1, flash: 0 } // the post pass at rest: the frame as it is
 let last = 0
 let scale = 0 // the applied internal scale
@@ -166,6 +172,13 @@ let lastHeard = 0
 let locked = false // the previous frame had a grid
 let firstOnset: number | null = null // the first onset since the grid was last gone
 let toConfident: number | null = null
+
+/** T1: a file is heard through our speakers ≈ the output latency after the worklet stamps its onset, so a file's
+ *  onsets (and hits) wait in the queue until audible. Line-in is heard live in the room: they apply on arrival. */
+function drain<T extends { t: number }>(q: T[]): T[] {
+  const held = store.getSnapshot().source?.kind === 'file' ? q.findIndex((o) => o.t > f.audioNow) : -1
+  return q.splice(0, held < 0 ? q.length : held).filter((o) => f.audioNow - o.t < STALE)
+}
 
 function frame(now: number) {
   requestAnimationFrame(frame)
@@ -184,11 +197,14 @@ function frame(now: number) {
   setAudio(magDb, wave)
   f.energy = energy.update(magDb, 1 / f.dt) // first frame: dt 0 → fps ∞ → averages hold
   f.audioNow = audioNow()
-  // T1: a file is heard through our speakers ≈ the output latency after the worklet stamps its onset, so a file's
-  // onsets wait in the queue until audible. Line-in is heard live in the room: its onsets apply on arrival.
-  const held = store.getSnapshot().source?.kind === 'file' ? onsetQueue.findIndex((o) => o.t > f.audioNow) : -1
-  f.onsets = onsetQueue.splice(0, held < 0 ? onsetQueue.length : held).filter((o) => f.audioNow - o.t < STALE)
+  f.onsets = drain(onsetQueue)
   f.lastOnset = f.onsets.at(-1) ?? f.lastOnset
+  for (const h of drain(hitQueue)) {
+    features.hit(h)
+    if (DEBUG) hits[h.drum]++
+  }
+  // kick/snare/hats into src (sources() below fills the other keys). No detected genre until Auto-style (S4.3).
+  features.fill(src, f.dt, settings.get(), PRESETS[activePreset(settings.get(), null)])
   const t = heard(f.audioNow)
   const { beat: b0, bpm: bpm0 } = f.sync // last frame's grid, before this frame's onsets correct it
   for (const b of odfQueue.splice(0)) tempo.pushOdf(b.values, b.t0, b.hop)
@@ -237,7 +253,8 @@ function frame(now: number) {
     if (DEBUG) {
       const o = offsets.slice().sort((a, b) => a - b)
       const med = o[o.length >> 1] ?? NaN
-      store.patch({ debugSync: { med, p95: o[Math.floor(o.length * 0.95)] ?? NaN, toConfident, confidence: f.sync.confidence } })
+      const p95 = o[Math.floor(o.length * 0.95)] ?? NaN
+      store.patch({ debugSync: { med, p95, toConfident, confidence: f.sync.confidence, hits: { ...hits } } })
     }
   }
 }

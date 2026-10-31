@@ -72,6 +72,11 @@ export function Overlay() {
               {c.confidence.toFixed(2)}
             </div>
           )}
+          {c && (
+            <div className="hits">
+              hits kick {c.hits.kick} · snare {c.hits.snare} · hats {c.hits.hats}
+            </div>
+          )}
           <pre>{JSON.stringify(d.settings, null, 1)}</pre>
         </div>
       )}

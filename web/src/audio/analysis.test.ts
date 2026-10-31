@@ -4,6 +4,7 @@
 import { expect, test } from 'vitest'
 import { createAnalysis } from './analysis'
 import type { WorkletMsg } from './onset.worklet'
+import { mix, pattern } from './synth'
 
 const SR = 48000
 const BLOCK = 128
@@ -62,4 +63,25 @@ test('block() posts the pre-move onset/odf messages on a synthetic kick train (g
   const v = odf.flatMap((m) => [...m.values])
   expect(v.reduce((s, x) => s + x, 0)).toBeCloseTo(507.8365, 3)
   expect(v.reduce((s, x, i) => s + (i + 1) * x, 0)).toBeCloseTo(184206.553, 2) // position-weighted: order counts too
+})
+
+// plan S1.4: drums.ts runs in the onset's hop, so the hits of a mixed DnB two-step (kick + snare + hats over the bass
+// bed) land on its truth per drum. t comes from `frame` (F0 offset), as the onsets' does.
+test('block() posts kick/snare/hats hits within ±30 ms of a synthetic dnb pattern', () => {
+  const track = pattern('dnb', 8)
+  const x = mix(track)
+  const a = createAnalysis(SR)
+  const hits: Extract<WorkletMsg, { kind: 'hit' }>[] = []
+  for (let b = 0; (b + 1) * BLOCK <= x.length; b++) {
+    a.block([x.subarray(b * BLOCK, (b + 1) * BLOCK)], F0 + b * BLOCK, (m) => {
+      if (m.kind === 'hit') hits.push(m)
+    })
+  }
+  for (const h of hits) expect(Object.keys(h).sort()).toEqual(['drum', 'kind', 'strength', 't'])
+  const near = (a: number[], b: number[]) => a.filter((x) => b.some((y) => Math.abs(x - y) <= 0.03)).length / a.length
+  for (const d of ['kick', 'snare', 'hats'] as const) {
+    const got = hits.filter((h) => h.drum === d).map((h) => h.t - F0 / SR).filter((t) => t > 0.5) // the bed's own start
+    expect(near(track.truth[d], got), `${d} recall`).toBeGreaterThanOrEqual(0.7)
+    expect(near(got, track.truth[d]), `${d} precision`).toBeGreaterThanOrEqual(0.7)
+  }
 })

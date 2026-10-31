@@ -39,7 +39,7 @@ export const BUILTIN: readonly SceneDoc[] = [
       fx: [
         { ref: 'isf/Chromatic Aberration' }, // a steady RGB split, as a worn tape
         { ref: 'isf/VHS Glitch', bind: { yScanlineAmount: { source: 'bass', amount: 1, attack: 0, release: 0.2, min: 0, max: 0.8 } } }, // tracking skew on a kick
-        { ref: 'own/flash', bind: { flash: { source: 'onset', amount: 1, attack: 0, release: 0.1, min: 0, max: 0.9 } } },
+        { ref: 'own/flash', bind: { flash: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 0, max: 0.9 } } }, // CP1 demo
       ],
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
