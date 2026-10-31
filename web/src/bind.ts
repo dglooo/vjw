@@ -21,8 +21,8 @@ const ONSET_TAU = 0.12 // s
 const GATED = ['beat', 'bar'] // phase sources × confidence (pilot S8); lfo is not
 
 const BANDS = Array.from({ length: BAND_COUNT }, (_, i) => `band${i}`)
-/** The keys `sources()` fills, for the panel's list. */
-export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'beat', 'bar', 'lfo', 'confidence']
+/** The keys `sources()` and features.ts's `fill()` fill, for the panel's list. */
+export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'beat', 'bar', 'lfo', 'confidence']
 
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
 

@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { BAND_COUNT } from './audio/energy'
+import { createFeatures } from './audio/features'
+import { PRESETS } from './audio/presets'
+import { parseSettings } from './audio/settings'
 import { ZERO_SYNC } from './audio/sync'
 import { evaluate, restyle, sources, sourcesFor, SOURCE_IDS, type Binding, type Sources } from './bind'
 import type { FrameInput } from './frame'
@@ -53,11 +56,12 @@ describe('sources', () => {
     expect([s.beat, s.bar, s.confidence, s.lfo]).toEqual([17.25, 4.3, 0.7, 12.5])
   })
 
-  test('returns `out` itself, every SOURCE_IDS key filled with a finite number', () => {
+  test('returns `out` itself; with the hit sources, every SOURCE_IDS key filled with a finite number', () => {
     const out: Sources = {}
     expect(sources(frame(), out)).toBe(out)
+    createFeatures().fill(out, 1 / 60, parseSettings(null), PRESETS.default)
     expect(Object.keys(out).sort()).toEqual([...SOURCE_IDS].sort())
-    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5)
+    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3)
     for (const k of SOURCE_IDS) expect(Number.isFinite(out[k]), k).toBe(true)
   })
 })
