@@ -47,7 +47,8 @@
 - ▶ **Wave W1, resumed 2026-10-31.** All 5 coders hit the 5-h usage limit on 10-29 ~19:50.
   - S1.1, S2.1, S2.2 and S4.2 continue in their existing worktrees (partial work kept).
   - S1.2 restarted fresh (its worktree was lost).
-  - ✅ S4.2 merged (`c45062f`, 150 tests). W2 (S1.3/S3.1/S4.1/S5.1) waits for S1.2 (`synth.ts`) + S2.2 (types).
+  - ✅ S4.2 merged (`c45062f`). ✅ S2.2 merged (`ae05de4`, 195 tests; `createSettings(kv, sampleRate)`; non-kick `proto` values are placeholders for S4.1).
+  - W2 (S1.3/S3.1/S4.1/S5.1) waits for S1.2 (`synth.ts`).
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
 - The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
 
