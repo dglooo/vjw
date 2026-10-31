@@ -383,7 +383,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - The first sweep left 5 survivors. Two were dead code and are deleted: the sparse mean's exclusion of loud frames, and the `armed` reset. Three got checks: the hidden-tab `dt` clamp, heat's linear fall, and build's τ-1 s decay without a drop.
     - The second sweep: 49/50 killed. The survivor, the `upBeat` reset at a drop, was dead (the refractory covers it) and is deleted, with its twin `rise`.
 
-### S5.2 [ ] Heat post pass in `engine.ts`
+### S5.2 [x] Heat post pass in `engine.ts`
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: constant-colour quad after `copy`/`fade`: multiply by `gain`, mix to white by `flash`; transition shaders untouched.
 - Files: `web/src/gl/engine.ts`, `web/src/gl/post.ts` (new, pure helper `postFor(heat,drop,beatPhase,conf)` returning `Post` + test in `web/src/gl/post.test.ts`).
@@ -391,6 +391,19 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: caps respected (gain <= 1.4, strobe <= 0.15), identity at rest, tau decay. Mutants: caps, tau, 1/4->1/8 switch, confidence scaling.
 - Done-check: GATES + browser: `?debug` force-flash key shows the pass; `Post` identity leaves a scene pixel-identical (eye check) and 60A holds in `?bench`.
 - Depends on: S4.2 (same file; run after it).
+- **Changed during implementation:**
+  - `postFor(heat, drop, beat, conf)`:
+    - `drop` = seconds since the drop fired (`Infinity` = none yet), not `ArrangeOut.drop`, which is a confidence source with τ 1 s. S5.3 keeps a `dropAt` and passes `now - dropAt`.
+    - `beat` = `sync.beat`. Only its fractional part counts, so a phase also works. The strobe reuses sync.ts `pulse` (k 4).
+  - The strobe also needs sync confidence ≥ 0.3 (lead brief), and is then scaled by the confidence.
+  - Any value under one 8-bit step (1/255) reads as 0. A decayed flash (≈ 1.06 s after the drop) or a cold heat tail then returns exactly `{ gain: 1, flash: 0 }`, so the engine skips the pass and the frame stays bit-identical.
+  - Engine: `tint` is one constant-colour fullscreen pass, drawn up to twice:
+    - `blendFunc(DST_COLOR, ONE)` with `gain − 1` gives dst·gain;
+    - `blendFunc(ONE, ONE_MINUS_SRC_ALPHA)` with `flash` mixes toward white.
+    - Each draw is skipped when its term is 0. A build-up has no flash.
+  - No `?debug` force-flash key: `post` is app.ts's `rest` until S5.3 wires it, and app.ts isn't in this step's files. S5.3 adds the key (`dropAt = now`) and does the non-identity eye check.
+  - The browser check here covered identity only: a walk on 5175 through Tunnel, Spectrum and Particles, at 60A, with 0 console errors.
+  - Mutants: 17/17 killed. They cover the caps, τ, the flash peak, the 1/4 → 1/8 switch and its threshold, the confidence gate and scaling, `STEP` from both sides, `drop ≥ 0` and the unit clamp.
 
 ### S5.3 [ ] Wire arrangement: heat speed, flash, `director.cut`
 Invoke the `ponytail` skill (full) before writing code.
