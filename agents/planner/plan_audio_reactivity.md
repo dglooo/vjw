@@ -186,7 +186,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - Done-check: GATES.
 - Depends on: S2.2 (Genre/Preset types).
 
-### S4.2 [ ] `restyle` + engine styled overlay
+### S4.2 [x] `restyle` + engine styled overlay
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: C5 overlay: built-ins (`builtin:` ids) read `styled`, every other scene reads `src`.
 - Files: `web/src/bind.ts` (`restyle`), `web/src/gl/engine.ts` (`render(shot,f,src,styled,post)`; `post` is accepted but may be a no-op until S5.2), `web/src/bind.test.ts`.
@@ -194,6 +194,10 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: alias, w=0/0.5/1, Auto-off fade to `{}`, source scale preserved; `drawScene` id routing via a 2-line seam test. Mutants: the `??k` fallbacks, `(1-w)` weighting, prefix check.
 - Done-check: GATES.
 - Depends on: none (touches `engine.ts`; avoid wave overlap with S5.2).
+- **Changed during implementation:**
+  - The routing seam is `sourcesFor(id, src, styled)`, exported from `bind.ts` and called by `drawScene`, so it is tested in `bind.test.ts` without WebGL.
+  - `restyle` reads a missing source as 0 (as `evaluate()` does), so a source that isn't filled yet (`reese` before S2.4) never gives NaN.
+  - `render`'s `post` is `_post` with one `eslint-disable-next-line` until S5.2 uses it. `app.ts` passes `styled = src` and a module-level `rest = { gain: 1, flash: 0 }`, so behaviour is unchanged until S4.3, which owns the 2 s `w` ramp.
 
 ### S4.3 [ ] Wire classifier -> active preset -> remap + `store.style`
 Invoke the `ponytail` skill (full) before writing code.

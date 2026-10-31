@@ -4,7 +4,7 @@ import {
   bindFramebufferInfo, createBufferInfoFromArrays, createFramebufferInfo, createProgramInfo, createProgramInfoAsync,
   createTexture, drawBufferInfo, resizeFramebufferInfo, setBuffersAndAttributes, setUniforms, type ProgramInfo,
 } from 'twgl.js'
-import type { Sources } from '../bind'
+import { sourcesFor, type Sources } from '../bind'
 import type { Shot } from '../director'
 import { defaults, type SceneId } from '../doc'
 import type { FrameInput } from '../frame'
@@ -159,8 +159,9 @@ function poll() {
 
 /** One live scene into its target, inside a timer query unless RING of the scene's are still in flight (results come
  *  frames late). Sequential: only one TIME_ELAPSED query may be active at a time. */
-function drawScene(id: SceneId, f: FrameInput, s: Sources, into: Target) {
+function drawScene(id: SceneId, f: FrameInput, src: Sources, styled: Sources | null, into: Target) {
   const scene = scenes.live!(id) // outside the query: an unknown id throws here, not with a query left active
+  const s = sourcesFor(id, src, styled)
   let t = timings.get(id)
   if (!t) timings.set(id, (t = { flight: [], ms: [] }))
   if (!timer || t.flight.length === RING) return scene.render(f, s, into)
@@ -171,7 +172,12 @@ function drawScene(id: SceneId, f: FrameInput, s: Sources, into: Target) {
   t.flight.push(q)
 }
 
-export function render(shot: Shot, f: FrameInput, s: Sources) {
+/** The post pass's input (design C6): `{ gain: 1, flash: 0 }` leaves the frame as it is. */
+export interface Post { gain: number; flash: number }
+
+/** `styled` (Auto-style's overlay, design C5) is what built-ins read; null = every scene reads `src`. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- `post` is in the contract now; S5.2 applies it
+export function render(shot: Shot, f: FrameInput, src: Sources, styled: Sources | null, _post: Post) {
   poll()
   if (FLASH && f.onsets.length) {
     bindFramebufferInfo(gl, null)
@@ -182,8 +188,8 @@ export function render(shot: Shot, f: FrameInput, s: Sources) {
   const [a, b] = shots
   f.width = a.width // scenes draw at the internal size
   f.height = a.height
-  drawScene(shot.from, f, s, a) // each binds the targets it draws into
-  if (shot.to) drawScene(shot.to, f, s, b)
+  drawScene(shot.from, f, src, styled, a) // each binds the targets it draws into
+  if (shot.to) drawScene(shot.to, f, src, styled, b)
   bindFramebufferInfo(gl, null)
   const uRes = [stage.width, stage.height]
   if (!shot.to) return copy({ uSrc: a.attachments[0], uRes })

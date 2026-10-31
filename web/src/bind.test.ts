@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { BAND_COUNT } from './audio/energy'
 import { ZERO_SYNC } from './audio/sync'
-import { evaluate, sources, SOURCE_IDS, type Binding, type Sources } from './bind'
+import { evaluate, restyle, sources, sourcesFor, SOURCE_IDS, type Binding, type Sources } from './bind'
 import type { FrameInput } from './frame'
 
 const frame = (over: Partial<FrameInput> = {}): FrameInput => ({
@@ -59,6 +59,52 @@ describe('sources', () => {
     expect(Object.keys(out).sort()).toEqual([...SOURCE_IDS].sort())
     expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5)
     for (const k of SOURCE_IDS) expect(Number.isFinite(out[k]), k).toBe(true)
+  })
+})
+
+describe('restyle (Auto-style overlay, design C5)', () => {
+  const s: Sources = { bass: 0.2, mid: 0.5, onset: 0.1, sub: 0.4, reese: 0.8, kick: 0.9 }
+  const at = (from: Record<string, string>, to: Record<string, string>, w: number) => restyle(s, from, to, w, {})
+
+  test('no map is the identity: `out` becomes a copy of the sources, at any w', () => {
+    const out: Sources = {}
+    expect(restyle(s, {}, {}, 0.5, out)).toBe(out)
+    expect(out).toEqual(s)
+    expect(out).not.toBe(s)
+  })
+
+  test('alias: at w 1 the key reads the mapped source at its own scale; the source and other keys stay', () => {
+    expect(at({}, { bass: 'reese' }, 1)).toEqual({ ...s, bass: 0.8 })
+    const level = { ...s, bass: 0.6, reese: 0.6 } // equal sources: the fade keeps the level
+    for (const w of [0, 0.25, 0.5, 0.75, 1]) expect(restyle(level, {}, { bass: 'reese' }, w, {}).bass).toBeCloseTo(0.6, 12)
+  })
+
+  test('a fade between maps at w 0 / 0.5 / 1; a key in one map only falls back to itself in the other', () => {
+    const from = { bass: 'sub', mid: 'reese' }
+    const to = { bass: 'reese', onset: 'kick' }
+    expect(at(from, to, 0)).toEqual({ ...s, bass: 0.4, mid: 0.8 })
+    const half = at(from, to, 0.5)
+    expect([half.bass, half.mid, half.onset].map((x) => +x.toFixed(12))).toEqual([0.6, 0.65, 0.5])
+    expect(at(from, to, 1)).toEqual({ ...s, bass: 0.8, onset: 0.9 })
+  })
+
+  test('Auto off is a fade to {}: it starts on the map and ends on the identity', () => {
+    expect(at({ bass: 'reese' }, {}, 0)).toEqual({ ...s, bass: 0.8 })
+    expect(at({ bass: 'reese' }, {}, 1)).toEqual(s)
+  })
+
+  test('a source not filled yet reads 0, never NaN', () => {
+    expect(at({}, { bass: 'nope' }, 0).bass).toBe(0.2)
+    expect(at({}, { bass: 'nope' }, 1).bass).toBe(0)
+    expect(at({ bass: 'nope' }, {}, 1).bass).toBe(0.2) // 0 × NaN would still be NaN
+  })
+
+  test('sourcesFor: built-ins read the overlay, every other scene `src`; no overlay, all read `src`', () => {
+    const src: Sources = {}
+    const styled: Sources = {}
+    expect(sourcesFor('builtin:tunnel', src, styled)).toBe(styled)
+    expect(sourcesFor('6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b', src, styled)).toBe(src)
+    expect(sourcesFor('builtin:tunnel', src, null)).toBe(src)
   })
 })
 

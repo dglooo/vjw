@@ -42,6 +42,18 @@ export function sources(f: FrameInput, out: Sources): Sources {
   return out
 }
 
+/** Auto-style's overlay (design C5): `out` (≠ `s`) is a copy of `s`, then each key of either map crossfades from the
+ *  source `from` names to the one `to` names, a missing name being the key itself. `w` 0 → 1 is the fade; Auto off is
+ *  a fade to `{}`. A source not in `s` reads 0, as in evaluate(). */
+export function restyle(s: Sources, from: Readonly<Record<string, string>>, to: Readonly<Record<string, string>>, w: number, out: Sources): Sources {
+  Object.assign(out, s)
+  for (const m of [from, to]) for (const k in m) out[k] = (1 - w) * (s[from[k] ?? k] ?? 0) + w * (s[to[k] ?? k] ?? 0)
+  return out
+}
+
+/** The sources a scene reads (design C5): a built-in reads the styled overlay when there is one, any other scene `src`. */
+export const sourcesFor = (id: string, src: Sources, styled: Sources | null) => (styled && id.startsWith('builtin:') ? styled : src)
+
 /** One cycle of `shape` at t (its fract is the phase): 0..1. Random is a hash of the cycle index, so it holds. */
 function shape(s: Shape, t: number): number {
   const p = t - Math.floor(t)
