@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'vitest'
-import type { Sources } from '../bind'
+import { SOURCE_IDS, type Sources } from '../bind'
+import { createAnalysis } from './analysis'
 import type { Drum, Hit } from './drums'
 import { createFeatures } from './features'
+import type { WorkletIn, WorkletMsg } from './onset.worklet'
 import { PRESETS, type Preset } from './presets'
 import type { AudioSettings } from './settings'
-import { pattern } from './synth'
+import { mix, pattern, reese, SR, wobble } from './synth'
 
 const DRUMS: Drum[] = ['kick', 'snare', 'hats']
 const settings = (sens: Record<string, number> = {}): AudioSettings => ({ v: 1, auto: false, pick: null, sens, custom: [] })
@@ -38,10 +40,10 @@ describe('hit sources (design C1)', () => {
     const out: Sources = {}
     const fill = () => f.fill(out, 0.06, settings(), preset())
     fill()
-    expect(out).toEqual({ kick: 0, snare: 0, hats: 0 })
+    expect(out).toMatchObject({ kick: 0, snare: 0, hats: 0 })
     f.hit(hit('snare'))
     fill()
-    expect(out).toEqual({ kick: 0, snare: 1, hats: 0 })
+    expect(out).toMatchObject({ kick: 0, snare: 1, hats: 0 })
     fill()
     f.hit(hit('snare'))
     fill()
@@ -79,5 +81,148 @@ describe('hit sources (design C1)', () => {
     }
     expect(queue).toHaveLength(0)
     expect(edges).toEqual({ kick: truth.kick.length, snare: truth.snare.length, hats: truth.hats.length })
+  })
+})
+
+// Sustained sources (plan S2.4, design C1). Hand-made `feat` batches pin the knobs; the real chain runs the fixtures.
+type Feat = Extract<WorkletMsg, { kind: 'feat' }>
+const HOP = 256 / SR
+const SUSTAINED = ['sub', 'reese', 'wobble', 'wobbleDepth']
+
+const ripple = (t: number) => 1 + 0.2 * Math.sin(2 * Math.PI * 7 * t)
+/** `s` seconds of 2-hop batches, bands [sub, reese, wobble] at held levels `lv(t)`. e2 ripples in the sub and wobble
+ *  bands (only held is read). In the reese band e2 = held, but 2× while `trip(t)`: its gate is on (bands.ts). */
+function feats(s: number, lv: (t: number) => number[], trip = (t: number) => t < 0): Feat[] {
+  const out: Feat[] = []
+  for (let t0 = 0; t0 < s; t0 += 2 * HOP) {
+    const values = new Float32Array(12)
+    for (let h = 0; h < 2; h++)
+      lv(t0 + h * HOP).forEach((v, b) => values.set([b !== 1 ? v * ripple(t0 + h * HOP) : trip(t0 + h * HOP) ? 2 * v : v, v], 6 * h + 2 * b))
+    out.push({ kind: 'feat', rev: 1, t0, hop: HOP, values })
+  }
+  return out
+}
+
+/** Pushes each batch, reads it as line-in (at(∞)) and fills: [t, sources] after each batch. */
+function play(batches: Feat[], s = settings(), p = preset(), f = createFeatures()) {
+  const out: Sources = {}
+  return batches.map((m) => {
+    f.push(m)
+    f.at(Infinity)
+    f.fill(out, 2 * HOP, s, p)
+    const row: Sources = { ...out, rawSub: f.raw.sub, rawReese: f.raw.reese, rawDepth: f.raw.wobbleDepth }
+    return [m.t0 + HOP, row] as const
+  })
+}
+const near = (rows: ReturnType<typeof play>, t: number) => rows.reduce((a, b) => (Math.abs(b[0] - t) < Math.abs(a[0] - t) ? b : a))[1]
+
+describe('sustained sources (design C1)', () => {
+  test('in the registry, and fill() writes them: 0 before any feat', () => {
+    const out: Sources = {}
+    createFeatures().fill(out, 1 / 60, settings(), preset())
+    for (const id of SUSTAINED) {
+      expect(SOURCE_IDS).toContain(id)
+      expect(out[id], id).toBe(0)
+    }
+  })
+
+  test('held ÷ its running average ÷ 2: a steady level reads 0.5 at any gain; a ×2 step reads 1, then settles in AVG ≈ 4 s', () => {
+    const lv = (g: number) => (t: number) => [g * (t < 10 ? 1 : 2), g * 0.3, g * 0.7]
+    const [loud, quiet] = [play(feats(16, lv(1))), play(feats(16, lv(0.25)))]
+    loud.forEach(([, v], i) => SUSTAINED.forEach((id) => expect(quiet[i][1][id]).toBeCloseTo(v[id], 6)))
+    const before = near(loud, 9.9)
+    expect([before.sub, before.reese, before.wobble, before.wobbleDepth]).toEqual([0.5, 0.5, 0, 0])
+    expect(near(loud, 10.01).sub).toBeCloseTo(1, 2)
+    expect(near(loud, 14).sub).toBeCloseTo(1 / (2 - Math.exp(-1)), 2) // ×2 / (2 − e^(−t/AVG)) / 2 at t = AVG
+    expect(near(loud, 14).rawSub).toBeCloseTo(2, 6) // raw: the linear level, not normalised
+  })
+
+  test('wobble = max(0, (g − ḡ)/ḡ) follows a 5 Hz ±50% swing; wobbleDepth = its |…| through a ≈1 s EMA', () => {
+    const rows = play(feats(14, (t) => [1, 1, t < 10 ? 1 : (t * 10) % 2 < 1 ? 1.5 : 0.5]))
+    expect(near(rows, 9.9).wobbleDepth).toBe(0)
+    expect(near(rows, 11).wobbleDepth).toBeCloseTo(0.5 * (1 - Math.exp(-1)), 1) // 1 s after the swing starts
+    expect(near(rows, 13.95).wobbleDepth).toBeGreaterThan(0.47)
+    expect(near(rows, 13.95).rawDepth).toBe(near(rows, 13.95).wobbleDepth)
+    expect(near(rows, 13.05).wobble).toBeCloseTo(0.5, 1) // open half: g = 1.5ḡ
+    expect(near(rows, 13.15).wobble).toBe(0) // closed half: −0.5 clips to 0
+  })
+
+  test("a trip of the reese band's gate (a kick) holds sub, reese and wobble 0.2 s from its first hop", () => {
+    // all three bands jump ×3 for 0.3 s from 10 s, the reese band's gate on for the first 250 ms
+    const rows = play(feats(11, (t) => Array(3).fill(t >= 10 && t < 10.3 ? 3 : 1), (t) => t >= 10 && t < 10.25))
+    for (const t of [10.02, 10.1, 10.19]) expect(near(rows, t), `${t}`).toMatchObject({ sub: 0.5, reese: 0.5, wobble: 0 })
+    const after = near(rows, 10.22)
+    expect(after.rawSub).toBe(3)
+    expect(after.rawReese).toBe(3)
+    expect(after.wobble).toBe(1) // (3 − ḡ)/ḡ ≈ 2, capped
+  })
+
+  test("sens: the user's × the preset's factor per id (missing = 1), capped at 1", () => {
+    const at = (s: AudioSettings, p = preset()) => near(play(feats(12, (t) => [1, 1, t < 10 ? 1 : (t * 10) % 2 < 1 ? 1.5 : 0.5]), s, p), 11.95)
+    const ref = at(settings())
+    const v = at(settings({ sub: 0, reese: 2, wobbleDepth: 1.5 }), preset({ wobbleDepth: 0.5, wobble: 0.5 }))
+    expect([v.sub, v.reese, v.wobble]).toEqual([0, 1, ref.wobble * 0.5])
+    expect(v.wobbleDepth).toBeCloseTo(ref.wobbleDepth * 0.75, 12)
+    expect(at(settings({ reese: 3 })).reese).toBe(1) // 1.5 caps at 1
+  })
+
+  test('at(t) reads the hops up to the heard time t; later ones wait in the queue', () => {
+    const f = createFeatures()
+    for (const m of feats(2, (t) => [t < 1 ? 1 : 4, 1, 1])) f.push(m)
+    f.at(0.99)
+    expect(f.raw.sub).toBe(1)
+    f.at(1 + HOP)
+    expect(f.raw.sub).toBe(4)
+  })
+})
+
+// The real chain: a 48 kHz fixture → analysis.ts with bands sub, reese and wobble first (as S2.5's config sends them)
+// → push → at(∞) → fill, after each batch from `from` s.
+const B = PRESETS.default.bands
+const CONFIG: WorkletIn = { kind: 'config', rev: 1, drums: { kick: B.kick, snare: B.snare, hats: B.hats }, bands: (['sub', 'reese', 'wobble'] as const).map((id) => ({ id, lo: B[id][0], hi: B[id][1] })) }
+function listen(x: Float32Array, from = 5) {
+  const a = createAnalysis(SR)
+  a.configure(CONFIG)
+  const f = createFeatures()
+  const out: Sources = {}
+  const rows: Sources[] = []
+  for (let i = 0; i + 128 <= x.length; i += 128)
+    a.block([x.subarray(i, i + 128)], i, (m) => {
+      if (m.kind !== 'feat') return
+      f.push(m)
+      f.at(Infinity)
+      f.fill(out, 2 * m.hop, settings(), preset())
+      if (m.t0 >= from) rows.push({ ...out })
+    })
+  return rows
+}
+const col = (rows: Sources[], id: string) => rows.map((r) => r[id])
+const maxDiff = (a: Sources[], b: Sources[], id: string) => Math.max(...a.map((r, i) => Math.abs(r[id] - b[i][id])))
+
+describe('sustained sources through analysis.ts (fixtures)', () => {
+  test('a sustained sub + reese bed reads ≈0.5 at 0 and −12 dB; kicks over it barely move sub and reese', () => {
+    const track = pattern('techno', 8) // four on the floor: 32 kicks
+    const bed = listen(mix(track, ['sub', 'reese', 'room']))
+    const kicks = mix(track, ['sub', 'reese', 'room', 'kick'])
+    const [loud, quiet] = [listen(kicks), listen(kicks.map((v) => v / 4))]
+    for (const id of ['sub', 'reese']) {
+      for (const v of col(bed, id)) expect(v).toBeGreaterThan(0.4)
+      for (const v of col(bed, id)) expect(v).toBeLessThan(0.6)
+      expect(maxDiff(loud, bed, id), id).toBeLessThan(0.08) // ungated: ≈0.4 (sub) and ≈0.45 (reese)
+      expect(maxDiff(quiet, loud, id), id).toBeLessThan(0.025) // ±5%
+    }
+  })
+
+  test('wobbleDepth: a 4.67 Hz LFO wobble reads ≥ 2× a steady reese, at any gain; wobble rises once per LFO period', () => {
+    const room = mix(pattern('techno', 8), ['room']).subarray(0, 12 * SR)
+    const add = (x: Float32Array) => x.map((v, i) => v + room[i])
+    const [wob, quiet, steady] = [listen(add(wobble(12 * SR)), 6), listen(add(wobble(12 * SR)).map((v) => v / 4), 6), listen(add(reese(12 * SR)), 6)]
+    for (const v of col(wob, 'wobbleDepth')) expect(v).toBeGreaterThan(0.2) // measured 0.25
+    for (const v of col(steady, 'wobbleDepth')) expect(v).toBeLessThan(0.15) // measured ≤ 0.13: the reese's beating
+    expect(maxDiff(quiet, wob, 'wobbleDepth')).toBeLessThan(0.0125)
+    const w = col(wob, 'wobble')
+    const rises = w.filter((v, i) => i > 0 && v >= 0.15 && w[i - 1] < 0.15).length
+    expect(rises / 6).toBeGreaterThan(140 / 30 - 1)
+    expect(rises / 6).toBeLessThan(140 / 30 + 1)
   })
 })

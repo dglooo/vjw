@@ -206,7 +206,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Tests. Values match a reference `createBank` fed the same quanta, bit-exact. On reese + kick, the sub band reads ≈1776× the 7–16 kHz band (threshold 100×). 20 mutants killed: FEAT_HOPS 1/4, slot offset, rev tagging, stale rule (`<`, applied-only, none), drums always/never/key, apply timing ×3, wrong quantum, t0, hop, empty posts, value copy, band order, new bank per config.
   - The browser done-check (underrunEvents with 11 bands) was not run: the brief said no browser, and nothing sends a config until S2.5, so the bank is idle in the app.
 
-### S2.4 [ ] `features.ts` sustained sources: sub, reese, wobble, wobbleDepth
+### S2.4 [x] `features.ts` sustained sources: sub, reese, wobble, wobbleDepth
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: normalise `feat` frames into C1 values at hop rate, level independent.
 - Files: `web/src/audio/features.ts`, `web/src/audio/features.test.ts`, `web/src/bind.ts`.
@@ -214,6 +214,30 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: gain-invariance (x0.25 input same output +-5%); 8 Hz wobble stem gives wobbleDepth high, steady reese gives ~0; kick-gated: kicks do not move reese. Mutants: running-average tau, /2 factor, gate use, EMA tau, sens.
 - Done-check: GATES.
 - Depends on: S1.3, S2.3.
+- **Changed during implementation:**
+  - **Kick gating: a cross-band trigger from the bank.** A kick that trips the reese band's own gate (`e2 ≠ held` in its `feat` slot) holds all three levels (sub, reese, wobble) for `HOLD` = 0.2 s from the trip's first hop. `hit()` stays as in S1.3.
+    - Why not `features.hit`? The FFT kick detector missed 4/32 (techno), 3/16 (dnb) and 2/8 (dubstep) kicks on the `pattern()` beds, and every miss leaked fully: raw sub ×1.4–2.4.
+    - The bank's reese gate also releases ≈130 ms after the kick, while the synth kick's tail rings in the reese band's skirt to ≈200 ms (raw reese ×1.05–2.0).
+    - The trigger uses the frame's own clock, so it doesn't depend on hit/feat ordering or the T1 drain.
+  - **Measured through `analysis.ts`** (beds: `pattern()` sub + reese + room, kicks from its stem):
+    - −12 dB: all four sources are identical (Δ = 0).
+    - The bed reads sub 0.48–0.53 and reese 0.44–0.55.
+    - With kicks: raw leak sub ×1.03–1.05 and reese ×1.07–1.12; max |Δ| sub 0.024, reese 0.058. Before the trigger it was ×1.7–2.4 and ×1.7–2.0, |Δ| ≈ 0.4.
+  - **For S4.1 (W, B):**
+    - Raw `wobbleDepth`: the 4.67 Hz wobble stem 0.25, 8 Hz 0.19, 2.33 Hz 0.29. A steady reese (its detune beating) reads 0.06–0.13, the `pattern()` bass bed 0.09, kick-only material 0.06–0.11.
+    - S4.1's dubstep proto W = 0.8 is far above anything measured (max ≈ 0.29). Retune W around 0.1 (steady) vs 0.25 (wobble).
+    - Raw linear levels on the `pattern()` bed (sub sine 0.2 + reese 0.15 high-passed at 300 Hz): sub ≈ 0.12, reese ≈ 0.085. The bass share B needs `f.energy.bands`' total, so it was not measured here (S4.3/S7.1).
+  - **Known limits:**
+    - A bass note that starts on a kick shows ≈211 ms late in sub and reese (raw to 50%; before: sub 211 ms, reese 125 ms). This is not trivial: until the kick decays, its energy and the note's share the band. Off-kick note starts take 35 ms (sub) and 25 ms (reese).
+    - Kick-only material (room tone only, no bass): the ratio-to-average reads the kick tail after the hold against the room-tone average. Sub means 0.14–0.20 and reese 0.36–0.40, with spikes to 1 ≈200–300 ms after each kick. energy.ts's bass/mid/treb have the same property. A level floor is a design question.
+  - **Contract for S2.5:** `config.bands` must start with `sub`, `reese`, `wobble`, in that order (features.ts reads bands 0–2 by position), then `u:*`. `FEAT_HOPS` = 2 is mirrored from analysis.ts.
+  - **`at(t)`** works through every queued hop up to t (the averages need every hop), not only the newest.
+  - **Outside the file list:**
+    - `bind.test.ts`: the registry length +4.
+    - `features.test.ts`: the "only the hit drum moves" check is now `toMatchObject` (`fill` writes the sustained ids too).
+    - `synth.ts`: a `wobble()` stem, appended at the end.
+  - **Mutants: 21/21 killed.** AVG ×½/×2; the /2 (sub, reese); no hold; HOLD 0.1/0.3; the hold re-armed every gated hop; DEPTH ×½/×2; sens dropped, user-only or uncapped; wobble = |d|; signed depth; e2 instead of held (sub, reese, wobble); the trip read on the sub band; at() ignoring t; a plain EMA without the warm-up mean.
+  - No browser check: nothing sends a config until S2.5.
 
 ### S2.5 [ ] Custom bands `u:<id>` + config pipeline
 Invoke the `ponytail` skill (full) before writing code.
