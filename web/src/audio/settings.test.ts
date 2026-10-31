@@ -1,0 +1,313 @@
+import { afterEach, expect, test, vi } from 'vitest'
+import { PRESETS, type Band, type Genre, type PresetId } from './presets'
+import { activePreset, createSettings, parseSettings, type AudioSettings, type CustomBand } from './settings'
+
+const KEY = 'vjw.audio'
+const DEFAULTS: AudioSettings = { v: 1, auto: true, pick: null, sens: {}, custom: [] }
+type NewBand = Omit<CustomBand, 'id'>
+const BAND: NewBand = { name: 'sub', lo: 40, hi: 60, gain: 1, gate: 0.2, attack: 0.01, release: 0.2 }
+const stored = (i = 0, over: Partial<CustomBand> = {}): CustomBand => ({ ...BAND, id: `u:00000${i}`, ...over })
+
+/** localStorage over a Map: what a reload keeps. */
+function storage(init: Record<string, string> = {}) {
+  const m = new Map(Object.entries(init))
+  return { m, kv: { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) } }
+}
+
+afterEach(() => vi.restoreAllMocks())
+
+// --- presets (design C3) ---
+
+const inWindow = (b: Band | null, bpm: number) => !!b && bpm >= b[0] && bpm <= b[1]
+
+test('default has no tempo window', () => expect(PRESETS.default.bpm).toBeNull())
+
+test.each<[PresetId, number[], number[]]>([
+  ['dnb', [160, 174, 182, 185], [87, 116, 140, 159, 186]], // 174 reads 174, not its half (87) nor the 2/3 peak (116)
+  ['dubstep', [135, 140, 150], [70, 128, 134, 151, 174]],
+  ['techno', [118, 124, 128, 135], [100, 117, 136, 140, 174]],
+])('%s: the bpm window holds its tempos and not the half, the neighbours or the other genres', (id, inside, outside) => {
+  for (const t of inside) expect(inWindow(PRESETS[id].bpm, t), `${t} inside`).toBe(true)
+  for (const t of outside) expect(inWindow(PRESETS[id].bpm, t), `${t} outside`).toBe(false)
+})
+
+test('the C3 table: bands, auto-style maps and classifier prototypes', () => {
+  const BASE = { kick: [40, 150], snare: [1000, 5000], hats: [7000, 16000], sub: [30, 60], reese: [60, 250], wobble: [150, 1500] }
+  expect(Object.keys(PRESETS)).toEqual(['default', 'dnb', 'dubstep', 'techno'])
+  for (const id of ['default', 'dnb', 'techno'] as const) expect(PRESETS[id].bands, id).toEqual(BASE)
+  expect(PRESETS.dubstep.bands).toEqual({ ...BASE, reese: [70, 350] }) // only dubstep's reese is wider
+  expect(PRESETS.default.map).toEqual({})
+  expect(PRESETS.dnb.map).toEqual({ bass: 'reese', onset: 'kick', treb: 'hats' })
+  expect(PRESETS.dubstep.map).toEqual({ bass: 'wobble', onset: 'snare', treb: 'hats' })
+  expect(PRESETS.techno.map).toEqual({ onset: 'kick', treb: 'hats' })
+  expect(PRESETS.default.proto).toBeUndefined()
+  expect(PRESETS.dnb.proto?.kickPerBeat).toBe(0.5)
+  expect(PRESETS.dubstep.proto?.kickPerBeat).toBeGreaterThanOrEqual(0.25)
+  expect(PRESETS.dubstep.proto?.kickPerBeat).toBeLessThanOrEqual(0.5)
+  expect(PRESETS.techno.proto?.kickPerBeat).toBe(1)
+})
+
+// --- parseSettings: the trust boundary ---
+
+test('parseSettings: anything but version 1 settings gives the defaults', () => {
+  for (const x of [undefined, null, 7, 'x', [], {}, { auto: false }, { v: 2, auto: false, pick: 'dnb' }, { v: '1', auto: false }]) {
+    expect(parseSettings(x), JSON.stringify(x)).toEqual(DEFAULTS)
+  }
+})
+
+test('parseSettings: an invalid field falls back alone, the valid ones stay', () => {
+  const x = { v: 1, auto: 'yes', pick: 'techno', sens: { kick: 5, snare: -1, hats: 0.5, sub: 'x', reese: NaN, wobble: null }, custom: 'no' }
+  expect(parseSettings(x)).toEqual({ v: 1, auto: true, pick: 'techno', sens: { kick: 2, snare: 0, hats: 0.5 }, custom: [] })
+  expect(parseSettings({ v: 1, auto: false, pick: 'jazz', sens: [1, 2] })).toEqual({ ...DEFAULTS, auto: false })
+})
+
+test('parseSettings: a pick must be one of the presets', () => {
+  for (const pick of ['jazz', 'constructor', '__proto__', 'toString', '', 5, {}]) expect(parseSettings({ v: 1, pick }).pick, String(pick)).toBeNull()
+  for (const pick of Object.keys(PRESETS)) expect(parseSettings({ v: 1, pick }).pick).toBe(pick)
+})
+
+test('parseSettings: stored bands are checked one by one, a band never repeats and the ninth is dropped', () => {
+  const ok = [stored(1), stored(2)]
+  const junk: unknown[] = [
+    stored(3, { id: 'kick' }), // would shadow a built-in source
+    stored(3, { id: 'u:' }),
+    stored(3, { name: '' }),
+    stored(3, { lo: 50, hi: 50 }),
+    stored(3, { gain: 5 }),
+    stored(3, { hi: 44_000 }), // above 0.45 x 96 kHz
+    stored(1, { name: 'again' }), // an id already taken
+    'band',
+    null,
+    [],
+  ]
+  expect(parseSettings({ v: 1, custom: [ok[0], ...junk, ok[1]] }).custom).toEqual(ok)
+  expect(parseSettings({ v: 1, custom: [{ ...ok[0], extra: 1 }] }).custom).toEqual([ok[0]]) // unknown keys dropped
+  const twelve = Array.from({ length: 12 }, (_, i) => stored(i))
+  expect(parseSettings({ v: 1, custom: twelve }).custom).toEqual(twelve.slice(0, 8)) // the first eight
+})
+
+// --- createSettings ---
+
+test('empty or corrupt storage gives the defaults', () => {
+  expect(createSettings(storage().kv).get()).toEqual(DEFAULTS)
+  for (const raw of ['{nope', '', '[]', 'null', '7', '"x"', '{"v":2,"auto":false}']) expect(createSettings(storage({ [KEY]: raw }).kv).get(), raw).toEqual(DEFAULTS)
+  const blocked = { getItem: () => { throw new Error('denied') }, setItem: () => undefined }
+  expect(createSettings(blocked).get()).toEqual(DEFAULTS)
+})
+
+test('without localStorage the session still works', () => {
+  const s = createSettings(undefined as never) // Node has none: globalThis.localStorage is undefined
+  s.patch({ auto: false })
+  expect(s.addBand(BAND)).toBeNull()
+  expect(s.get().auto).toBe(false)
+  expect(s.get().custom).toHaveLength(1)
+})
+
+test('a refused write keeps the settings for the session and still announces', () => {
+  const full = { getItem: () => null, setItem: () => { throw new DOMException('full', 'QuotaExceededError') } }
+  const s = createSettings(full)
+  const on = vi.fn()
+  s.onChange(on)
+  s.patch({ auto: false })
+  expect(s.get().auto).toBe(false)
+  expect(on).toHaveBeenCalledOnce()
+})
+
+test('round trip: every field comes back after a reload, as JSON under vjw.audio', () => {
+  const { m, kv } = storage()
+  const a = createSettings(kv)
+  a.patch({ auto: false, pick: 'dubstep', sens: { kick: 1.5, wobble: 0.5 } })
+  expect(a.addBand(BAND)).toBeNull()
+  expect(a.addBand({ ...BAND, name: 'air', lo: 8000, hi: 12000, gain: 4, gate: 1, attack: 2, release: 0 })).toBeNull()
+  const [b0, b1] = a.get().custom
+  expect(createSettings(kv).get()).toEqual({
+    v: 1,
+    auto: false,
+    pick: 'dubstep',
+    sens: { kick: 1.5, wobble: 0.5 },
+    custom: [
+      { ...BAND, id: b0.id },
+      { name: 'air', lo: 8000, hi: 12000, gain: 4, gate: 1, attack: 2, release: 0, id: b1.id },
+    ],
+  })
+  expect(JSON.parse(m.get(KEY) ?? 'null')).toEqual(a.get())
+})
+
+test('patch: changes the named fields, re-checks them, replaces sens as a whole, leaves the bands', () => {
+  const { kv } = storage()
+  const s = createSettings(kv)
+  s.addBand(BAND)
+  const bands = s.get().custom
+  s.patch({ pick: 'dnb', sens: { kick: 9, hats: NaN } })
+  expect(s.get()).toEqual({ v: 1, auto: true, pick: 'dnb', sens: { kick: 2 }, custom: bands }) // clamped, NaN dropped
+  s.patch({ sens: { snare: 0.5 } })
+  expect(s.get().sens).toEqual({ snare: 0.5 }) // not merged: the caller spreads get().sens
+  s.patch({ pick: null, auto: false })
+  expect(s.get()).toMatchObject({ pick: null, auto: false })
+  s.patch({ pick: 'jazz' as PresetId })
+  expect(s.get().pick).toBeNull() // a bad pick is repaired, not stored
+  expect(createSettings(kv).get()).toEqual(s.get())
+})
+
+test('get() is one snapshot between changes and a new one after each, the old one untouched', () => {
+  const s = createSettings(storage().kv)
+  const before = s.get()
+  expect(s.get()).toBe(before)
+  s.patch({ auto: false })
+  expect(s.get()).not.toBe(before)
+  expect(before.auto).toBe(true)
+})
+
+test('onChange: sees the new state, every change announces, the unsubscribe stops it', () => {
+  const s = createSettings(storage().kv)
+  const a = vi.fn()
+  const b = vi.fn()
+  let seen: boolean | undefined
+  const offA = s.onChange(a)
+  s.onChange(b)
+  s.onChange(() => void (seen = s.get().auto))
+  s.patch({ auto: false })
+  expect(seen).toBe(false)
+  s.addBand(BAND)
+  s.removeBand(s.get().custom[0].id)
+  expect([a, b].map((f) => f.mock.calls.length)).toEqual([3, 3])
+  offA()
+  offA() // twice is harmless
+  s.patch({ auto: true })
+  expect([a, b].map((f) => f.mock.calls.length)).toEqual([3, 4])
+})
+
+// --- custom bands ---
+
+// [what, a value just inside, a value just outside, the message the outside one gets]
+test.each<[string, Partial<NewBand>, Partial<NewBand>, RegExp]>([
+  ['from 20 Hz', { lo: 20, hi: 40 }, { lo: 19.99, hi: 40 }, /^from/],
+  ['to exactly 1.1 x from', { lo: 50, hi: 55 }, { lo: 50, hi: 54.9 }, /^to: at least/],
+  ['to 0.45 x 48 kHz', { lo: 100, hi: 21_600 }, { lo: 100, hi: 21_601 }, /^to: at most/],
+  ['gain 0', { gain: 0 }, { gain: -0.01 }, /^gain/],
+  ['gain 4', { gain: 4 }, { gain: 4.01 }, /^gain/],
+  ['threshold 0', { gate: 0 }, { gate: -0.01 }, /^threshold/],
+  ['threshold 1', { gate: 1 }, { gate: 1.01 }, /^threshold/],
+  ['attack 0', { attack: 0 }, { attack: -0.01 }, /^attack/],
+  ['attack 2 s', { attack: 2 }, { attack: 2.01 }, /^attack/],
+  ['release 0', { release: 0 }, { release: -0.01 }, /^release/],
+  ['release 2 s', { release: 2 }, { release: 2.01 }, /^release/],
+  ['name of 1 character', { name: 'a' }, { name: '' }, /^name/],
+  ['name of 24 characters', { name: 'x'.repeat(24) }, { name: 'x'.repeat(25) }, /^name/],
+])('addBand bound: %s is accepted, just past it is refused', (_, inside, outside, message) => {
+  const good = createSettings(storage().kv)
+  expect(good.addBand({ ...BAND, ...inside })).toBeNull()
+  expect(good.get().custom).toHaveLength(1)
+  const bad = createSettings(storage().kv)
+  expect(bad.addBand({ ...BAND, ...outside })).toMatch(message)
+  expect(bad.get().custom).toEqual([])
+})
+
+test('addBand: a from above the top edge is a from error, whatever the to', () => {
+  const s = createSettings(storage().kv)
+  for (const lo of [21_601, 30_000]) expect(s.addBand({ ...BAND, lo, hi: lo * 2 }), `lo ${lo}`).toMatch(/^from/)
+  expect(s.get().custom).toEqual([])
+})
+
+test('addBand: a band whose top edge does not clear its bottom is refused', () => {
+  const s = createSettings(storage().kv)
+  for (const hi of [100, 99, 50, 0, -5]) expect(s.addBand({ ...BAND, lo: 100, hi }), `hi ${hi}`).toMatch(/^to/)
+  expect(s.get().custom).toEqual([])
+})
+
+test.each(['lo', 'hi', 'gain', 'gate', 'attack', 'release', 'name'] as const)('addBand: %s must be a real value, not NaN, Infinity or the wrong type', (k) => {
+  for (const v of [NaN, Infinity, -Infinity, null, undefined, k === 'name' ? 5 : '5']) {
+    const s = createSettings(storage().kv)
+    expect(s.addBand({ ...BAND, [k]: v }), `${k}=${String(v)}`).toEqual(expect.any(String))
+    expect(s.get().custom).toEqual([])
+  }
+})
+
+test('addBand: the top edge follows the sample rate, and a stored band survives a lower one', () => {
+  const { kv } = storage()
+  const at44 = createSettings(kv, 44_100)
+  expect(at44.addBand({ ...BAND, lo: 100, hi: 19_845 })).toBeNull()
+  expect(at44.addBand({ ...BAND, lo: 100, hi: 19_846 })).toMatch(/^to/)
+  const at96 = createSettings(kv, 96_000)
+  expect(at96.addBand({ ...BAND, lo: 100, hi: 43_200 })).toBeNull()
+  expect(at96.addBand({ ...BAND, lo: 100, hi: 43_201 })).toMatch(/^to/)
+  expect(createSettings(kv, 44_100).get().custom).toHaveLength(2) // loaded at 44.1 kHz, nothing dropped
+  const at192 = createSettings(kv, 192_000) // capped at the 96 kHz edge, or the next patch would drop what it let in
+  expect(at192.addBand({ ...BAND, lo: 100, hi: 43_201 })).toMatch(/^to/)
+  expect(at192.addBand({ ...BAND, name: 'top', lo: 100, hi: 43_200 })).toBeNull()
+  expect(at192.get().custom).toHaveLength(3)
+  at192.patch({ auto: false }) // re-checks every band
+  expect(at192.get().custom.at(-1)).toMatchObject({ name: 'top', hi: 43_200 })
+  expect(at192.get().custom).toHaveLength(3)
+})
+
+test('addBand: eight bands fit, the ninth is refused with nothing stored or announced, a freed slot works again', () => {
+  const { m, kv } = storage()
+  const s = createSettings(kv)
+  for (let i = 0; i < 8; i++) expect(s.addBand({ ...BAND, name: `b${i}` }), `band ${i}`).toBeNull()
+  const written = m.get(KEY)
+  const on = vi.fn()
+  s.onChange(on)
+  expect(s.addBand(BAND)).toMatch(/at most 8/)
+  expect(s.get().custom).toHaveLength(8)
+  expect(m.get(KEY)).toBe(written)
+  expect(on).not.toHaveBeenCalled()
+  s.removeBand(s.get().custom[3].id)
+  expect(s.addBand(BAND)).toBeNull()
+  expect(s.get().custom).toHaveLength(8)
+})
+
+test('ids: u: and 6 hex chars, distinct, and a removal or a reload leaves the others as they were', () => {
+  const { kv } = storage()
+  const s = createSettings(kv)
+  for (const name of ['a', 'b', 'c']) s.addBand({ ...BAND, name })
+  const [a, b, c] = s.get().custom
+  for (const x of [a, b, c]) expect(x.id).toMatch(/^u:[0-9a-f]{6}$/)
+  expect(new Set([a.id, b.id, c.id]).size).toBe(3)
+  s.removeBand(b.id)
+  expect(s.get().custom).toEqual([a, c])
+  s.removeBand('u:nothere') // an unknown id changes nothing
+  s.patch({ auto: false })
+  expect(createSettings(kv).get().custom).toEqual([a, c])
+})
+
+test('ids: a random id that is already taken is drawn again', () => {
+  const uuid = vi.spyOn(crypto, 'randomUUID')
+  for (const first of ['aaaaaaaa', 'aaaaaaaa', 'bbbbbbbb']) uuid.mockReturnValueOnce(`${first}-0000-4000-8000-000000000000`)
+  const s = createSettings(storage().kv)
+  s.addBand(BAND)
+  s.addBand(BAND)
+  expect(s.get().custom.map((c) => c.id)).toEqual(['u:aaaaaa', 'u:bbbbbb'])
+})
+
+test('addBand keeps only the band fields', () => {
+  const s = createSettings(storage().kv)
+  s.addBand({ ...BAND, id: 'kick', extra: 1 } as NewBand)
+  expect(Object.keys(s.get().custom[0]).sort()).toEqual(['attack', 'gain', 'gate', 'hi', 'id', 'lo', 'name', 'release'])
+  expect(s.get().custom[0].id).toMatch(/^u:/)
+})
+
+// --- activePreset (design C4) ---
+
+test('activePreset: the three states and the corners', () => {
+  const at = (auto: boolean, pick: PresetId | null, detected: Genre | null) => activePreset({ ...DEFAULTS, auto, pick }, detected)
+  expect(at(true, null, 'dnb')).toBe('dnb') // Follow
+  expect(at(true, null, null)).toBe('default')
+  expect(at(true, 'techno', 'dnb')).toBe('techno') // Locked
+  expect(at(true, 'default', 'dnb')).toBe('default') // Locked on Default is still locked
+  expect(at(false, 'dubstep', 'dnb')).toBe('dubstep') // Manual
+  expect(at(false, null, 'dnb')).toBe('default') // Auto off, nothing picked: the detection is only a hint
+})
+
+test('activePreset: all 40 combinations of auto, pick and detected', () => {
+  const picks: (PresetId | null)[] = [null, 'default', 'dnb', 'dubstep', 'techno']
+  const genres: (Genre | null)[] = [null, 'dnb', 'dubstep', 'techno']
+  for (const auto of [true, false]) {
+    for (const pick of picks) {
+      for (const detected of genres) {
+        const want = pick ?? (auto && detected ? detected : 'default')
+        expect(activePreset({ ...DEFAULTS, auto, pick }, detected), `${auto} ${pick} ${detected}`).toBe(want)
+      }
+    }
+  }
+})

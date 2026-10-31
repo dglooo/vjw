@@ -119,7 +119,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - Done-check: GATES.
 - Depends on: none.
 
-### S2.2 [ ] Presets data + `settings.ts` (de)serialisation
+### S2.2 [x] Presets data + `settings.ts` (de)serialisation
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: C3 table as code and C7 settings with custom-band validation.
 - Files: `web/src/audio/presets.ts` (new), `web/src/audio/settings.ts` (new), `web/src/audio/settings.test.ts` (new).
@@ -127,6 +127,11 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: round-trip, corrupt JSON -> defaults, every validation bound (both sides), 9th band rejected, removeBand, onChange unsubscribe, `activePreset` for all (auto,pick,detected) combos. Mutants: each bound, max count, id stability.
 - Done-check: GATES.
 - Depends on: none.
+
+**Changed during implementation:**
+- `createSettings(kv, sampleRate = 48_000)`: an optional 2nd arg, because `hi <= 0.45 sr` needs a rate and C9's `createSettings(kv)` has none. S2.5/S6.2 may pass `ctx.sampleRate`. `addBand` caps the rate at 96 kHz and a stored band is checked against 96 kHz, so a lower-rate session or a later `patch()` never silently drops a saved band.
+- `Preset.proto` (S4.1 input): only `kickPerBeat` is fixed by C3 (dnb 0.5, dubstep 0.35, techno 1). `hatsPerBeat`/`wobble`/`bass` are starting values to tune on the fixtures in S4.1. `sens` maps are `{}` (all 1 = missing).
+- `parseSettings` also clamps each stored `sens` factor to 0..2 (design C1) and drops a stored band that is invalid, repeated or past the 8th. `patch()` re-runs `parseSettings`, so a bad `pick` or a NaN slider value is repaired, not stored. Tests: 45 in `settings.test.ts` (presets table + `bpm` windows incl. DnB 174 in / 87, 116 out; hand mutation sweep of ~90 knobs over both files, all killed except 2 equivalent: the `typeof` guard before `Object.hasOwn`, and a preset's display `name`).
 
 ### S2.3 [ ] Worklet feeds the bank: `feat` messages + config
 Invoke the `ponytail` skill (full) before writing code.
