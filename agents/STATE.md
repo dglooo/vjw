@@ -76,7 +76,10 @@
       - Bass note-on-kick lags ~211 ms (accepted).
     - ✅ S5.2 merged (`5379d31`, 273 tests): heat post pass (skipped at rest), `postFor`.
       - S5.3 must: pass `now − dropAt`; add a `?debug` force-flash key; **cap the strobe at ≤3 pulses/s (WCAG 2.3.1)**, since 1/8 notes at 174 BPM give 5.8/s.
-    - ▶ **S3.1b** (continuing in worktree a3ccf847)
+    - ✅ S3.1b merged (`022c895`, 277 tests). The tempo ODF is now the kick+snare bank transient excess.
+      - Synth full mixes lock at 174/140/128, conf 1.0. Real `dnb174.wav` under the DnB range: 174 at 0.32–0.42 (was 195 at 0.12). Default still reads 116, so the S3.2 range is needed.
+      - ⚠️ `dubstep140.wav` doesn't lock (only the bar downbeat is clear; a bar of 1.71 s is longer than the 1.33 s max lag). Open gap, to re-check with real tracks at S7.1. Autopilot falls back to time-based switching.
+    - ▶ **S3.1c kick veto** (lead decision: ship it; precision 0.76 → 1.00, recall 0.81 → 0.75).
     - then S2.5 → S3.2 → S4.3 → S5.3 → S6.1 → S6.2 → S6.3 → S7.1 → S7.2.
   - ✅ S4.1 merged (237 tests): `style.ts`; 6 grooves detected at ~18 s, crossfades switch once, freeze holds. ⚠️ Wobble/bass inputs are assumed until S2.4; the real audio→classifier path gets verified in S7.1.
 
