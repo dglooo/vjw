@@ -112,7 +112,7 @@ Invoke the `ponytail` skill (full) before writing code.
     - A bare snare fires the kick on every hit (its body leaks −6 dB into bin 1, and log flux is level-independent).
     - Relevant for S5.1's breakdown snare roll.
 
-### S1.3 [ ] `features.ts` hit envelopes + new source ids
+### S1.3 [x] `features.ts` hit envelopes + new source ids
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: `kick`/`snare`/`hats` as sources with C1 formula `clamp((strength-1.5)/2.5)*exp(-age/tau)`, event at 0.5 crossing.
 - Files: `web/src/audio/features.ts` (new, +test), `web/src/bind.ts`.
@@ -120,6 +120,18 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: decay curve, tau per drum, sens scaling (0, 1, 2), event fires once per hit. Mutants: tau values, 1.5/2.5 constants, sens product, threshold 0.5.
 - Done-check: GATES.
 - Depends on: S1.2 (types `Hit`, `Drum`), S2.2 (`AudioSettings`, `Preset` types).
+- **Changed during implementation:**
+  - The envelope is a plain 0→1: `min(1, user sens × preset sens × e^(−age/τ))`, without `clamp((strength − 1.5)/2.5)`. So the "1.5/2.5 constants" mutants don't apply.
+    - Measured on the dnb/dubstep/techno fixtures, with drums at 0 and −12 dB: `strength` was the cap of 4 on all 471 hits, so the C1 formula is a constant 1.
+    - odf/floor doesn't measure kick level: it spans 1.1–6.2 at constant velocity (it reads the bass bed), and its median rises at −12 dB. For snare and hats it tracks level only weakly.
+    - Exposing odf/floor would change the frozen `Hit` and the `hit` message, so `drums.ts` is untouched.
+  - Age counts frame `dt` from the drain, because C9's `fill` has no audio clock. `hit()` restarts the envelope; `fill()` reads it, then adds `dt`.
+    - The drain frame reads the peak, so an `event` input fires on it. This is within one frame of bind.ts's `audioNow − t` onset age.
+    - If that ever shows, S2.4's `at(t)` can supply the clock.
+  - The sens product is capped at 1 (C1's 0..1). The 0.5 threshold is live.ts's existing `event` rule, so no constant lives in `features.ts`; the test mirrors the rule on a DnB hit train at 60 fps.
+  - `bind.test.ts`: the registry test now fills via `sources()` + `features.fill()`, with length +3.
+  - Mutants: 17/17 killed. They covered τ ×3, the sens product / sum / either factor alone / missing = 0 / per id, the cap, read-before-advance, `+= dt`, per-drum reset, initial 0, re-hit restart, and the registry losing kick or hats.
+  - There is no `Features` interface (only one implementation). Use `ReturnType<typeof createFeatures>`; `raw`/`push`/`at` come with S2.4.
 
 ### S1.4 [ ] Wire hits end to end + one built-in on `kick`
 Invoke the `ponytail` skill (full) before writing code.
