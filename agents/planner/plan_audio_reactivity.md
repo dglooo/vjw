@@ -252,6 +252,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - Mutants, each alone:
   - Killed: margin 1.0/1.05/1.15/1.2; octaves drop ½, drop 1, add ⅔; centre 128; fold default/[lo,hi)/margin window/[c/2,c)/[c,2c); ACF over candidates only; no restriction; families via active range/raw/×1 only; null keeps centre/fold/range; no clamp (hang).
   - Equivalent here, because all candidates fold into one window, so the prior only picks the octave: prior call site at 128; centre lo/hi/arithmetic mean; drop ×2; add 1.5/¼; clamp 0.4; loop start lo+2 (silence only).
+- **Fix-forward after merge (`f183a0d` turned master red).** The S3.1 branch predates S1.4/S2.3. Its `listen()` harness sent every non-`onset` message to `pushOdf`, including S1.4's `hit` (no `values`, so tsc failed and 9 tests threw "values is not iterable"). It now routes by `kind` the way `input.ts` does: `onset` → `push`, `odf` → `pushOdf`, while `hit`/`feat` are ignored. `tempo.ts` is unchanged. Re-measured with the same numbers as above: DnB 174.01/0.84 and 181.99/0.90, dubstep 140.00/1, techno 127.74/1, Default 115.98/121.34 (goldens bit-exact), full mix 150.4/0.08 (still `.fails`), families unchanged.
 
 ### S3.2 [ ] Wire active preset: range, octave snap, band configs
 Invoke the `ponytail` skill (full) before writing code.
