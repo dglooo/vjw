@@ -77,6 +77,7 @@ export function createAnalysis(sampleRate: number): {
       const t = (frame + BLOCK) / sampleRate // end of the window: the block that completed this hop
       const onset = detector.detect(mag, t)
       if (onset) post({ kind: 'onset', ...onset })
+      for (const h of drums.detect(mag, t)) post({ kind: 'hit', ...h }) // same hop as the onset: no added latency (C2)
       bass.detect(mag.subarray(0, BASS_BINS), t)
       odf[hops % ODF_BATCH] = bass.odf
       if (++hops % ODF_BATCH === 0) {

@@ -5,9 +5,9 @@ import { expect, test, vi } from 'vitest'
 import { createAnalysis } from './analysis'
 import { createBank, type BandSpec } from './bands'
 import type { WorkletIn, WorkletMsg } from './onset.worklet'
-import { kick, reese } from './synth'
+import { kick, mix, pattern, reese } from './synth'
 
-// block() posts no hits yet (S1.4), so drum re-tuning is checked on configure calls; the real drums still run.
+// Drum re-tuning is checked on configure calls; the real drums still run, so block() posts their hits (S1.4, last test).
 const drumsConfigure = vi.hoisted(() => vi.fn())
 vi.mock('./drums', async (importOriginal) => {
   const m = await importOriginal<typeof import('./drums')>()
@@ -150,4 +150,25 @@ test('config: a newer rev re-tunes at the next batch start, batches keep their r
   const rev = (i: number) => (i < 101 ? 1 : i < 151 ? 3 : 4)
   expect(feat.map((m) => [m.rev, [...m.values]])).toEqual(feat.map((_, i) => [rev(i), batch(i)])) // `sub` keeps its state
   expect(drumsConfigure.mock.calls).toEqual([[DR], [D2]])
+})
+
+// plan S1.4: drums.ts runs in the onset's hop, so the hits of a mixed DnB two-step (kick + snare + hats over the bass
+// bed) land on its truth per drum. t comes from `frame` (F0 offset), as the onsets' does.
+test('block() posts kick/snare/hats hits within ±30 ms of a synthetic dnb pattern', () => {
+  const track = pattern('dnb', 8)
+  const x = mix(track)
+  const a = createAnalysis(SR)
+  const hits: Extract<WorkletMsg, { kind: 'hit' }>[] = []
+  for (let b = 0; (b + 1) * BLOCK <= x.length; b++) {
+    a.block([x.subarray(b * BLOCK, (b + 1) * BLOCK)], F0 + b * BLOCK, (m) => {
+      if (m.kind === 'hit') hits.push(m)
+    })
+  }
+  for (const h of hits) expect(Object.keys(h).sort()).toEqual(['drum', 'kind', 'strength', 't'])
+  const near = (a: number[], b: number[]) => a.filter((x) => b.some((y) => Math.abs(x - y) <= 0.03)).length / a.length
+  for (const d of ['kick', 'snare', 'hats'] as const) {
+    const got = hits.filter((h) => h.drum === d).map((h) => h.t - F0 / SR).filter((t) => t > 0.5) // the bed's own start
+    expect(near(track.truth[d], got), `${d} recall`).toBeGreaterThanOrEqual(0.7)
+    expect(near(got, track.truth[d]), `${d} precision`).toBeGreaterThanOrEqual(0.7)
+  }
 })

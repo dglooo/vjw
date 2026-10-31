@@ -133,7 +133,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Mutants: 17/17 killed. They covered τ ×3, the sens product / sum / either factor alone / missing = 0 / per id, the cap, read-before-advance, `+= dt`, per-drum reset, initial 0, re-hit restart, and the registry losing kick or hats.
   - There is no `Features` interface (only one implementation). Use `ReturnType<typeof createFeatures>`; `raw`/`push`/`at` come with S2.4.
 
-### S1.4 [ ] Wire hits end to end + one built-in on `kick`
+### S1.4 [x] Wire hits end to end + one built-in on `kick`
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: worklet posts `hit`, `app.ts` drains it, `?debug` shows hits, one built-in binding uses `kick`.
 - Files: `web/src/audio/analysis.ts` (call `drums.detect` in `block`, post `hit`), `web/src/app.ts` (drain via the same T1 rule as onsets, `features.hit`, `features.fill` into `src`), the one built-in scene doc that binds `onset` today (grep `builtin:`; swap that single binding to `kick`).
@@ -141,6 +141,24 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: analysis test: dnb fixture through `block()` emits hits with t within +-30 ms of truth.
 - Done-check: GATES + browser: dnb174.wav, `?debug` shows kick/snare/hats lamps ticking on the beat; the chosen scene flashes on kick.
 - Depends on: S1.1, S1.3.
+- **Changed during implementation:**
+  - Glue beyond the listed files:
+    - `onset.worklet.ts`: types only, `WorkletMsg += { kind: 'hit' } & Hit`.
+    - `input.ts`: `hitQueue` plus a `hit` branch in the port handler. A hit has `t` and `strength`, so without that branch it would type-check as an onset and feed tempo/sync.
+  - Merged with S2.3: one shared `drums` instance (S2.3's `configure` re-tunes it). Drum config is S2.3's; nothing sends a config yet, so the built-in bands apply.
+  - T1: the onset drain became `drain(q)` in `app.ts`. Onsets and hits share it, same behaviour.
+  - `fill()` gets `createSettings(localStorage, ctx.sampleRate).get()` and `PRESETS[activePreset(s, null)]`; no detected genre until S4.3.
+  - Debug overlay: it prints hit counts per drum (`debugSync.hits`, 4×/s, a `.hits` line), not the last hit's time. The counts tick on each hit.
+    - `?debug` also sets `window.__src` = the live `src`, as `window.__bench` does.
+  - Swapped binding: VHS tunnel `own/flash` (`flash`, max 0.9, the full-frame flash) `onset` → `kick`.
+  - Test: dnb, 8 bars through `block()`. Recall/precision at ±30 ms: kick 0.81/0.76, snare 0.94/1.00, hats 1.00/1.00 (floor 0.7). Message keys are exact; t comes from `frame`.
+  - Browser (merged, port 5174, Chrome, `--mute-audio`), dnb174.wav, 10 s on VHS tunnel:
+    - Hits: kick 24, snare 10, hats 58; 81 onsets.
+    - `src.kick` crossed 0.5 22×.
+    - Canvas luminance: 164 on kick ≥ 0.5 frames vs 111 on kick < 0.05 (+53). The control, Tunnel (no flash), shows +8.
+    - 0 console errors, glError 0. Worklet chunk still an IIFE.
+  - ⚠️ Kick 24 vs snare 10 in 10 s at 174 BPM (two-step ≈ 14.5 each) fits S1.2's C2 note: a snare body leaks into the kick bin.
+  - ⚠️ No BPM/grid on dnb174.wav in Default within ~25 s (conf 0.00), both before and after the merge. S1.4 leaves the tempo inputs (onset/odf queues) unchanged. There is no Default baseline (S1.1's BPM check was skipped), so this matters for CP3's "Default reading unchanged".
 
 ### CP2 — Sustained sources + custom bands
 
