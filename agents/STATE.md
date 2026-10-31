@@ -4,9 +4,9 @@
 
 ## HEAD
 
-**Updated:** 2026-10-29 (session 4)
+**Updated:** 2026-10-31 (session 5)
 **Stage:** pilot ✅ → Stage 2a `effects` ✅ (tag `cp7-effects`). **Now: epic `audio-reactivity`, wave W1 coding (5 parallel worktrees).**
-**Spec:** `thoughts/spec_veejay_wizard.md` + `thoughts/spec_effects.md`. **Team:** `.claude/agents/`; planner and security-auditor on Fable 5.1, tester on Haiku 5.5, the rest on Opus 5.5.
+**Spec:** `thoughts/spec_veejay_wizard.md` + `thoughts/spec_effects.md`. **Team:** `.claude/agents/`; **planner and security-auditor now on Opus 5.5 xhigh** (user, 2026-10-31; downgraded from Fable), tester on Haiku 5.5, the rest on Opus 5.5.
 
 ### Pipeline status
 **Pilot (`plan_pilot.md`): ALL done** (CP1–CP5 + S6.1). Verified in Chrome and live by the user.
@@ -44,7 +44,9 @@
 - ✅ **USER GATE (2026-10-28): Variant B** (worklet IIR bank + fast/slow envelopes). Designer defaults accepted (F1 ≥ 0.70 at ±30 ms; ≤8 custom bands; heat strobe ≤0.15).
 - ✅ Plan `plan_audio_reactivity.md`: 7 CPs, 22 steps, 13 waves. The 5th attempt (Sonnet, exact line-range reads, incremental writes) finished in 2 min.
   - Lesson: planners must read narrowly and write incrementally (this is now standard in planner briefs).
-- ▶ **Wave W1 (parallel worktrees):** S1.1 analysis.ts extraction ‖ S1.2 drums + synth fixtures ‖ S2.1 IIR band bank ‖ S2.2 presets + settings ‖ S4.2 restyle + engine styled overlay.
+- ▶ **Wave W1, resumed 2026-10-31.** All 5 coders hit the 5-h usage limit on 10-29 ~19:50.
+  - S1.1, S2.1, S2.2 and S4.2 continue in their existing worktrees (partial work kept).
+  - S1.2 restarted fresh (its worktree was lost).
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
 - The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
 
