@@ -51,7 +51,10 @@
   - ✅ S1.1 merged (`bc05c76`, 196 tests): pure `analysis.ts`; golden test = old worklet output. Lead Chrome check: 41 onsets on kicks128n (same as before), 0 errors.
   - ✅ S2.1 merged: `bands.ts` IIR bank, 5.4 µs per block for 11 bands. The design's kick gate failed (it gated a sustained reese 75%), so it was reworked: separate 200 ms gate followers, TRANSIENT 1.5, HOLD 100 ms.
     - **Open for S2.4:** the sub band leaks kick body (it needs a trigger from the drum detector); a bass note starting on a kick lags ~125 ms.
-  - W2 (S1.3/S3.1/S4.1/S5.1) waits for S1.2 (`synth.ts`).
+  - ✅ S1.2 merged (`a110cc7`, 212 tests): `drums.ts` + `synth.ts`. DnB F1 kick 0.79 / snare 0.97 / hats 1.00; dubstep 0.80/1.00/1.00; techno 0.89/0.77/1.00.
+    - ⚠️ C2 limit: a bare reese or snare fires false kicks; hit strength saturates at 4. Mitigations are briefed into S1.3 (amplitude from level) and S5.1 (the drop needs the bass back).
+  - **W1 complete.** ▶ **W2 (parallel worktrees):** S1.3 features ‖ S3.1 tempo range ‖ S4.1 style classifier ‖ S5.1 build/drop. All append to `synth.ts`; the lead merges by keeping both.
+  - ⏰ One-shot resume scheduled at 15:50 (user) in case of usage limits.
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
 - The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
 
