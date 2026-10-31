@@ -116,3 +116,23 @@ export function mix(track: Track, names = Object.keys(track.stems) as Stem[]) {
   for (const s of names) track.stems[s].forEach((v, i) => (out[i] += v))
   return out
 }
+
+// ---- Style-classifier fixtures (S4.1, design C10 / spec §4.3). Feature-level for now: tempo.families (S3.1) and the
+// raw wobbleDepth and bass share (S2.4) don't exist yet, so style.test.ts derives the classifier's inputs from these.
+/** A groove shaped like GENRES above (pattern() can render it once it takes one), plus the raw wobbleDepth and bass
+ *  share its bass layer reads. ⚠️ wobble/bass are assumed (wobble ≈ 0.6–0.8, reese ≈ 0.2–0.3, no wobble ≈ 0.1) until
+ *  S2.4 measures them on stems. */
+export interface Groove { bpm: number; kick: number[]; snare: number[]; hats: number[]; open: boolean; wobble: number; bass: number }
+/** Two grooves per genre: [0] is the audio pattern above; [1] is a 170 DnB with a ghost kick and off-beat hats, a 142
+ *  dubstep with kicks on 1 and the "and" of 3, and a 124 house with 16th hats. */
+export const GROOVES: Record<Genre, readonly [Groove, Groove]> = {
+  dnb: [{ ...GENRES.dnb, wobble: 0.2, bass: 0.7 }, { bpm: 170, kick: [0, 7, 10], snare: [4, 12], hats: [2, 6, 10, 14], open: false, wobble: 0.3, bass: 0.6 }],
+  dubstep: [{ ...GENRES.dubstep, wobble: 0.8, bass: 0.75 }, { bpm: 142, kick: [0, 10], snare: [8], hats: [0, 4, 8, 12], open: false, wobble: 0.6, bass: 0.8 }],
+  techno: [{ ...GENRES.techno, wobble: 0.05, bass: 0.35 }, { bpm: 124, kick: [0, 4, 8, 12], snare: [4, 12], hats: [...Array(16).keys()], open: false, wobble: 0.15, bass: 0.5 }],
+}
+
+/** Equal-power crossfade over `bars` bars at `bpm`, from t0 (s): the [a, b] gains at time t, a² + b² = 1. */
+export const crossfade = (t0: number, bars = 16, bpm = 128) => (t: number) => {
+  const p = (Math.PI / 2) * Math.min(1, Math.max(0, ((t - t0) * bpm) / 240 / bars))
+  return [Math.cos(p), Math.sin(p)] as const
+}
