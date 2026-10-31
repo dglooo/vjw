@@ -228,7 +228,7 @@ Invoke the `ponytail` skill (full) before writing code.
 
 ### CP4 — Classifier, Auto-style, styled remap
 
-### S4.1 [ ] `style.ts` classifier with hysteresis
+### S4.1 [x] `style.ts` classifier with hysteresis
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: C4 score `S_g = T_g*(0.5+0.5*match_g)` plus no-flap logic.
 - Files: `web/src/audio/style.ts` (new), `web/src/audio/style.test.ts` (new), `web/src/audio/synth.ts` (`crossfade(a,b,16 bars)`, patterns with 2 variants per genre).
@@ -236,6 +236,29 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests (fed by feature vectors derived from fixtures): each genre detected within 20 s; a 16-bar crossfade switches <=1 time and ends on B; breakdown/silence switch 0 times; stable under noise. Mutants: EMA tau, margin, dwell, min-hold, floor, freeze, match closeness, tempo-necessity (T_g=0 -> never wins).
 - Done-check: GATES.
 - Depends on: S2.2 (Genre/Preset types).
+- **Changed during implementation:**
+  - **Feature-level fixtures.** `tempo.families` (S3.1) and the raw `wobbleDepth`/bass share (S2.4) don't exist yet, so the tests derive `StyleIn` from the grooves, not from audio:
+    - K and H: the 16th steps counted per beat.
+    - T_g: an idealised `families`. It is 1 when bpm ×{½, 1, 2} lies in the window ±10%, 0.5 for the ×⅔ and ×4/3 lags (C3's DnB 174 → 116), else 0.
+    - W and B: per-groove values in `synth.ts`, ⚠️ assumed until S2.4 measures them.
+    - A crossfade blends every input by energy share; noise is seeded and held 1 s at a time.
+    - S7.1 runs the real audio → classifier path.
+  - **`synth.ts` (appended at the end only):**
+    - `GROOVES`: 2 per genre. [0] is the existing audio pattern; [1] is DnB 170 with a ghost kick and off-beat hats, dubstep 142 with kicks on 1 and the "and" of 3, and house 124 with 16th hats.
+    - [1] has the GENRES shape, but `pattern()` can't render it until it takes a groove (a 1-line change, left alone to avoid a mid-file edit in a parallel wave).
+    - `crossfade(t0, bars = 16, bpm)` is the equal-power gain law `t → [a, b]`. It serves stems (S7.1) and feature blends (gain²).
+  - **No-flap details:**
+    - The challenger must be the score leader, and its own lead must stay unbroken: a dip or a leader change restarts the dwell.
+    - The first pick waits only for its dwell, not the hold.
+    - Frozen time counts for neither the EMA, the dwell nor the hold.
+    - `confidence` = the detected genre's smoothed score (0 before a pick).
+    - NaN or null features drop out of the match mean (a 0/0 bass share in silence can't poison the EMA). `now` is in s (`f.time`).
+    - σ knobs: K 0.25, H 1.5, W 0.25, B 0.2.
+  - **`proto` not tuned:** S2.2's placeholders already separate all 6 grooves.
+    - Steady lead ≥ 0.28: dnb 0.99/0.91, dubstep 0.96/0.93, techno 0.97/0.91.
+    - Every groove is detected at 17.75–18 s. All 6 crossfades switch once, 0–8 s after the fade ends.
+    - Retune with S2.4/S3.1's measured features.
+  - **Mutants:** a hand sweep killed 36/36, 33 in `style.ts` and 3 in `crossfade`. They cover τ, margin, dwell, hold and floor (both sides), each σ, freeze, `last` while frozen, tempo-necessity (T dropped or made additive), the 0.5 base, the null and NaN skips, the mean, the Gaussian form, dwell continuity and identity, the first-pick hold, the hold reset, `confidence`, per-frame α, challenger vs current, and the floor and dwell guards.
 
 ### S4.2 [x] `restyle` + engine styled overlay
 Invoke the `ponytail` skill (full) before writing code.
