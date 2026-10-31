@@ -116,3 +116,45 @@ export function mix(track: Track, names = Object.keys(track.stems) as Stem[]) {
   for (const s of names) track.stems[s].forEach((v, i) => (out[i] += v))
   return out
 }
+
+// Arrangement (plan S5.1): the song shape arrange.ts reads, groove → breakdown → drop.
+const FADE = 0.005 // s: the bass stops and starts on the bar line without a click
+
+/** Noise whose high-pass (two one-poles) sweeps 500 Hz → 4 kHz as its level rises 30 dB: a build-up riser. */
+function riser(r: () => number, n: number, amp = 0.3) {
+  let [a, b] = [0, 0]
+  return Float32Array.from({ length: n }, (_, i) => {
+    const u = i / n
+    const k = 1 - Math.exp((-2 * Math.PI * 500 * 8 ** u) / SR)
+    const x = 2 * r() - 1
+    a += (x - a) * k
+    b += (x - a - b) * k
+    return amp * 10 ** (1.5 * (u - 1)) * (x - a - b)
+  })
+}
+
+/** `groove` bars of `genre`, a `brk`-bar breakdown, then the drop: the groove again for `after` bars (without the sub
+ *  and reese unless `bass`: a kick-only drop). In the breakdown the drums, sub and reese stop, a riser builds, and the
+ *  snare rolls over its last 4 bars (4ths, 4ths, 8ths, 16ths). `teaser` = one lone kick that many bars in.
+ *  `start` = the breakdown's first beat, `drop` = the drop's first kick, s. */
+export function arrangement({ genre = 'dnb' as Genre, groove = 16, brk = 8, after = 8, teaser = -1, bass = true } = {}) {
+  const bar = (4 * 60) / GENRES[genre].bpm
+  const track = pattern(genre, groove + brk + after)
+  const [start, drop] = [T0 + groove * bar, T0 + (groove + brk) * bar]
+  const gate = (t: number, back: boolean) => Math.min(1, Math.max(0, (start - t) / FADE, back ? (t - drop) / FADE + 1 : 0))
+  for (const s of ['kick', 'snare', 'hats', 'reese', 'sub'] as const)
+    track.stems[s].forEach((v, i, x) => (x[i] = v * gate(i / SR, bass || (s !== 'reese' && s !== 'sub'))))
+  for (const d of DRUMS) track.truth[d] = track.truth[d].filter((t) => t < start || t >= drop)
+  const r = rng(7)
+  const add = (d: Drum, t: number, x: Float32Array) => {
+    track.truth[d].push(t)
+    x.forEach((v, i) => (track.stems[d][Math.round(t * SR) + i] += v))
+  }
+  for (const [b, per] of [[4, 4], [3, 4], [2, 8], [1, 16]].slice(-brk))
+    for (let s = 0; s < per; s++) add('snare', drop - (b - s / per) * bar, snare(r))
+  if (teaser >= 0) add('kick', start + teaser * bar, kick())
+  for (const d of DRUMS) track.truth[d].sort((a, b) => a - b)
+  const rise = new Float32Array(track.stems.room.length)
+  rise.set(riser(r, Math.round((drop - start) * SR)), Math.round(start * SR))
+  return { stems: { ...track.stems, riser: rise }, truth: track.truth, start, drop }
+}
