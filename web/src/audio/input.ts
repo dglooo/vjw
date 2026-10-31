@@ -31,6 +31,7 @@ ctx.audioWorklet.addModule(onsetWorklet).then(
         if (odfQueue.push(data) > ODF_KEEP) odfQueue.shift()
         return
       }
+      if (data.kind === 'feat') return // featQueue: S2.5 (nothing sends a config yet, so none arrive)
       onsetQueue.push(data)
       if (DEBUG) console.info('onset', data.t.toFixed(3), data.strength.toFixed(2))
     }
