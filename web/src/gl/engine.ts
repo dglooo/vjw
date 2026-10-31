@@ -1,5 +1,6 @@
 // WebGL2 engine on #stage (Variant A): the shot's scene(s) render into internal targets at base × scale, then one
-// final pass upscales them into the stage: a copy, or the transition during a fade (design E7).
+// final pass upscales them into the stage: a copy, or the transition during a fade (design E7), then the heat post
+// pass blends over it (design C6).
 import {
   bindFramebufferInfo, createBufferInfoFromArrays, createFramebufferInfo, createProgramInfo, createProgramInfoAsync,
   createTexture, drawBufferInfo, resizeFramebufferInfo, setBuffersAndAttributes, setUniforms, type ProgramInfo,
@@ -174,10 +175,16 @@ function drawScene(id: SceneId, f: FrameInput, src: Sources, styled: Sources | n
 
 /** The post pass's input (design C6): `{ gain: 1, flash: 0 }` leaves the frame as it is. */
 export interface Post { gain: number; flash: number }
+/** The post pass: one colour over the stage, through fixed-function blending. */
+const tint = fullscreenProgram(`#version 300 es
+precision highp float;
+uniform vec4 uColor;
+out vec4 outColor;
+void main() { outColor = uColor; }`)
 
-/** `styled` (Auto-style's overlay, design C5) is what built-ins read; null = every scene reads `src`. */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- `post` is in the contract now; S5.2 applies it
-export function render(shot: Shot, f: FrameInput, src: Sources, styled: Sources | null, _post: Post) {
+/** `styled` (Auto-style's overlay, design C5) is what built-ins read; null = every scene reads `src`. `post` then
+ *  multiplies the stage by `gain` and mixes it toward white by `flash`; at rest it draws nothing. */
+export function render(shot: Shot, f: FrameInput, src: Sources, styled: Sources | null, post: Post) {
   poll()
   if (FLASH && f.onsets.length) {
     bindFramebufferInfo(gl, null)
@@ -192,6 +199,18 @@ export function render(shot: Shot, f: FrameInput, src: Sources, styled: Sources 
   if (shot.to) drawScene(shot.to, f, src, styled, b)
   bindFramebufferInfo(gl, null)
   const uRes = [stage.width, stage.height]
-  if (!shot.to) return copy({ uSrc: a.attachments[0], uRes })
-  draw(fade.info, Object.assign(fade.u, { from: a.attachments[0], to: b.attachments[0], progress: shot.mix, ratio: uRes[0] / uRes[1], uRes }))
+  if (!shot.to) copy({ uSrc: a.attachments[0], uRes })
+  else draw(fade.info, Object.assign(fade.u, { from: a.attachments[0], to: b.attachments[0], progress: shot.mix, ratio: uRes[0] / uRes[1], uRes }))
+  const g = post.gain - 1 // ≤ 1: a colour
+  if (!g && !post.flash) return // at rest: the frame bit for bit
+  gl.enable(gl.BLEND)
+  if (g) {
+    gl.blendFunc(gl.DST_COLOR, gl.ONE) // dst·g + dst = dst·gain
+    tint({ uColor: [g, g, g, 0] })
+  }
+  if (post.flash) {
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA) // white·flash + dst·(1 − flash)
+    tint({ uColor: [post.flash, post.flash, post.flash, post.flash] })
+  }
+  gl.disable(gl.BLEND)
 }
