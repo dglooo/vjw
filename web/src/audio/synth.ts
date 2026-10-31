@@ -178,3 +178,19 @@ export function arrangement({ genre = 'dnb' as Genre, groove = 16, brk = 8, afte
   rise.set(riser(r, Math.round((drop - start) * SR)), Math.round(start * SR))
   return { stems: { ...track.stems, riser: rise }, truth: track.truth, start, drop }
 }
+
+// ---- Wobble stem (S2.4): the dubstep bass the GENRES patterns stand in for with reese + sub.
+/** A 55 Hz saw through a 2-pole low-pass swept 150 Hz ↔ 1.5 kHz (log) at `lfo` Hz; 140/30 = 4.67 Hz, 8ths at 140 BPM. */
+export function wobble(n: number, lfo = 140 / 30, amp = 0.5) {
+  const out = new Float32Array(n)
+  let a = 0
+  let b = 0
+  for (let i = 0; i < n; i++) {
+    const t = i / SR
+    const k = 1 - Math.exp((-2 * Math.PI * 150 * 10 ** (0.5 - 0.5 * Math.cos(2 * Math.PI * lfo * t))) / SR)
+    a += ((((t * 55) % 1) * 2 - 1) * amp - a) * k
+    b += (a - b) * k
+    out[i] = b
+  }
+  return out
+}

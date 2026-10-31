@@ -61,7 +61,7 @@ describe('sources', () => {
     expect(sources(frame(), out)).toBe(out)
     createFeatures().fill(out, 1 / 60, parseSettings(null), PRESETS.default)
     expect(Object.keys(out).sort()).toEqual([...SOURCE_IDS].sort())
-    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3)
+    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 4)
     for (const k of SOURCE_IDS) expect(Number.isFinite(out[k]), k).toBe(true)
   })
 })
