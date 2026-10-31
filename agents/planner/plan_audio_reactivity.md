@@ -72,7 +72,7 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
 
 ### CP1 — Pure analysis + hit sources
 
-### S1.1 [ ] Extract the worklet body into pure `analysis.ts`
+### S1.1 [x] Extract the worklet body into pure `analysis.ts`
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: move `process()` (FFT 512, onset, bass ODF) into `createAnalysis`; worklet = ~20 lines of glue. No behaviour change.
 - Files: `web/src/audio/analysis.ts` (new), `web/src/audio/onset.worklet.ts`, `web/src/audio/analysis.test.ts` (new).
@@ -80,6 +80,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: run a synthetic kick train through `block()` and assert the same onset times/ODF as the old code (golden values captured from the pre-move code); existing tempo/sync/bench tests stay green. Mutants: hop size, FFT window, ODF floor.
 - Done-check: GATES + browser: dnb174.wav still reads the same BPM as before; check `AudioContext.playbackStats.underrunEvents` is 0 (Variant B risk).
 - Depends on: none.
+- **Changed during implementation:** (1) `WorkletIn` is `{ kind: 'config'; rev: number }` for now (in `onset.worklet.ts`, next to `WorkletMsg`): `Drum`/`Band`/`BandSpec` don't exist yet, so S1.4/S2.3 add the `drums`/`bands` fields. `configure()` is a no-op, and the glue doesn't wire `port.onmessage` yet (S2.3, "types + glue"). (2) The golden signal puts one hop-aligned click after each kick, with ODF 0.898 on even kicks and 1.103 on odd ones. This brackets onset `FLOOR = 1` from both sides: every FLOOR outside (0.898, 1.103) now fails, where before only FLOOR <= 0.5 did. That guards the S1.2 `DetectorOpts.floor` move. (3) Goldens checked with a temporary harness (not committed): the pre-move worklet's full stream with AudioWorklet globals stubbed (113 msgs) deep-equals both the new glue's stream and `createAnalysis`'s. Mutants killed: HOP, Hann (Hamming and rectangular), FLOOR 0/0.85/0.89/1.11/1.2/2, BASS_BINS, ODF_BATCH, `t` offset, mono mix. (4) The browser done-check (BPM, underrunEvents) was not run, because the brief said no browser check.
 
 ### S1.2 [ ] `synth.ts` fixtures + `drums.ts` + `DetectorOpts.floor`
 Invoke the `ponytail` skill (full) before writing code.
