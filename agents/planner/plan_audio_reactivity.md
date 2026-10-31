@@ -321,7 +321,7 @@ Invoke the `ponytail` skill (full) before writing code.
 
 ### CP5 — Build, drop, heat, cut
 
-### S5.1 [ ] `arrange.ts` build/drop detector
+### S5.1 [x] `arrange.ts` build/drop detector
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: C6 heuristic, pure.
 - Files: `web/src/audio/arrange.ts` (new), `web/src/audio/arrange.test.ts` (new), `web/src/audio/synth.ts` (arrangement fixture: 16 groove bars, 8-bar breakdown with riser + snare roll, drop; teaser-kick and 2-bar-break variants).
@@ -329,6 +329,35 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: drop fires <=150 ms after the drop's first kick with confidence >=0.6; `build` >=0.5 at end of breakdown; 3 min groove = 0 drops; teaser kick = 0; 2-bar break = no fire >=0.6; second drop inside 30 s ignored. Mutants: arming 6 s, return ratio 4x, 0.6 G, kick-only path, refractory, warm-up, confidence gate, silence rule.
 - Done-check: GATES.
 - Depends on: S2.2 (types only).
+- **Changed during implementation:**
+  - Measured through the real DSP (fixture → bands.ts `held` sub + reese, drums.ts kicks, FFT 4–16 kHz, frame RMS):
+    - A lone kick lifts `low` to 0.95 G, but only for ≈30 ms, 140 ms after the kick (bands.ts's gate release). The drop's bass rises 144 ms after its kick and stays at ≈1 G.
+    - Kicks are weak evidence here: in a breakdown, drums.ts reads the riser, room tone and roll as ~13 kicks a bar.
+    - So the drop needs the low end back, never kicks alone, and its timing test is ≤ 1 beat (lead brief), not ≤ 150 ms.
+  - Path (a) needs `low` ≥ 4× its sparse mean and ≥ 0.6 G held for `sustain` 0.1 s. The return must start within `near` = 0.2 s of a kick (150 ms is under held's 144 ms lag plus a frame).
+  - Path (b) counts two kick-backed *rises* of `low` through 0.6 G at most 1.2 beats apart, i.e. two separate bumps. The design's "2nd kick + low ≥ 0.6 G" would pair the roll's false kicks with one bump. It needs `beat`, so it is off without a confident sync.
+  - `riser` = log2 of the 0.5 s / 4 s EMA ratio of `high`, without the snare/hat-rate slope: `ArrangeIn` has no rate input, and the roll lifts `high` anyway.
+  - Added to C6:
+    - a 1 s `GRACE` (a drop louder than ~3 G ends sparse before `sustain` runs out);
+    - `dt` ≤ 0.1 s (a hidden tab isn't a breakdown);
+    - at a drop: `build` = 0, the 1 s EMA snaps to G (sparse ends), and heat falls linearly to 0 over 1 s from its value at the drop.
+  - Inputs and outputs:
+    - `total` = the frame's RMS (energy.ts `rms`), with a silence floor of −60 dBFS. S5.3 must feed that.
+    - Confidence = the mean of four terms: min(1, sparse/16 s), log16 of the return ratio, the last kick's beat alignment (0.5 without sync) and the build peak.
+    - `ArrangeOpts` = the 11 drop knobs.
+  - Fixture: `arrangement({ genre, groove, brk, after, teaser, bass })` appended to `synth.ts`, with a `riser` stem (HP 500 Hz → 4 kHz, +30 dB, end level 0.3).
+    - An 8 kHz sweep end, or a 0.1 end level under the −51 dBFS room tone, left `high` too flat for build ≥ 0.5.
+  - Results:
+    - main: fires once at drop + 0.265 s (0.77 beat), confidence 0.82 (0.71 without sync);
+    - build at bar ends 0, .26, .45, .57, .62, .66, .69;
+    - teaser kick in the 16th roll: only the real drop fires;
+    - 2-bar break: none;
+    - 3 min of groove: never sparse;
+    - techno kick-only drop: path (b) at 1 beat + 0.135 s, confidence 0.87.
+  - ⚠️ Known limit: a track with no sustained bass at all (G = kick tails, ≈0.1× a bassed groove's) fires on a snare roll, because the snare's 190 Hz body sits in the reese band. The confidence there is 0.59, under the cut gate.
+  - Mutants (50: every knob, each from both sides; every confidence term; the build/heat/drop constants; the silence, G-freeze, kick-window, (b), GRACE and drop-reset branches):
+    - The first sweep left 5 survivors. Two were dead code and are deleted: the sparse mean's exclusion of loud frames, and the `armed` reset. Three got checks: the hidden-tab `dt` clamp, heat's linear fall, and build's τ-1 s decay without a drop.
+    - The second sweep: 49/50 killed. The survivor, the `upBeat` reset at a drop, was dead (the refractory covers it) and is deleted, with its twin `rise`.
 
 ### S5.2 [ ] Heat post pass in `engine.ts`
 Invoke the `ponytail` skill (full) before writing code.
