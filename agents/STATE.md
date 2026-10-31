@@ -60,7 +60,12 @@
   - ✅ S1.4 merged (`94e71d0`, 240 tests): hits wired end to end, VHS tunnel `own/flash` on `kick`, `window.__src` under `?debug`. Chrome dnb174, 10 s: kick 24 / snare 10 / hats 58 (snare leaks into kick, as known); flash +53 luma on kicks. **CP1 code-complete.**
   - Lead baseline on master: house128 locks at 128.0 in ~10 s; **dnb174 never locks in Default (conf 0 for 40 s)**, which is the target for S3.1+S3.2 with the DnB preset (S3.1 told).
   - 5-h usage limit hit again ~16:45 (reset 20:50). At 20:51: S3.1 and S5.1 resumed via SendMessage (worktrees kept; told to check for leftover sweep mutants); S2.4 and S5.2 re-dispatched fresh.
-  - ▶ Running: S3.1 ‖ S5.1 ‖ S2.4 ‖ S5.2. Next in line: S2.5 (app chain).
+  - S3.1 merged (`f183a0d`): DnB range reads the two-step at 174/182; Default reads the ⅔ lag 116; the fold hang is fixed.
+    - ⚠️ **Master is RED:** S3.1's tempo test harness predates S1.4/S2.3 (`WorkletMsg` union). ▶ A fix-forward coder is on it.
+    - ⚠️ **Root finding:** on full mixes the bass-flux ODF is flattened by sub/reese flicker (dnb174 conf ~0.12 < LOCK 0.3, techno full mix reads 150).
+    - 🔑 **Lead decision:** tempo ODF moves to bass **transients** from the S2.1 bank's differential envelope, plus a kick veto if small. ▶ New step **S3.1b**.
+    - `families` overlap (the ⅔ lag lights techno; techno/dubstep windows overlap), so S4.3 must not rely on tempo family alone.
+  - ▶ Running: S5.1 ‖ S2.4 ‖ S5.2 ‖ S3.1 fix-forward ‖ S3.1b. Next: S2.5 (app chain).
   - ✅ S4.1 merged (237 tests): `style.ts`; 6 grooves detected at ~18 s, crossfades switch once, freeze holds. ⚠️ Wobble/bass inputs are assumed until S2.4; the real audio→classifier path gets verified in S7.1.
 
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
