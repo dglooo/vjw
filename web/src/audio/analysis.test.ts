@@ -1,10 +1,24 @@
 // plan S1.1: createAnalysis is the onset worklet's body, moved without behaviour change. The golden values below were
 // captured from the pre-move worklet (AudioWorklet globals stubbed, same signal), whose whole message stream the moved
 // code matched byte for byte.
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { createAnalysis } from './analysis'
-import type { WorkletMsg } from './onset.worklet'
-import { mix, pattern } from './synth'
+import { createBank, type BandSpec } from './bands'
+import type { WorkletIn, WorkletMsg } from './onset.worklet'
+import { kick, mix, pattern, reese } from './synth'
+
+// Drum re-tuning is checked on configure calls; the real drums still run, so block() posts their hits (S1.4, last test).
+const drumsConfigure = vi.hoisted(() => vi.fn())
+vi.mock('./drums', async (importOriginal) => {
+  const m = await importOriginal<typeof import('./drums')>()
+  return {
+    ...m,
+    createDrums: (sr: number, n: number) => {
+      const d = m.createDrums(sr, n)
+      return { ...d, configure: (b: Parameters<typeof d.configure>[0]) => (drumsConfigure(b), d.configure(b)) }
+    },
+  }
+})
 
 const SR = 48000
 const BLOCK = 128
@@ -63,6 +77,79 @@ test('block() posts the pre-move onset/odf messages on a synthetic kick train (g
   const v = odf.flatMap((m) => [...m.values])
   expect(v.reduce((s, x) => s + x, 0)).toBeCloseTo(507.8365, 3)
   expect(v.reduce((s, x, i) => s + (i + 1) * x, 0)).toBeCloseTo(184206.553, 2) // position-weighted: order counts too
+  expect(out.some((m) => m.kind === 'feat')).toBe(false) // no config: no bands, no feat
+})
+
+// plan S2.3: the band bank inside block().
+const DR = { kick: [40, 150], snare: [1000, 5000], hats: [7000, 16000] } as const
+const cfg = (rev: number, bands: BandSpec[], drums: WorkletIn['drums'] = DR): WorkletIn => ({ kind: 'config', rev, drums, bands })
+
+/** 2 s mono: a full-range reese (55 Hz root, in the sub band) with kicks at 0.5 and 1.25 s. */
+function reeseKick() {
+  const x = reese(2 * SR)
+  for (const s of [0.5, 1.25]) kick().forEach((v, i) => (x[Math.round(s * SR) + i] += v))
+  return x
+}
+
+/** Mono `x` through block(), configs sent before the keyed blocks. `frames`: a reference bank fed the same quanta,
+ * re-configured at the keyed blocks and read at every hop end (odd blocks). */
+function feed(x: Float32Array, sends: Record<number, WorkletIn>, ref: Record<number, BandSpec[]>) {
+  const a = createAnalysis(SR)
+  const bank = createBank(SR)
+  const out: WorkletMsg[] = []
+  const frames: number[][] = []
+  let n = 0
+  for (let b = 0; b < x.length / BLOCK; b++) {
+    if (sends[b]) a.configure(sends[b])
+    if (ref[b]) {
+      bank.configure(ref[b])
+      n = ref[b].length
+    }
+    const q = x.subarray(b * BLOCK, (b + 1) * BLOCK)
+    a.block([q], F0 + b * BLOCK, (m) => out.push(m))
+    bank.process(q)
+    if (b % 2) {
+      const f = new Float32Array(2 * n)
+      bank.read(f)
+      frames.push([...f])
+    }
+  }
+  const batch = (i: number) => [...frames[2 * i], ...frames[2 * i + 1]] // batch i = blocks 4i…4i+3
+  return { feat: out.flatMap((m) => (m.kind === 'feat' ? [m] : [])), batch }
+}
+
+test('feat: every 2 hops, the bank [e2, held] per band at each hop end, in config order (reese + kick)', () => {
+  const bands = [{ id: 'sub', lo: 30, hi: 60 }, { id: 'air', lo: 7000, hi: 16000 }]
+  const { feat, batch } = feed(reeseKick(), { 0: cfg(1, bands) }, { 0: bands })
+  expect(feat).toHaveLength(187) // 375 hops; the last one waits for its pair
+  expect(feat.map((m) => [m.rev, m.hop, Math.round(m.t0 * SR), [...m.values]])).toEqual(
+    feat.map((_, i) => [1, 256 / SR, F0 + (4 * i + 2) * BLOCK, batch(i)]), // t0 = the first hop's end
+  )
+  const e2 = (k: number) => feat.reduce((s, m) => s + m.values[2 * k] + m.values[4 + 2 * k], 0) // both hops
+  expect(e2(0)).toBeGreaterThan(100 * e2(1)) // the sub band lights, the air band doesn't
+})
+
+test('config: a newer rev re-tunes at the next batch start, batches keep their rev, an older or repeated rev is ignored', () => {
+  const A = [{ id: 'sub', lo: 30, hi: 60 }]
+  const B = [...A, { id: 'u:1', lo: 60, hi: 250 }]
+  const C = [{ id: 'air', lo: 7000, hi: 16000 }]
+  const D1 = { ...DR, kick: [40, 200] } as const
+  const D2 = { ...DR, kick: [50, 150] } as const
+  drumsConfigure.mockClear()
+  const { feat, batch } = feed(
+    reeseKick(),
+    {
+      0: cfg(1, A),
+      401: cfg(3, B), // mid-batch: applies at block 404 (batch 101); same drums, so they don't restart
+      402: cfg(2, C, D1), // older than the pending rev 3
+      501: cfg(3, C, D1), // repeated
+      602: cfg(4, B, D2), // drums re-tune at once; the bands' rev 4 starts at block 604 (batch 151)
+    },
+    { 0: A, 404: B },
+  )
+  const rev = (i: number) => (i < 101 ? 1 : i < 151 ? 3 : 4)
+  expect(feat.map((m) => [m.rev, [...m.values]])).toEqual(feat.map((_, i) => [rev(i), batch(i)])) // `sub` keeps its state
+  expect(drumsConfigure.mock.calls).toEqual([[DR], [D2]])
 })
 
 // plan S1.4: drums.ts runs in the onset's hop, so the hits of a mixed DnB two-step (kick + snare + hats over the bass

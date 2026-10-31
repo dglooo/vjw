@@ -33,6 +33,7 @@ ctx.audioWorklet.addModule(onsetWorklet).then(
         if (odfQueue.push(data) > ODF_KEEP) odfQueue.shift()
         return
       }
+      if (data.kind === 'feat') return // featQueue: S2.5 (nothing sends a config yet, so none arrive)
       if (data.kind === 'hit') {
         hitQueue.push(data) // a hit has t and strength too: without this it would type-check as an onset
         return

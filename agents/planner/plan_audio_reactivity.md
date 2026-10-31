@@ -172,7 +172,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - `Preset.proto` (S4.1 input): only `kickPerBeat` is fixed by C3 (dnb 0.5, dubstep 0.35, techno 1). `hatsPerBeat`/`wobble`/`bass` are starting values to tune on the fixtures in S4.1. `sens` maps are `{}` (all 1 = missing).
 - `parseSettings` also clamps each stored `sens` factor to 0..2 (design C1) and drops a stored band that is invalid, repeated or past the 8th. `patch()` re-runs `parseSettings`, so a bad `pick` or a NaN slider value is repaired, not stored. Tests: 45 in `settings.test.ts` (presets table + `bpm` windows incl. DnB 174 in / 87, 116 out; hand mutation sweep of ~90 knobs over both files, all killed except 2 equivalent: the `typeof` guard before `Object.hasOwn`, and a preset's display `name`).
 
-### S2.3 [ ] Worklet feeds the bank: `feat` messages + config
+### S2.3 [x] Worklet feeds the bank: `feat` messages + config
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: `analysis.ts` runs `bands.ts` per quantum and posts `feat` every 2 hops; `config` with `rev` re-configures drums and bands.
 - Files: `web/src/audio/analysis.ts`, `web/src/audio/onset.worklet.ts` (types + glue only), `web/src/audio/analysis.test.ts`.
@@ -180,6 +180,13 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: fixture through `block()`: sub-only stem lights band 0 not 1; batch count/size; rev mapping. Mutants: batch size 2 hops, rev tagging, band order.
 - Done-check: GATES + browser: dnb174.wav, underrunEvents stays 0 with 11 bands (Variant B risk; record the number).
 - Depends on: S1.1, S2.1.
+- **Changed during implementation:**
+  - Timing. A newer rev's bands apply at the next batch start (≤ 3 quanta, ≈8 ms), so each batch is made and read with one band list and carries its rev. Drums apply at once. "Stale" means a rev ≤ the newest one received, pending or applied. Before any config there are no bands and no `feat` posts, so the app posts none until S2.5 sends a config.
+  - Drums restart only when their bands change (a key compare in `configure`). `drums.configure` drops the per-bin flux history, so a restart on every config would fire every drum at full strength on the next hop. S2.5 sends a config per custom-band edit and per preset switch.
+  - Merge with S1.4. `analysis.ts` creates `const drums = createDrums(sampleRate, N)` so `configure` can re-tune it. S1.4 adds `drums.detect` in parallel: keep one instance. With no hits in `block()` yet, the drums wiring is tested with a `vi.mock` passthrough spy on `configure`. A hit-level check belongs in S1.4's test after the merge.
+  - Outside the file list: `input.ts` gets one line that drops `feat` until S2.5's `featQueue`. `tsc` needs it once `WorkletMsg` has `feat`, and it keeps `feat` out of `onsetQueue`. `hop` moved out of the `odf` block so `feat` shares it. The golden test gains one line ("no config, no `feat`"); its values are unchanged.
+  - Tests. Values match a reference `createBank` fed the same quanta, bit-exact. On reese + kick, the sub band reads ≈1776× the 7–16 kHz band (threshold 100×). 20 mutants killed: FEAT_HOPS 1/4, slot offset, rev tagging, stale rule (`<`, applied-only, none), drums always/never/key, apply timing ×3, wrong quantum, t0, hop, empty posts, value copy, band order, new bank per config.
+  - The browser done-check (underrunEvents with 11 bands) was not run: the brief said no browser, and nothing sends a config until S2.5, so the bank is idle in the app.
 
 ### S2.4 [ ] `features.ts` sustained sources: sub, reese, wobble, wobbleDepth
 Invoke the `ponytail` skill (full) before writing code.
