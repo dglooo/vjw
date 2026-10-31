@@ -65,7 +65,14 @@
     - ⚠️ **Root finding:** on full mixes the bass-flux ODF is flattened by sub/reese flicker (dnb174 conf ~0.12 < LOCK 0.3, techno full mix reads 150).
     - 🔑 **Lead decision:** tempo ODF moves to bass **transients** from the S2.1 bank's differential envelope, plus a kick veto if small. ▶ New step **S3.1b**.
     - `families` overlap (the ⅔ lag lights techno; techno/dubstep windows overlap), so S4.3 must not rely on tempo family alone.
-  - ▶ Running: S5.1 ‖ S2.4 ‖ S5.2 ‖ S3.1b. Next: S2.5 (app chain).
+  - 🛑 **USER (2026-10-31 21:0x): "убей всех агентов", then "делай по одному последовательно".** All 4 coders stopped; the auto-resume cron deleted.
+    - **New rule: ONE coder at a time** (CLAUDE.md #11 and memory updated).
+  - ✅ S5.1 merged (`b85c64e`, 259 tests + 1 expected fail): `arrange.ts` build/drop.
+  - Sequential queue:
+    - ▶ **S2.4** (continuing in worktree a7e1210b)
+    - S5.2 (partial work in worktree ac1118c8)
+    - S3.1b (partial work in worktree a3ccf847)
+    - then S2.5 → S3.2 → S4.3 → S5.3 → S6.1 → S6.2 → S6.3 → S7.1 → S7.2.
   - ✅ S4.1 merged (237 tests): `style.ts`; 6 grooves detected at ~18 s, crossfades switch once, freeze holds. ⚠️ Wobble/bass inputs are assumed until S2.4; the real audio→classifier path gets verified in S7.1.
 
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.

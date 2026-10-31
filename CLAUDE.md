@@ -176,10 +176,11 @@ On-demand only, on explicit user request. Never auto-triggered. Lead surfaces `C
 8. `tester` and security audit — only on explicit user request.
 9. Any web work → `frontend-coder`; any server work → `backend-coder`. Never cross.
 10. Session end: STATE.md HEAD states where we stopped and the exact next step.
-11. **Dispatch granularity (user, 2026-10-28):** one plan step per coder, with a fresh context. Never a whole checkpoint in one agent.
-    - Independent steps (per the plan's "Depends on" and their file lists) run in parallel **git worktrees** (`isolation: "worktree"`), with `web/node_modules` symlinked from the main checkout and a dev port each (5174+).
-    - Coders commit on their worktree branch. The lead merges into `master`, runs the gates, and commits.
-    - Every brief has a time box (~45 min) and a browser-check scope (one targeted run, no sweeps).
+11. **Dispatch (user, 2026-10-28; updated 2026-10-31):** one plan step per coder, with a fresh context, and **ONE coder at a time, sequentially**.
+    - Never parallel waves; never a whole checkpoint in one agent.
+    - The coder works in its own git worktree (`isolation: "worktree"`, with `web/node_modules` symlinked) and commits on its branch.
+    - The lead merges into `master`, runs the gates and commits, then dispatches the next step.
+    - Every brief has a time box (~45 min), narrow reads, small tool calls, and one targeted browser check.
 
 ## Communication
 
