@@ -2,9 +2,20 @@
 // ODF gives the beat phase, and a least-squares fit of the onset times on that grid gives period and anchor. The ODF
 // is the worklet's bass band (kicks), the onsets are the full-band (b) ones.
 import type { Onset } from './onset'
+import type { Band } from './presets'
 
 export interface TempoReading { bpm: number; anchor: number; confidence: number } // anchor = audio time of a beat, s
-export interface TempoSource { push(o: Onset): void; pushOdf(values: Float32Array, t0: number, hop: number): void; read(): TempoReading | null }
+export interface TempoSource {
+  push(o: Onset): void
+  pushOdf(values: Float32Array, t0: number, hop: number): void
+  read(): TempoReading | null
+  /** Design C3: only lags in the range's candidate windows (`near`), folded into the octave around √(lo·hi), with the
+   *  prior centred there. null = the default fold and prior. */
+  setRange(bpm: Band | null): void
+  /** Design C3/C4, for the classifier: per window, the ACF prominence of its best candidate lag mapped to 0–1 like the
+   *  confidence. The ACF always spans 45–360 BPM, so this never depends on the active range. */
+  families(windows: readonly Band[]): number[]
+}
 export interface TempoOpts {
   windowSeconds: number // ODF kept for the ACF
   minBpm: number // readings fold into [minBpm, maxBpm)
@@ -24,8 +35,12 @@ const FIT_BEATS = 21 // least-squares span (design S2: ≲0.05 BPM over 21 beats
 const CONF_BEATS = 16 // on-grid fraction span
 const COMB_BEATS = 8 // beats summed per phase candidate
 const MIN_FIT = 4 // onsets needed for the fit; fewer keeps the ACF period and the comb phase
+const MARGIN = 1.1 // knob (default): a range's candidates reach this factor past each end (techno 135 → 148.5)
 
-const prior = (bpm: number) => Math.exp(-0.5 * (Math.log2(bpm / PRIOR_BPM) / PRIOR_OCTAVES) ** 2)
+const prior = (bpm: number, centre: number) => Math.exp(-0.5 * (Math.log2(bpm / centre) / PRIOR_OCTAVES) ** 2)
+/** A range's candidate: `bpm` in [lo/MARGIN, hi·MARGIN] × {½, 1, 2}. DnB 160–185 leaves out the two-step's ⅔ lag (116). */
+const near = (bpm: number, [lo, hi]: Band) => [0.5, 1, 2].some((k) => bpm >= (k * lo) / MARGIN && bpm <= k * hi * MARGIN)
+const level = (prominence: number) => Math.min(1, Math.max(0, (prominence - PROM_NONE) / (PROM_FULL - PROM_NONE)))
 
 export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
   const o = { ...DEFAULTS, ...opts }
@@ -39,9 +54,16 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
   let due = 0 // hops since the last update
   const onsets: number[] = [] // onset times, oldest first
   let reading: TempoReading | null = null
+  let range: Band | null = null
+  let centre = PRIOR_BPM // the prior's centre
+  let [min, max] = [o.minBpm, o.maxBpm] // readings fold into [min, max)
+  // The ACF's lag span (set with the hop): an octave beyond the default fold each way, whatever the range (design C3).
+  let lo = 0
+  let hi = 0
+  let acfMean = 0 // over the span, at the last update; 0 = none yet
   const fold = (bpm: number) => {
-    while (bpm < o.minBpm) bpm *= 2
-    while (bpm >= o.maxBpm) bpm /= 2
+    while (bpm < min) bpm *= 2
+    while (bpm >= max) bpm /= 2
     return bpm
   }
 
@@ -53,22 +75,23 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
     for (let i = 0; i < n; i++) x[i] = Math.max(0, ring[(pos + i) % n] - mean)
 
     // Coarse: ACF over an octave beyond the folding range each way, so a tempo just outside it still peaks (85 → 170).
-    const lo = Math.floor(60 / (2 * o.maxBpm) / hop)
-    const hi = Math.ceil(120 / o.minBpm / hop)
     let sum = 0
-    let best = lo + 1
-    const score = (lag: number) => acf[lag] * prior(60 / (lag * hop))
+    let best = -1
+    const score = (lag: number) => acf[lag] * prior(60 / (lag * hop), centre)
     for (let lag = lo; lag <= hi; lag++) {
       let s = 0
       for (let i = lag; i < n; i++) s += x[i] * x[i - lag]
       acf[lag] = s / (n - lag)
       sum += acf[lag]
     }
-    for (let lag = lo + 2; lag < hi; lag++) if (score(lag) > score(best)) best = lag
+    for (let lag = lo + 1; lag < hi; lag++) if ((!range || near(60 / (lag * hop), range)) && (best < 0 || score(lag) > score(best))) best = lag
     const [a, b, c] = [score(best - 1), score(best), score(best + 1)]
     const curve = a - 2 * b + c
-    const bpm = fold(60 / ((best + (curve < 0 ? (0.5 * (a - c)) / curve : 0)) * hop)) // parabolic peak
-    const prominence = sum > 0 ? acf[best] / (sum / (hi - lo + 1)) : 0
+    // Parabolic peak, at most ½ lag off (a no-op at a local peak): a range's edge candidate needn't be one, and an
+    // unbounded step can pass lag 0, where fold() never returns (DnB, 203.75 BPM clicks).
+    const bpm = fold(60 / ((best + (curve < 0 ? Math.max(-0.5, Math.min(0.5, (0.5 * (a - c)) / curve)) : 0)) * hop))
+    acfMean = sum / (hi - lo + 1)
+    const prominence = sum > 0 ? acf[best] / acfMean : 0
 
     // Phase: the comb offset (hops back from the newest value) whose last beats hold the most ODF.
     const p = 60 / bpm / hop
@@ -108,7 +131,7 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
       const k = Math.round((t - anchor) / period)
       if (k > -CONF_BEATS && k <= 0 && Math.abs(t - anchor - k * period) <= TOL * period) hit.add(k)
     }
-    const confidence = Math.min(1, Math.max(0, (prominence - PROM_NONE) / (PROM_FULL - PROM_NONE))) * (hit.size / CONF_BEATS)
+    const confidence = level(prominence) * (hit.size / CONF_BEATS)
     reading = { bpm: fold(60 / period), anchor, confidence } // the fit can land a hair past a fold edge (90 → 180.0000001)
   }
 
@@ -121,7 +144,9 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
         hop = h
         ring = new Float64Array(Math.round(o.windowSeconds / h))
         x = new Float64Array(ring.length)
-        acf = new Float64Array(Math.ceil(120 / o.minBpm / h) + 1)
+        lo = Math.floor(60 / (2 * o.maxBpm) / h)
+        hi = Math.ceil(120 / o.minBpm / h)
+        acf = new Float64Array(hi + 1)
       }
       for (const v of values) {
         ring[pos] = v
@@ -135,5 +160,16 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
       if (filled >= ring.length) update() // a reading needs a full window
     },
     read: () => reading,
+    setRange(bpm) {
+      range = bpm
+      centre = bpm ? Math.sqrt(bpm[0] * bpm[1]) : PRIOR_BPM
+      ;[min, max] = bpm ? [centre / Math.SQRT2, centre * Math.SQRT2] : [o.minBpm, o.maxBpm]
+    },
+    families: (windows) =>
+      windows.map((w) => {
+        let top = 0
+        for (let lag = lo + 1; lag < hi; lag++) if (near(60 / (lag * hop), w)) top = Math.max(top, acf[lag])
+        return acfMean > 0 ? level(top / acfMean) : 0
+      }),
   }
 }

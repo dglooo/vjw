@@ -201,7 +201,7 @@ Invoke the `ponytail` skill (full) before writing code.
 
 ### CP3 — Tempo range per preset
 
-### S3.1 [ ] `tempo.ts`: `setRange` + `families`
+### S3.1 [x] `tempo.ts`: `setRange` + `families`
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: C3 "Tempo range": candidate lags restricted to `[lo/1.1, hi*1.1] x {1/2,1,2}`, fold into window, prior centred on sqrt(lo*hi); `null` = today exactly; ACF always over full 45-370 BPM; `families(windows)` returns prominence per window via `PROM_NONE/PROM_FULL`.
 - Files: `web/src/audio/tempo.ts`, `web/src/audio/tempo.test.ts`, `web/src/audio/synth.ts` (patterns: DnB two-step 174/182, dubstep 140, techno 128).
@@ -209,6 +209,24 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: DnB two-step 174 with range 160-185 -> 174 +-1 within 10 s (also 182 -> 182, not 91; assert the 116 lag is not a candidate); `null` golden = old output; families picks the right genre window. Log Default reading for dnb. Mutants: margin 1.1, octave set, prior centre, fold, full-span ACF.
 - Done-check: GATES.
 - Depends on: S2.2 (`Band` type; use local alias if not merged).
+
+**Changed during implementation:**
+- **⚠️ The full mix doesn't lock, with or without a range** (the lead's Chrome finding, reproduced in Node).
+  - `fx_audio/dnb174.wav` through `createAnalysis` + tempo: Default reads 132.5, the DnB range 195, both at conf ≈ 0.12, below sync `LOCK` 0.3. Families ≈ 0.15–0.18; dubstep140.wav ≈ 148 / ≤ 0.14.
+  - Cause: steady sub/reese partials flicker per hop in the 4 bass bins (a 55 Hz period is longer than the 512-sample window), and log compression makes that flux kick-sized. The ACF goes flat (prominence 2.5–3.0) with no 174-family peak, so no range can fix it.
+  - Pinned by `test.fails('the full DnB mix (sub + reese) locks 174 …')`, which reads 150.4 / 0.08. The bass ODF needs a design fix (longer bass FFT, or a kick-band envelope as the tempo ODF) before S3.2 can lock in Chrome.
+- No `synth.ts` change: `pattern(genre, bars, bpm)` already gives the two-step at 174/182, dubstep 140 and techno 128. The tests use drums + room (see above).
+  - Default reads the two-step's ⅔ lag (kicks 1.5 beats apart): 174 → 115.98 and 182 → 121.34, both at conf 1. This confirms C3's 116.
+  - With ranges: DnB 174.01 / 0.84 and 181.99 / 0.90, dubstep 140.00 / 1 (only peak: the 70 lag, ½ octave), techno 127.74 / 1.
+- Fold with a range: the octave [c/√2, c·√2) around c = √(lo·hi) (DnB 121.7–243.3). A sub-octave fold would halve a fit stepping past the margin (203.75 → 102). The ACF span is unchanged (45–360, from `minBpm`/`maxBpm`).
+- Bug fixed: the parabolic step is clamped to ±½ lag. A range's edge candidate needn't be a local peak, so the unbounded step passed lag 0 and `fold()` never returned: a main-thread hang at 203.75 BPM under DnB, found by a 50–400 BPM sweep. The clamp is a no-op at a local peak, so `null` stays bit-exact (goldens).
+- `families` can't "pick the right genre" as designed. Measured [dnb, dubstep, techno]: dnb174 [.84, .96, 1], dnb182 [.90, .79, 1], dubstep140 [0, 1, 1], techno128 [0, 1, 1].
+  - The two-step lights techno (⅔ lag). The ±10% windows overlap techno↔dubstep, and PROM_FULL saturates. **S4.1 can't rely on T_g alone.**
+  - Tests assert what holds: own window > 0.8, DnB 0 off DnB, equal under every active range.
+- `setRange`/`families` are required on `TempoSource` (C9). The `sync.test.ts` stub got two no-ops.
+- Mutants, each alone:
+  - Killed: margin 1.0/1.05/1.15/1.2; octaves drop ½, drop 1, add ⅔; centre 128; fold default/[lo,hi)/margin window/[c/2,c)/[c,2c); ACF over candidates only; no restriction; families via active range/raw/×1 only; null keeps centre/fold/range; no clamp (hang).
+  - Equivalent here, because all candidates fold into one window, so the prior only picks the octave: prior call site at 128; centre lo/hi/arithmetic mean; drop ×2; add 1.5/¼; clamp 0.4; loop start lo+2 (silence only).
 
 ### S3.2 [ ] Wire active preset: range, octave snap, band configs
 Invoke the `ponytail` skill (full) before writing code.

@@ -1,4 +1,7 @@
 import { describe, expect, test } from 'vitest'
+import { createAnalysis } from './analysis'
+import { PRESETS, type Band } from './presets'
+import { mix, pattern, SR, type Genre, type Stem } from './synth'
 import { createTempoSource, type TempoSource } from './tempo'
 
 const HOP = 256 / 48000 // the worklet's hop at 48 kHz
@@ -120,5 +123,97 @@ describe('createTempoSource', () => {
     const rnd = lcg(5)
     for (let i = 0; i < 1500; i += 8) noise.pushOdf(Float32Array.from({ length: 8 }, rnd), i * HOP, HOP)
     expect(noise.read()!.confidence).toBeLessThan(0.2)
+  })
+})
+
+/**
+ * A synth.ts pattern's first 10 s through the worklet body into `src`, as app.ts feeds it. Drums and room tone by
+ * default: the steady sub/reese partials make periodic flux in the 4 bass bins (ACF peaks at 150/75/50 BPM, so even
+ * Default reads techno 128 as 150), a bass-ODF issue outside the range logic (see the `.fails` test).
+ */
+const fixtures = new Map<string, Float32Array>()
+function listen(src: TempoSource, genre: Genre, bpm: number, stems: Stem[] = ['kick', 'snare', 'hats', 'room']) {
+  const key = genre + bpm + stems.join() // pattern() synthesises the reese too: build each fixture once
+  if (!fixtures.has(key)) fixtures.set(key, mix(pattern(genre, 8, bpm), stems))
+  const x = fixtures.get(key)!
+  const a = createAnalysis(SR)
+  for (let f = 0; f + 128 <= 10 * SR; f += 128)
+    a.block([x.subarray(f, f + 128)], f, (m) => (m.kind === 'onset' ? src.push(m) : src.pushOdf(m.values, m.t0, m.hop)))
+  return src.read()!
+}
+const ranged = (bpm: Band | null) => {
+  const src = createTempoSource()
+  src.setRange(bpm)
+  return src
+}
+const { dnb, dubstep, techno } = { dnb: PRESETS.dnb.bpm!, dubstep: PRESETS.dubstep.bpm!, techno: PRESETS.techno.bpm! }
+
+describe('setRange and families (design C3)', () => {
+  test.each([
+    ['dnb', 174, dnb],
+    ['dnb', 182, dnb],
+    ['dubstep', 140, dubstep], // half-time: its one ACF peak is the 2-beat lag (70), the ½ octave
+    ['techno', 128, techno],
+  ] as const)('the %s pattern at %d BPM reads ±1 within 10 s under its range %j', (genre, bpm, range) => {
+    const r = listen(ranged(range), genre, bpm)
+    expect(Math.abs(r.bpm - bpm)).toBeLessThan(1) // DnB: never 87, 91, 116 or 121
+    expect(r.confidence).toBeGreaterThan(0.8)
+  })
+
+  // Known gap (the lead's Chrome check: dnb174.wav never locks). With the sub and reese beds the bass ODF's ACF is
+  // flat (prominence ~2.7, no 174-family peak), so the range alone reads ~150 at confidence ~0.08, below sync's LOCK
+  // (0.3). Fixing the bass ODF flips this test: then drop `.fails`.
+  test.fails('the full DnB mix (sub + reese) locks 174 under the DnB range', () => {
+    const r = listen(ranged(dnb), 'dnb', 174, ['kick', 'snare', 'hats', 'room', 'sub', 'reese'])
+    expect(r.confidence).toBeGreaterThan(0.3)
+    expect(Math.abs(r.bpm - 174)).toBeLessThan(1)
+  })
+
+  // Pre-S3.1 tempo.ts on these fixtures, bit for bit. Default reads the DnB two-step's ⅔ lag: the kicks 1.5 beats apart.
+  test.each([
+    ['dnb', 174, { bpm: 115.9793814432989, anchor: 9.626666666666669, confidence: 1 }],
+    ['dnb', 182, { bpm: 121.34341815267486, anchor: 9.740132553606237, confidence: 1 }],
+    ['dubstep', 140, { bpm: 140.00226266283093, anchor: 9.575295815295814, confidence: 1 }],
+    ['techno', 128, { bpm: 127.73865560636462, anchor: 9.44758790179332, confidence: 1 }],
+  ] as const)('null is today exactly: %s %d reads the golden, also after a range is cleared', (genre, bpm, golden) => {
+    expect(listen(createTempoSource(), genre, bpm)).toEqual(golden)
+    const src = ranged(dnb)
+    src.setRange(null)
+    expect(listen(src, genre, bpm)).toEqual(golden)
+  })
+
+  test('setRange(null) restores a fresh source, bit for bit, also on the bare ACF (no onsets: the prior shapes the peak)', () => {
+    const cleared = ranged(dnb)
+    cleared.setRange(null)
+    expect(feed(cleared, train(140, 8), 8, false)).toEqual(feed(createTempoSource(), train(140, 8), 8, false))
+  })
+
+  // 203.75: past the margin, so the fit steps out and the octave fold keeps it; its edge candidate is no local peak,
+  // and an unclamped parabolic step there hung fold().
+  test('DnB candidates: 147 and 195 (inside the ±10% margin) read as they are, 203.75 too; 116 and 140 are no candidate', () => {
+    for (const bpm of [147, 195, 203.75]) expect(feed(ranged(dnb), train(bpm, 10), 10)!.bpm).toBeCloseTo(bpm, 1)
+    for (const bpm of [116, 140]) {
+      expect(feed(createTempoSource(), train(bpm, 10), 10)!.confidence).toBeGreaterThan(0.8) // Default locks on…
+      expect(feed(ranged(dnb), train(bpm, 10), 10)!.confidence).toBeLessThan(0.2) // … the range finds no peak
+    }
+  })
+
+  test('families: the ACF prominence per window and its octaves, the same whatever the active range', () => {
+    expect(createTempoSource().families([dnb])).toEqual([0]) // no ACF yet
+    const W = [dnb, dubstep, techno]
+    const fams = (genre: Genre, bpm: number) => {
+      const out = [null, dnb, dubstep, techno].map((range) => {
+        const src = ranged(range)
+        listen(src, genre, bpm)
+        return src.families(W)
+      })
+      for (const f of out) expect(f).toEqual(out[0])
+      return out[0]
+    }
+    // Each fixture lights its own window. The DnB window stays dark off DnB, but the DnB two-step also lights techno
+    // (its ⅔ lag, 116–121) and the ±10% windows overlap from techno to dubstep: T_g alone can't pick the genre (S4.1).
+    const [d174, d182, s140, t128] = [fams('dnb', 174), fams('dnb', 182), fams('dubstep', 140), fams('techno', 128)]
+    expect([d174[0], d182[0], s140[1], t128[2]].every((v) => v > 0.8)).toBe(true)
+    expect([s140[0], t128[0]]).toEqual([0, 0])
   })
 })
