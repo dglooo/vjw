@@ -110,7 +110,7 @@ Invoke the `ponytail` skill (full) before writing code.
 
 ### CP2 — Sustained sources + custom bands
 
-### S2.1 [ ] `bands.ts` IIR bank with fast/slow envelopes and kick gate
+### S2.1 [x] `bands.ts` IIR bank with fast/slow envelopes and kick gate
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: pure bank of up to 11 bands (2 cascaded RBJ band-pass biquads, Q from edges), followers `e1` (~1 ms attack) and `e2` (~20 ms), `held` output gated by `e1/e2 > ~2` for ~60 ms (Variant B).
 - Files: `web/src/audio/bands.ts` (new), `web/src/audio/bands.test.ts` (new), `web/src/audio/synth.ts` (add stems if S1.2 merged; else local helpers).
@@ -118,6 +118,11 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: 50 Hz sine reads >=5x a 120 Hz sine in a 40-60 Hz band; kick-vs-sustain (reese + kicks: `held` stays flat through kicks, `e2` jumps); wobble stem passes the gate; configure keeps state. Mutants: Q, attack/release, TRANSIENT ratio, hold time, cascade count.
 - Done-check: GATES.
 - Depends on: none.
+- **Changed during implementation:**
+  - Gate topology. The design's pair (e1 and e2 both on `|y|`, 20 ms release, TRANSIENT 2) gated a sustained reese 75% and a wobble 100% of the time: e1 peak-follows the rectified ripple and e2 averages it, so e1/e2 ≈ crest factor ≥ 2. Fix: e2 now smooths e1 (20 ms), and the gate runs its own pair (1 ms attack / 200 ms release, then 20 ms smoothing) that bridges a bass note's 18–33 ms peak gaps. Sustained material peaks at ratio ≤ 1.30, kicks at ≥ 1.65.
+  - Knobs: TRANSIENT 2 → 1.5 (at 2, a kick at 2.5× the reese's in-band level misses). HOLD 60 → 100 ms (at 60 ms the kick's tail reaches `held` at ≈2×). e2 falls in ≈45 ms (two poles).
+  - Known limits for S2.4: the sub band (30–60 Hz) never sees a kick as a transient (the 150→45 Hz sweep enters it over ≈40 ms), so the kick body passes into sub `held` (+≈78%); gating sub needs a cross-band trigger (design question). A bass note starting on a kick reaches `held` ≈125 ms late. Local stems in `bands.test.ts` (S1.2 owns `synth.ts`).
+  - Cost (Node 20.20.2): 5.4 µs per 128-frame block for 11 bands, 0.20% of a core. All 19 mutants (knobs, sample rate, e2 source, configure reset, read order) fail ≥1 test.
 
 ### S2.2 [ ] Presets data + `settings.ts` (de)serialisation
 Invoke the `ponytail` skill (full) before writing code.
