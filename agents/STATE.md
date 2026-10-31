@@ -69,8 +69,12 @@
     - **New rule: ONE coder at a time** (CLAUDE.md #11 and memory updated).
   - ✅ S5.1 merged (`b85c64e`, 259 tests + 1 expected fail): `arrange.ts` build/drop.
   - Sequential queue:
-    - ▶ **S2.4** (continuing in worktree a7e1210b)
-    - S5.2 (partial work in worktree ac1118c8)
+    - ✅ S2.4 merged (`89320ac`, 267 tests).
+      - sub/reese/wobble hold 0.2 s on the reese gate (kick leak ×1.05 instead of ×2.4); level-independent.
+      - Measured wobbleDepth: 0.25 for wobble vs ~0.09 for a steady reese, so **S4.1's W proto of 0.8 needs a retune** (fold into S4.3).
+      - S2.5 must send bands sub, reese, wobble first.
+      - Bass note-on-kick lags ~211 ms (accepted).
+    - ▶ **S5.2** (continuing in worktree ac1118c8)
     - S3.1b (partial work in worktree a3ccf847)
     - then S2.5 → S3.2 → S4.3 → S5.3 → S6.1 → S6.2 → S6.3 → S7.1 → S7.2.
   - ✅ S4.1 merged (237 tests): `style.ts`; 6 grooves detected at ~18 s, crossfades switch once, freeze holds. ⚠️ Wobble/bass inputs are assumed until S2.4; the real audio→classifier path gets verified in S7.1.
