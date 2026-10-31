@@ -79,7 +79,10 @@
     - ✅ S3.1b merged (`022c895`, 277 tests). The tempo ODF is now the kick+snare bank transient excess.
       - Synth full mixes lock at 174/140/128, conf 1.0. Real `dnb174.wav` under the DnB range: 174 at 0.32–0.42 (was 195 at 0.12). Default still reads 116, so the S3.2 range is needed.
       - ⚠️ `dubstep140.wav` doesn't lock (only the bar downbeat is clear; a bar of 1.71 s is longer than the 1.33 s max lag). Open gap, to re-check with real tracks at S7.1. Autopilot falls back to time-based switching.
-    - ▶ **S3.1c kick veto** (lead decision: ship it; precision 0.76 → 1.00, recall 0.81 → 0.75).
+    - ❌ S3.1c kick veto **NOT merged** (lead decision). Synth looked good, but on real `dnb174.wav` kicks fell from 24 to 1–4 per 10 s (real bass masks 40–150 Hz).
+      - The branch is kept: `worktree-agent-a73146a6778eb362d` (`413275d`).
+      - False kicks on a bare reese stay a known limit.
+    - ▶ **S2.5** custom bands + config pipeline (start of the `app.ts` chain).
     - then S2.5 → S3.2 → S4.3 → S5.3 → S6.1 → S6.2 → S6.3 → S7.1 → S7.2.
   - ✅ S4.1 merged (237 tests): `style.ts`; 6 grooves detected at ~18 s, crossfades switch once, freeze holds. ⚠️ Wobble/bass inputs are assumed until S2.4; the real audio→classifier path gets verified in S7.1.
 
