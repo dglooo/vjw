@@ -59,6 +59,7 @@
   - ✅ S2.3 merged (`f31f2b5`, 218 tests): `feat` every 2 hops, config rev; the bank stays idle until S2.5 sends a config (the underrun check moves to S2.5). S1.4 was told to merge master and keep the single `drums` instance.
   - ✅ S1.4 merged (`94e71d0`, 240 tests): hits wired end to end, VHS tunnel `own/flash` on `kick`, `window.__src` under `?debug`. Chrome dnb174, 10 s: kick 24 / snare 10 / hats 58 (snare leaks into kick, as known); flash +53 luma on kicks. **CP1 code-complete.**
   - Lead baseline on master: house128 locks at 128.0 in ~10 s; **dnb174 never locks in Default (conf 0 for 40 s)**, which is the target for S3.1+S3.2 with the DnB preset (S3.1 told).
+  - ▶ Running: S3.1 tempo range ‖ S5.1 build/drop ‖ **S2.4 sustained sources** (sub gated by kick) ‖ **S5.2 heat post pass**. Next in line: S2.5 (app chain).
   - ✅ S4.1 merged (237 tests): `style.ts`; 6 grooves detected at ~18 s, crossfades switch once, freeze holds. ⚠️ Wobble/bass inputs are assumed until S2.4; the real audio→classifier path gets verified in S7.1.
 
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
