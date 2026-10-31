@@ -53,8 +53,10 @@
     - **Open for S2.4:** the sub band leaks kick body (it needs a trigger from the drum detector); a bass note starting on a kick lags ~125 ms.
   - ✅ S1.2 merged (`a110cc7`, 212 tests): `drums.ts` + `synth.ts`. DnB F1 kick 0.79 / snare 0.97 / hats 1.00; dubstep 0.80/1.00/1.00; techno 0.89/0.77/1.00.
     - ⚠️ C2 limit: a bare reese or snare fires false kicks; hit strength saturates at 4. Mitigations are briefed into S1.3 (amplitude from level) and S5.1 (the drop needs the bass back).
-  - **W1 complete.** ▶ **W2 (parallel worktrees):** S1.3 features ‖ S3.1 tempo range ‖ S4.1 style classifier ‖ S5.1 build/drop. All append to `synth.ts`; the lead merges by keeping both.
-  - ⏰ One-shot resume scheduled at 15:50 (user) in case of usage limits.
+  - **W1 complete.** ✅ S1.3 features merged (`80e59fb`, 216 tests): a plain 0→1 envelope, because hit strength sits at the cap on all fixture hits.
+  - 14:3x: the 5-h limit killed S1.4, S2.3, S3.1, S4.1 and S5.1 before they wrote anything (empty worktrees auto-removed).
+  - ▶ **Re-dispatched fresh at 15:50:** S1.4 wire hits ‖ S2.3 worklet→bank ‖ S3.1 tempo range ‖ S4.1 style ‖ S5.1 build/drop. S3.1/S4.1/S5.1 append to `synth.ts`; S1.4 and S2.3 both edit `analysis.ts` in separate blocks.
+
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
 - The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
 
