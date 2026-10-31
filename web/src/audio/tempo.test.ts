@@ -138,7 +138,7 @@ function listen(src: TempoSource, genre: Genre, bpm: number, stems: Stem[] = ['k
   const x = fixtures.get(key)!
   const a = createAnalysis(SR)
   for (let f = 0; f + 128 <= 10 * SR; f += 128)
-    a.block([x.subarray(f, f + 128)], f, (m) => (m.kind === 'onset' ? src.push(m) : src.pushOdf(m.values, m.t0, m.hop)))
+    a.block([x.subarray(f, f + 128)], f, (m) => (m.kind === 'onset' ? src.push(m) : m.kind === 'odf' && src.pushOdf(m.values, m.t0, m.hop)))
   return src.read()!
 }
 const ranged = (bpm: Band | null) => {
