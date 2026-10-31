@@ -154,6 +154,7 @@ const f: FrameInput = {
   time: 0, dt: 0, width: 0, height: 0,
 }
 const src: Sources = {} // binding sources, refilled every frame
+const rest = { gain: 1, flash: 0 } // the post pass at rest: the frame as it is
 let last = 0
 let scale = 0 // the applied internal scale
 let tick = 0
@@ -217,7 +218,7 @@ function frame(now: number) {
   }
   fadingTo = shot.to
   if (!shot.to) prepare([shot.from, director.peek()]) // between fades: the next scene built, the others freed (E2)
-  render(shot, f, sources(f, src)) // sets f.width/height to the internal size
+  render(shot, f, sources(f, src), src, rest) // styled = src (no Auto-style yet); sets f.width/height to the internal size
   const id = shot.to ?? shot.from // the incoming scene as soon as a fade starts: the name shown, the scene edited
   const { doc, errors } = live(id)
   const snap = store.getSnapshot()
