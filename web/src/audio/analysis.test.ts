@@ -1,6 +1,6 @@
 // plan S1.1: createAnalysis is the onset worklet's body, moved without behaviour change. The golden values below were
 // captured from the pre-move worklet (AudioWorklet globals stubbed, same signal), whose whole message stream the moved
-// code matched byte for byte.
+// code matched byte for byte. S3.1b re-captured the two ODF sums only (the kick/snare transient ODF); the onsets stand.
 import { expect, test, vi } from 'vitest'
 import { createAnalysis } from './analysis'
 import { createBank, type BandSpec } from './bands'
@@ -75,8 +75,8 @@ test('block() posts the pre-move onset/odf messages on a synthetic kick train (g
   expect(odf.map((m) => Math.round(m.t0 * SR))).toEqual(Array.from({ length: 93 }, (_, i) => 128256 + 2048 * i)) // 8 hops each
   expect(odf.every((m) => m.hop === 256 / SR && m.values.length === 8)).toBe(true)
   const v = odf.flatMap((m) => [...m.values])
-  expect(v.reduce((s, x) => s + x, 0)).toBeCloseTo(507.8365, 3)
-  expect(v.reduce((s, x, i) => s + (i + 1) * x, 0)).toBeCloseTo(184206.553, 2) // position-weighted: order counts too
+  expect(v.reduce((s, x) => s + x, 0)).toBeCloseTo(289.7125, 3)
+  expect(v.reduce((s, x, i) => s + (i + 1) * x, 0)).toBeCloseTo(46868.506, 2) // position-weighted: order counts too
   expect(out.some((m) => m.kind === 'feat')).toBe(false) // no config: no bands, no feat
 })
 
@@ -117,6 +117,21 @@ function feed(x: Float32Array, sends: Record<number, WorkletIn>, ref: Record<num
   const batch = (i: number) => [...frames[2 * i], ...frames[2 * i + 1]] // batch i = blocks 4i…4i+3
   return { feat: out.flatMap((m) => (m.kind === 'feat' ? [m] : [])), batch }
 }
+
+// plan S3.1b: the tempo ODF is the kick and snare bands' transient excess, gate ratio − 1. A steady reese's ratio stays
+// ≤ 1.30 (bands.ts), where the old 4-bin flux read its partials' flicker as kick-sized.
+test('odf: a steady reese reads ≤ 0.35 once it has started, a kick on it > 2 (hops from a 0 frame)', () => {
+  const odf = (x: Float32Array) => {
+    const a = createAnalysis(SR)
+    const v: number[] = []
+    for (let b = 0; (b + 1) * BLOCK <= x.length; b++) a.block([x.subarray(b * BLOCK, (b + 1) * BLOCK)], b * BLOCK, (m) => m.kind === 'odf' && v.push(...m.values))
+    return v
+  }
+  const hop = (s: number) => Math.round((s * SR) / 256) // value i ends at (i + 1) · 256 samples
+  expect(Math.max(...odf(reese(2 * SR)).slice(hop(0.3)))).toBeLessThan(0.35)
+  const k = odf(reeseKick())
+  for (const s of [0.5, 1.25]) expect(Math.max(...k.slice(hop(s) - 1, hop(s) + 20))).toBeGreaterThan(2)
+})
 
 test('feat: every 2 hops, the bank [e2, held] per band at each hop end, in config order (reese + kick)', () => {
   const bands = [{ id: 'sub', lo: 30, hi: 60 }, { id: 'air', lo: 7000, hi: 16000 }]

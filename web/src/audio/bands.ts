@@ -85,6 +85,8 @@ export function createBank(sampleRate: number) {
         b.hold = hold
       }
     },
+    /** Band i's gate fast/slow ratio: sustained material peaks at ≤ 1.30, a kick at ≥ 1.65; 0 before any signal. */
+    ratio: (i: number) => (bands[i].gs > 0 ? bands[i].gf / bands[i].gs : 0),
     /** Per band, in spec order: [e2, held]. */
     read(out: Float32Array) {
       for (let i = 0; i < bands.length; i++) {

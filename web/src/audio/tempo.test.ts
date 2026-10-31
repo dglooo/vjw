@@ -126,11 +126,8 @@ describe('createTempoSource', () => {
   })
 })
 
-/**
- * A synth.ts pattern's first 10 s through the worklet body into `src`, as app.ts feeds it. Drums and room tone by
- * default: the steady sub/reese partials make periodic flux in the 4 bass bins (ACF peaks at 150/75/50 BPM, so even
- * Default reads techno 128 as 150), a bass-ODF issue outside the range logic (see the `.fails` test).
- */
+/** A synth.ts pattern's first 10 s through the worklet body into `src`, as app.ts feeds it. Drums and room tone by
+ *  default; FULL adds the sub and reese beds. */
 const fixtures = new Map<string, Float32Array>()
 function listen(src: TempoSource, genre: Genre, bpm: number, stems: Stem[] = ['kick', 'snare', 'hats', 'room']) {
   const key = genre + bpm + stems.join() // pattern() synthesises the reese too: build each fixture once
@@ -147,6 +144,7 @@ const ranged = (bpm: Band | null) => {
   return src
 }
 const { dnb, dubstep, techno } = { dnb: PRESETS.dnb.bpm!, dubstep: PRESETS.dubstep.bpm!, techno: PRESETS.techno.bpm! }
+const FULL: Stem[] = ['kick', 'snare', 'hats', 'room', 'sub', 'reese']
 
 describe('setRange and families (design C3)', () => {
   test.each([
@@ -160,19 +158,24 @@ describe('setRange and families (design C3)', () => {
     expect(r.confidence).toBeGreaterThan(0.8)
   })
 
-  // Known gap (the lead's Chrome check: dnb174.wav never locks). With the sub and reese beds the bass ODF's ACF is
-  // flat (prominence ~2.7, no 174-family peak), so the range alone reads ~150 at confidence ~0.08, below sync's LOCK
-  // (0.3). Fixing the bass ODF flips this test: then drop `.fails`.
-  test.fails('the full DnB mix (sub + reese) locks 174 under the DnB range', () => {
-    const r = listen(ranged(dnb), 'dnb', 174, ['kick', 'snare', 'hats', 'room', 'sub', 'reese'])
-    expect(r.confidence).toBeGreaterThan(0.3)
-    expect(Math.abs(r.bpm - 174)).toBeLessThan(1)
+  // S3.1b (the lead's Chrome check: dnb174.wav never locked). The old 4-bin bass flux read the beds' steady partials as
+  // kick-sized flux: a flat ACF, DnB 150.4 / 0.08 here. The kick/snare transient ODF leaves the beds out.
+  test.each([
+    ['dnb', 174, dnb],
+    ['dubstep', 140, dubstep],
+    ['techno', 128, techno],
+  ] as const)('the full %s mix (sub + reese) at %d BPM reads ±1 within 10 s under its range %j', (genre, bpm, range) => {
+    const r = listen(ranged(range), genre, bpm, FULL)
+    expect(Math.abs(r.bpm - bpm)).toBeLessThan(1)
+    expect(r.confidence).toBeGreaterThan(0.8) // sync's LOCK is 0.3
   })
 
-  // Pre-S3.1 tempo.ts on these fixtures, bit for bit. Default reads the DnB two-step's ⅔ lag: the kicks 1.5 beats apart.
+  // tempo.ts's null path on these fixtures, bit for bit (S3.1 captured the pre-S3.1 output; S3.1b re-captured DnB for its
+  // ODF, dubstep and techno didn't move). The snare band gives the DnB two-step its beat, so Default reads 174 here
+  // (the old ODF read the ⅔ lag, 116), and 182 folds to 91.
   test.each([
-    ['dnb', 174, { bpm: 115.9793814432989, anchor: 9.626666666666669, confidence: 1 }],
-    ['dnb', 182, { bpm: 121.34341815267486, anchor: 9.740132553606237, confidence: 1 }],
+    ['dnb', 174, { bpm: 174.0141490894796, anchor: 9.624516469038214, confidence: 1 }],
+    ['dnb', 182, { bpm: 90.95540852792173, anchor: 9.247315187376724, confidence: 0.875 }],
     ['dubstep', 140, { bpm: 140.00226266283093, anchor: 9.575295815295814, confidence: 1 }],
     ['techno', 128, { bpm: 127.73865560636462, anchor: 9.44758790179332, confidence: 1 }],
   ] as const)('null is today exactly: %s %d reads the golden, also after a range is cleared', (genre, bpm, golden) => {
@@ -210,10 +213,12 @@ describe('setRange and families (design C3)', () => {
       for (const f of out) expect(f).toEqual(out[0])
       return out[0]
     }
-    // Each fixture lights its own window. The DnB window stays dark off DnB, but the DnB two-step also lights techno
-    // (its ⅔ lag, 116–121) and the ±10% windows overlap from techno to dubstep: T_g alone can't pick the genre (S4.1).
+    // Each fixture lights its own window. The DnB window stays dim off DnB (dubstep 0.26), but the DnB two-step also
+    // lights techno (its ⅔ lag, 116–121) and the ±10% windows overlap from techno to dubstep: T_g alone can't pick the
+    // genre (S4.1).
     const [d174, d182, s140, t128] = [fams('dnb', 174), fams('dnb', 182), fams('dubstep', 140), fams('techno', 128)]
     expect([d174[0], d182[0], s140[1], t128[2]].every((v) => v > 0.8)).toBe(true)
-    expect([s140[0], t128[0]]).toEqual([0, 0])
+    expect(s140[0]).toBeLessThan(0.3)
+    expect(t128[0]).toBe(0)
   })
 })
