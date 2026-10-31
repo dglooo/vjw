@@ -4,20 +4,22 @@
 export interface Onset { t: number; strength: number } // t = AudioContext time from currentFrame, s
 
 export interface DetectorOpts {
-  threshold: number // onset when odf > mean · threshold + FLOOR
+  threshold: number // onset when odf > mean · threshold + floor
   meanWindow: number // hops in the adaptive mean
   minGap: number // s between onsets
+  // knob: absolute ODF floor (log units summed over the bins fed in), so silence and a bare noise floor never fire.
+  // 1 is calibrated for all 257 bins (plan_pilot S2.1); band detectors (drums.ts) tune their own.
+  floor: number
 }
-const DEFAULTS: DetectorOpts = { threshold: 1.5, meanWindow: 16, minGap: 0.05 } // knobs
+const DEFAULTS: DetectorOpts = { threshold: 1.5, meanWindow: 16, minGap: 0.05, floor: 1 } // knobs
 // knob: log1p(mag · COMPRESS) on raw fft.js magnitudes (full-scale sine ≈ 128): bins above ~1e-3 are in the
 // log regime (level-independent flux), a line-in's ~1e-4 noise floor stays linear, i.e. near 0.
 const COMPRESS = 1000
-const FLOOR = 1 // knob: absolute ODF floor (log units summed over bins), so silence and a bare noise floor never fire
 const PEAK_HOPS = 3 // odf must be ≥ each of the previous 3 hops
 const MAX_STRENGTH = 4
 
 export function createDetector(opts?: Partial<DetectorOpts>) {
-  const { threshold, meanWindow, minGap } = { ...DEFAULTS, ...opts }
+  const { threshold, meanWindow, minGap, floor } = { ...DEFAULTS, ...opts }
   const hist = new Float64Array(meanWindow) // ODF ring, oldest at `pos`
   let pos = 0
   let prev: Float64Array | null = null // last hop's log-compressed magnitudes
@@ -44,9 +46,9 @@ export function createDetector(opts?: Partial<DetectorOpts>) {
       for (let i = 1; i <= PEAK_HOPS; i++) peak &&= odf >= hist[(pos - i + meanWindow) % meanWindow]
       hist[pos] = odf
       pos = (pos + 1) % meanWindow
-      if (!peak || odf <= mean * threshold + FLOOR || t - lastOnset < minGap) return null
+      if (!peak || odf <= mean * threshold + floor || t - lastOnset < minGap) return null
       lastOnset = t
-      return { t, strength: Math.min(MAX_STRENGTH, odf / mean) } // odf > FLOOR, so mean = 0 gives the cap, never NaN
+      return { t, strength: Math.min(MAX_STRENGTH, odf / mean) } // odf > floor, so mean = 0 gives the cap, never NaN
     },
   }
 }

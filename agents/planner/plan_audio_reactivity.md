@@ -82,7 +82,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - Depends on: none.
 - **Changed during implementation:** (1) `WorkletIn` is `{ kind: 'config'; rev: number }` for now (in `onset.worklet.ts`, next to `WorkletMsg`): `Drum`/`Band`/`BandSpec` don't exist yet, so S1.4/S2.3 add the `drums`/`bands` fields. `configure()` is a no-op, and the glue doesn't wire `port.onmessage` yet (S2.3, "types + glue"). (2) The golden signal puts one hop-aligned click after each kick, with ODF 0.898 on even kicks and 1.103 on odd ones. This brackets onset `FLOOR = 1` from both sides: every FLOOR outside (0.898, 1.103) now fails, where before only FLOOR <= 0.5 did. That guards the S1.2 `DetectorOpts.floor` move. (3) Goldens checked with a temporary harness (not committed): the pre-move worklet's full stream with AudioWorklet globals stubbed (113 msgs) deep-equals both the new glue's stream and `createAnalysis`'s. Mutants killed: HOP, Hann (Hamming and rectangular), FLOOR 0/0.85/0.89/1.11/1.2/2, BASS_BINS, ODF_BATCH, `t` offset, mono mix. (4) The browser done-check (BPM, underrunEvents) was not run, because the brief said no browser check.
 
-### S1.2 [ ] `synth.ts` fixtures + `drums.ts` + `DetectorOpts.floor`
+### S1.2 [x] `synth.ts` fixtures + `drums.ts` + `DetectorOpts.floor`
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: three band detectors over the worklet's 257 magnitudes (C2) and the test-only synthetic stems (C10).
 - Files: `web/src/audio/drums.ts` (new, +test), `web/src/audio/synth.ts` (new, test-only), the module exporting `createDetector` (add `floor` to `DetectorOpts`, default = today's `FLOOR`).
@@ -90,6 +90,27 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: crosstalk matrix (each solo stem drives only its drum: own >=0.3, others <=0.1 mapped to hit counts); DnB two-step F1 >=0.70 per drum at +-30 ms; reese solo = 0 kicks. Mutants: each band edge, crosstalk rule, per-band floor, strength formula.
 - Done-check: GATES (no browser check, pure).
 - Depends on: none.
+- **Changed during implementation:**
+  - Measured F1 at ±30 ms: DnB kick 0.79, snare 0.97, hats 1.00. Dubstep 0.80/1.00/1.00, techno 0.89/0.77/1.00. 27/27 mutants killed (all band edges, Hz→bin rounding, crosstalk rule, per-band floors, strength, `onset.ts` floor).
+  - Floors: kick 0.7, snare 80, hats 100. Kick sits near the cliff: floor 1.0 drops DnB kick F1 to 0.58.
+  - Bins: a bin belongs to a band if its centre lies in [lo, hi], so the kick is bin 1 alone at 48 and 44.1 kHz.
+    - DC is excluded because a sine's ± images interfere there and flood false kicks.
+    - Bin 2 (187.5 Hz, the snare's body) is excluded too.
+  - `configure()` takes `Record<Drum, readonly [lo, hi]>`. It is structurally C9's `Band`, which S2.2's `presets.ts` owns (no cross-worktree import).
+  - Crosstalk compares each band's flux in units of its own floor (`odf / floor`), not `strength`.
+    - `strength` saturates at `MAX_STRENGTH` = 4 in sparse bands (mean ≈ 0), so a click and a clap always tie.
+    - The rule is still same-hop.
+  - Fixtures: the patterns layer the bass as it is mixed.
+    - The sub is tuned to 55 Hz, because a 45 + 55 Hz bed beats at 10 Hz.
+    - The reese layer is high-passed at 300 Hz. A full-range reese's harmonics beat inside bin 1 and drop kick F1 to about 0.2.
+    - Room tone at −51 dBFS: in digital silence, −100 dB leaks read as flux.
+    - Kick and snare tone get a 1 ms sin² attack; an instant start leaks broadband.
+    - The techno clap reuses the snare stem. Reese + sub stand in for the dubstep wobble until S2.1.
+  - The crosstalk matrix runs each drum over the bass bed (reese + sub + room), not in digital silence. "Reese solo = 0 kicks" is tested as "the bed alone gives 0 hits".
+  - ⚠️ C2 limit, flagged:
+    - A bare reese in silence fires about 157 false kicks in 11 s.
+    - A bare snare fires the kick on every hit (its body leaks −6 dB into bin 1, and log flux is level-independent).
+    - Relevant for S5.1's breakdown snare roll.
 
 ### S1.3 [ ] `features.ts` hit envelopes + new source ids
 Invoke the `ponytail` skill (full) before writing code.
