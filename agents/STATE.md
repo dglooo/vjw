@@ -57,6 +57,7 @@
   - 14:3x: the 5-h limit killed S1.4, S2.3, S3.1, S4.1 and S5.1 before they wrote anything (empty worktrees auto-removed).
   - ▶ **Re-dispatched fresh at 15:50:** S1.4 wire hits ‖ S2.3 worklet→bank ‖ S3.1 tempo range ‖ S4.1 style ‖ S5.1 build/drop. S3.1/S4.1/S5.1 append to `synth.ts`.
   - ✅ S2.3 merged (`f31f2b5`, 218 tests): `feat` every 2 hops, config rev; the bank stays idle until S2.5 sends a config (the underrun check moves to S2.5). S1.4 was told to merge master and keep the single `drums` instance.
+  - ✅ S4.1 merged (237 tests): `style.ts`; 6 grooves detected at ~18 s, crossfades switch once, freeze holds. ⚠️ Wobble/bass inputs are assumed until S2.4; the real audio→classifier path gets verified in S7.1.
 
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
 - The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
