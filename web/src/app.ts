@@ -160,6 +160,7 @@ const src: Sources = {} // binding sources, refilled every frame
 const features = createFeatures() // kick/snare/hats envelopes from the worklet's hits (S1.4)
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
+if (DEBUG) Object.assign(window, { __src: src }) // ?debug: the live binding sources, for DevTools and browser checks
 const rest = { gain: 1, flash: 0 } // the post pass at rest: the frame as it is
 let last = 0
 let scale = 0 // the applied internal scale
