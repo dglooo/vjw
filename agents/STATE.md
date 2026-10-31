@@ -49,7 +49,9 @@
   - S1.2 restarted fresh (its worktree was lost).
   - ✅ S4.2 merged (`c45062f`). ✅ S2.2 merged (`ae05de4`, 195 tests; `createSettings(kv, sampleRate)`; non-kick `proto` values are placeholders for S4.1).
   - ✅ S1.1 merged (`bc05c76`, 196 tests): pure `analysis.ts`; golden test = old worklet output. Lead Chrome check: 41 onsets on kicks128n (same as before), 0 errors.
-  - W2 (S1.3/S3.1/S4.1/S5.1) waits for S1.2 (`synth.ts`). S2.1 still running.
+  - ✅ S2.1 merged: `bands.ts` IIR bank, 5.4 µs per block for 11 bands. The design's kick gate failed (it gated a sustained reese 75%), so it was reworked: separate 200 ms gate followers, TRANSIENT 1.5, HOLD 100 ms.
+    - **Open for S2.4:** the sub band leaks kick body (it needs a trigger from the drum detector); a bass note starting on a kick lags ~125 ms.
+  - W2 (S1.3/S3.1/S4.1/S5.1) waits for S1.2 (`synth.ts`).
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
 - The user now understands that scenes can be built in the panel ("вроде кайф"); the effects re-brief is still pending.
 
