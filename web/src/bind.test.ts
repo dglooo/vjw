@@ -4,7 +4,7 @@ import { createFeatures } from './audio/features'
 import { PRESETS } from './audio/presets'
 import { parseSettings } from './audio/settings'
 import { ZERO_SYNC } from './audio/sync'
-import { evaluate, restyle, sources, sourcesFor, SOURCE_IDS, type Binding, type Sources } from './bind'
+import { createRemap, evaluate, restyle, sources, sourcesFor, SOURCE_IDS, type Binding, type Sources } from './bind'
 import type { FrameInput } from './frame'
 
 const frame = (over: Partial<FrameInput> = {}): FrameInput => ({
@@ -109,6 +109,40 @@ describe('restyle (Auto-style overlay, design C5)', () => {
     expect(sourcesFor('builtin:tunnel', src, styled)).toBe(styled)
     expect(sourcesFor('6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b', src, styled)).toBe(src)
     expect(sourcesFor('builtin:tunnel', src, null)).toBe(src)
+  })
+})
+
+describe('createRemap (the 2 s crossfade, S4.3)', () => {
+  const map = { bass: 'reese' }
+  const s: Sources = { bass: 0.2, reese: 0.8 }
+  test('a changed target (incl. the first, {} → map) restarts the ramp at 0; 1/2 per s; capped at 1', () => {
+    const r = createRemap()
+    expect(r.frame(map, 1 / 60)).toEqual([{}, map, 1 / 120]) // {} → map is a change: w starts at 0
+    expect(r.frame(map, 1 / 60)[2]).toBeCloseTo(1 / 60, 12) // unchanged: the ramp keeps running
+    const [f0, t0] = r.frame({}, 1 / 60) // map → {}: from is the old map
+    expect([f0, t0]).toEqual([map, {}])
+    expect(r.frame({}, 2)[2]).toBe(1) // 2 s closes it
+    expect(r.frame({}, 2)[2]).toBe(1) // capped
+  })
+
+  test('w advances by dt/2 per frame; a changed target restarts w at 0; dt 0 holds', () => {
+    const r = createRemap()
+    r.frame(map, 0)
+    expect(r.frame({ onset: 'kick' }, 1)[2]).toBeCloseTo(0.5, 12) // 1 s into a 2 s fade
+    expect(r.frame({ onset: 'kick' }, 0)[2]).toBeCloseTo(0.5, 12) // same target, dt 0: holds
+    expect(r.frame({ treb: 'hats' }, 0.5)[2]).toBeCloseTo(0.25, 12) // a new map restarts w at 0
+    expect(r.frame({}, 1)[2]).toBeCloseTo(0.5, 12) // another change: restarts again
+    expect(r.frame({}, 1)[2]).toBe(1)
+  })
+
+  test('restyle at the ramp: Auto on follows the map by w, Auto off falls back to the own source', () => {
+    const r = createRemap()
+    r.frame(map, 2) // the first fade closed: fully on the map
+    const [f0, t0, w0] = r.frame(map, 0)
+    expect(restyle(s, f0, t0, w0, {}).bass).toBeCloseTo(s.reese, 12)
+    r.frame({}, 1) // 1 s into the fade back
+    const [f1, t1, w1] = r.frame({}, 0)
+    expect(restyle(s, f1, t1, w1, {}).bass).toBeCloseTo((1 - 0.5) * s.reese + 0.5 * s.bass, 12)
   })
 })
 

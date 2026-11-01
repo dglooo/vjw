@@ -1,4 +1,5 @@
 import type { Drum } from './audio/drums'
+import type { Genre } from './audio/presets'
 import type { SceneId } from './doc'
 import type { QualityMode } from './quality'
 
@@ -26,12 +27,13 @@ export interface UiSnapshot {
   edited: SceneId // the scene it edits: the current one, the incoming one during a fade
   gpuMs: number | null // that scene's GPU median in ms, 4×/s; null without a GPU timer
   nodeErrors: string[] // that scene's build errors (unknown refs, compile logs, bad bindings)
+  style: { detected: Genre | null; confidence: number } // the classifier's pick, 4×/s (S4.3); the badge reads it (S6.2)
 }
 
 let snap: UiSnapshot = {
   devices: [], source: null, needsStart: true, sceneName: '', bpm: 0, confident: false,
   hold: false, recording: false, quality: '60-adaptive', scale: 1, drops: 0, compiling: null, debug: null, debugSync: null,
-  panel: false, editRev: 0, edited: '', gpuMs: null, nodeErrors: [],
+  panel: false, editRev: 0, edited: '', gpuMs: null, nodeErrors: [], style: { detected: null, confidence: 0 },
 }
 const subs = new Set<() => void>()
 

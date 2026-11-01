@@ -19,6 +19,13 @@ export interface StyleOpts { tau: number; margin: number; dwell: number; hold: n
 // each feature's Gaussian closeness to the genre prototype (presets.ts), in the feature's units.
 const OPTS: StyleOpts = { tau: 4, margin: 0.15, dwell: 16, hold: 32, floor: 0.35, width: { kickPerBeat: 0.25, hatsPerBeat: 1.5, wobble: 0.25, bass: 0.2 } }
 
+/** S4.3: per-beat counts for the classifier, from the caller's 8 s hit windows. K and H are unknown while the grid is
+ *  unsure (confidence < 0.3) or the bpm is not locked (bpm ≤ 0), so null (score() then skips them). */
+export const styleIn = (x: { kick8: number; hat8: number; bpm: number; confidence: number; wobble: number; bass: number; families: Record<Genre, number>; freeze: boolean }): StyleIn => {
+  const perBeat = (c: number) => (x.confidence >= 0.3 && x.bpm > 0 ? c / ((x.bpm / 60) * 8) : null) // c / beats in 8 s
+  return { families: x.families, kickPerBeat: perBeat(x.kick8), hatsPerBeat: perBeat(x.hat8), wobble: x.wobble, bass: x.bass, freeze: x.freeze }
+}
+
 /** S_g = T_g·(0.5 + 0.5·match_g): tempo is necessary, the pattern breaks overlaps. match = mean closeness of the known features. */
 function score(x: StyleIn, g: Genre, width: StyleOpts['width']) {
   const p = PRESETS[g].proto!
