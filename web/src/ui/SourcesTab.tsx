@@ -7,6 +7,9 @@ import { meterGroups } from '../audio/settings'
 export function SourcesTab() {
   const s = useSyncExternalStore(settings.onChange, settings.get)
   const root = useRef<HTMLDivElement>(null)
+  // The loop reads the live `src` every frame, but `els` is captured once per run: restart it when the meter *set*
+  // changes (a band added or removed), not on every settings change (a sens drag re-renders but the set is the same).
+  const idsKey = meterGroups(s).map((g) => g.title + g.ids.join()).join(' ')
   useEffect(() => {
     const els = root.current?.querySelectorAll<HTMLMeterElement>('[data-src]') ?? []
     let raf = 0
@@ -16,7 +19,7 @@ export function SourcesTab() {
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [])
+  }, [idsKey])
   return (
     <div className="sources" ref={root}>
       {meterGroups(s).map((g) => (
