@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { snapOctave } from './presets'
 import { createSync, type Sync } from './sync'
 import type { TempoReading } from './tempo'
 
@@ -236,5 +237,27 @@ describe('hold, confidence and hysteresis', () => {
     run(s, 0, 8, grid(P / 2, 8, P / 2), (t) => src.set({ bpm: 128.6, anchor: Math.floor(t / P) * P, confidence: 0.9 }))
     expect(s.at(8).bpm).toBeGreaterThan(256.2) // 2 × the readings' 128.6, pulled from 256
     expect(s.at(8).bpm).toBeLessThan(258)
+  })
+})
+
+describe('snapOctave', () => {
+  const dnb: [number, number] = [160, 185] // PRESETS.dnb.bpm
+
+  test('below the band doubles, above it halves, inside it stays', () => {
+    expect(snapOctave(77, dnb)).toBe('double')
+    expect(snapOctave(159.9, dnb)).toBe('double')
+    expect(snapOctave(200, dnb)).toBe('halve')
+    expect(snapOctave(370, dnb)).toBe('halve')
+    expect(snapOctave(174, dnb)).toBe('none')
+  })
+
+  test('the bounds are inclusive: sitting exactly on lo or hi is inside', () => {
+    expect(snapOctave(160, dnb)).toBe('none')
+    expect(snapOctave(185, dnb)).toBe('none')
+  })
+
+  test('one step only: a ⅔-lag reading (116 vs 174) doubles, not walks', () => {
+    expect(snapOctave(116, dnb)).toBe('double')
+    expect(snapOctave(91, dnb)).toBe('double') // 182/2 is still below lo: one double, the relock settles the rest
   })
 })

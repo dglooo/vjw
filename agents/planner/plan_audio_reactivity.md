@@ -325,7 +325,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - **Cost:** 2 more bands per quantum, ≈1 µs at S2.1's 5.4 µs per 11 bands. The 4-bin flux detector is gone.
   - **Out of scope, stale:** `tempo.ts`'s header still says the ODF is "the worklet's bass band (kicks)".
 
-### S3.2 [ ] Wire active preset: range, octave snap, band configs
+### S3.2 [x] Wire active preset: range, octave snap, band configs
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: active preset changes call `tempo.setRange`, snap sync grid with `sync.double()/halve()` only on change, and re-send `config` with the preset's bands.
 - Files: `web/src/app.ts`, `web/src/audio/presets.ts` (only if a helper is missing), `web/src/audio/sync.test.ts` (or nearest existing sync test).
