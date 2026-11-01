@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import { SOURCE_IDS, type Sources } from '../bind'
 import { createAnalysis } from './analysis'
+import type { BandSpec } from './bands'
 import type { Drum, Hit } from './drums'
 import { createFeatures } from './features'
 import type { WorkletIn, WorkletMsg } from './onset.worklet'
 import { PRESETS, type Preset } from './presets'
-import type { AudioSettings } from './settings'
-import { mix, pattern, reese, SR, wobble } from './synth'
+import type { AudioSettings, CustomBand } from './settings'
+import { mix, pattern, reese, SR, sub, wobble } from './synth'
 
 const DRUMS: Drum[] = ['kick', 'snare', 'hats']
 const settings = (sens: Record<string, number> = {}): AudioSettings => ({ v: 1, auto: false, pick: null, sens, custom: [] })
@@ -176,13 +177,95 @@ describe('sustained sources (design C1)', () => {
   })
 })
 
-// The real chain: a 48 kHz fixture → analysis.ts with bands sub, reese and wobble first (as S2.5's config sends them)
-// → push → at(∞) → fill, after each batch from `from` s.
+// Custom bands u:<id> (plan S2.5): e2 × gain, zeroed in the kick-gate gaps, one-poled in fill() at the frame dt.
+// One-pole: l += (y − l) · (1 − e^(−dt/τ)), τ = attack when rising, release when falling, 0 = instant (bind.ts's evaluate()).
+const U_ID = 'u:aa11bb'
+const uBand = (over: Partial<CustomBand> = {}): CustomBand => ({ id: U_ID, name: 'low', lo: 40, hi: 60, gain: 1, gate: 0, attack: 0.1, release: 0.2, ...over })
+/** One 2-hop batch whose custom slot (band 3) holds the given [e2, held]. */
+function uFeats(t0: number, cu: [number, number]): Feat {
+  const values = new Float32Array(16)
+  values.set([1, 1, 1, 1, 1, 1, ...cu], 0)
+  values.set([1, 1, 1, 1, 1, 1, ...cu], 8)
+  return { kind: 'feat', rev: 1, t0, hop: HOP, values }
+}
+/** Pushes one batch per row and fills with dt; returns out[U_ID] after each fill. */
+function uCurve(cus: [number, number][], b = uBand(), s: AudioSettings = uSet(b), dt = 0.1, p = preset()) {
+  const f = createFeatures()
+  const out: Sources = {}
+  return cus.map((cu, k) => {
+    f.push(uFeats(k * 2 * HOP, cu))
+    f.at(Infinity)
+    f.fill(out, dt, s, p)
+    return out[U_ID] ?? 0
+  })
+}
+const E = (x: number) => Math.exp(-x)
+const uSet = (b: CustomBand, sens: Record<string, number> = {}): AudioSettings => ({ v: 1, auto: false, pick: null, sens, custom: [b] })
+
+describe('custom bands u:<id> (design C1)', () => {
+  test('gate: held ≠ e2 (the kick latch) reads 0 in the gap; e2 × gain otherwise (gain 0 = instant, attack 0 = instant)', () => {
+    close(uCurve([[1, 1], [1, 0], [0.5, 0.5], [1, 1]], uBand({ gain: 0, attack: 0, release: 0 })), [0, 0, 0, 0]) // gain 0: silent
+    close(uCurve([[1, 1], [1, 0], [0.5, 0.5], [1, 1]], uBand({ attack: 0, release: 0 })), [1, 0, 0.5, 1])
+  })
+
+  test('attack/release: a dt-based one-pole, τ = attack rising, release falling (τ 0.1/0.2 s, dt 0.1 s)', () => {
+    const up = 1 - E(1)
+    const hi = 1 - (1 - up) * E(1)
+    close(uCurve([[1, 1], [1, 1], [1, 0], [1, 0], [0, 0]]), [up, hi, hi * E(0.5), hi * E(0.5) * E(0.5), hi * E(0.5) * E(0.5) * E(0.5)])
+    const b2 = uBand({ attack: 2, release: 2 })
+    expect(uCurve([[1, 1], [1, 0]], b2, uSet(b2), 0.4)[0]).toBeCloseTo(1 - E(0.2), 12) // the dt, not a hop
+  })
+
+  test('gain: scales the band level, capped at 1 (attack 0 = instant; with an attack the pole chases the scaled level)', () => {
+    close(uCurve([[1, 1]], uBand({ gain: 0.5, attack: 0 })), [0.5])
+    close(uCurve([[1, 1]], uBand({ gain: 2, attack: 0 })), [1])
+    const g = uBand({ gain: 0.5 })
+    close(uCurve([[1, 1], [1, 1]], g, uSet(g)), [0.5 * (1 - E(1)), 0.5 - (0.5 - 0.5 * (1 - E(1))) * E(1)])
+  })
+
+  test('sens: the user\'s × the preset\'s factor for the id (missing = 1), capped at 1', () => {
+    const b = uBand({ attack: 0 })
+    const at = (sens: Record<string, number> = {}, p = preset()) => uCurve([[1, 1], [1, 1]], b, uSet(b, sens), 0.1, p)[1]
+    expect(at()).toBe(1)
+    expect(at({ [U_ID]: 0.5 })).toBe(0.5)
+    expect(at({ [U_ID]: 2 })).toBe(1) // caps
+    expect(at({}, preset({ [U_ID]: 0.5 }))).toBe(0.5)
+  })
+
+  test('removed band reads 0 (state dropped); a rename keeps its id (the one-pole continues), re-adding starts fresh', () => {
+    const b = uBand()
+    const f = createFeatures()
+    const out: Sources = {}
+    const step = (s: AudioSettings) => {
+      f.push(uFeats(0, [1, 1]))
+      f.at(Infinity)
+      f.fill(out, 0.1, s, preset())
+      return out[U_ID] ?? 0
+    }
+    const s1 = uSet(b)
+    expect(step(s1)).toBeCloseTo(1 - E(1), 12)
+    expect(step(settings())).toBe(0) // removed
+    expect(step(s1)).toBeCloseTo(1 - E(1), 12) // re-added: starts at 0
+    expect(step(uSet({ ...b, name: 'renamed' }))).toBeCloseTo((1 - E(1)) + E(1) * (1 - E(1)), 12) // rename: continues
+  })
+
+  test('no custom bands: fill writes nothing new (the sustained ids only)', () => {
+    const f = createFeatures()
+    const out: Sources = {}
+    f.push(uFeats(0, [1, 1]))
+    f.at(Infinity)
+    f.fill(out, 0.1, settings(), preset())
+    expect(U_ID in out).toBe(false)
+  })
+})
+
+// The real chain: a 48 kHz fixture → analysis.ts with bands sub, reese and wobble first, then the settings' custom
+// bands (as S2.5's config sends them) → push → at(∞) → fill, after each batch from `from` s.
 const B = PRESETS.default.bands
-const CONFIG: WorkletIn = { kind: 'config', rev: 1, drums: { kick: B.kick, snare: B.snare, hats: B.hats }, bands: (['sub', 'reese', 'wobble'] as const).map((id) => ({ id, lo: B[id][0], hi: B[id][1] })) }
-function listen(x: Float32Array, from = 5) {
+function listen(x: Float32Array, from = 5, s: AudioSettings = settings()) {
   const a = createAnalysis(SR)
-  a.configure(CONFIG)
+  const c: WorkletIn = { kind: 'config', rev: 1, drums: { kick: B.kick, snare: B.snare, hats: B.hats }, bands: (['sub', 'reese', 'wobble'] as const).map((id): BandSpec => ({ id, lo: B[id][0], hi: B[id][1] })).concat(s.custom.map((b): BandSpec => ({ id: b.id, lo: b.lo, hi: b.hi }))) }
+  a.configure(c)
   const f = createFeatures()
   const out: Sources = {}
   const rows: Sources[] = []
@@ -191,7 +274,7 @@ function listen(x: Float32Array, from = 5) {
       if (m.kind !== 'feat') return
       f.push(m)
       f.at(Infinity)
-      f.fill(out, 2 * m.hop, settings(), preset())
+      f.fill(out, 2 * m.hop, s, preset())
       if (m.t0 >= from) rows.push({ ...out })
     })
   return rows
@@ -224,5 +307,14 @@ describe('sustained sources through analysis.ts (fixtures)', () => {
     const rises = w.filter((v, i) => i > 0 && v >= 0.15 && w[i - 1] < 0.15).length
     expect(rises / 6).toBeGreaterThan(140 / 30 - 1)
     expect(rises / 6).toBeLessThan(140 / 30 + 1)
+  })
+
+  test('50 Hz vs 120 Hz sine through the full path: a 40–60 Hz band reads ≥ 5× higher on 50 Hz (the band filter\'s response)', () => {
+    const band = uBand()
+    const s = uSet(band)
+    const med = (rows: Sources[]) => rows.map((r) => r[band.id] ?? 0).sort((a, b) => a - b)[Math.floor(rows.length / 2)]
+    const low = med(listen(sub(6 * SR, 0.5, 50), 2, s))
+    const high = med(listen(sub(6 * SR, 0.5, 120), 2, s))
+    expect(low).toBeGreaterThan(high * 5)
   })
 })
