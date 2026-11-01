@@ -4,7 +4,7 @@ import { createFeatures } from './audio/features'
 import { PRESETS } from './audio/presets'
 import { parseSettings } from './audio/settings'
 import { ZERO_SYNC } from './audio/sync'
-import { createRemap, evaluate, restyle, sources, sourcesFor, SOURCE_IDS, type Binding, type Sources } from './bind'
+import { createRemap, evaluate, restyle, sourceGroups, sources, sourcesFor, SOURCE_IDS, type Binding, type Sources } from './bind'
 import type { FrameInput } from './frame'
 
 const frame = (over: Partial<FrameInput> = {}): FrameInput => ({
@@ -65,6 +65,28 @@ describe('sources', () => {
     expect(Object.keys(out).sort()).toEqual([...SOURCE_IDS].sort())
     expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 4 + 2)
     for (const k of SOURCE_IDS) expect(Number.isFinite(out[k]), k).toBe(true)
+  })
+})
+
+describe('sourceGroups (the Scene tab select optgroups, S6.3)', () => {
+  const idsOf = (custom: { id: string; name: string }[] = []) => sourceGroups(custom).flatMap((g) => g.ids)
+
+  test('covers every SOURCE_IDS entry exactly once; the band group is the BANDS list', () => {
+    const ids = idsOf()
+    expect([...ids].sort()).toEqual([...SOURCE_IDS].sort()) // a missing or duplicated id breaks the sorted match
+    expect(ids).toHaveLength(SOURCE_IDS.length) // duplicates would survive the sort, so the count pins it
+    const bands = sourceGroups().find((g) => g.label === 'band')
+    expect(bands?.ids).toEqual(Array.from({ length: BAND_COUNT }, (_, i) => `band${i}`))
+  })
+
+  test('a non-empty custom adds a custom group, not in the fixed groups', () => {
+    const custom = [
+      { id: 'u:01ab02', name: '40–60' },
+      { id: 'u:03cd04', name: '8k' },
+    ]
+    const g = sourceGroups(custom)
+    expect(g.find((x) => x.label === 'custom')?.ids).toEqual(['u:01ab02', 'u:03cd04'])
+    expect([...idsOf(custom)].sort()).toEqual([...SOURCE_IDS, ...custom.map((c) => c.id)].sort())
   })
 })
 

@@ -1,6 +1,9 @@
 import { useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
-import { director } from '../app'
-import { BIND_DEFAULTS, SOURCE_IDS, type Binding, type Shape } from '../bind'
+import { director, settings } from '../app'
+import { activePreset } from '../audio/settings'
+import { PRESETS } from '../audio/presets'
+import { BAND_COUNT } from '../audio/energy'
+import { BIND_DEFAULTS, sourceGroups, type Binding, type Shape } from '../bind'
 import { defaults, type Blend, type NodeDoc, type SceneId } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
 import type { Kind, Value } from '../fx/types'
@@ -22,11 +25,9 @@ const GENERATORS = byName('generator')
 const FILTERS = (['feedback', 'geometry', 'liquid', 'retro', undefined] as const)
   .map((c) => [c ?? 'other', byName('filter').filter((d) => d.category === c)] as const)
   .filter(([, ds]) => ds.length)
-const LEVELS = SOURCE_IDS.filter((s) => !s.startsWith('band'))
-const BANDS = SOURCE_IDS.filter((s) => s.startsWith('band'))
 /** Band i's lower edge, as energy.ts spaces the bands (log 30 Hz–16 kHz). */
 const hz = (i: number) => {
-  const f = 30 * (16000 / 30) ** (i / BANDS.length)
+  const f = 30 * (16000 / 30) ** (i / BAND_COUNT)
   return f < 1000 ? `${Math.round(f)} Hz` : `${(f / 1000).toFixed(1)} kHz`
 }
 const defOf = (n: NodeDoc) => (n.ref.startsWith('toy/') ? toyDef(n) : catalog.get(n.ref)) // as live.ts finds it
@@ -61,9 +62,20 @@ const slider = (lo: number, hi: number, v: number, set: (v: number) => void, ste
 
 interface Bindable { path: NodePath; k: string; lo: number; hi: number; init?: Binding }
 
+/** S6.3's dim hint: a built-in row whose source the active preset's map rewrites while Auto-style is on. Its own
+ * component, so only a bound row's select subscribes to the settings and the classifier's 4×/s update. */
+function AutoHint({ source }: { source: string }) {
+  const s = useSyncExternalStore(settings.onChange, settings.get)
+  const detected = useSyncExternalStore(store.subscribe, () => store.getSnapshot().style.detected)
+  const id = useSnap('edited')
+  const target = s.auto && id.startsWith('builtin:') ? PRESETS[activePreset(s, detected)].map[source] : undefined
+  return target ? <span className="hint">→ {target} (auto-style)</span> : null
+}
+
 /** One parameter row. A numeric one gets a bind dot that opens its binding's controls (design E3) under it. */
 function Param({ label, bind, children }: { label: string; bind?: Bindable; children: ReactNode }) {
   const [b, show] = useState(bind?.init) // what is drawn: bound or not, and whether the source takes a shape
+  const s = useSyncExternalStore(settings.onChange, settings.get) // the custom bands in the select
   const send = (x: Binding | undefined, redraw = false) => {
     panel.setBinding(bind!.path, bind!.k, x ?? null)
     if (redraw) show(x)
@@ -93,11 +105,17 @@ function Param({ label, bind, children }: { label: string; bind?: Bindable; chil
         <div className="bind">
           <div className="src">
             <select aria-label="Source" defaultValue={b.source} onChange={(e) => send(withSource(now(), e.target.value), true)}>
-              {LEVELS.map((s) => <option key={s}>{s}</option>)}
-              <optgroup label="band">
-                {BANDS.map((s, i) => <option key={s} value={s}>{`${i} · ${hz(i)}`}</option>)}
-              </optgroup>
+              {sourceGroups(s.custom).map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.ids.map((sid, i) => (
+                    <option key={sid} value={sid}>
+                      {g.label === 'band' ? `${i} · ${hz(i)}` : g.label === 'custom' ? s.custom.find((c) => c.id === sid)?.name ?? sid : sid}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
             </select>
+            <AutoHint source={b.source} />
             {b.shape && (
               <select aria-label="Shape" defaultValue={b.shape} onChange={(e) => send({ ...now(), shape: e.target.value as Shape })}>
                 {SHAPES.map((s) => <option key={s}>{s}</option>)}

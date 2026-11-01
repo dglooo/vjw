@@ -379,6 +379,11 @@
 .bind > .src > select {
   flex: 1;
 }
+/* The auto-style hint (S6.3): where the active preset's map sends this row's source. */
+.bind > .src > .hint {
+  opacity: 0.55;
+  white-space: nowrap;
+}
 
 /* The Shadertoy paste (S5.3): a modal in the top layer, so the panel's idle fade and scroll don't reach it; its
    buttons and log take the panel's look. */
