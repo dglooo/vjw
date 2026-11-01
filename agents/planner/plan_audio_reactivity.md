@@ -239,7 +239,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - **Mutants: 21/21 killed.** AVG ×½/×2; the /2 (sub, reese); no hold; HOLD 0.1/0.3; the hold re-armed every gated hop; DEPTH ×½/×2; sens dropped, user-only or uncapped; wobble = |d|; signed depth; e2 instead of held (sub, reese, wobble); the trip read on the sub band; at() ignoring t; a plain EMA without the warm-up mean.
   - No browser check: nothing sends a config until S2.5.
 
-### S2.5 [ ] Custom bands `u:<id>` + config pipeline
+### S2.5 [x] Custom bands `u:<id>` + config pipeline
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: settings drive worklet config and `u:*` sources (normalised x gain, gate, dt-based attack/release one-pole).
 - Files: `web/src/audio/features.ts` (u:* fill), `web/src/audio/input.ts` (`featQueue`, `configure()`), `web/src/app.ts` (send config on settings change, push feat frames, debug meters for sub/reese/wobble/u:*).
@@ -247,6 +247,13 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: u:* gate/attack/release curve; 50 Hz sine vs 120 Hz sine through full analysis -> >=5x on a 40-60 Hz band. Mutants: gate compare, attack/release dt, gain.
 - Done-check: GATES + browser: dubstep140.wav, `?debug` meters follow bass; add a 40-60 Hz band in code, see it move, reload keeps it (CP2 demo).
 - Depends on: S1.4, S2.2, S2.4.
+- **Changed during implementation (b, the config pipeline):**
+  - The pure config builder lives in `settings.ts` (`workletBands` + `bandKey`), not app.ts: `app.ts` keeps only `rev`, the `sent` key and the `settings.onChange(sendConfig)` hook (sent once at start, on every real band/drum diff; sens/auto never re-send). Tests: 3 in `settings.test.ts` (band order, preset switch, rename/sens no-send).
+  - `input.ts` `configure()`: a config arriving before the worklet module loads is kept in one `pendingConfig` slot and posted at `.then()`; `featQueue` is capped at the existing `ODF_KEEP` (64).
+  - `feat` drain in `frame()`: `featQueue` → `features.push` then `features.at(file ? audioNow : Infinity)`, just before `features.fill`.
+  - `?debug` meters: `debugSync.bands` (rounded to 3 dp so a quiet track does not churn the snapshot) rendered as a `.hits`-style row of `<meter>`s for sub/reese/wobble/u:*.
+  - `web/scripts/make-fx.mjs` regenerates the wiped fixtures (`scratchpad/fx_audio/dubstep140.wav`, `dnb174.wav`) from `pattern()` via a throwaway vitest run (Node 20 cannot import `.ts` directly); the wavs are gitignored, the script is committed.
+  - Browser check: dubstep140 meters sub ≈0.5/reese ≈0.5 move with the bass; a 40–60 Hz `u:` band reads ≈0.14–0.15 and moves, survives reload (localStorage `vjw.audio`) and still moves after re-drop; removal drops it from the meters; dnb174 hits over ≈14 s: kick 20 · snare 28 · hats 114 (counters are per-visit since load, the one-time drum restart blip is the first-second one); zero console/processor errors.
 
 ### CP3 — Tempo range per preset
 

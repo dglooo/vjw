@@ -77,6 +77,15 @@ export function Overlay() {
               hits kick {c.hits.kick} · snare {c.hits.snare} · hats {c.hits.hats}
             </div>
           )}
+          {c && (
+            <div className="hits">
+              {Object.entries(c.bands).map(([id, v]) => (
+                <span key={id}>
+                  {id} <meter min={0} max={1} value={v} /> {v.toFixed(2)}{' '}
+                </span>
+              ))}
+            </div>
+          )}
           <pre>{JSON.stringify(d.settings, null, 1)}</pre>
         </div>
       )}
