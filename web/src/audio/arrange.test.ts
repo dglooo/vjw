@@ -1,6 +1,6 @@
 import FFT from 'fft.js'
 import { expect, test } from 'vitest'
-import { createArrangement, type ArrangeIn, type ArrangeOpts } from './arrange'
+import { createArrangement, shouldCut, type ArrangeIn, type ArrangeOpts } from './arrange'
 import { createBank } from './bands'
 import { createDrums } from './drums'
 import { rms } from './energy'
@@ -161,6 +161,15 @@ test('build decays (τ 1 s) when a breakdown ends without a drop', () => {
   expect(fires(r)).toEqual([])
   expect(r[i].build).toBeGreaterThan(0.1)
   expect(r[i + 30].build).toBeCloseTo(r[i].build * Math.exp(-0.5), 3) // 0.5 s later
+})
+
+test('shouldCut: a confident drop (≥ 0.6) cuts, weak or missing never, and a hold blocks even a confident one', () => {
+  for (const hold of [false, true]) {
+    expect(shouldCut(0.6, hold)).toBe(!hold) // at the bound
+    expect(shouldCut(0.59, hold)).toBe(false) // just below
+    expect(shouldCut(0.9, hold)).toBe(!hold) // confident
+    expect(shouldCut(null, hold)).toBe(false) // no drop this frame
+  }
 })
 
 test('confidence rises with the break length, the return ratio, beat alignment and the build', () => {

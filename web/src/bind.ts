@@ -22,7 +22,7 @@ const GATED = ['beat', 'bar'] // phase sources × confidence (pilot S8); lfo is 
 
 const BANDS = Array.from({ length: BAND_COUNT }, (_, i) => `band${i}`)
 /** The keys `sources()` and features.ts's `fill()` fill, for the panel's list. */
-export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'sub', 'reese', 'wobble', 'wobbleDepth', 'beat', 'bar', 'lfo', 'confidence']
+export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'sub', 'reese', 'wobble', 'wobbleDepth', 'beat', 'bar', 'lfo', 'confidence', 'build', 'drop'] // build/drop: the arrangement (S5.3); S6.3 lists them in a group
 
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
 
