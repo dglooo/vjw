@@ -3,7 +3,7 @@
 import { createEnergy } from './audio/energy'
 import { createFeatures } from './audio/features'
 import { analyser, audioNow, configure, ctx, featQueue, hitQueue, odfQueue, onsetQueue, recDest } from './audio/input'
-import { PRESETS } from './audio/presets'
+import { PRESETS, snapOctave, type Band, type PresetId } from './audio/presets'
 import { activePreset, bandKey, createSettings, workletBands } from './audio/settings'
 import { createSync, ZERO_SYNC } from './audio/sync'
 import { createTempoSource } from './audio/tempo'
@@ -24,6 +24,10 @@ const BADGE_MS = 250 // the quality badge and the BPM update at most 4×/s
 const CONFIDENT = 0.6 // knob (Q4 default): (c) is trusted above this, for bar lines and the overlay's BPM alike
 const NUDGE_MS = 10 // `,` / `.`
 const DEBUG = location.search.includes('debug')
+// ?debug&preset=dnb: pick the active preset from the URL (plan S3.2, a CP6 dev hook). Deliberately not written to
+// settings/localStorage — a later load without the param stays on the user's pick.
+const qp = new URLSearchParams(location.search).get('preset')
+const DEBUG_PRESET: PresetId | null = DEBUG && qp && Object.hasOwn(PRESETS, qp) ? (qp as PresetId) : null
 const VIDEO_BPS = 12_000_000 // ≈24 Mbps real: Chrome's H.264 encodes ≈2× the request at 60 fps, 1× at 30 (measured, S4.3)
 
 scenes.live = live
@@ -181,6 +185,7 @@ let last = 0
 let scale = 0 // the applied internal scale
 let tick = 0
 let badgeAt = -Infinity
+let lastBand: Band | null = null // the last tempo range applied (S3.2): a band change sets it, and only then snaps
 let fadingTo: string | null = null // the previous frame's shot.to: a new id starts a fade
 // ?debug (c) metrics (S5.4): each onset's distance to the grid before it corrects it, and time to confident.
 const offsets: number[] = [] // ms, the last 64 onsets within ±⅛ beat
@@ -224,7 +229,19 @@ function frame(now: number) {
   for (const m of featQueue.splice(0)) features.push(m)
   features.at(store.getSnapshot().source?.kind === 'file' ? f.audioNow : Infinity)
   // kick/snare/hats into src (sources() below fills the other keys). No detected genre until Auto-style (S4.3).
-  features.fill(src, f.dt, settings.get(), PRESETS[activePreset(settings.get(), null)])
+  // S3.2: the active preset's band drives the tempo range; a change snaps the running grid one octave toward it.
+  const band = PRESETS[DEBUG_PRESET ?? activePreset(settings.get(), null)].bpm
+  if (band !== lastBand) {
+    lastBand = band
+    tempo.setRange(band)
+    const g = f.sync.bpm
+    if (band && g) {
+      const snap = snapOctave(g, band)
+      if (snap === 'double') sync.double()
+      else if (snap === 'halve') sync.halve()
+    }
+  }
+  features.fill(src, f.dt, settings.get(), PRESETS[DEBUG_PRESET ?? activePreset(settings.get(), null)])
   const t = heard(f.audioNow)
   const { beat: b0, bpm: bpm0 } = f.sync // last frame's grid, before this frame's onsets correct it
   for (const b of odfQueue.splice(0)) tempo.pushOdf(b.values, b.t0, b.hop)
