@@ -6,6 +6,7 @@ import { catalog, toyDef } from '../fx/catalog'
 import type { Kind, Value } from '../fx/types'
 import { live, panel, type NodePath } from '../gl/live'
 import { library } from '../library'
+import { SourcesTab } from './SourcesTab'
 import { BUILTIN } from '../scenes/builtin'
 import { store, type UiSnapshot } from '../store'
 import './panel.css'
@@ -271,6 +272,7 @@ function Open({ id }: { id: SceneId }) {
   const file = useRef<HTMLInputElement>(null)
   const [note, setNote] = useState<{ text: string; err: boolean }>()
   const [naming, setNaming] = useState(false) // Save as… swaps the header row for its name field
+  const [tab, setTab] = useState<'scene' | 'sources'>('scene') // a view concern, not a store field (S6.1)
   const say = (err: string | null, what: string, done: string) => setNote(err ? { text: `${what}: ${err}`, err: true } : { text: done, err: false })
   const load = async (f: File) => say(await library.importFile(f), 'Import', `Imported ${f.name}`)
   const { layers, name } = live(id).doc // its name is the bar's, right above
@@ -299,6 +301,13 @@ function Open({ id }: { id: SceneId }) {
         void load(f)
       }}
     >
+      <div className="tabs">
+        {(['scene', 'sources'] as const).map((t) => (
+          <button key={t} className={tab === t ? 'on' : undefined} aria-pressed={tab === t} onClick={() => setTab(t)}>
+            {t === 'scene' ? 'Scene' : 'Sources'}
+          </button>
+        ))}
+      </div>
       <header>
         {naming ? (
           // Not a prompt(): it blocks the main thread, so the picture froze while the name was typed. Keys stay in the
@@ -390,6 +399,8 @@ function Open({ id }: { id: SceneId }) {
           ))}
         </ul>
       </details>
+      {tab === 'scene' && (
+        <>
       {errors.map((e) => (
         <pre key={e} className="err">
           {e}
@@ -460,6 +471,9 @@ function Open({ id }: { id: SceneId }) {
           <option value={PASTE}>Shadertoy (paste)…</option>
         </select>
       </div>
+        </>
+      )}
+      {tab === 'sources' && <SourcesTab />}
       <Paste ref={paste} />
     </div>
   )
