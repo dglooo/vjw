@@ -82,8 +82,14 @@
     - ❌ S3.1c kick veto **NOT merged** (lead decision). Synth looked good, but on real `dnb174.wav` kicks fell from 24 to 1–4 per 10 s (real bass masks 40–150 Hz).
       - The branch is kept: `worktree-agent-a73146a6778eb362d` (`413275d`).
       - False kicks on a bare reese stay a known limit.
-    - ▶ **S2.5** custom bands + config pipeline (start of the `app.ts` chain).
-    - then S2.5 → S3.2 → S4.3 → S5.3 → S6.1 → S6.2 → S6.3 → S7.1 → S7.2.
+    - 🛑 **S2.5 re-dispatched 2026-11-01, KILLED after ~5 h** (first attempt died at start on a 400: Qwen backend only takes xhigh/medium/low). Qwen + `effort: max` (user-fixed backend) too slow: 12–15 min per API turn, only a 23-line broken `features.ts` draft in 5 h (discarded).
+      - **Root cause (2026-11-01, user + lead):** the slowness is **reasoning/thinking token latency in the Qwen backend**, not the plan or effort tier. Measured sub-agent API round-trips: 3 s fast turns mixed with 79–278 s stalls (intermittent). The main session (no reasoning) is fast; only sub-agent turns stall. Fix = dispatch with **low** effort (reasoning off/short), not medium/max.
+      - **Lead decision 2026-11-01:** split S2.5 into sub-steps, dispatch at **low** effort (plan is already atomic; reasoning latency is the cost, and the formula is pre-chewed so it buys nothing here). Sub-steps: (a) `features.ts` u:* fill + tests, (b) `input.ts` featQueue/configure + app config send + debug meters. Design formula kept from the killed draft: per-band-index `ustate {id,e2,y}`, gate `e2/held` (0 in gaps), value `0.5×gated×gain×sens` (×1/2 so 1 ≈ average → 0.5), one-pole attack/release dt-based as in `bind.ts` evaluate().
+    - ✅ S2.5a merged (`7bb0046`, 284 tests, medium effort): `u:<id>` = band's gated `e2` × gain, dt one-pole (attack/release as `bind.ts` evaluate()), sens, cap 1; removed id → 0, rename keeps one-pole state. 50-vs-120 Hz ≥5× through `analysis.ts` (filter skirts, ~24 dB/oct).
+      - **Formula correction (recorded in plan):** design's "normalised band × gain" (ratio e2/held) cannot pass ≥5× — a ratio reads ~1 at any frequency. The band filter's own response (its `e2` level) carries the separation.
+      - ⏱ Ops lesson: medium coder + narrow brief + allowlist = ~24 min real work. The 40-min stall was an approval prompt (`npx tsc` not in allowlist) — `npx:*` now allowed in `.claude/settings.local.json`.
+    - ▶ **S2.5(b)** `input.ts` featQueue/configure + `app.ts` config send + debug meters (browser done-check dubstep140, underrunEvents, 40–60 Hz band moves, reload persists).
+    - then S2.5(b) → S3.2 → S4.3 → S5.3 → S6.1 → S6.2 → S6.3 → S7.1 → S7.2.
   - ✅ S4.1 merged (237 tests): `style.ts`; 6 grooves detected at ~18 s, crossfades switch once, freeze holds. ⚠️ Wobble/bass inputs are assumed until S2.4; the real audio→classifier path gets verified in S7.1.
 
 - Live-check fixtures (lead, scratchpad `fx_audio/`): `dnb174.wav` (two-step kick, snare 2/4, 8th hats, detuned 55 Hz reese) and `dubstep140.wav` (half-time, wobble LFO at 1/8 notes). Techno: `cp5/house128-long.wav`.
