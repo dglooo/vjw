@@ -60,6 +60,81 @@
 .sources meter {
   width: 100%;
 }
+/* The C8 controls (S6.2): the picker/Auto row, then the meter rows with a sens slider or a remove button in the row's
+   third column, and the custom-band form below. */
+.sources .pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sources .pick select {
+  flex: 1;
+  min-width: 0;
+}
+.sources .pick .auto {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+.sources .detected {
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sources .row {
+  display: grid;
+  grid-template-columns: 80px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+}
+.sources .row > input[type='range'] {
+  grid-column: 3;
+  width: auto;
+}
+/* A custom-band row carries both a sens slider and its remove button. */
+.sources .row:has(> button.x) {
+  grid-template-columns: 80px 1fr 40px 24px;
+}
+.sources .row > button.x {
+  grid-column: 4;
+  justify-self: end;
+}
+.sources .band-form {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #ffffff14;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+}
+.sources .band-form > label {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: center;
+  gap: 6px;
+}
+.sources .band-form > label > span {
+  opacity: 0.55;
+  white-space: nowrap;
+}
+.sources .band-form > label > input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 6px;
+  font: inherit;
+  color: inherit;
+  background: #161616;
+  border: 1px solid #ffffff24;
+  border-radius: 5px;
+}
+.sources .band-form > button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
 
 /* star · Save · Save as … GPU, or Save as…'s name · OK · Cancel */
 .panel header {

@@ -117,6 +117,15 @@ export const meterGroups = (s: AudioSettings): { title: string; ids: string[] }[
 /** The preset in force (design C4): a hand pick wins, else the detected genre while Auto is on, else Default. */
 export const activePreset = (s: AudioSettings, detected: Genre | null): PresetId => s.pick ?? (s.auto ? (detected ?? 'default') : 'default')
 
+/** The C4 state machine (design C4): a picker value, or an Auto-toggle move, becomes the `patch` it applies. Pure: a
+ * hand pick locks (auto untouched, the pick wins), "Auto" re-enters Follow (`auto: true, pick: null` — even from Manual,
+ * so the dropdown, the checkbox and the active preset all agree), and a toggle-off locks whatever preset is active
+ * *now* — not null. */
+export function pickToPatch(kind: 'picker' | 'toggle', value: string | boolean, s: AudioSettings, detected: Genre | null): Partial<Pick<AudioSettings, 'auto' | 'pick'>> {
+  if (kind === 'picker') return value === 'auto' ? { auto: true, pick: null } : { pick: value as PresetId }
+  return value ? { auto: true, pick: null } : { auto: false, pick: activePreset(s, detected) }
+}
+
 /** The worklet config's band list for the preset in force: `sub`, `reese`, `wobble` first (the S2.4 contract —
  *  features.ts reads bands 0–2 by position), then the user's bands. Pure: no `rev`, which app.ts grows per send. */
 export function workletBands(s: AudioSettings, detected: Genre | null): { drums: Record<Drum, Band>; bands: BandSpec[] } {
