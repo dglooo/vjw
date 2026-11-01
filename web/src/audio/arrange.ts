@@ -46,6 +46,9 @@ const RATIO = 16 // a return this many × the sparse mean gives full confidence 
 const ema = (dt: number, tau: number) => 1 - Math.exp(-dt / tau)
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
 
+/** A confident drop (≥ 0.6) cuts the scene at once — unless the user holds (LOCK or the panel open) (plan S5.3). */
+export const shouldCut = (fired: number | null, hold: boolean) => fired !== null && fired >= 0.6 && !hold
+
 export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: ArrangeIn): ArrangeOut } {
   const o = { ...DEFAULTS, ...opts }
   const out: ArrangeOut = { build: 0, drop: 0, heat: 0, sparse: false, fired: null } // update() returns this object

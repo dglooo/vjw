@@ -1,6 +1,7 @@
 // The rAF loop (Variant A): read (a) → drain (b) → (c) phase → director → engine.render. Per-frame data never goes
 // through React: the store hears about scene and lock changes, and gets the badge and the BPM at most 4×/s.
-import { createEnergy } from './audio/energy'
+import { createArrangement, shouldCut, type ArrangeOut } from './audio/arrange'
+import { BAND_COUNT, createEnergy, rms } from './audio/energy'
 import { createFeatures } from './audio/features'
 import { analyser, audioNow, configure, ctx, featQueue, hitQueue, odfQueue, onsetQueue, recDest } from './audio/input'
 import { PRESETS, snapOctave, type Band, type PresetId } from './audio/presets'
@@ -15,6 +16,7 @@ import type { FrameInput } from './frame'
 import { catalog, transitions } from './fx/catalog'
 import { gpuMs, render, scenes, setAudio, setOutput, setTransition, stage } from './gl/engine'
 import { live, prepare, warm } from './gl/live'
+import { postFor } from './gl/post'
 import { library } from './library'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
 import { startRecording } from './recorder'
@@ -134,6 +136,10 @@ addEventListener('keydown', (e) => {
       sync.downbeat(heard())
       break
     case 'KeyF':
+      if (DEBUG) {
+        dropAt = f.time // ?debug: one force-flash (a fresh drop → postFor's flash peaks), no cut
+        break
+      }
       if (document.fullscreenElement) void document.exitFullscreen()
       else void document.documentElement.requestFullscreen()
       break
@@ -184,9 +190,15 @@ function sendConfig() {
 }
 sendConfig() // start: the first config wakes the band bank (one drum restart blip, contract 3)
 settings.onChange(sendConfig) // custom-band edits and preset switches; sens/auto leave the key untouched
-const rest = { gain: 1, flash: 0 } // the post pass at rest: the frame as it is
 // S4.3: the classifier runs every frame; its pick drives the active preset, the tempo band and the Auto-style remap.
 const style = createStyle()
+// S5.3: the arrangement detector (build/drop/heat) runs every frame; its output drives the post pass, the frame's
+// heat speed, and the drop cut. `dropAt` = seconds since the last confident drop (-Infinity = none yet).
+const arrangement = createArrangement()
+let arrangeOut: ArrangeOut = { build: 0, drop: 0, heat: 0, sparse: false, fired: null }
+let dropAt = -Infinity
+// energy.ts's 30 Hz–16 kHz log grid: the first band at/above 4 kHz; `high` = the sum of those bands (S5.3).
+const highStart = Math.ceil((BAND_COUNT * Math.log(4000 / 30)) / Math.log(16000 / 30))
 let styleOut: StyleOut = { detected: null, scores: { dnb: 0, dubstep: 0, techno: 0 }, confidence: 0 } // before the first update: __style reads it
 const remap = createRemap() // the 2 s crossfade of the Auto-style map (design C5)
 const styledOut: Sources = {} // restyle's output, allocated once
@@ -224,6 +236,7 @@ function frame(now: number) {
   }
   f.dt = last ? (now - last) / 1000 : 0
   last = now
+  f.time = now / 1000 // the monotonic seconds clock (rAF's now): the arrangement's `now`
   analyser.getFloatFrequencyData(magDb)
   analyser.getFloatTimeDomainData(wave)
   setAudio(magDb, wave)
@@ -231,10 +244,12 @@ function frame(now: number) {
   f.audioNow = audioNow()
   f.onsets = drain(onsetQueue)
   f.lastOnset = f.onsets.at(-1) ?? f.lastOnset
+  let kickThisFrame = false
   for (const h of drain(hitQueue)) {
     features.hit(h)
     if (DEBUG) hits[h.drum]++
     hits8.push(h) // S4.3: the classifier's 8 s kick/hat window (newest last)
+    if (h.drum === 'kick') kickThisFrame = true // S5.3: a kick was drained this frame
   }
   // S2.4: work the feat batches through every hop up to the heard time (a file's audioNow, line-in the newest) before
   // fill() reads the sustained sources and the u:* bands.
@@ -253,8 +268,13 @@ function frame(now: number) {
   for (let i = 0; i < eb.length; i++) total += eb[i]
   const [fdn, fdu, fte] = tempo.families([PRESETS.dnb.bpm!, PRESETS.dubstep.bpm!, PRESETS.techno.bpm!]) // the genres always have a band
   const lvl = f.energy.level
-  // ponytail: silence-only freeze for now; the arrangement "sparse"-section freeze is S5.3's.
-  const freeze = lvl.bass < SILENCE && lvl.mid < SILENCE && lvl.treb < SILENCE
+  // S5.3: the arrangement runs every frame (before style.update, so its freeze can hold through a breakdown: those
+  // lack drums). low = the kick-gated sustained bass (bands.ts `held`), high = the log grid's ≥ 4 kHz bands,
+  // total = the frame's RMS (the −60 dBFS silence floor lives in arrange.ts).
+  let high = 0
+  for (let i = highStart; i < BAND_COUNT; i++) high += eb[i]
+  arrangeOut = arrangement.update({ low: features.raw.sub + features.raw.reese, high, total: rms(wave), kick: kickThisFrame, beat: f.sync.confidence >= 0.3 ? f.sync.beat : null, now: f.time })
+  const freeze = (lvl.bass < SILENCE && lvl.mid < SILENCE && lvl.treb < SILENCE) || arrangeOut.sparse
   styleOut = style.update(styleIn({ kick8, hat8, bpm: f.sync.bpm, confidence: f.sync.confidence, wobble: features.raw.wobbleDepth, bass: total > 0 ? (features.raw.sub + features.raw.reese) / total : 0, families: { dnb: fdn, dubstep: fdu, techno: fte }, freeze }), now / 1000)
   // A manual pick (incl. the ?preset= dev hook) locks the classifier; else Auto follows `detected`.
   const active = activePreset(DEBUG_PRESET ? { ...st, pick: DEBUG_PRESET } : st, styleOut.detected)
@@ -292,7 +312,6 @@ function frame(now: number) {
     } else if (toConfident === null && firstOnset !== null && f.sync.confidence >= CONFIDENT) toConfident = t - firstOnset
     locked = f.sync.bpm > 0
   }
-  f.time = now / 1000
   const shot = director.update(f.time, f.sync) // rAF's now is on the performance.now() clock
   if (shot.to && shot.to !== fadingTo) {
     const others = transitions.filter((id) => id !== transition) // empty with one transition: it stays
@@ -304,7 +323,14 @@ function frame(now: number) {
   // Auto off (or Default) is a fade back to {} — their own sources.
   const [rmFrom, rmTo, rmW] = remap.frame(st.auto ? PRESETS[active].map : {}, f.dt)
   const styled = restyle(src, rmFrom, rmTo, rmW, styledOut)
-  render(shot, f, sources(f, src), styled, rest) // sets f.width/height to the internal size
+  src.build = arrangeOut.build // S5.3: expose the arrangement as binding sources (the UI lists them in S6.3)
+  src.drop = arrangeOut.drop
+  f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)
+  if (arrangeOut.fired !== null) dropAt = f.time
+  if (shouldCut(arrangeOut.fired, store.getSnapshot().hold)) director.cut(director.peek()) // a confident drop cuts, unless LOCK/panel
+  // S5.3: the live heat post pass (postFor at rest = identity: the engine skips it).
+  const post = postFor(arrangeOut.heat, dropAt > 0 ? f.time - dropAt : Infinity, f.sync.beat, f.sync.bpm, f.sync.confidence)
+  render(shot, f, sources(f, src), styled, post) // sets f.width/height to the internal size
   const id = shot.to ?? shot.from // the incoming scene as soon as a fade starts: the name shown, the scene edited
   const { doc, errors } = live(id)
   const snap = store.getSnapshot()

@@ -60,8 +60,10 @@ describe('sources', () => {
     const out: Sources = {}
     expect(sources(frame(), out)).toBe(out)
     createFeatures().fill(out, 1 / 60, parseSettings(null), PRESETS.default)
+    out.build = 0.5 // build/drop: app.ts fills these (the arrangement, S5.3), not sources()/fill()
+    out.drop = 0.2
     expect(Object.keys(out).sort()).toEqual([...SOURCE_IDS].sort())
-    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 4)
+    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 4 + 2)
     for (const k of SOURCE_IDS) expect(Number.isFinite(out[k]), k).toBe(true)
   })
 })
