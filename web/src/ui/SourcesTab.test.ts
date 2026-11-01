@@ -19,9 +19,12 @@ test('meterGroups: custom bands append under Custom, in order', () => {
 })
 
 // pickToPatch: the C4 state machine (design C4) — a picker value or an Auto-toggle move becomes the `patch` it applies.
-test('pickToPatch: picker — "auto" follows, a preset id is a manual pick', () => {
+test('pickToPatch: picker — "auto" re-enters Follow (even from Manual), a preset id is a manual pick', () => {
   const s0 = s([])
-  expect(pickToPatch('picker', 'auto', s0, 'dnb')).toEqual({ pick: null }) // follow the detected
+  expect(pickToPatch('picker', 'auto', s0, 'dnb')).toEqual({ auto: true, pick: null }) // follow the detected
+  // Manual (auto off, e.g. after a toggle-off) + "Auto" → Follow, not `auto:false, pick:null` (which would show "Auto"
+  // but stay locked on Default — the dropdown, checkbox and active preset would disagree)
+  expect(pickToPatch('picker', 'auto', { ...s0, auto: false, pick: 'dnb' }, 'dnb')).toEqual({ auto: true, pick: null })
   for (const id of ['default', 'dnb', 'dubstep', 'techno'] as const) expect(pickToPatch('picker', id, s0, null)).toEqual({ pick: id })
 })
 
