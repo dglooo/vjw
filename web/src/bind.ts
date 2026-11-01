@@ -24,6 +24,22 @@ const BANDS = Array.from({ length: BAND_COUNT }, (_, i) => `band${i}`)
 /** The keys `sources()` and features.ts's `fill()` fill, for the panel's list. */
 export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'sub', 'reese', 'wobble', 'wobbleDepth', 'beat', 'bar', 'lfo', 'confidence', 'build', 'drop'] // build/drop: the arrangement (S5.3); S6.3 lists them in a group
 
+export interface SourceGroup { label: string; ids: readonly string[] }
+/** The Scene tab's source-select optgroups (S6.3), mirroring the Sources tab's meter groups: the fixed ones, the
+ * custom bands (only when there are any), then `band` last. Covers every `SOURCE_IDS` entry exactly once. */
+export const sourceGroups = (custom: readonly { id: string; name: string }[] = []): readonly SourceGroup[] => {
+  const g: SourceGroup[] = [
+    { label: 'levels', ids: ['bass', 'mid', 'treb'] },
+    { label: 'drums', ids: ['kick', 'snare', 'hats'] },
+    { label: 'bass', ids: ['sub', 'reese', 'wobble', 'wobbleDepth'] },
+    { label: 'arrangement', ids: ['build', 'drop'] },
+    { label: 'timing', ids: ['onset', 'beat', 'bar', 'lfo', 'confidence'] },
+  ]
+  if (custom.length) g.push({ label: 'custom', ids: custom.map((c) => c.id) })
+  g.push({ label: 'band', ids: [...BANDS] })
+  return g
+}
+
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
 
 /** Fills `out` with this frame's sources, no allocation. Silence (log 0 = −∞) clamps to 0. */
