@@ -472,7 +472,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - Done-check: GATES + browser: dnb174.wav, meters blink/breathe; no React re-render storm (React Profiler sanity, one look).
 - Depends on: S2.5, S5.3 (app.ts); not parallel with S6.2/S6.3 (same panel file).
 
-### S6.2 [ ] Preset picker, Auto toggle, sens sliders, custom-band form
+### S6.2 [x] Preset picker, Auto toggle, sens sliders, custom-band form
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: C8 controls wired to `createSettings` so everything persists in `vjw.audio`.
 - Files: `web/src/ui/SourcesTab.tsx`, `web/src/ui/Panel.tsx` (hint badge only if needed), `web/src/store.ts` (instantiate settings singleton if absent).
@@ -481,7 +481,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - Done-check: GATES + browser: add a 40-60 Hz band, reload, it persists and moves; manual pick locks Auto.
 - Depends on: S6.1, S4.3.
 
-### S6.3 [ ] Binding source select groups + "-> reese (auto-style)" hint
+### S6.3 [x] Binding source select groups + "-> reese (auto-style)" hint
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: binding row select grouped levels/drums/bass/arrangement/custom/band; dim hint when the active map rewrites a built-in's source.
 - Files: `web/src/ui/Panel.tsx`, `web/src/bind.ts` (export `sourceGroups(custom)` pure), `web/src/bind.test.ts`.
@@ -492,7 +492,7 @@ Invoke the `ponytail` skill (full) before writing code.
 
 ### CP7 — Closeout
 
-### S7.1 [ ] Acceptance regression suite from fixtures
+### S7.1 [x] Acceptance regression suite from fixtures
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: one integration test file proving spec §4.1, §4.2, §4.3, §4.5, §4.6 end to end through `analysis.ts` + features + tempo + style + arrange.
 - Files: `web/src/audio/acceptance.test.ts` (new), `web/src/audio/synth.ts` (only if a pattern is missing).
@@ -501,7 +501,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - Done-check: GATES; test runtime under ~30 s.
 - Depends on: S5.3, S6.3.
 
-### S7.2 [ ] Closeout checklist and perf/license notes
+### S7.2 [x] Closeout checklist and perf/license notes
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: verify spec §4 items 1-7 by hand and record evidence; no new features.
 - Files: `agents/planner/plan_audio_reactivity.md` (tick boxes only), `web/src/app.ts` (only if `?bench` needs a hook for sources).
@@ -509,6 +509,22 @@ Invoke the `ponytail` skill (full) before writing code.
 - Tests: none new; full GATES green.
 - Done-check: GATES + the manual list above.
 - Depends on: S7.1.
+
+### CP7 closeout evidence (lead, 2026-11-02)
+
+Spec §4, item by item. `A` = automated in `acceptance.test.ts` (S7.1, in GATES); `B` = browser (lead/coder headless check); `U` = user local.
+
+| §4 | Item | Status | Evidence |
+|---|---|---|---|
+| 1 | sources as bindings + meters; DnB F1 ≥ 0.70 | ✅ | A: F1 kick 0.788 / snare 0.968 / hats 1.000 (≥0.70). B: meters move (S6.1/S2.5: sub ~0.5, reese ~0.5, wobble ~0.07 on dubstep140). |
+| 2 | 174 reads 174, not 87 | ✅ (synth) / ⏳ U | A: 174.014 in [160,185], conf 1, not 87. **User half open:** "174 vs rekordbox" — the user's live-deck check, not automatable. |
+| 3 | Auto-style 3 genres × 2; no flap; manual override | ✅ | A: 6/6 grooves detected, 16-bar crossfade dnb→dubstep = exactly 1 switch (≤1). B: manual DnB lock holds the pick (S6.2). |
+| 4 | built-ins remap on / revert off | ✅ | A: restyle tests. B (S4.3): Auto ON `styled.bass` corr 1.00 with reese / 0.29 with bass; Auto OFF corr 0.97 with bass / −0.33 with reese → engages and reverts. |
+| 5 | build → drop → cut (no cut under LOCK) | ✅ | A: drop fires once, conf 0.820, ≤1 beat after the drop kick; `shouldCut` true unlocked / false under LOCK. |
+| 6 | custom band: add 40–60, bind, move, survive reload | ✅ | A: add → `vjw.audio` JSON → `parseSettings` byte-identical. B (S6.2): 40–60 Hz band add → reload → persists (same id) → moves (0.14–0.22). |
+| 7 | 60A on M4 holds; gates green; mutation-sensitive DSP | ⚠️ partial | B (lead, this M4): **60 fps / scale 1.00× on ANGLE Metal (Apple M4)** for 25 s, governor never stepped down, 0 page/console errors. Gates: 316 tests green. **Two gaps, recorded not faked:** (a) the headless drop feed didn't decode (a range-request/object-URL artifact — the feed is proven in a real browser in S6.2), so the 60 fps is the render loop, not audio-load sustained; (b) **no worklet underrun counter exists in the build** — §4.7's "underrun count" assumed `underrunEvents`, which was never instrumented (the plan's "S2.5 moves the underrun check" was not realised). To close: add an underrun counter to the worklet + a `?bench` fps/underrun read, and re-run under load. |
+
+**Open knob tunings (not blockers):** `presets.ts` `proto` non-kick values and `sens` are starting values to be tuned on real tracks (see S2.4/S4.1 notes); the `dubstep140` real-wav lock is a known S3.1b gap (bar longer than max lag) — autopilot falls back to time-based switching, re-check with the user's tracks.
 
 ## Acceptance map (spec §4 -> steps)
 | §4 | Steps | Evidence |
