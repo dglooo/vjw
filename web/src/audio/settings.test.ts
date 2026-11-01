@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { PRESETS, type Band, type Genre, type PresetId } from './presets'
-import { activePreset, createSettings, parseSettings, type AudioSettings, type CustomBand } from './settings'
+import { activePreset, bandKey, createSettings, parseSettings, workletBands, type AudioSettings, type CustomBand } from './settings'
 
 const KEY = 'vjw.audio'
 const DEFAULTS: AudioSettings = { v: 1, auto: true, pick: null, sens: {}, custom: [] }
@@ -310,4 +310,36 @@ test('activePreset: all 40 combinations of auto, pick and detected', () => {
       }
     }
   }
+})
+
+// --- the worklet config builder (plan S2.5) ---
+
+const cfg = (pick: PresetId | null = null, custom: CustomBand[] = [], over: Partial<AudioSettings> = {}): AudioSettings => ({
+  ...DEFAULTS, pick, custom, ...over,
+})
+
+test('workletBands: sub, reese, wobble first (the S2.4 order contract), the user bands after, drums = the preset kick/snare/hats', () => {
+  const b = workletBands(cfg(null, [stored(1, { lo: 40, hi: 60 })]), null)
+  expect(b.bands).toEqual([
+    { id: 'sub', lo: 30, hi: 60 },
+    { id: 'reese', lo: 60, hi: 250 },
+    { id: 'wobble', lo: 150, hi: 1500 },
+    { id: 'u:000001', lo: 40, hi: 60 },
+  ])
+  expect(b.drums).toEqual({ kick: [40, 150], snare: [1000, 5000], hats: [7000, 16000] })
+})
+
+test('workletBands: a preset switch re-reads the built-in bands (dubstep reese 70-350) and the user bands stay last', () => {
+  const b = workletBands(cfg('dubstep', [stored(1, { lo: 40, hi: 60 })]), null)
+  expect(b.bands[1]).toEqual({ id: 'reese', lo: 70, hi: 350 })
+  expect(b.bands.at(-1)).toEqual({ id: 'u:000001', lo: 40, hi: 60 })
+  expect(bandKey(workletBands(cfg('dubstep'), null))).not.toBe(bandKey(workletBands(cfg(null), null)))
+})
+
+test('bandKey: ids and Hz only, so a rename or a sens/auto change is a no-send, and a band or preset change is a send', () => {
+  const a = workletBands(cfg(null, [stored(1, { lo: 40, hi: 60, name: 'old' })], { sens: { sub: 2 } }), null)
+  expect(bandKey(a)).toBe(bandKey(workletBands(cfg(null, [stored(1, { lo: 40, hi: 60, name: 'new' })], { auto: false }), null)))
+  expect(bandKey(a)).not.toBe(bandKey(workletBands(cfg(null, [stored(1, { lo: 40, hi: 60.1 })]), null)))
+  expect(bandKey(a)).not.toBe(bandKey(workletBands(cfg(null, []), null)))
+  expect(bandKey(a)).not.toBe(bandKey(workletBands(cfg('dubstep', [stored(1, { lo: 40, hi: 60 })]), null)))
 })

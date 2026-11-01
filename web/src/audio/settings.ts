@@ -1,7 +1,9 @@
 // The audio settings (design C7), pure: the preset pick, Auto-style, the user's sensitivity per source and up to 8 custom
 // bands, kept as JSON under localStorage `vjw.audio`. The browser side is one seam (`Kv`, as in library.ts), so the logic
 // runs in Vitest without a browser. `parseSettings` is the trust boundary for whatever was stored.
-import { PRESETS, type Genre, type PresetId } from './presets'
+import type { BandSpec } from './bands'
+import type { Drum } from './drums'
+import { PRESETS, type Band, type Genre, type PresetId } from './presets'
 
 /** `id` is `u:` + 6 random hex chars: the band's binding source id, fixed for life (a rename only changes `name`). */
 export interface CustomBand { id: string; name: string; lo: number; hi: number; gain: number; gate: number; attack: number; release: number }
@@ -102,3 +104,18 @@ export function createSettings(kv: Kv, sampleRate = RATE) {
 
 /** The preset in force (design C4): a hand pick wins, else the detected genre while Auto is on, else Default. */
 export const activePreset = (s: AudioSettings, detected: Genre | null): PresetId => s.pick ?? (s.auto ? (detected ?? 'default') : 'default')
+
+/** The worklet config's band list for the preset in force: `sub`, `reese`, `wobble` first (the S2.4 contract —
+ *  features.ts reads bands 0–2 by position), then the user's bands. Pure: no `rev`, which app.ts grows per send. */
+export function workletBands(s: AudioSettings, detected: Genre | null): { drums: Record<Drum, Band>; bands: BandSpec[] } {
+  const b = PRESETS[activePreset(s, detected)].bands
+  return {
+    drums: { kick: b.kick, snare: b.snare, hats: b.hats },
+    bands: (['sub', 'reese', 'wobble'] as const).map((id): BandSpec => ({ id, lo: b[id][0], hi: b[id][1] })).concat(s.custom.map((c): BandSpec => ({ id: c.id, lo: c.lo, hi: c.hi }))),
+  }
+}
+
+/** The band list serialized (ids + Hz, drums too): sent to the worklet only when it really changed. */
+export function bandKey(b: { drums: Record<Drum, Band>; bands: BandSpec[] }): string {
+  return `${b.drums.kick} ${b.drums.snare} ${b.drums.hats} ${b.bands.map((x) => `${x.id}:${x.lo}-${x.hi}`).join(' ')}`
+}

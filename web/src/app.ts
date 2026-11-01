@@ -2,9 +2,9 @@
 // through React: the store hears about scene and lock changes, and gets the badge and the BPM at most 4×/s.
 import { createEnergy } from './audio/energy'
 import { createFeatures } from './audio/features'
-import { analyser, audioNow, ctx, hitQueue, odfQueue, onsetQueue, recDest } from './audio/input'
+import { analyser, audioNow, configure, ctx, featQueue, hitQueue, odfQueue, onsetQueue, recDest } from './audio/input'
 import { PRESETS } from './audio/presets'
-import { activePreset, createSettings } from './audio/settings'
+import { activePreset, bandKey, createSettings, workletBands } from './audio/settings'
 import { createSync, ZERO_SYNC } from './audio/sync'
 import { createTempoSource } from './audio/tempo'
 import { sources, type Sources } from './bind'
@@ -160,7 +160,22 @@ const src: Sources = {} // binding sources, refilled every frame
 const features = createFeatures() // kick/snare/hats envelopes from the worklet's hits (S1.4)
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
-if (DEBUG) Object.assign(window, { __src: src }) // ?debug: the live binding sources, for DevTools and browser checks
+if (DEBUG) Object.assign(window, { __src: src, __settings: settings }) // ?debug: the live binding sources and settings, for DevTools and browser checks
+
+/** S2.5: the worklet's config. Sent only when the band list (ids + Hz, drums too) really changed — a sens or auto
+ * toggle must not re-send, and a re-send restarts the drum detectors (analysis.ts). `rev` grows per send; the worklet
+ * ignores a `rev <= applied`. */
+let rev = 0
+let sent = ''
+function sendConfig() {
+  const b = workletBands(settings.get(), null)
+  const key = bandKey(b)
+  if (key === sent) return
+  sent = key
+  configure({ kind: 'config', rev: ++rev, drums: b.drums, bands: b.bands })
+}
+sendConfig() // start: the first config wakes the band bank (one drum restart blip, contract 3)
+settings.onChange(sendConfig) // custom-band edits and preset switches; sens/auto leave the key untouched
 const rest = { gain: 1, flash: 0 } // the post pass at rest: the frame as it is
 let last = 0
 let scale = 0 // the applied internal scale
@@ -204,6 +219,10 @@ function frame(now: number) {
     features.hit(h)
     if (DEBUG) hits[h.drum]++
   }
+  // S2.4: work the feat batches through every hop up to the heard time (a file's audioNow, line-in the newest) before
+  // fill() reads the sustained sources and the u:* bands.
+  for (const m of featQueue.splice(0)) features.push(m)
+  features.at(store.getSnapshot().source?.kind === 'file' ? f.audioNow : Infinity)
   // kick/snare/hats into src (sources() below fills the other keys). No detected genre until Auto-style (S4.3).
   features.fill(src, f.dt, settings.get(), PRESETS[activePreset(settings.get(), null)])
   const t = heard(f.audioNow)
@@ -255,7 +274,11 @@ function frame(now: number) {
       const o = offsets.slice().sort((a, b) => a - b)
       const med = o[o.length >> 1] ?? NaN
       const p95 = o[Math.floor(o.length * 0.95)] ?? NaN
-      store.patch({ debugSync: { med, p95, toConfident, confidence: f.sync.confidence, hits: { ...hits } } })
+      // ?debug meters: sub, reese, wobble and the u:* custom bands as fill() left them in src (rounded, so a quiet
+      // track does not churn the snapshot 4×/s).
+      const bands: Record<string, number> = {}
+      for (const id of ['sub', 'reese', 'wobble', ...settings.get().custom.map((b) => b.id)]) bands[id] = Math.round(src[id] * 1000) / 1000
+      store.patch({ debugSync: { med, p95, toConfident, confidence: f.sync.confidence, hits: { ...hits }, bands } })
     }
   }
 }

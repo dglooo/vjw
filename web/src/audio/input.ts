@@ -4,7 +4,7 @@ import { pickSaved, store, type UiSnapshot } from '../store'
 import type { Hit } from './drums'
 import { rms } from './energy'
 import type { Onset } from './onset'
-import type { WorkletMsg } from './onset.worklet'
+import type { WorkletIn, WorkletMsg } from './onset.worklet'
 import onsetWorklet from './onset.worklet.ts?worker&url' // bundled plain-JS chunk (plan S1.2, R5b)
 
 const SAVED_KEY = 'vjw.device'
@@ -22,18 +22,33 @@ hub.connect(recDelay).connect(recDest)
 export const onsetQueue: Onset[] = [] // (b) drained by app.ts each frame
 export const hitQueue: Hit[] = [] // kick/snare/hats, drained by app.ts like the onsets (S1.4)
 export const odfQueue: Extract<WorkletMsg, { kind: 'odf' }>[] = [] // (c) drained by app.ts each frame
+export const featQueue: Extract<WorkletMsg, { kind: 'feat' }>[] = [] // (b) worklet feat batches, drained by app.ts each frame
+
+let port: MessagePort | null = null // set when the worklet loads
+let pendingConfig: WorkletIn | null = null
+/** S2.5: the app's config → the worklet. The module loads in a promise, so a config sent before it is kept and
+ *  posted at .then(): only the latest one — the worklet's `rev <= applied` rule (analysis.ts) makes that safe. */
+export function configure(c: WorkletIn) {
+  if (port) port.postMessage(c)
+  else pendingConfig = c
+}
 
 // (ii) the onset worklet: hub → node, no outputs. addModule works on a suspended context, so it loads at import.
 ctx.audioWorklet.addModule(onsetWorklet).then(
   () => {
     const worklet = new AudioWorkletNode(ctx, 'onset', { numberOfOutputs: 0 })
+    if (pendingConfig) worklet.port.postMessage(pendingConfig)
+    port = worklet.port
     worklet.onprocessorerror = (e) => console.error('onset worklet', e)
     worklet.port.onmessage = ({ data }: MessageEvent<WorkletMsg>) => {
       if (data.kind === 'odf') {
         if (odfQueue.push(data) > ODF_KEEP) odfQueue.shift()
         return
       }
-      if (data.kind === 'feat') return // featQueue: S2.5 (nothing sends a config yet, so none arrive)
+      if (data.kind === 'feat') {
+        if (featQueue.push(data) > ODF_KEEP) featQueue.shift()
+        return
+      }
       if (data.kind === 'hit') {
         hitQueue.push(data) // a hit has t and strength too: without this it would type-check as an onset
         return
