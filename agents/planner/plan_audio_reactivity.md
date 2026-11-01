@@ -463,7 +463,7 @@ Invoke the `ponytail` skill (full) before writing code.
 
 ### CP6 — Sources tab + persistence
 
-### S6.1 [ ] Panel tabs + Sources meters (rAF -> CSS)
+### S6.1 [x] Panel tabs + Sources meters (rAF -> CSS)
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: header tabs Scene/Sources; Sources tab with Drums, Bass, Arrangement, Custom meter groups driven without React state.
 - Files: `web/src/ui/Panel.tsx` (tab switch only), `web/src/ui/SourcesTab.tsx` (new), `web/src/app.ts` (export per-frame `src`).

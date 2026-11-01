@@ -102,6 +102,18 @@ export function createSettings(kv: Kv, sampleRate = RATE) {
   }
 }
 
+/** The Sources tab's meter groups (S6.1), in order: the fixed ones, plus Custom only when there are bands. Pure: takes
+ * a settings snapshot, no store access. */
+export const meterGroups = (s: AudioSettings): { title: string; ids: string[] }[] => {
+  const g = [
+    { title: 'Drums', ids: ['kick', 'snare', 'hats'] },
+    { title: 'Bass', ids: ['sub', 'reese', 'wobble'] },
+    { title: 'Arrangement', ids: ['build', 'drop'] },
+  ]
+  if (s.custom.length) g.push({ title: 'Custom', ids: s.custom.map((b) => b.id) })
+  return g
+}
+
 /** The preset in force (design C4): a hand pick wins, else the detected genre while Auto is on, else Default. */
 export const activePreset = (s: AudioSettings, detected: Genre | null): PresetId => s.pick ?? (s.auto ? (detected ?? 'default') : 'default')
 

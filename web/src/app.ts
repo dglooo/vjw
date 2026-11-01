@@ -360,4 +360,4 @@ function frame(now: number) {
   }
 }
 requestAnimationFrame(frame)
-export { director } // ?bench drives the autopilot (bench.ts, plan S2.2)
+export { director, src, settings } // ?bench drives the autopilot (bench.ts); the Sources tab reads `src`/`settings` live (S6.1)
