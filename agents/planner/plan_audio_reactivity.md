@@ -381,7 +381,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - `restyle` reads a missing source as 0 (as `evaluate()` does), so a source that isn't filled yet (`reese` before S2.4) never gives NaN.
   - `render`'s `post` is `_post` with one `eslint-disable-next-line` until S5.2 uses it. `app.ts` passes `styled = src` and a module-level `rest = { gain: 1, flash: 0 }`, so behaviour is unchanged until S4.3, which owns the 2 s `w` ramp.
 
-### S4.3 [ ] Wire classifier -> active preset -> remap + `store.style`
+### S4.3 [x] Wire classifier -> active preset -> remap + `store.style`
 Invoke the `ponytail` skill (full) before writing code.
 - Goal: features -> `style.update` each frame; active preset by `activePreset`; `w` ramps 0->1 over 2 s on map change; K/H per beat from `sync` when confidence >=0.3; badge patch at 4x/s.
 - Files: `web/src/app.ts`, `web/src/store.ts`, `web/src/audio/style.ts` (adapter `styleIn(...)` pure helper + test in `style.test.ts`).

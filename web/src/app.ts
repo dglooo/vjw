@@ -7,7 +7,9 @@ import { PRESETS, snapOctave, type Band, type PresetId } from './audio/presets'
 import { activePreset, bandKey, createSettings, workletBands } from './audio/settings'
 import { createSync, ZERO_SYNC } from './audio/sync'
 import { createTempoSource } from './audio/tempo'
-import { sources, type Sources } from './bind'
+import { createStyle, styleIn, type StyleOut } from './audio/style'
+import { type Hit } from './audio/drums'
+import { createRemap, restyle, sources, type Sources } from './bind'
 import { createDirector } from './director'
 import type { FrameInput } from './frame'
 import { catalog, transitions } from './fx/catalog'
@@ -21,6 +23,8 @@ import { store } from './store'
 const QUALITY_KEY = 'vjw.quality'
 const STALE = 1 // s: older onsets are dropped on drain (a stalled or hidden tab)
 const BADGE_MS = 250 // the quality badge and the BPM update at most 4×/s
+const HIT_WINDOW_S = 8 // S4.3: the classifier's kick/hat counts span (design C4)
+const SILENCE = 0.02 // S4.3 knob: all three levels below this = silence → the classifier freezes
 const CONFIDENT = 0.6 // knob (Q4 default): (c) is trusted above this, for bar lines and the overlay's BPM alike
 const NUDGE_MS = 10 // `,` / `.`
 const DEBUG = location.search.includes('debug')
@@ -181,6 +185,13 @@ function sendConfig() {
 sendConfig() // start: the first config wakes the band bank (one drum restart blip, contract 3)
 settings.onChange(sendConfig) // custom-band edits and preset switches; sens/auto leave the key untouched
 const rest = { gain: 1, flash: 0 } // the post pass at rest: the frame as it is
+// S4.3: the classifier runs every frame; its pick drives the active preset, the tempo band and the Auto-style remap.
+const style = createStyle()
+let styleOut: StyleOut = { detected: null, scores: { dnb: 0, dubstep: 0, techno: 0 }, confidence: 0 } // before the first update: __style reads it
+const remap = createRemap() // the 2 s crossfade of the Auto-style map (design C5)
+const styledOut: Sources = {} // restyle's output, allocated once
+const hits8: Hit[] = [] // recent hits, newest last: the classifier's 8 s kick/hat counts
+if (DEBUG) Object.assign(window, { __styled: styledOut, __style: () => styleOut }) // ?debug: the styled overlay and detection (S4.3)
 let last = 0
 let scale = 0 // the applied internal scale
 let tick = 0
@@ -223,14 +234,32 @@ function frame(now: number) {
   for (const h of drain(hitQueue)) {
     features.hit(h)
     if (DEBUG) hits[h.drum]++
+    hits8.push(h) // S4.3: the classifier's 8 s kick/hat window (newest last)
   }
   // S2.4: work the feat batches through every hop up to the heard time (a file's audioNow, line-in the newest) before
   // fill() reads the sustained sources and the u:* bands.
   for (const m of featQueue.splice(0)) features.push(m)
   features.at(store.getSnapshot().source?.kind === 'file' ? f.audioNow : Infinity)
-  // kick/snare/hats into src (sources() below fills the other keys). No detected genre until Auto-style (S4.3).
+  // S4.3: the classifier runs every frame; its pick (or a manual pick) sets the active preset, which drives the tempo
+  // band (S3.2) and the band configs (features.fill). f.sync here is the previous frame's grid — fine for a smoothed score.
+  const st = settings.get()
+  const cutoff = f.audioNow - HIT_WINDOW_S
+  while (hits8.length && hits8[0].t <= cutoff) hits8.shift()
+  let kick8 = 0
+  let hat8 = 0
+  for (const h of hits8) if (h.drum === 'kick') kick8++; else if (h.drum === 'hats') hat8++
+  const eb = f.energy.bands
+  let total = 0
+  for (let i = 0; i < eb.length; i++) total += eb[i]
+  const [fdn, fdu, fte] = tempo.families([PRESETS.dnb.bpm!, PRESETS.dubstep.bpm!, PRESETS.techno.bpm!]) // the genres always have a band
+  const lvl = f.energy.level
+  // ponytail: silence-only freeze for now; the arrangement "sparse"-section freeze is S5.3's.
+  const freeze = lvl.bass < SILENCE && lvl.mid < SILENCE && lvl.treb < SILENCE
+  styleOut = style.update(styleIn({ kick8, hat8, bpm: f.sync.bpm, confidence: f.sync.confidence, wobble: features.raw.wobbleDepth, bass: total > 0 ? (features.raw.sub + features.raw.reese) / total : 0, families: { dnb: fdn, dubstep: fdu, techno: fte }, freeze }), now / 1000)
+  // A manual pick (incl. the ?preset= dev hook) locks the classifier; else Auto follows `detected`.
+  const active = activePreset(DEBUG_PRESET ? { ...st, pick: DEBUG_PRESET } : st, styleOut.detected)
   // S3.2: the active preset's band drives the tempo range; a change snaps the running grid one octave toward it.
-  const band = PRESETS[DEBUG_PRESET ?? activePreset(settings.get(), null)].bpm
+  const band = PRESETS[active].bpm
   if (band !== lastBand) {
     lastBand = band
     tempo.setRange(band)
@@ -241,7 +270,7 @@ function frame(now: number) {
       else if (snap === 'halve') sync.halve()
     }
   }
-  features.fill(src, f.dt, settings.get(), PRESETS[DEBUG_PRESET ?? activePreset(settings.get(), null)])
+  features.fill(src, f.dt, st, PRESETS[active])
   const t = heard(f.audioNow)
   const { beat: b0, bpm: bpm0 } = f.sync // last frame's grid, before this frame's onsets correct it
   for (const b of odfQueue.splice(0)) tempo.pushOdf(b.values, b.t0, b.hop)
@@ -271,7 +300,11 @@ function frame(now: number) {
   }
   fadingTo = shot.to
   if (!shot.to) prepare([shot.from, director.peek()]) // between fades: the next scene built, the others freed (E2)
-  render(shot, f, sources(f, src), src, rest) // styled = src (no Auto-style yet); sets f.width/height to the internal size
+  // S4.3: Auto-style. The built-ins' bindings are remapped through the active preset's map with a 2 s crossfade;
+  // Auto off (or Default) is a fade back to {} — their own sources.
+  const [rmFrom, rmTo, rmW] = remap.frame(st.auto ? PRESETS[active].map : {}, f.dt)
+  const styled = restyle(src, rmFrom, rmTo, rmW, styledOut)
+  render(shot, f, sources(f, src), styled, rest) // sets f.width/height to the internal size
   const id = shot.to ?? shot.from // the incoming scene as soon as a fade starts: the name shown, the scene edited
   const { doc, errors } = live(id)
   const snap = store.getSnapshot()
@@ -286,6 +319,7 @@ function frame(now: number) {
       quality: mode, scale, drops: governor.drops, bpm, confident: f.sync.confidence >= CONFIDENT,
       gpuMs: ms === undefined ? null : Math.round(ms * 10) / 10, // the panel's GPU hint
       nodeErrors: errors.join('\n') === prev.join('\n') ? prev : [...errors], // a new array only when they changed
+      style: { detected: styleOut.detected, confidence: styleOut.confidence }, // S4.3: the badge reads it at 4×/s
     })
     if (DEBUG) {
       const o = offsets.slice().sort((a, b) => a - b)

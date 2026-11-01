@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { PRESETS, type Genre } from './presets'
-import { createStyle, type StyleIn, type StyleOpts, type StyleOut } from './style'
+import { createStyle, styleIn, type StyleIn, type StyleOpts, type StyleOut } from './style'
 import { crossfade, GROOVES, rng, type Groove } from './synth'
 
 const GENRES = ['dnb', 'dubstep', 'techno'] as const satisfies readonly Genre[]
@@ -98,6 +98,31 @@ describe('genres on the fixtures (spec §4.3)', () => {
       expect(m.log.map(([, g]) => g), `groove ${va} → ${vb}`).toEqual([a, b])
       expect(m.log[1][0] - led, `groove ${va} → ${vb}`).toBeGreaterThanOrEqual(16)
     }
+  })
+})
+
+describe('styleIn: per-beat division and the 0.3 confidence gate (S4.3)', () => {
+  const base = { kick8: 16, hat8: 32, bpm: 120, confidence: 0.6, wobble: 0.3, bass: 0.7, families: per(() => 1), freeze: false }
+  test('counts per beat: 8 s of 120 BPM is 16 beats', () => {
+    const x = styleIn(base)
+    expect(x.kickPerBeat).toBeCloseTo(1, 12)
+    expect(x.hatsPerBeat).toBeCloseTo(2, 12)
+  })
+  test('null below confidence 0.3 (inclusive: 0.3 itself passes)', () => {
+    expect(styleIn({ ...base, confidence: 0.29 }).kickPerBeat).toBeNull()
+    expect(styleIn({ ...base, confidence: 0.29 }).hatsPerBeat).toBeNull()
+    expect(styleIn({ ...base, confidence: 0.3 }).kickPerBeat).toBeCloseTo(1, 12)
+  })
+  test('null while the bpm is not locked', () => {
+    expect(styleIn({ ...base, bpm: 0 }).kickPerBeat).toBeNull()
+    expect(styleIn({ ...base, bpm: 0 }).hatsPerBeat).toBeNull()
+  })
+  test('wobble, bass, families and freeze pass through', () => {
+    const x = styleIn({ ...base, freeze: true })
+    expect(x.wobble).toBe(0.3)
+    expect(x.bass).toBe(0.7)
+    expect(x.families).toBe(base.families)
+    expect(x.freeze).toBe(true)
   })
 })
 

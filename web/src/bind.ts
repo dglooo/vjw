@@ -51,6 +51,26 @@ export function restyle(s: Sources, from: Readonly<Record<string, string>>, to: 
   return out
 }
 
+/** The Auto-style 2 s crossfade (design C5, plan S4.3): holds `from`/`to` and `w`; a changed target restarts the ramp
+ *  0→1 at 1/2 per s (`w` is 1 at start, so the first target is already in place). App.ts calls this, then `restyle`. */
+export function createRemap() {
+  let from: Record<string, string> = {}
+  let to: Record<string, string> = {}
+  let w = 1
+  return {
+    /** Returns [from, to, w] for the frame. */
+    frame(target: Readonly<Record<string, string>>, dt: number): readonly [Record<string, string>, Record<string, string>, number] {
+      if (JSON.stringify(target) !== JSON.stringify(to)) {
+        from = to
+        to = target
+        w = 0
+      }
+      w = Math.min(1, w + dt / 2)
+      return [from, to, w]
+    },
+  }
+}
+
 /** The sources a scene reads (design C5): a built-in reads the styled overlay when there is one, any other scene `src`. */
 export const sourcesFor = (id: string, src: Sources, styled: Sources | null) => (styled && id.startsWith('builtin:') ? styled : src)
 
