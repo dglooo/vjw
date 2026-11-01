@@ -1,6 +1,8 @@
 // Hit sources (design C1): kick, snare and hats, each an envelope that jumps to 1 on a hit and decays by 1/e every τ.
 // Sustained sources (plan S2.4, Variant B): sub, reese, wobble and wobbleDepth from the worklet's `feat` frames, worked
 // out per hop in at(), so they don't depend on the frame rate. Each is a ratio to a running average: level independent.
+// Custom bands u:<id> (plan S2.5): the band's e2 × gain, zeroed in the kick-gate gaps, one-poled at hop rate with the
+// user's attack/release. The level, not a ratio to an average: the band filter's own response is the value.
 // Pure, main thread: app.ts drains the worklet's hits (the T1 rule) into hit(), its `feat` batches into push(), then
 // calls at(heard time) and fill()s `src` every frame.
 import type { Sources } from '../bind'
@@ -45,6 +47,9 @@ export function createFeatures() {
   let gated = false // the reese band's gate on the last hop
   let g = 0 // the wobble band's level
   const rel = { sub: relative(), reese: relative(), wobble: relative() }
+  const uE2: number[] = [] // per band slot (3 + i): the latest gated e2, the kick latch (held ≠ e2) zeroing it
+  const uY = new Map<string, number>() // per band id: the one-pole level
+  let uIds: string[] = [] // the u:* ids the last fill wrote, so a removed band reads 0, not a stale value
   const v: Record<(typeof SUSTAINED)[number], number> = { sub: 0, reese: 0, wobble: 0, wobbleDepth: 0 } // before sens
   /** For the classifier and the arrangement: sub and reese are the kick-gated band levels (linear, not normalised);
    *  wobbleDepth is the source before sens and the 0..1 cap. */
@@ -66,6 +71,11 @@ export function createFeatures() {
     v.wobble = Math.max(0, d)
     raw.wobbleDepth += (Math.abs(d) - raw.wobbleDepth) * (1 - Math.exp(-dt / DEPTH))
     v.wobbleDepth = raw.wobbleDepth
+    // Custom bands: the gated e2 (the kick latch, held ≠ e2, reads 0 in the gap). Slot 3 + j is the j-th custom band.
+    for (let j = 0; j + 3 < x.length / (2 * FEAT_HOPS); j++) {
+      const k = i + 2 * (3 + j)
+      uE2[j] = x[k] === x[k + 1] ? x[k] : 0
+    }
   }
 
   return {
@@ -99,6 +109,22 @@ export function createFeatures() {
         age[d] += dt
       }
       for (const id of SUSTAINED) out[id] = Math.min(1, sens(s, p, id) * v[id])
+      // u:* — e2 × gain through a dt one-pole (bind.ts's evaluate() shape: attack up, release down, 0 = instant).
+      // A renamed band keeps its id; a removed one drops from the settings and reads 0 here.
+      for (const id of uIds)
+        if (!s.custom.some((b) => b.id === id)) {
+          out[id] = 0 // a removed band reads 0 (evaluate() would hold the stale value, as the key stays in out)
+          uY.delete(id)
+        }
+      uIds = s.custom.map((b) => b.id)
+      s.custom.forEach((b, j) => {
+        const y = (uE2[j] ?? 0) * b.gain
+        const l = uY.get(b.id) ?? 0
+        const tau = y > l ? b.attack : b.release
+        const n = l + (y - l) * (tau > 0 ? 1 - Math.exp(-dt / tau) : 1)
+        uY.set(b.id, n)
+        out[b.id] = Math.min(1, sens(s, p, b.id) * n)
+      })
     },
   }
 }
