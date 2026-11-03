@@ -1,7 +1,8 @@
 // Spectrum: the 32 bands as 64 mirrored bars (bass in the middle) standing on a floor line, eased per bar, with bloom
 // and a reflection on a dark glossy floor. Onsets brighten the bars and the floor line, and so does the (c) beat.
 import { bindFramebufferInfo, setUniforms } from 'twgl.js'
-import { BAND_COUNT, easeBars } from '../audio/energy'
+import { BAND_COUNT, bandEdges, easeBars } from '../audio/energy'
+import { analyser, ctx } from '../audio/input'
 import { pulse } from '../audio/sync'
 import type { Input } from '../fx/types'
 import { createBloom } from '../gl/bloom'
@@ -81,6 +82,25 @@ void main() {
   outColor = vec4(1.0 - exp(-c * uExposure), 1.0);
 }`
 
+/** Low bands narrower than a bin read the same bins as the band below (`bandEdges`), so they would move in lockstep:
+ * a staircase. Each such band goes on the straight line from its group's first band to the next band with bins of its
+ * own. Built once; the returned function smooths `goal` in place, O(bands), no allocation. */
+export function rampShared(edges: ReturnType<typeof bandEdges>) {
+  const ramps: number[] = [] // flat [band, from, to] triples
+  for (let a = 0; a < edges.length; ) {
+    let n = a + 1
+    while (n < edges.length && edges[n][0] === edges[a][0] && edges[n][1] === edges[a][1]) n++
+    if (n < edges.length) for (let i = a + 1; i < n; i++) ramps.push(i, a, n)
+    a = n
+  }
+  return (goal: Float32Array) => {
+    for (let k = 0; k < ramps.length; k += 3) {
+      const i = ramps[k], a = ramps[k + 1], n = ramps[k + 2]
+      goal[i] = goal[a] + ((goal[n] - goal[a]) * (i - a)) / (n - a)
+    }
+  }
+}
+
 export const spectrum: NativeDef = {
   id: 'native/spectrum', name: 'Spectrum', kind: 'generator', credit: 'VeeJay Wizard', inputs,
   create(gl) {
@@ -90,12 +110,14 @@ export const spectrum: NativeDef = {
     const target = renderTarget(true)
     const goal = new Float32Array(BAND_COUNT)
     const h = new Float32Array(BAND_COUNT)
+    const ramp = rampShared(bandEdges(ctx.sampleRate, analyser.fftSize)) // the bins the energy bands read (app.ts)
     return {
       draw(f, v) {
         for (let i = 0; i < BAND_COUNT; i++) {
           const db = 20 * Math.log10(f.energy.bands[i] + 1e-9) + TILT * i
           goal[i] = Math.min(1, Math.max(0, (db - DB_LO) / (DB_HI - DB_LO)))
         }
+        ramp(goal)
         const k = f.dt * 60 // rates are per 60 Hz frame
         easeBars(h, goal, 1 - (1 - ATTACK) ** k, 1 - (1 - RELEASE) ** k)
         const o = f.lastOnset // age clamped at 0 for line-in, as in the tunnel
