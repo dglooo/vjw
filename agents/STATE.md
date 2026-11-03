@@ -10,10 +10,12 @@
 
 ### Running now
 - ▶ coder (Tier 1): `AudioContext.playbackStats.underrunEvents` in `?debug` + `?bench`, plus the §4.7 60A measurement under real audio (harness `scratchpad/s8-underrun60a.mjs`).
-- ▶ researcher: `agents/research/research_butterchurn_integration.md` (MilkDrop epic, Tier 3 step 1).
+- ✅ researcher → `research_butterchurn_integration.md` (151 lines): no Butterchurn release since 10-27 (2.6.7 / 3.0.0-beta.5, WebGL2-only); own context only → per-frame copy into `#stage` (Chromium GPU→GPU, M4 cost unmeasured); feed via the exported `analyser`; presets see only bass/mid/treb(+att), no public API for our sources; shader presets only in `butterchurn-presets` 2.4.7 / 3.0-beta (baron/Ansorre have none).
+- ▶ system-designer (Opus max): `agents/system-designer/design_milkdrop.md` → then the **USER GATE**.
 - ✅ researcher → `_adhoc/effects_polish_2026-11-03.md`: §7 overlay keys S (`E` opens an invisible panel), §3 strobe S (NOT under the `postFor` WCAG cap; >3/s above 180 BPM; `own/flash` uncapped too), §6 steppy bars = low bands share FFT bins at 1024 (spectrum-local fix S), §5 structural edit = local to `live.ts`, Tier 2 M, §1/§2 S (taste), §4 no code limit, perf cause unknown (L).
 - ▶ planner (Fable): `agents/planner/plan_live_rebuild.md` for §5 (keep surviving nodes + clocks across a structural edit).
 - ⏰ heartbeat cron every ~20 min until 20:47, wrap-up at 21:12 (session-only).
+- 🛑 ~19:0x all three agents hit the **5-hour usage limit** (reset 20:10). Work saved (coder WIP `5ab8ab5`: underrun read in `?debug`/`?bench`; Butterchurn research 15 KB on disk; planner had not written yet). 20:15 resumed all three via SendMessage. Ops lesson: three Opus/Fable-max agents in parallel burn the 5-h window in ~1.5 h; keep parallel runs to coder + one researcher.
 
 ### Queue (lead order)
 1. Merge the underrun step; correct the §4.7 row in the plan's CP7 closeout with its numbers.
