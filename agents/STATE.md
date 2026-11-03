@@ -13,7 +13,9 @@
 - ⚠️ Gates under machine load (load ~8.6, Docker VM): vitest 314–315/316, 5 s timeouts in `acceptance.test.ts` §4.5 and `post.test.ts` caps — identical on unchanged master; the files pass alone. Queue a Tier-1: explicit timeouts on the heavy tests.
 - ✅ **planner (Fable) → `agents/planner/plan_live_rebuild.md`** (§5, Tier 2): 1 step S1.1 in `gl/live.ts` only — per-op in-place mirror (`addFx`/`removeFx`/`addLayer`/`removeLayer`/`setBlend`) replaces `rebuild()`; survivors keep node, `u` (smoothing), targets, clocks; per-node FRAMEINDEX counter; no new Vitest (GL; mapping already pinned by `edit.test.ts:56-84`); 4 browser checks incl. GPU-memory leak after 10× add+remove. Drift: `design_effects.md:234` still says "call live.rebuild()".
 - ✅ **system-designer (Opus max, ~110 min incl. the limit pause) → `design_milkdrop.md`:** **A** (rec., M) each preset = catalog native `milk/<slug>` in a one-layer built-in `builtin:milk-<slug>`, pool of 2 visualizers (own OffscreenCanvas contexts), per-frame `texSubImage2D(internalCanvas)` GPU→GPU copy; ~6 app lines + optional `NativeDef.warm?()` / **B** (M) whole-frame deck `milk:<slug>`, MilkDrop's own morphs, no fx on presets, milk→milk compiles inside fades / **C** (L) A in a Worker, +1 frame. Common: `butterchurn@3.0.0-beta.5` exact pin (MIT), presets copied from `butterchurn-presets@3.0.0-beta.4` with credit fields, feed via `render({audioLevels})` from our `analyser`, `pixelRatio: 1`. **Plan step 1 in every variant = `?bench&milk` M4 probe, kill criteria K1 copy / K2 5 ms per preset / K3 load hitch / K4 JS < 9 ms.** Gaps G1–G3 covered by install + probe (no researcher).
-- **Exact next step:** 🛑 **USER GATE** — Q1 A/B/C (rec. A), Q2 our detectors into presets via unofficial hook (default no), Q3 curation (default: we pick ~25, user unstars), Q4 autopilot mix (default: spread evenly). After the pick → planner (Fable). Coder queue (one at a time): test timeouts (Tier 1) → §7 → §3 → §6 → §5 S1.1 (`plan_live_rebuild.md`) → §1 → §2.
+- ✅ **USER GATE passed (user, 2026-11-03): MilkDrop Variant A** (`design_milkdrop.md` § Variant A + § Common C1–C5). Q2 **no** detector hook into presets (later maybe). Q3 **we pick ~25** that pass the probe, all starred; the user unstars. Q4 autopilot mix **spread evenly** (`spread()`).
+- ▶ planner (Fable max) → `agents/planner/plan_milkdrop.md`.
+- **Exact next step:** review the plan, log, then coders one at a time (MilkDrop step 1 = the `?bench&milk` probe, run on the M4). Effects-polish coder queue (one at a time): test timeouts (Tier 1) → §7 → §3 → §6 → §5 S1.1 (`plan_live_rebuild.md`) → §1 → §2.
 - Ops lesson (2026-11-03 ~19:0x): three Opus/Fable-max agents in parallel hit the 5-hour usage limit in ~1.5 h; keep parallel runs to coder + one researcher.
 
 ### Queue (lead order)
@@ -42,7 +44,7 @@
 - Session 2 (/grill-me): browser pilot, Chrome-first, localhost; Vite + React + TS; Electron later. Minimal auto-hiding overlay, REC via MediaRecorder, quality modes 60A / 60F / 30. After the pilot: editor → camera → clip mixer.
 - Session 3: any dependency license; line-in only (rekordbox, sometimes Pioneer USB), MIDI/Link later; Butterchurn moved to the next step; analysis = energy, onsets, tempo+phase.
 - 2026-10-28: effects Variant A; audio-reactivity Variant B (worklet IIR bank + fast/slow envelopes).
-- 2026-10-31: one coder at a time. 2026-11-01: fully autonomous runs (the lead halts only on hard blockers). 2026-11-03: team models above.
+- 2026-10-31: one coder at a time. 2026-11-01: fully autonomous runs (the lead halts only on hard blockers). 2026-11-03: team models above; MilkDrop Variant A, no detector hook, we curate ~25, spread evenly.
 
 ### Open ⚠️ assumptions
 Tracked in `design_pilot.md` § "Spec §8 and STATE ⚠️ ledger".
