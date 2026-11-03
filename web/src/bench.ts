@@ -6,7 +6,7 @@
 // the governor step the scale down. Lines also go to a <pre>.
 import { bindFramebufferInfo } from 'twgl.js'
 import { director } from './app'
-import { underruns } from './audio/input'
+import { ctx, underruns } from './audio/input'
 import { catalog, transitions } from './fx/catalog'
 import { parseIsf } from './fx/isf'
 import type { ShaderDef } from './fx/types'
@@ -75,6 +75,7 @@ async function run() {
   print(`timer query: ${has('EXT_disjoint_timer_query_webgl2')} · KHR_parallel_shader_compile: ${has('KHR_parallel_shader_compile')}`)
   while (store.getSnapshot().needsStart) await sleep(100)
   print(`audio underrunEvents at start: ${underruns() ?? 'n/a'}`)
+  if (location.search.includes('milk')) return milk()
 
   // G1: the catalog's shader programs. Natives build theirs inside create(), outside the catalog.
   const compileMs = new Map<string, number>()
@@ -219,6 +220,56 @@ async function sweep() {
   }
   print(`sweep: ${rows.length} files, ${ok.length} compile OK (${stats(ok.map((r) => r.ms))})`)
   print(`sweep OK / usable by kind/category: ${Object.entries(tally).map(([k, [a, b]]) => `${k} ${a}/${b}`).join(', ')}`)
+}
+
+// ?bench&milk (plan_milkdrop S1.1): Butterchurn boots on a detached bitmaprenderer canvas, whose getContext('2d') is
+// null, so Butterchurn skips its drawImage copy and the frame stays in the undocumented internalCanvas (G2). Then every
+// shader-bearing candidate is loaded and rendered once on silence (G3). The dist never checks a shader's compile status,
+// so a broken warp/comp throws nothing: the GL error flag after that render is its own line.
+async function milk() {
+  const { default: butterchurn } = await import('butterchurn')
+  // Two file names hold '#', a URL fragment in an import specifier; neither has a shader, so no candidate is dropped.
+  const files = import.meta.glob<{ warp: string; comp: string }>(
+    ['/node_modules/butterchurn-presets/presets/converted/*.json', '!/node_modules/butterchurn-presets/presets/converted/*#*'],
+    { import: 'default', exhaustive: true },
+  )
+  const canvas = document.createElement('canvas')
+  canvas.getContext('bitmaprenderer')
+  const t0 = performance.now()
+  const v = butterchurn.createVisualizer(ctx, canvas, { width: temps[0].width, height: temps[0].height, pixelRatio: 1, textureRatio: 1 })
+  const createdMs = performance.now() - t0
+  const boot = {
+    internalCanvas: v.internalCanvas instanceof OffscreenCanvas,
+    nullCtx2d: canvas.getContext('2d') === null,
+    createdMs,
+    candidates: 0,
+    loadErrors: [] as string[],
+    glErrors: [] as string[],
+  }
+  Object.assign(bench, { milk: { boot } })
+  print(`boot: internalCanvas ${boot.internalCanvas ? 'yes' : 'no'}, 2d null ${boot.nullCtx2d ? 'yes' : 'no'}, created ${fmt(createdMs)} ms`)
+
+  const g = v.internalCanvas.getContext('webgl2')! // Butterchurn's own context: a second getContext returns it
+  const silence = new Uint8Array(1024).fill(128)
+  const audioLevels = { timeByteArray: silence, timeByteArrayL: silence, timeByteArrayR: silence }
+  for (const [path, load] of Object.entries(files)) {
+    const preset = await load()
+    if (!preset.warp && !preset.comp) continue
+    boot.candidates++
+    const name = path.slice(path.lastIndexOf('/') + 1, -'.json'.length)
+    while (g.getError()); // drain, so a flag read below is this preset's
+    try {
+      await v.loadPreset(preset, 0)
+      v.render({ audioLevels, elapsedTime: 1 / 60 })
+      const e = g.getError()
+      if (e) boot.glErrors.push(`${name} (0x${e.toString(16)})`)
+    } catch (e) {
+      boot.loadErrors.push(`${name} (${String(e).split('\n')[0]})`)
+    }
+  }
+  const list = (xs: string[]) => xs.map((s) => `\n  ${s}`).join('')
+  print(`load errors ${boot.loadErrors.length}/${boot.candidates}${list(boot.loadErrors)}`)
+  print(`gl errors ${boot.glErrors.length}/${boot.candidates}${list(boot.glErrors)}`)
 }
 
 void run()
