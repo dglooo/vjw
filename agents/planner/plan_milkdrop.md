@@ -71,7 +71,7 @@ Invoke the `ponytail` skill (full) before writing code.
 **Vitest:** none (GL/Butterchurn; a `.d.ts` has no logic). **Done-check:** gates green; `?bench&milk` prints `boot:` with both `yes` and the load-error count (a non-zero list is a result, not a failure). **Deps:** `butterchurn` 3.0.0-beta.5 MIT (runtime); `butterchurn-presets` 3.0.0-beta.4 MIT packaging, preset content unknown (dev). **Donor:** none. **Dependencies:** none.
 **Changed during implementation:** (1) The installed package has **410** candidates by this step's rule (372 warp+comp, 23 warp-only, 15 comp-only); research's 395 counts a non-empty `warp` alone. The denominator is computed. (2) The dist never checks a shader's compile/link status, so try/catch only sees EEL/WASM errors. A second line `gl errors m/N` reads Butterchurn's GL error flag after the render (`internalCanvas.getContext('webgl2')` returns its own context; drained before each preset). M4 run: `load errors 1/410`, `gl errors 22/410` (0x502, "program not linked"). `boot` = `{ internalCanvas, nullCtx2d, createdMs, candidates, loadErrors, glErrors }`. (3) Candidates come from a lazy `import.meta.glob` over `presets/converted/*.json` with `exhaustive: true` (Vite skips `node_modules` otherwise), minus the two `#` file names (a fragment in an import specifier; neither has a shader). `dist/all.js` is lossy (472 keys, 33 of the 504 files missing). `butterchurn` is a dynamic import inside `milk()`, so plain `?bench` never loads it. `npm run build` now emits ~502 small preset chunks, fetched only under `?bench&milk`.
 
-### S1.2 `[ ]` The measurements K1–K4 and the verdict
+### S1.2 `[x]` The measurements K1–K4 and the verdict
 Invoke the `ponytail` skill (full) before writing code.
 **Goal:** the numbers behind the K table, printed as `K1..K4: pass|fail`.
 **Files:** `web/src/bench.ts` (`milk()`), `web/src/quality.ts` + `web/src/quality.test.ts` (`jsMs`), `web/src/app.ts:58` (`export const governor`, one word, as `director` is exported).
@@ -82,6 +82,14 @@ Invoke the `ponytail` skill (full) before writing code.
 4. 60 s run (K3, K4): `director.setPlaylist` of the starred built-ins (`BUILTIN.filter((d) => d.star)`), `setHold(false)`; every frame `render()` + copy (a) of the current preset on A. When `store.getSnapshot().sceneName` changes (app.ts:337 sets it as a fade starts), wait out the fade (2 s in silence, :20-21), load the next k2-passing preset on B (emulates prepare-ahead, app.ts:321), swap A/B. Print per switch: the `drops` delta (one late frame at a load = K3 fail). At the end: `governor.jsMs` (the app's JS median), the probe's own per-frame ms median, and their sum = "JS with MilkDrop". K4 fails at sum ≥ 9 ms (repeat once with mesh 32×24; still ≥ 9 → Variant C).
 5. `window.__bench.milk = { boot, copy, presets, run, verdict }`; `console.table(presets)`; the four verdict lines last.
 **Vitest:** `quality.test.ts` (the `jsMs` test). **Done-check:** gates green; the lead runs `?bench&milk` headed with `--mute-audio` at 60A on the M4 (no file needed), reads `window.__bench.milk`, then the CP1 hard stop. **Dependencies:** S1.1. **New deps:** none.
+**Changed during implementation:**
+1. S1.1's load pass is folded into the K2 pass. One loop over the candidates finds the load and GL errors and times `cold` on A's first load of each preset. A separate S1.1 pass first would have made every `cold` a second load, served from Chrome's program cache. Errored presets get `loadErr` (`GL error 0x502` or the exception) and skip their frames and the warm load. `boot` keeps its fields, and its `load errors` / `gl errors` lines now print after the per-preset lines.
+2. Late frames come from `governor.drops`, read one frame after each load. It is the same counter the store copies 4×/s, without the lag.
+3. The repeats are URL params, not automatic re-runs. `&res=0.75&mesh` repeats K2 and `&mesh` (32×24) repeats K4, and a failing verdict line names its re-run. `&n=N` limits the probe to the first N candidates.
+4. Copy rows also carry `glError`, and a path with a GL error cannot pass K1.
+5. Path (c)'s main-thread ms is Butterchurn's own `drawImage` (timed by wrapping its 2D context's `drawImage`) plus the upload and flip. Its GPU side runs on the 2D canvas's context, so no timer of ours sees it.
+6. The app holds its scene (`setHold(true)`) from the probe's start until the 60 s run.
+7. `cold` and `warm` are wall ms. `loadPreset` awaits a WASM compile, so a frame may run inside the window.
 
 ### S2.1 `[ ]` `presets.ts` (pure), its test, the copy script, 3 provisional presets
 Invoke the `ponytail` skill (full) before writing code.
