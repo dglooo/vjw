@@ -55,14 +55,18 @@ export const milkdrop: readonly NativeDef[] = PRESETS.map((p): NativeDef => ({
   create() {
     const v = free.pop() ?? make()
     let ready = false
+    let settled = false
     // Black until the preset has loaded and rendered once: that throwaway render links its programs off screen.
-    const loading = v.loadPreset(p.preset, 0).then(
-      () => {
-        v.render({ audioLevels, elapsedTime: 1 / 60 })
-        ready = true
-      },
-      (e) => console.error(`milk/${p.slug}: ${e}`),
-    )
+    const loading = v
+      .loadPreset(p.preset, 0)
+      .then(
+        () => {
+          v.render({ audioLevels, elapsedTime: 1 / 60 })
+          ready = true
+        },
+        (e) => console.error(`milk/${p.slug}: ${e}`),
+      )
+      .finally(() => (settled = true))
     return {
       draw(f) {
         if (!ready) {
@@ -75,8 +79,11 @@ export const milkdrop: readonly NativeDef[] = PRESETS.map((p): NativeDef => ({
         v.render({ audioLevels, elapsedTime: f.dt }) // its unit, G10
         copy(v.internalCanvas, f.width, f.height)
       },
+      // Back at once when its load has settled: prepare() and rebuild() build right after they dispose (live.ts:309-310,
+      // 412-419), and that build takes this visualizer instead of making one more. Never mid-load: two loads would race.
       dispose() {
-        loading.finally(() => free.push(v))
+        if (settled) free.push(v)
+        else loading.then(() => free.push(v))
       },
     }
   },
