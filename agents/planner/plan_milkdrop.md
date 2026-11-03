@@ -92,7 +92,7 @@ Invoke the `ponytail` skill (full) before writing code.
 7. `cold` and `warm` are wall ms. `loadPreset` awaits a WASM compile, so a frame may run inside the window.
 **Design ruling (2026-11-04, design_milkdrop.md § Probe ruling):** K1/K2 as built time a cross-context wait. K1 → 0 late frames over the 60 s run at full size, 1.00× at the end, copy main-thread p95 ≤ 0.5 ms: pass (0 of 3600; 0.10 ms). K2 → Butterchurn's own `gpuP95` ≤ 5 ms, ≥ 20: pass (264/387). K3, K4 pass. **CP1: go.** The printed K1/K2 lines and the `k2` flag are void.
 
-### S2.1 `[ ]` `presets.ts` (pure), its test, the copy script, 3 provisional presets
+### S2.1 `[x]` `presets.ts` (pure), its test, the copy script, 3 provisional presets
 Invoke the `ponytail` skill (full) before writing code.
 **Goal:** preset files become `PRESETS`, `MILK_SCENES` and the `spread()` order, with no GL import.
 **Files:** `web/scripts/milk-presets.mjs`, `web/src/milkdrop/presets.ts`, `web/src/milkdrop/presets.test.ts`; generated: `web/src/milkdrop/presets/<slug>.json` × 3 (the lead names 3 presets from the S1.2 rows that pass S3.1's pick rule, two of them with the highest `gpuP95`, for the CP2 worst-case run).
@@ -101,6 +101,7 @@ Invoke the `ponytail` skill (full) before writing code.
 2. `presets.ts`: `import.meta.glob('./presets/*.json', { eager: true, import: 'default' })` (the `catalog.ts:12` pattern) → a small guard (five fields, strings + object; a bad file is `console.error`ed and skipped as `catalog.ts:17-21`) → `PRESETS` sorted by slug; `MILK_SCENES` per the CP2 contract (`name` = the file's `name`); `spread(own, milk)`: rank `own[i]` at `i / own.length`, `milk[j]` at `(j + 1) / (milk.length + 1)`, stable merge by rank, ties own first.
 **Vitest** (`presets.test.ts`): every file has non-empty `name/author/url/license` and a `preset` with a non-empty `warp` or `comp`; slugs unique and `/^[a-z0-9-]+$/`; every `MILK_SCENES` doc round-trips `parseScene(JSON.parse(JSON.stringify(d)))` (as `doc.test.ts:15`) with id `builtin:milk-<slug>`, `star` true, one layer, gen `milk/<slug>`, `fx: []`; `spread`: `spread(own, [])` is `own`, `spread([], milk)` is `milk`, length = sum, `[0]` is `own[0]`, each input is a subsequence of the output, `spread([1, 2, 3, 4], ['m'])` is `[1, 2, 3, 'm', 4]`, 27 own + 25 milk never has three in a row from one list; `PRESETS.length > 0`.
 **Done-check:** gates green; `node scripts/milk-presets.mjs "<name>"` reproduces a file byte for byte. **Dependencies:** S1.2 (CP1 passed). **New deps:** none.
+**Changed during implementation:** (1) `node_modules/butterchurn-presets/package.json` (3.0.0-beta.4) has no `repository` field, only `homepage: https://butterchurnviz.com`. So `url` is the constant `https://github.com/jberg/butterchurn-presets`, the repo `research_donor_milkdrop.md` §5 cites, and the script no longer reads package.json. (2) The test also checks that `PRESETS.length` equals the number of `presets/*.json` files, so a file the guard skips fails "every file" instead of dropping out silently. Files are written with `JSON.stringify(…, null, 2)` plus a newline, and the `preset` deep-equals its source.
 
 ### S2.2 `[ ]` `native.ts`: pool, audio bytes, copy, resize; the catalog line
 Invoke the `ponytail` skill (full) before writing code.
