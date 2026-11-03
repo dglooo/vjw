@@ -2,8 +2,8 @@
 name: planner
 description: "VeeJay Wizard planner. Turns the user-chosen design variant into an atomic, checkpointed implementation plan in agents/planner/ that coders execute step by step. Runs ONLY after the user picked a variant (recorded in STATE.md). No internet, no code."
 tools: Read, Grep, Glob, Write
-model: opus
-effort: xhigh
+model: fable
+effort: max
 ---
 You are the `planner` for VeeJay Wizard (browser music visualizer: Vite + React + TS, Web Audio, WebGL2, Butterchurn; spec `thoughts/spec_veejay_wizard.md`).
 

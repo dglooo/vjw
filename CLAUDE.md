@@ -76,27 +76,23 @@ Definitions live in `.claude/agents/<name>.md`. Dispatch with `subagent_type: "<
 
 | Agent              | Purpose                                                      | Internet | Donor scan | Model  | Effort |
 |--------------------|--------------------------------------------------------------|----------|------------|--------|--------|
-| `researcher`       | Scan thoughts/, donor/, codebase, web. Record facts.         | ✅       | ✅         | Qwen   | medium |
-| `system-designer`  | 2–3 architecture variants + Mermaid diagrams.                | ✅       | reads      | Qwen   | medium |
-| `planner`          | Atomic step-by-step plan for the chosen variant.             | ❌       | reads      | Qwen   | medium |
-| `frontend-coder`   | Implement web steps (React/TS, WebGL2, Web Audio, Butterchurn, Vitest). **Primary coder.** | ✅ docs | reads | Qwen | medium |
-| `backend-coder`    | 💤 **Dormant** — no server in the pilot (spec §3). Definition is written when a server or Electron main-process work appears. | ✅ docs | reads | Qwen | medium |
-| `tester`           | Tests + test report. **On explicit USER REQUEST only.**      | ❌       | reads      | Qwen   | low    |
-| `security-auditor` | On-demand audit (deps + licenses, permissions, dev headers, later Electron). | ✅ | reads | Qwen | medium |
+| `researcher`       | Scan thoughts/, donor/, codebase, web. Record facts.         | ✅       | ✅         | Opus 5.5  | high  |
+| `system-designer`  | 2–3 architecture variants + Mermaid diagrams.                | ✅       | reads      | Opus 5.5  | max   |
+| `planner`          | Atomic step-by-step plan for the chosen variant.             | ❌       | reads      | Fable 5.1 | max   |
+| `frontend-coder`   | Implement web steps (React/TS, WebGL2, Web Audio, Butterchurn, Vitest). **Primary coder.** | ✅ docs | reads | Opus 5.5 | max |
+| `backend-coder`    | 💤 **Dormant** — no server in the pilot (spec §3). Definition is written when a server or Electron main-process work appears. | ✅ docs | reads | Opus 5.5 | max |
+| `tester`           | Tests + test report. **On explicit USER REQUEST only.**      | ❌       | reads      | Opus 5.5  | max   |
+| `security-auditor` | On-demand audit (deps + licenses, permissions, dev headers, later Electron). | ✅ | reads | Opus 5.5 | max |
 
-<!-- User decision 2026-11-01: all agents on Qwen — medium effort where a strong model was required (everything on Opus 5.5), low where a small one (Haiku 5.5). Before the switch: researcher Opus 5.5 / —, system-designer Opus 5.5 / xhigh, planner Opus 5.5 / xhigh, frontend-coder Opus 5.5 / max, backend-coder Opus 5.5 / max, tester Haiku 5.5 / —, security-auditor Opus 5.5 / xhigh. -->
+<!-- 2026-11-01..11-03 the team ran on Qwen (medium/low) as a trial; user decision 2026-11-03: back to Anthropic models as above. -->
 
 **Frontend is the primary craft here.** Any task touching the web app — components, render loop, audio graph, shaders, styling, Vitest specs — goes to `frontend-coder`. `backend-coder` only exists for a server component the spec introduces. The two never cross: `frontend-coder` never writes server code, `backend-coder` never touches the web app. The frozen contract at a CP boundary is the hand-off point.
 
 **Tester and security-auditor run ONLY on explicit user request** — never auto-dispatched after a coder. Default flow: coders write tests alongside their code (plan steps mandate it) and the lead runs the gates.
 
-**Model roster (team standing policy, adjustable for this project).** Default is **Qwen**: `medium` effort for `researcher`, `system-designer`, `planner`, coders, `security-auditor`; `low` for `tester`. **Planner briefs: exact line ranges to read + incremental writes (≤5 KB per call)** — big single responses time out.
+**Model roster (user decision 2026-11-03).** `planner` runs on **Fable 5.1** (`model: fable`, id `claude-fable-5-1`) at max. Everyone else runs on **Opus 5.5** (`model: opus`, id `claude-opus-5-5`) at max, except `researcher` at high. The definitions carry model and effort, so a dispatch passes no `effort` override. **Planner briefs: exact line ranges to read + incremental writes (≤5 KB per call)**: Fable planner runs on 2026-10-29 stalled in API timeouts on big single responses.
 
-<!-- User decision 2026-11-01: everything on Qwen (medium where strong models were required, low where small ones — see the table comment). Before the switch: Default was **Opus 5.5** (`model: opus`, id `claude-opus-5-5`): `researcher`, `system-designer` (xhigh), coders (max). User decision 2026-10-31: **`planner` and `security-auditor` run on Opus 5.5 at xhigh** (downgraded from Fable 5.1: Fable planner runs on 2026-10-29 stalled in API timeouts). **`tester` runs on Haiku 5.5**. **Sonnet 5.5** for Tier-1 micro-tasks (one-file tweaks, small UI polish). **Haiku 5.5** for trivial one-liners (stale-test flips, closeout bookkeeping). Rationale: coders execute pre-chewed atomic steps, so they don't need to run hot. The thinking lives in `planner`/`system-designer`, and design/planning do need to. -->
-
-**🔒 A session-wide token-economy instruction NEVER changes `system-designer` (Qwen, medium) or `planner` (Qwen, medium).** "This run, everything low" applies to **coders and researchers only** unless the user names design/planning explicitly. Design and planning are where the architectural catches come from.
-
-<!-- Before the 2026-11-01 Qwen switch this line read: **🔒 A session-wide token-economy instruction NEVER changes `system-designer` (Opus 5.5, xhigh) or `planner` (Opus 5.5, xhigh).** "This run, everything on Sonnet" applies to **coders and researchers only** unless the user names design/planning explicitly. -->
+**🔒 A session-wide token-economy instruction NEVER changes `system-designer` (Opus 5.5, max) or `planner` (Fable 5.1, max).** "This run, everything on Sonnet" applies to **coders and researchers only** unless the user names design/planning explicitly. Design and planning are where the architectural catches come from.
 
 **🐴 Ponytail skill — MANDATORY for ALL code work.** Every coder dispatch brief MUST instruct the coder to invoke the `ponytail` skill (full) BEFORE writing code — no exceptions (also baked into the coder/tester definitions). The lead invokes `ponytail` whenever it writes or edits code itself. Laziest-that-works discipline (YAGNI → reuse what's here → stdlib → native → one line → minimal diff, root-cause not symptom) governs every coding task. It shortens the solution, never the problem-reading.
 
