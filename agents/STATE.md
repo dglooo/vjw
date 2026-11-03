@@ -18,7 +18,12 @@
 - ✅ **MilkDrop S1.1 merged** (`63d5b4e`, coder 13 min; gates 316/316): butterchurn 3.0.0-beta.5 + presets 3.0.0-beta.4 exact, `butterchurn.d.ts`, `?bench&milk` boot. M4: internalCanvas yes, 2d null yes (G2), **createVisualizer ~1 s main thread**; 410 candidates, load errors 1, **GL link errors 22** (dist never checks link status, so the bench reads the GL flag) (G3). G1 inlined deps eel-wasm MIT, @assemblyscript/loader Apache-2.0, math-extensions MIT. G9 presets = `presets/converted/<name>.json` ×504 (`dist/all.js` lossy). G10 `elapsedTime` = dt seconds. Butterchurn patches global `Math` (clamp, scale…). Harness: scratchpad `milk-boot.mjs <port>`.
 - ⏸ Paused by the user 2026-11-03 22:59. **Resumed 2026-11-04 01:19** (cron). The S1.2 coder had been stopped before writing code, so S1.2 was re-dispatched fresh.
 - ▶ **MilkDrop S1.2** (frontend-coder, worktree): K1–K4 + `Governor.jsMs` + export `governor` + verdict; `&n=` subset for its own check.
-- **Exact next step:** merge S1.2; the lead runs the full `?bench&milk` at 60A → **CP1 hard stop or go**. Effects-polish coder queue (one at a time): test timeouts (Tier 1) → §7 → §3 → §6 → §5 S1.1 (`plan_live_rebuild.md`) → §1 → §2.
+- ✅ **User "go" (2026-11-04 01:2x): the effects-polish queue is approved.** One coder at a time. Lead order:
+  - S1.2 → the lead's full `?bench&milk` on a **quiet machine** (no coder running, so the numbers stay clean) → CP1 verdict.
+  - Then Tier-1 test timeouts (they unflake every later merge).
+  - Then alternate MilkDrop CP2 (only if CP1 passes) with polish: S2.1 → §7 → S2.2 → §3 → S2.3 → §6 → S2.4 → §5 (`plan_live_rebuild.md`) → S3.1 → §1 → §2.
+  - If CP1 fails: MilkDrop stops (user decision per the K table), and polish continues.
+- **Exact next step:** merge S1.2; the lead runs the full `?bench&milk` at 60A → **CP1 hard stop or go**.
 - Ops lesson (2026-11-03 ~19:0x): three Opus/Fable-max agents in parallel hit the 5-hour usage limit in ~1.5 h; keep parallel runs to coder + one researcher.
 
 ### Queue (lead order)
