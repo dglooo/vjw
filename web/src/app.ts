@@ -15,7 +15,7 @@ import { createDirector } from './director'
 import type { FrameInput } from './frame'
 import { catalog, transitions } from './fx/catalog'
 import { gpuMs, render, scenes, setAudio, setOutput, setTransition, stage } from './gl/engine'
-import { live, prepare, warm } from './gl/live'
+import { flashOnsets, live, prepare, warm } from './gl/live'
 import { postFor } from './gl/post'
 import { library } from './library'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
@@ -174,7 +174,7 @@ const src: Sources = {} // binding sources, refilled every frame
 const features = createFeatures() // kick/snare/hats envelopes from the worklet's hits (S1.4)
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
-if (DEBUG) Object.assign(window, { __src: src, __settings: settings }) // ?debug: the live binding sources and settings, for DevTools and browser checks
+if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets }) // ?debug: the live binding sources, settings and the flash budget's onsets, for DevTools and browser checks
 
 /** S2.5: the worklet's config. Sent only when the band list (ids + Hz, drums too) really changed — a sens or auto
  * toggle must not re-send, and a re-send restarts the drum detectors (analysis.ts). `rev` grows per send; the worklet

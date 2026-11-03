@@ -6,7 +6,7 @@
     "INPUTS": [
         { "NAME": "inputImage", "TYPE": "image" },
         { "NAME": "strobe", "LABEL": "Strobe", "TYPE": "bool", "DEFAULT": false },
-        { "NAME": "color", "LABEL": "Colour", "TYPE": "color", "DEFAULT": [1.0, 1.0, 1.0, 1.0] }
+        { "NAME": "color", "LABEL": "Colour", "TYPE": "color", "DEFAULT": [1.0, 1.0, 1.0, 0.6] }
     ],
     "VJW_BIND": {
         "strobe": { "source": "beat", "shape": "saw", "amount": 1, "attack": 0, "release": 0, "min": 0, "max": 0.65 }

@@ -18,6 +18,7 @@ import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../
 import { library } from '../library'
 import { store } from '../store'
 import { audioTex, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
+import { flashGate, type FlashState } from './post'
 import type { Native, NativeDef } from './scene'
 
 export { docs, type NodePath } from '../edit'
@@ -35,8 +36,15 @@ interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<
 /** A built layer: its nodes (a null one blacks the layer out), its live opacity/speed (bindable) and res, its clock,
  *  the reused FrameInput copy a native reads, and its own target once `res` < 1. */
 interface Layer { blend: Blend; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null }
-interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState }
+interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState; flash?: FlashState }
 const LAYER_INPUTS: readonly Input[] = [{ name: 'opacity', type: 'float' }, { name: 'speed', type: 'float' }] // bindable
+// WCAG 2.3.1 (polish §3): the bound params that flash, gated by flashGate. ponytail: by `ref.name`, so a user ISF with a
+// strobe-like param is uncapped; a `VJW_FLASH` header key when a third such shader appears.
+const FLASH = new Set(['own/strobe.strobe', 'own/flash.flash'])
+/** The one flash budget: the allowed onsets' `f.time`s, oldest first, shared by every layer of every scene (both of a
+ *  fade). ponytail: hidden layers and a fade's outgoing scene spend it too, and two flashes in one frame count twice;
+ *  both stricter, harmless. */
+export const flashOnsets: number[] = []
 
 const SIZE = new Float32Array(2) // the shots' size: `inputImage`'s, even from a gen drawn at res < 1 (it is upscaled)
 const IRES = new Float32Array([0, 0, 1]) // a toy's iResolution: RENDERSIZE, z = 1 (Shadertoy's pixel aspect)
@@ -141,8 +149,9 @@ function create(id: SceneId): Live {
         continue
       }
       if (i >= 0) u[name] = [...(v as number[])] // our own copy: never write into the def's or the doc's array
-      const state = old.find((x) => x.u === u && x.name === name && x.i === i)?.state ?? { y: 0 }
-      bound.push({ u, name, i, type: input.type, b, state })
+      const was = old.find((x) => x.u === u && x.name === name && x.i === i)
+      const flash = FLASH.has(`${ref}.${name}`) ? (was?.flash ?? { prev: 0, blocked: false }) : undefined // kept like `state`: a rebind mid-flash neither re-counts nor leaks
+      bound.push({ u, name, i, type: input.type, b, state: was?.state ?? { y: 0 }, flash })
     }
   }
 
@@ -252,7 +261,8 @@ function create(id: SceneId): Live {
     errors,
     render(f, s, acc) {
       for (const x of bound) {
-        const y = evaluate(x.b, s, x.state, f.dt)
+        let y = evaluate(x.b, s, x.state, f.dt)
+        if (x.flash) y = flashGate(y, x.flash, flashOnsets, f.time)
         if (x.i >= 0) (x.u[x.name] as number[])[x.i] = y
         else x.u[x.name] = x.type === 'long' ? Math.round(y) : x.type === 'bool' || x.type === 'event' ? y >= 0.5 : y
       }
