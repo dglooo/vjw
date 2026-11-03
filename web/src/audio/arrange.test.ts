@@ -89,7 +89,7 @@ test('no drop on a teaser kick (inside the 16th roll) or on a 2-bar break', () =
   const teaser = arrangement({ teaser: 7 })
   expect(fires(run(inputs(mix(teaser), 174))).map((f) => f.now > teaser.drop)).toEqual([true])
   expect(fires(run(inputs(mix(arrangement({ brk: 2 })), 174)))).toEqual([])
-}, 20_000)
+})
 
 test('a kick-only drop fires on its second kick (path b), not on its first', () => {
   const techno = arrangement({ genre: 'techno', groove: 12, after: 4, bass: false }) // the bass doesn't come back
@@ -98,7 +98,7 @@ test('a kick-only drop fires on its second kick (path b), not on its first', () 
   expect(f[0].now - techno.drop).toBeGreaterThan(60 / 128) // measured 1 beat + 0.135 s: the 2nd kick's held lag
   expect(f[0].now - techno.drop).toBeLessThan(60 / 128 + 0.2)
   expect(f[0].fired).toBeGreaterThanOrEqual(0.6)
-}, 20_000)
+})
 
 test('3 min of groove: never sparse, no drop', () => {
   const loop = mainIn.filter((f) => f.now >= T0 && f.now < T0 + 15 * BAR) // whole bars, so it repeats seamlessly
