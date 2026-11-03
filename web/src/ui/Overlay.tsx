@@ -4,7 +4,7 @@ import { badge } from '../quality'
 import { store } from '../store'
 import './overlay.css'
 
-const HIDE_MS = 2500 // knob: the bar fades this long after the last mouse move
+const HIDE_MS = 2500 // knob: the bar fades this long after the last mouse move or key press
 const dbfs = (x: number) => Math.max(-60, 20 * Math.log10(x)) // ?debug meters: RMS → dBFS, floor −60
 const num = (x: number | null) => (x === null || Number.isNaN(x) ? '–' : x.toFixed(1))
 
@@ -23,8 +23,10 @@ export function Overlay() {
       timer = setTimeout(() => setShown(false), HIDE_MS)
     }
     addEventListener('mousemove', wake)
+    addEventListener('keydown', wake)
     return () => {
       removeEventListener('mousemove', wake)
+      removeEventListener('keydown', wake)
       clearTimeout(timer)
     }
   }, [])

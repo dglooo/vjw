@@ -20,7 +20,7 @@
   pointer-events: auto;
   transition: opacity 0.5s ease;
 }
-/* Typing a name for Save as… keeps it: keys don't wake the bar. */
+/* Typing a name for Save as… keeps it: the field's keys stop at its form and never reach the window, so they don't wake the bar. */
 :root:has(.bar.hidden) .panel:not(:has(header input:focus)) {
   opacity: 0;
   pointer-events: none;
