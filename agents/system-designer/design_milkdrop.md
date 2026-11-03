@@ -380,3 +380,30 @@ type FromWorker =
    - (b) For one session, every preset that passes (likely 40+) is starred. You watch them, unstar the ones you don't like, and the unstarred ones are deleted.
    - *Default: (a).*
 4. **How should MilkDrop mix into the autopilot?** (a) Spread evenly among our scenes, (b) strict alternation (ours, MilkDrop, ours…), or (c) one MilkDrop block. *Default: (a).*
+
+## Probe ruling (2026-11-04)
+Inputs: `plan_milkdrop.md` S1.2 L74–92, S2.1 L97, S2.2 L104–112, S2.3 L116, S2.4 L126, S3.1 L132–133; `bench.ts:246-271` (`gpuTimer`), `:316-380` (K1); the lead's full `?bench&milk` run 2026-11-04 01:5x (M4, Chrome 156, ANGLE Metal, 1728×1118, silence, 60A) and its injected rAF count; `engine.ts:139-174`, `quality.ts:25,70-86`, `app.ts:342-346`.
+
+**Verdict: CP1 = go.** K1 and K2 failed on an instrument that times a cross-context wait, not copy work; with the replacements below, K1–K4 pass. Variant A and C2's copy path (a) stand; only the K1/K2 instruments change.
+
+**1. K1's measure is invalid.** A timer query on our context around `texSubImage2D(internalCanvas)` also counts our GPU stream waiting for Butterchurn's context to finish its frame (⚠️ mechanism inferred, not traced):
+- The copy moves a fixed W×H (bench.ts:338), yet its reading tracks the preset's own GPU: medians 7.61 vs 4.51 ms over 387 presets, median difference 3.36 ms; preset 160 own 3.64 → copy 6.49, preset 177 own 5.93 → copy 8.55.
+- Path (c) does strictly more GPU work (Butterchurn's extra `drawImage` blit), yet reads lowest (1.62 ms): its wait happens on the 2D canvas's context, which no timer of ours sees.
+- End to end, what K1 guards held: 60 s at full size, MilkDrop `render()` + copy (a) every frame over our autopilot and its fades, presets 160 and 177 (own 3.64 / 5.93 ms): 3600 frames, 0 late, max 18.8 ms, governor 1.00×.
+- **K1 replaced:** that 60 s run at full size has 0 late frames (> 1.5 × the refresh median) and ends at 1.00×, and the copy's main-thread p95 is ≤ 0.5 ms (that half was valid). **Pass:** 0 late, main 0.10 ms. The per-path GPU rows stay as information ("copy + wait").
+- Not "many copies in one query": it averages the sync away, and the sync is what a milk → milk fade doubles. §7.5 judges late frames anyway.
+- **S2.2 copies with path (a), as C2.** (c) is more work hidden from our timer; (b) gains nothing; (d) skips one fullscreen draw (real cost well under 1 ms, ⚠️ bandwidth estimate, ~15 MB/frame) but needs an RGBA8 target, and targets may be half-float (engine.ts:76). (d) stays a knob (see 5).
+
+**2. K2 replaced:** Butterchurn's own GPU p95 (the timer on its own context; nothing in its `render()` crosses contexts) ≤ 5 ms at the bench size, i.e. the inherited per-scene rule (Constraints) on the valid term. ≥ 20 must pass; the 0.75 + mesh 32×24 re-run and "ask the user" stay. **Pass:** 264/387 (125 ≤ 4 ms). The copy's share is now in K1's end-to-end run, which ran a preset above this limit with 0 late frames.
+
+**3. CP2/CP3 changes**
+- **S3.1 margin:** `gpuP95 ≤ 4 ms` alone (116 presets, 49 authors); the `k2` flag and `copyP95` are void. `?bench&milk` still prints "K1/K2: fail": void per this ruling, no code change.
+- **Done-checks:** plain `?bench`'s GPU column for `milk/*` comes from the engine timer (bench.ts:141 ← engine.ts:170-172), so it includes the wait (≈ the probe's `copyP95`, median 7.61 ms). S2.2 and S3.1 drop their "≤ 5 ms" for these rows; errors and upright pictures stay.
+- **S2.3 `warm?()`:** a fresh visualizer's first load blocks up to 26 ms (1 late frame), and `createVisualizer` takes 51–76 ms on the main thread. When Start ends, both pool visualizers exist and each is past its first load, not only the one that took the presets. A third visualizer made at runtime (~80–100 ms) is accepted for fast ←/→ only (Pool and lifecycle).
+- **R9 and C4's "Known limit" are inverted:** for milk scenes the hint (engine.ts:170-172 → app.ts:346 → Panel.tsx:226) includes the wait, so it reads high, never low. Display only; no change.
+- **Governor:** it steps down on late frames while the JS median is < 10 ms (quality.ts:70-86, `jsBudgetMs` :25). It never reads `gpuMs` (readers: app.ts:342, bench.ts:141/186), so the wait can't step it down; only real late frames can, and with MilkDrop's JS at 2.4 ms they still count as GPU-bound.
+- **Gap:** `setRendererSize` cost (C5.3) is unmeasured (the probe never resizes); it runs at a governor step or a window resize with milk on screen. Accepted: rare.
+
+**4. Gate: none.** Inside Variant A as picked; only the instrument changed, on the evidence in 1. The user's stop rule for a CP1 fail does not trigger; the lead reports this ruling in its next summary so the user can overrule it.
+
+**5. No extra check before CP2.** The 60 s run already carried our fades plus a MilkDrop render every frame (the own ↔ milk load shape), and every failure below has a knob inside A. One forced run in the lead's harness at S2.4's CP2 demo, no coder step: silence, full size, ≥ 60 s holding (i) a fade between the two heaviest of S2.1's 3 presets (2 renders + 2 copies) and (ii) the starred own scene with the highest plain-`?bench` GPU fading with a milk scene. Pass = 0 late frames incl. switches, 1.00× at the end. Fail → path (d), then a lower S3.1 cap, then back to design.

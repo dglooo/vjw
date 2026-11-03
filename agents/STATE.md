@@ -25,7 +25,14 @@
     - **But end-to-end the 60 s run held: MilkDrop + copy (a) every frame at full size, 3600 frames, 0 late, p99 18.6 ms.** So the copy timer is sync wait, not cost.
     - Butterchurn's own GPU p95: ≤5 ms 264/387, ≤4 ms 125. Cold loads 0 late on all 387. K3 pass (warm 6.0/9.2, max 26.1 on a fresh B). K4 pass (2.4 ms). S3.1 pool 116 presets, 49 authors.
     - Output: session scratchpad `milk-full.out.txt` + `milk-full.raf.json`.
-  - ▶ **system-designer: probe ruling** (K1/K2 measure, copy path for S2.2, governor/timer side effects) → `design_milkdrop.md` § Probe ruling. CP2 waits for it.
+  - ✅ **system-designer → `design_milkdrop.md` § Probe ruling (L384–409): CP1 = GO**, inside Variant A, no user gate.
+    - K1/K2 timed a cross-context wait: the copy reading tracks Butterchurn's own GPU, median 7.61 vs 4.51.
+    - **New K1** = 0 late frames over the 60 s full-size run + copy main-thread p95 ≤ 0.5 ms (pass). **New K2** = Butterchurn's own GPU p95 ≤ 5 ms, ≥ 20 presets (pass, 264/387).
+    - S2.2 copies with path (a).
+    - The governor never reads `gpuMs` (lead-verified: readers are only `app.ts:342` panel hint, `bench.ts:141/186`). R9 is inverted: the panel GPU hint reads high for MilkDrop scenes (display-only).
+    - The lead's extra worst-case run (2 heaviest presets fading into each other + heaviest own scene) goes at the S2.4 demo.
+    - Plan edits applied (S1.2 note, S2.1/S2.2/S2.3/S2.4/S3.1).
+  - S2.1's 3 presets (lead, by S3.1's rule; 116 eligible, 49 authors): `fiShbRaiN + geiss - witchcraft (Grow Mix 3)` (3.99), `cope, martin + flexi - the slickery of alternative varnish` (3.99), `Geiss - Reaction Diffusion (Relief Mix)` (3.64). Probe rows saved to `scratchpad/milk-probe-rows.json` (gitignored) for S3.1.
   - ✅ **Tier-1 heavy-test timeouts merged** (`c738f85`, ~9 min): a global Vitest `testTimeout: 20_000` (the two redundant per-test 20 s in arrange.test.ts removed). Reproduced with 20 CPU burners: §4.5 timed out on unchanged code; 317/317 ×2 after the fix.
   - ✅ **Polish §7 merged** (`d55f4ae`, ~3 min): any `keydown` that reaches `window` wakes the overlay. Browser: ArrowRight wakes the bar; `E` opens the panel at opacity 1 (before: 0). Panel slider arrows now keep the panel awake too.
   - ▶ **Polish §6** (coder): spectrum-local interpolation of shared-bin low bands, plus a pure helper and its test (no `bandEdges`/fftSize change).
