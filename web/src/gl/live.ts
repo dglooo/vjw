@@ -42,7 +42,8 @@ const LAYER_INPUTS: readonly Input[] = [{ name: 'opacity', type: 'float' }, { na
 // strobe-like param is uncapped; a `VJW_FLASH` header key when a third such shader appears.
 const FLASH = new Set(['own/strobe.strobe', 'own/flash.flash'])
 /** The one flash budget: the allowed onsets' `f.time`s, oldest first, shared by every layer of every scene (both of a
- *  fade). Hidden layers and a fade's outgoing scene spend it too, and two flashes in one frame count twice: stricter. */
+ *  fade). ponytail: hidden layers and a fade's outgoing scene spend it too, and two flashes in one frame count twice;
+ *  both stricter, harmless. */
 export const flashOnsets: number[] = []
 
 const SIZE = new Float32Array(2) // the shots' size: `inputImage`'s, even from a gen drawn at res < 1 (it is upscaled)

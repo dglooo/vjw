@@ -41,7 +41,7 @@ export function flashGate(y: number, s: FlashState, onsets: number[], t: number)
 **Demo:** `cd web && npm run dev` → `localhost:5173/?debug&preset=dnb`, file source `scratchpad/fx_audio/dnb174.wav`, wait for LOCK 174, scene Pixel strobe. Every beat shows a 60 % white wash (2.9/s, nothing refused), not a pure white frame. Panel (E) → the `own/strobe` node → `strobe` binding → `rate` knob (shown for shaped bindings, `ui/Panel.tsx:130`) → **2**: raw 5.8 onsets/s, seen as groups of 3 flashes then a pause. DevTools: `setInterval(() => console.log(__flash.map((t) => t.toFixed(2)).join(' ')), 500)` for 10 s — no 4 distinct stamps within 1.00 s. Why not a 190 BPM file: `audio/tempo.ts:26` folds readings into [90, 180), a 190 track reads 95; there is no `playbackRate` in `src`; `rate` doubles the saw on the same gate path.
 
 ## Steps
-### S1.1 [ ] — the gate, its wiring, the strobe default
+### S1.1 [x] — the gate, its wiring, the strobe default
 Invoke the `ponytail` skill (full) before writing code. ~45 min, no deps, no donor.
 
 **Files**
@@ -61,6 +61,15 @@ Invoke the `ponytail` skill (full) before writing code. ~45 min, no deps, no don
 **Done-check:** `npm run lint && npm run typecheck && npm test` (expect 317 + new), then the CP1 demo (lead). Browser check for the coder: Pixel strobe at rate 2 flashes in groups of 3.
 
 **Known ceilings** (`ponytail:` comments in code): flash-class is by name, a user ISF with a strobe-like param is uncapped (upgrade: a `VJW_FLASH` header key when a third such shader appears); a sub-0.5 swell on `flash` (e.g. bound to `bass`) steps at 0.5 (upgrade: trough-relative hysteresis); hidden layers and the outgoing scene of a fade spend budget, and two params flashing in one frame count twice — both stricter, harmless.
+
+**Changed during implementation:**
+- **Demo path:** the panel has no `rate` knob for `strobe`. `Panel.tsx` `case 'bool'` passes no `bind`, so a bool param gets no binding controls; the knob at `Panel.tsx:130` exists only for float/long params. The browser check called the knobs' own call instead: `panel.setBinding({ layer: 0, node: 2 }, 'strobe', {…, rate: 2})` on the open panel's edited scene. A missing panel feature, not in this step.
+- **Rate-2 pattern:** the run showed a uniform 2.9/s (raw 37 onsets in 10 s, allowed 19, every other half-beat refused), not "groups of 3 then a pause". Rate 2 began with the rate-1 stamps still in the window, and the greedy gate then locked onto every other onset, a pattern that stays under 3/s. Starting from an empty budget gives the groups of 3 (test 1 at 4/s). Both stay ≤ 3 in any closed 1 s window.
+- **Test harness:**
+  - Raw signals take the frame index `k`, so the phase is exact integer maths (`(k·r % 60)/60`). `run(raw, secs)` uses a const `FPS = 60`.
+  - `maxPerSecond` counts rises with `u − 1 ≤ t`, the gate's own float comparison.
+  - The identity test also covers r = 2.
+  - The counts 3 / 8 / 9 held exactly, no loosening.
 
 ## Acceptance mapping
 - Spec §7 has no flash-rate criterion (`grep WCAG|photosens` over `thoughts/`: none). Research §3 "not covered by the WCAG cap" → S1.1 tests 1, 3, 4 + CP1 demo (rate 2 ≤ 3/s).
