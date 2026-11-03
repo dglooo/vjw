@@ -8,7 +8,11 @@
 **Stage:** pilot ✅ → `effects` ✅ (tag `cp7-effects`) → `audio-reactivity` ✅ code-complete (22/22 steps, CP1–CP7, `8db53d0`, 316 tests). **Now: 3.5 h autonomous run (user, until 21:10 MSK) over the post-epic queue.**
 **Spec:** `thoughts/spec_veejay_wizard.md` + `spec_effects.md` + `spec_audio_reactivity.md`. **Team (user 2026-11-03):** `planner` Fable 5.1 max; everyone else Opus 5.5 max; `researcher` high. The Qwen trial (11-01..11-03) is over.
 
-### Running now
+### Where we stopped (2026-11-03 21:17, autonomous window closed, heartbeat cron deleted)
+- Still running, nothing merged in the window: **coder** (underrun read done in WIP `5ab8ab5` on `worktree-agent-a7ac17716bc3d2db7`; still on the §4.7 headless-audio measurement, dev server on 5173), **planner** (`plan_live_rebuild.md` not written yet), **system-designer** (`design_milkdrop.md` not written yet).
+- **Exact next step:** when each reports — review + gate + merge the underrun step (if the measurement stays stuck, merge the code with the honest note and move the measurement to the user's real-Chrome check); log the §5 plan; present the MilkDrop variants to the user (**gate**). Then the polish coder queue: §7 → §3 → §6 → §5 → §1 → §2.
+
+### Running now (as dispatched)
 - ▶ coder (Tier 1): `AudioContext.playbackStats.underrunEvents` in `?debug` + `?bench`, plus the §4.7 60A measurement under real audio (harness `scratchpad/s8-underrun60a.mjs`).
 - ✅ researcher → `research_butterchurn_integration.md` (151 lines): no Butterchurn release since 10-27 (2.6.7 / 3.0.0-beta.5, WebGL2-only); own context only → per-frame copy into `#stage` (Chromium GPU→GPU, M4 cost unmeasured); feed via the exported `analyser`; presets see only bass/mid/treb(+att), no public API for our sources; shader presets only in `butterchurn-presets` 2.4.7 / 3.0-beta (baron/Ansorre have none).
 - ▶ system-designer (Opus max): `agents/system-designer/design_milkdrop.md` → then the **USER GATE**.
