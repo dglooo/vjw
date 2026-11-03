@@ -6,6 +6,7 @@
 // the governor step the scale down. Lines also go to a <pre>.
 import { bindFramebufferInfo } from 'twgl.js'
 import { director } from './app'
+import { underruns } from './audio/input'
 import { catalog, transitions } from './fx/catalog'
 import { parseIsf } from './fx/isf'
 import type { ShaderDef } from './fx/types'
@@ -73,6 +74,7 @@ function compile(vs: string, fs: string) {
 async function run() {
   print(`timer query: ${has('EXT_disjoint_timer_query_webgl2')} · KHR_parallel_shader_compile: ${has('KHR_parallel_shader_compile')}`)
   while (store.getSnapshot().needsStart) await sleep(100)
+  print(`audio underrunEvents at start: ${underruns() ?? 'n/a'}`)
 
   // G1: the catalog's shader programs. Natives build theirs inside create(), outside the catalog.
   const compileMs = new Map<string, number>()
@@ -183,6 +185,7 @@ async function run() {
   console.error = error
   console.table(results)
   if (location.search.includes('sweep')) await sweep()
+  print(`audio underrunEvents at end: ${underruns() ?? 'n/a'}`)
 }
 
 /** Every ISF-Files .fs: parse and compile, one row each → console.table, window.__sweep and a tally. */
