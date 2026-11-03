@@ -11,12 +11,13 @@
 ### Running now
 - ▶ coder (Tier 1): `AudioContext.playbackStats.underrunEvents` in `?debug` + `?bench`, plus the §4.7 60A measurement under real audio (harness `scratchpad/s8-underrun60a.mjs`).
 - ▶ researcher: `agents/research/research_butterchurn_integration.md` (MilkDrop epic, Tier 3 step 1).
-- ▶ researcher: `agents/research/_adhoc/effects_polish_2026-11-03.md` (scopes polish items 1–7 for one-coder-each briefs).
+- ✅ researcher → `_adhoc/effects_polish_2026-11-03.md`: §7 overlay keys S (`E` opens an invisible panel), §3 strobe S (NOT under the `postFor` WCAG cap; >3/s above 180 BPM; `own/flash` uncapped too), §6 steppy bars = low bands share FFT bins at 1024 (spectrum-local fix S), §5 structural edit = local to `live.ts`, Tier 2 M, §1/§2 S (taste), §4 no code limit, perf cause unknown (L).
+- ▶ planner (Fable): `agents/planner/plan_live_rebuild.md` for §5 (keep surviving nodes + clocks across a structural edit).
 - ⏰ heartbeat cron every ~20 min until 20:47, wrap-up at 21:12 (session-only).
 
 ### Queue (lead order)
 1. Merge the underrun step; correct the §4.7 row in the plan's CP7 closeout with its numbers.
-2. Effects polish items, one coder each, ordered by shared files (from the scoping artifact). User 2026-11-03 "го дальше" over the list = go for polish. The big effects re-brief still waits for the user's brief.
+2. Effects polish, one coder each (user 2026-11-03 "го дальше" over the list = go; the big effects re-brief still waits for the user's brief). Lead order + defaults: **§7** overlay wakes on keys → **§3** one shared flash-rate cap ≤3/s for `own/strobe` + `own/flash` (WCAG 2.3.1) and strobe default not full white → **§6** spectrum-local low-bar interpolation (no fftSize change) → **§5** per `plan_live_rebuild.md` → **§1** slit scan, **§2** chrome ring (taste, last). **§4** deferred (perf investigation, needs a quiet-GPU `?bench`).
 3. MilkDrop epic: research → system-designer → **USER GATE (hard stop)** → planner → coders. Spec: 20–30 curated Butterchurn presets in the shared playlist + both engines composited into one recorded canvas.
 4. Blocked on the user's real tracks (`scratchpad/real/`): dubstep140 tempo lock (bar 1.71 s > max lag 1.33 s), false kicks on a bare reese, preset `proto`/`sens` tuning.
 
