@@ -39,8 +39,13 @@
     - Browser (44.1 kHz here): stepped frames went 120/120 → 1/120.
     - Remaining flat tops on loud sub come from `DB_HI` (`spectrum.ts:21`), not from lockstep.
   - ▶ **MilkDrop S2.1** (coder): `presets.ts` + test + `scripts/milk-presets.mjs` + the 3 presets.
-  - ▶ **planner (Fable) → `plan_flash_cap.md`** (§3, Tier 2, running in parallel with the §6 coder). Next coder after §6: **MilkDrop S2.1**.
-  - **§3 strobe → Tier 2 (planner).** It has a real placement choice: a binding vs a uniform-write gate in `live.ts`, a flag in ISF metadata vs a const list, and whether the `postFor` strobe shares the 3/s budget. Lead defaults: one shared ≤3 onsets/s budget enforced at the uniform write, the pure gate next to `WCAG` in `gl/post.ts`, strobe colour alpha < 1.
+  - ✅ **planner (Fable, ~12 min) → `plan_flash_cap.md`** (§3, Tier 2): 1 step S1.1.
+    - A pure `flashGate` next to `WCAG` in `gl/post.ts`: ≤3 onsets per closed 1 s window; a refused onset holds; the output never rises except through an allowed onset.
+    - Applied at the `live.ts` `render()` uniform write, with one shared module-level `flashOnsets` (all layers, both fade scenes). Flash class = a const set (`own/strobe.strobe`, `own/flash.flash`). The post strobe stays out (same beat grid, ≤0.15).
+    - `strobe.fs` alpha 0.6 (⚠️ taste). `__flash` under `?debug`.
+    - Fact: `tempo.ts:26` folds BPM into [90,180), so the browser check forces the gate with the panel `rate` = 2.
+    - Accepted ceiling: a slow sub-0.5 swell on a user-bound float is held, then steps at 0.5 (a counted onset).
+    - Next coder after S2.1. It has a real placement choice: a binding vs a uniform-write gate in `live.ts`, a flag in ISF metadata vs a const list, and whether the `postFor` strobe shares the 3/s budget. Lead defaults: one shared ≤3 onsets/s budget enforced at the uniform write, the pure gate next to `WCAG` in `gl/post.ts`, strobe colour alpha < 1.
 - ✅ **User "go" (2026-11-04 01:2x): the effects-polish queue is approved.** One coder at a time. Lead order:
   - S1.2 → the lead's full `?bench&milk` on a **quiet machine** (no coder running, so the numbers stay clean) → CP1 verdict.
   - Then Tier-1 test timeouts (they unflake every later merge).
