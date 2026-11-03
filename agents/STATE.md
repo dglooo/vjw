@@ -26,7 +26,8 @@
     - Butterchurn's own GPU p95: ≤5 ms 264/387, ≤4 ms 125. Cold loads 0 late on all 387. K3 pass (warm 6.0/9.2, max 26.1 on a fresh B). K4 pass (2.4 ms). S3.1 pool 116 presets, 49 authors.
     - Output: session scratchpad `milk-full.out.txt` + `milk-full.raf.json`.
   - ▶ **system-designer: probe ruling** (K1/K2 measure, copy path for S2.2, governor/timer side effects) → `design_milkdrop.md` § Probe ruling. CP2 waits for it.
-  - ▶ **coder Tier 1: heavy-test timeouts** (in parallel with the designer; the machine no longer needs to be quiet).
+  - ✅ **Tier-1 heavy-test timeouts merged** (`c738f85`, ~9 min): a global Vitest `testTimeout: 20_000` (the two redundant per-test 20 s in arrange.test.ts removed). Reproduced with 20 CPU burners: §4.5 timed out on unchanged code; 317/317 ×2 after the fix.
+  - ▶ **Polish §7** (coder): any window `keydown` wakes the overlay (so `E` no longer opens an invisible panel).
 - ✅ **User "go" (2026-11-04 01:2x): the effects-polish queue is approved.** One coder at a time. Lead order:
   - S1.2 → the lead's full `?bench&milk` on a **quiet machine** (no coder running, so the numbers stay clean) → CP1 verdict.
   - Then Tier-1 test timeouts (they unflake every later merge).
