@@ -66,6 +66,7 @@ export function Overlay() {
               {ch.toUpperCase()} <meter min={-60} max={0} value={dbfs(d[ch])} /> {dbfs(d[ch]).toFixed(0)} dBFS
             </div>
           ))}
+          <div>audio underruns {d.underruns ?? 'n/a'}</div>
           {c && (
             <div>
               beat |grid − onset| {num(c.med)} / p95 {num(c.p95)} ms · confident after {num(c.toConfident)} s · conf{' '}

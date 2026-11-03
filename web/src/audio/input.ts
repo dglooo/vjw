@@ -89,6 +89,10 @@ export function audioNow() {
   return (ot.contextTime ?? 0) + (performance.now() - (ot.performanceTime ?? 0)) / 1000
 }
 
+/** Output underruns since the context started (spec §4.7): MDN AudioPlaybackStats, Chrome 146+, refreshed 1×/s while
+ *  running and visible. null where the API is absent (TS's DOM lib lacks it too). */
+export const underruns = () => (ctx as AudioContext & { playbackStats?: { underrunEvents: number } }).playbackStats?.underrunEvents ?? null
+
 /** Labeled audio inputs only: labels stay empty until the user grants permission (MDN enumerateDevices). */
 export async function listDevices() {
   const all = await navigator.mediaDevices.enumerateDevices()
@@ -148,7 +152,7 @@ if (DEBUG) {
   }
   setInterval(() => {
     const settings = stream?.getAudioTracks()[0].getSettings() ?? null // null while a file plays
-    store.patch({ debug: { l: level(meters[0]), r: level(meters[1]), settings } })
+    store.patch({ debug: { l: level(meters[0]), r: level(meters[1]), settings, underruns: underruns() } })
   }, 100)
 }
 
