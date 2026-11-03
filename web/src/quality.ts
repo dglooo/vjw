@@ -7,6 +7,7 @@ export interface Governor {
   readonly scale: number
   readonly drops: number // late frames since the last reset: the spec §7.5 counter
   readonly refreshMs: number // the median of the last 120 deltas, never a hard-coded 16.67
+  readonly jsMs: number // the median of the last 120 JS times (the step-down test's), 0 before 120 samples
 }
 export interface GovernorOpts {
   min: number // scale range (design S4; Q9 floor)
@@ -50,6 +51,9 @@ export function createGovernor(opts?: Partial<GovernorOpts>): Governor {
     scale: o.max,
     drops: 0,
     refreshMs: 0,
+    get jsMs() {
+      return n < N ? 0 : median(js)
+    },
     frame(now: number, jsMs: number) {
       if (last === null) {
         last = calmSince = now
