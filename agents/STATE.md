@@ -39,7 +39,10 @@
     - Browser (44.1 kHz here): stepped frames went 120/120 → 1/120.
     - Remaining flat tops on loud sub come from `DB_HI` (`spectrum.ts:21`), not from lockstep.
   - ✅ **MilkDrop S2.1 merged** (`54f7257`, ~6 min; gates 321/321): `presets.ts` (`PRESETS`, `MILK_SCENES`, `spread`) + test, `scripts/milk-presets.mjs` (byte-identical rerun), 3 presets. Drift: the package has no `repository` field, so `url` = `https://github.com/jberg/butterchurn-presets`.
-  - ▶ **Polish §3** (coder): `plan_flash_cap.md` S1.1. Next after it: **MilkDrop S2.2** (`native.ts`, copy path a).
+  - ✅ **Polish §3 merged** (`d73e2b9`, ~15 min; gates 327/327). `flashGate` + shared `flashOnsets`; strobe alpha 0.6.
+    - Browser at LOCK 174: rate 1 → 17/17 allowed, rate 2 → 19 of 37 allowed; max 3 in any 1 s window both times. Flash frame = a 60% wash (min channel 153).
+    - Gap noted: bool params have no binding controls in the panel, so the strobe's source and `rate` can't be changed from the UI.
+  - ▶ **MilkDrop S2.2** (coder): `native.ts` pool + copy (a) + catalog line; upright check vs Butterchurn's own 2D path. Next: §5 (`plan_live_rebuild.md`), then S2.3.
   - ✅ **planner (Fable, ~12 min) → `plan_flash_cap.md`** (§3, Tier 2): 1 step S1.1.
     - A pure `flashGate` next to `WCAG` in `gl/post.ts`: ≤3 onsets per closed 1 s window; a refused onset holds; the output never rises except through an allowed onset.
     - Applied at the `live.ts` `render()` uniform write, with one shared module-level `flashOnsets` (all layers, both fade scenes). Flash class = a const set (`own/strobe.strobe`, `own/flash.flash`). The post strobe stays out (same beat grid, ≤0.15).
