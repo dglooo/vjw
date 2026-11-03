@@ -36,7 +36,8 @@
   - ✅ **Tier-1 heavy-test timeouts merged** (`c738f85`, ~9 min): a global Vitest `testTimeout: 20_000` (the two redundant per-test 20 s in arrange.test.ts removed). Reproduced with 20 CPU burners: §4.5 timed out on unchanged code; 317/317 ×2 after the fix.
   - ✅ **Polish §7 merged** (`d55f4ae`, ~3 min): any `keydown` that reaches `window` wakes the overlay. Browser: ArrowRight wakes the bar; `E` opens the panel at opacity 1 (before: 0). Panel slider arrows now keep the panel awake too.
   - ▶ **Polish §6** (coder): spectrum-local interpolation of shared-bin low bands, plus a pure helper and its test (no `bandEdges`/fftSize change).
-  - **§3 strobe → Tier 2 (planner), after the designer ruling.** It has a real placement choice: a binding vs a uniform-write gate in `live.ts`, a flag in ISF metadata vs a const list, and whether the `postFor` strobe shares the 3/s budget. Lead defaults: one shared ≤3 onsets/s budget enforced at the uniform write, the pure gate next to `WCAG` in `gl/post.ts`, strobe colour alpha < 1.
+  - ▶ **planner (Fable) → `plan_flash_cap.md`** (§3, Tier 2, running in parallel with the §6 coder). Next coder after §6: **MilkDrop S2.1**.
+  - **§3 strobe → Tier 2 (planner).** It has a real placement choice: a binding vs a uniform-write gate in `live.ts`, a flag in ISF metadata vs a const list, and whether the `postFor` strobe shares the 3/s budget. Lead defaults: one shared ≤3 onsets/s budget enforced at the uniform write, the pure gate next to `WCAG` in `gl/post.ts`, strobe colour alpha < 1.
 - ✅ **User "go" (2026-11-04 01:2x): the effects-polish queue is approved.** One coder at a time. Lead order:
   - S1.2 → the lead's full `?bench&milk` on a **quiet machine** (no coder running, so the numbers stay clean) → CP1 verdict.
   - Then Tier-1 test timeouts (they unflake every later merge).
