@@ -20,7 +20,13 @@
 - ✅ **MilkDrop S1.2 merged** (`a4abcaf`, coder ~25 min; gates 317/317). `Governor.jsMs`, `export governor`, `?bench&milk` K1–K4 (`&n`, `&res`, `&mesh`).
   - Coder's `n=20` run: K1 fail (copy GPU p95 a 6.28 / b 6.39 / c 1.65 / d 3.03 ms; main ≤0.3), K2 fail (0/20, copy term only; Butterchurn's own GPU 2.4–5.5), K3 pass (warm 6.9/8.9 ms), K4 pass (0.30+1.40 ms). createVisualizer 51–76 ms (S1.1's ~1 s was a cold first).
   - ⚠️ The copy GPU numbers look like cross-context sync wait, not copy work: an empty query reads 0.00, and copying an already-finished frame is no faster. This needs a design ruling before K1's "stop" counts.
-  - ▶ Lead: full probe running (`scratchpad milk-full.mjs`), plus a rAF late-frame count over the whole 60 s run = the end-to-end check.
+  - ✅ **Lead full probe (01:5x, M4, silence, 60A):**
+    - K1 fail (copy GPU p95: a 6.47, c 1.62, d 3.09) and K2 fail (0/387 with the copy term).
+    - **But end-to-end the 60 s run held: MilkDrop + copy (a) every frame at full size, 3600 frames, 0 late, p99 18.6 ms.** So the copy timer is sync wait, not cost.
+    - Butterchurn's own GPU p95: ≤5 ms 264/387, ≤4 ms 125. Cold loads 0 late on all 387. K3 pass (warm 6.0/9.2, max 26.1 on a fresh B). K4 pass (2.4 ms). S3.1 pool 116 presets, 49 authors.
+    - Output: session scratchpad `milk-full.out.txt` + `milk-full.raf.json`.
+  - ▶ **system-designer: probe ruling** (K1/K2 measure, copy path for S2.2, governor/timer side effects) → `design_milkdrop.md` § Probe ruling. CP2 waits for it.
+  - ▶ **coder Tier 1: heavy-test timeouts** (in parallel with the designer; the machine no longer needs to be quiet).
 - ✅ **User "go" (2026-11-04 01:2x): the effects-polish queue is approved.** One coder at a time. Lead order:
   - S1.2 → the lead's full `?bench&milk` on a **quiet machine** (no coder running, so the numbers stay clean) → CP1 verdict.
   - Then Tier-1 test timeouts (they unflake every later merge).
