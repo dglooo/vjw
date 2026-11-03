@@ -1,5 +1,6 @@
 // The heat post pass's numbers (design C6): heat brightens the frame plus a gentle beat strobe, a drop flashes it
-// toward white. Pure, so the photosensitivity caps are tested without a browser.
+// toward white; and the gate that caps the bound flashes (`flashGate`). Pure, so the photosensitivity caps are tested
+// without a browser.
 import { pulse, ZERO_SYNC } from '../audio/sync'
 import type { Post } from './engine'
 
@@ -28,4 +29,30 @@ export function postFor(heat: number, drop: number, beat: number, bpm: number, c
   const eighths = h >= EIGHTHS && bpm > 0 && bpm / 30 <= WCAG
   const strobe = c >= SURE ? STROBE * h * pulse({ ...ZERO_SYNC, beat: eighths ? 2 * beat : beat, confidence: c }) : 0
   return { gain: 1 + visible(HEAT_GAIN * h + strobe), flash: visible(drop >= 0 ? FLASH * Math.exp(-drop / TAU) : 0) }
+}
+
+const ON = 0.5 // a bool binding's on-level (live.ts); a float flash rises through the same line
+
+/** One flash-class binding's gate memory: `prev` = its last output; `blocked` = an onset was refused, until the raw
+ *  falls below ON. */
+export interface FlashState { prev: number; blocked: boolean }
+
+/** WCAG 2.3.1 for the bound flashes (polish §3): an onset (`y` rising to ON) is allowed while fewer than WCAG of
+ *  `onsets` (the allowed onsets' times, oldest first; one array = one shared budget) lie in the closed window
+ *  [`t` − 1, `t`] (s). A refused one holds the last output; between allowed onsets the output never rises, so a
+ *  refused flash never leaks later. NaN reads 0.
+ *  ponytail: a sub-0.5 swell on a user-bound float is held, then steps at 0.5 (a counted onset); trough-relative
+ *  hysteresis if that bites. */
+export function flashGate(y: number, s: FlashState, onsets: number[], t: number): number {
+  if (!(y >= 0)) y = 0
+  if (y < ON) s.blocked = false
+  else if (s.prev < ON && !s.blocked) {
+    while (onsets.length && onsets[0] < t - 1) onsets.shift()
+    if (onsets.length < WCAG) {
+      onsets.push(t)
+      return (s.prev = y)
+    }
+    s.blocked = true
+  }
+  return (s.prev = Math.min(y, s.prev))
 }

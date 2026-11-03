@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { postFor } from './post'
+import { flashGate, postFor, type FlashState } from './post'
 
 const NONE = Infinity // no drop yet
 const gain = (heat: number, beat: number, conf: number, bpm = 60) => postFor(heat, NONE, beat, bpm, conf).gain // 60 BPM: eighths (2/s) stay under the WCAG cap
@@ -66,5 +66,66 @@ describe('postFor', () => {
               expect(p.flash).toBeGreaterThanOrEqual(0)
               expect(p.flash).toBeLessThanOrEqual(0.8)
             }
+  })
+})
+
+describe('flashGate', () => {
+  const FPS = 60
+  const ph = (k: number, r: number) => ((k * r) % FPS) / FPS // frame k's phase at r flashes/s, exact
+  const saw = (r: number) => (k: number) => 0.65 * (1 - ph(k, r)) // own/strobe's bool binding at conf 1 (strobe.fs:12)
+  const kick = (r: number) => (k: number) => 0.9 * Math.exp(-ph(k, r) / r / 0.1) // own/flash's float, release 0.1 (flash.fs:12)
+  const fresh = (): FlashState => ({ prev: 0, blocked: false })
+  const run = (raw: (k: number) => number, secs = 3) => {
+    const s = fresh()
+    const onsets: number[] = []
+    return Array.from({ length: secs * FPS }, (_, k) => flashGate(raw(k), s, onsets, k / FPS))
+  }
+  const before = (out: number[], k: number) => (k ? out[k - 1] : 0) // the state starts at 0
+  const rises = (out: number[]) => out.flatMap((y, k) => (y >= 0.5 && before(out, k) < 0.5 ? [k / FPS] : []))
+  const maxPerSecond = (ts: number[]) => Math.max(...ts.map((t) => ts.filter((u) => u >= t && u - 1 <= t).length)) // closed [t, t + 1]
+  const climbs = (out: number[]) => out.filter((y, k) => y > before(out, k)).length
+
+  // at 4/s the allowed stamps are 0 .25 .5 1.25 1.5 1.75 2.5 2.75 (at t = 1, stamp 0 is still in the closed window)
+  test.each([[1, 3], [4, 8], [10, 9]])('at %i/s: ≤ 3 onsets in any 1 s, %i allowed over 3 s, the only climbs', (r, n) => {
+    for (const sig of [saw, kick]) {
+      const out = run(sig(r))
+      expect(rises(out)).toHaveLength(n)
+      expect(maxPerSecond(rises(out))).toBeLessThanOrEqual(3)
+      expect(climbs(out)).toBe(n) // the output rises only through an allowed onset: a blocked float never creeps up
+    }
+  })
+
+  test('under the cap it is the identity', () => {
+    for (const raw of [saw(1), saw(2), kick(1), kick(2)]) expect(run(raw)).toEqual(Array.from({ length: 3 * FPS }, (_, k) => raw(k)))
+  })
+
+  test('one budget for every flash: a second layer is refused once the first spends it', () => {
+    const [a, b] = [fresh(), fresh()]
+    const onsets: number[] = []
+    const raw = saw(4)
+    const A: number[] = []
+    const B: number[] = []
+    for (let k = 0; k <= FPS; k++) {
+      A.push(flashGate(raw(k), a, onsets, k / FPS))
+      B.push(flashGate(raw(k), b, onsets, k / FPS))
+    }
+    expect([A[0], B[0]]).toEqual([0.65, 0.65]) // t = 0: both allowed
+    expect(A[15]).toBe(0.65) // t = 0.25: A takes the third slot …
+    expect(Math.max(...B.slice(15))).toBeLessThan(0.5) // … B is refused there and stays dark through t = 1
+    expect(rises(A).length + rises(B).length).toBe(3)
+  })
+
+  test('NaN reads 0; a refusal holds until the raw falls under 0.5, then the next onset counts', () => {
+    const s = fresh()
+    const onsets = [0, 0, 0] // the budget is spent at t = 0
+    expect(flashGate(NaN, s, onsets, 0)).toBe(0)
+    expect(s).toEqual({ prev: 0, blocked: false })
+    expect(flashGate(0.9, s, onsets, 0.5)).toBe(0) // refused
+    expect(s.blocked).toBe(true)
+    expect(flashGate(0.9, s, onsets, 1.5)).toBe(0) // still on, the budget free again: no late leak
+    expect(flashGate(NaN, s, onsets, 1.6)).toBe(0) // under 0.5: clears
+    expect(s.blocked).toBe(false)
+    expect(flashGate(0.9, s, onsets, 1.7)).toBe(0.9) // the next onset, counted
+    expect(onsets).toEqual([1.7])
   })
 })
