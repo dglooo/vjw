@@ -11,8 +11,9 @@
 ### Where we stopped (2026-11-03 21:17, autonomous window closed, heartbeat cron deleted)
 - ✅ **S8 merged** (`2f4838f`, 21:25): `underruns()` = `playbackStats.underrunEvents` in `?debug` + `?bench`. §4.7 partial: 26 s with audio flowing, 60A 1.00×, fps 60, underruns 0 on Chrome's no-device sink; **blocker: this Mac's CoreAudio output is stuck** (`afplay` hangs) → user restarts coreaudiod, then `node scratchpad/s8-underrun60a.mjs 60` (headed; earlier "headless" checks were headed + `--mute-audio`). Plan CP7 §4.7 row corrected.
 - ⚠️ Gates under machine load (load ~8.6, Docker VM): vitest 314–315/316, 5 s timeouts in `acceptance.test.ts` §4.5 and `post.test.ts` caps — identical on unchanged master; the files pass alone. Queue a Tier-1: explicit timeouts on the heavy tests.
-- Still running: **planner** (`plan_live_rebuild.md` not written yet), **system-designer** (`design_milkdrop.md` not written yet).
-- **Exact next step:** log the §5 plan; present the MilkDrop variants to the user (**gate**). Then the coder queue: test timeouts (Tier 1) → §7 → §3 → §6 → §5 → §1 → §2.
+- ✅ **planner (Fable) → `agents/planner/plan_live_rebuild.md`** (§5, Tier 2): 1 step S1.1 in `gl/live.ts` only — per-op in-place mirror (`addFx`/`removeFx`/`addLayer`/`removeLayer`/`setBlend`) replaces `rebuild()`; survivors keep node, `u` (smoothing), targets, clocks; per-node FRAMEINDEX counter; no new Vitest (GL; mapping already pinned by `edit.test.ts:56-84`); 4 browser checks incl. GPU-memory leak after 10× add+remove. Drift: `design_effects.md:234` still says "call live.rebuild()".
+- Still running: **system-designer** (`design_milkdrop.md` not written yet).
+- **Exact next step:** present the MilkDrop variants to the user (**gate**). Coder queue (one at a time): test timeouts (Tier 1) → §7 → §3 → §6 → §5 S1.1 (`plan_live_rebuild.md`) → §1 → §2.
 
 ### Running now (as dispatched)
 - ▶ coder (Tier 1): `AudioContext.playbackStats.underrunEvents` in `?debug` + `?bench`, plus the §4.7 60A measurement under real audio (harness `scratchpad/s8-underrun60a.mjs`).
