@@ -9,12 +9,15 @@ Bundled into the app.
 
 | name | version | license |
 |---|---|---|
+| butterchurn | 3.0.0-beta.5 | MIT |
 | fft.js | 4.0.4 | MIT |
 | react | 19.3.1 | MIT |
 | react-dom | 19.3.1 | MIT |
 | twgl.js | 7.0.0 | MIT |
 
 fft.js: MIT per npm metadata (and its README); the GitHub repo (https://github.com/indutny/fft.js, Fedor Indutny) has no LICENSE file.
+
+butterchurn's runtime deps are inlined into its `dist/butterchurn.js` (npm installs them too): eel-wasm 0.0.16 MIT, @assemblyscript/loader 0.17.14 Apache-2.0, ecma-proposal-math-extensions 0.0.2 MIT (each `package.json`; none ships a LICENSE file).
 
 ## Toolchain
 
@@ -27,6 +30,7 @@ Dev only, never shipped. `playwright-core` is the lead's browser-verification to
 | @types/react | 19.3.0 | MIT |
 | @types/react-dom | 19.3.0 | MIT |
 | @vitejs/plugin-react | 6.1.2 | MIT |
+| butterchurn-presets | 3.0.0-beta.4 | MIT |
 | eslint | 10.13.0 | MIT |
 | eslint-plugin-react-hooks | 7.1.1 | MIT |
 | eslint-plugin-react-refresh | 0.5.7 | MIT |
