@@ -55,7 +55,7 @@ if (ctx.state === 'running') warmUp()
 else ctx.addEventListener('statechange', warmUp, { once: true })
 const tempo = createTempoSource()
 const sync = createSync(tempo)
-const governor = createGovernor()
+export const governor = createGovernor()
 const saved = localStorage.getItem(QUALITY_KEY)
 let mode: QualityMode = saved === '60-full' || saved === '30' ? saved : '60-adaptive'
 let out = outputFor(mode, 0, 0)

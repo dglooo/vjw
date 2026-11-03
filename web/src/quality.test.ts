@@ -75,6 +75,16 @@ describe('governor', () => {
     run(g, t, 90) // 20.5 s calm
     expect(g.scale).toBe(1)
   })
+
+  test('jsMs: the median of the last 120 JS times, 0 before 120 samples', () => {
+    const g = createGovernor()
+    let t = run(g, 0, 120) // 119 samples at 4 ms: the first frame only starts the clock
+    expect(g.jsMs).toBe(0)
+    t = run(g, t, 1)
+    expect(g.jsMs).toBe(4)
+    run(g, t, 120, undefined, 12)
+    expect(g.jsMs).toBe(12)
+  })
 })
 
 describe('modes', () => {
