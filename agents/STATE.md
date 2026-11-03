@@ -9,8 +9,10 @@
 **Spec:** `thoughts/spec_veejay_wizard.md` + `spec_effects.md` + `spec_audio_reactivity.md`. **Team (user 2026-11-03):** `planner` Fable 5.1 max; everyone else Opus 5.5 max; `researcher` high. The Qwen trial (11-01..11-03) is over.
 
 ### Where we stopped (2026-11-03 21:17, autonomous window closed, heartbeat cron deleted)
-- Still running, nothing merged in the window: **coder** (underrun read done in WIP `5ab8ab5` on `worktree-agent-a7ac17716bc3d2db7`; still on the §4.7 headless-audio measurement, dev server on 5173), **planner** (`plan_live_rebuild.md` not written yet), **system-designer** (`design_milkdrop.md` not written yet).
-- **Exact next step:** when each reports — review + gate + merge the underrun step (if the measurement stays stuck, merge the code with the honest note and move the measurement to the user's real-Chrome check); log the §5 plan; present the MilkDrop variants to the user (**gate**). Then the polish coder queue: §7 → §3 → §6 → §5 → §1 → §2.
+- ✅ **S8 merged** (`2f4838f`, 21:25): `underruns()` = `playbackStats.underrunEvents` in `?debug` + `?bench`. §4.7 partial: 26 s with audio flowing, 60A 1.00×, fps 60, underruns 0 on Chrome's no-device sink; **blocker: this Mac's CoreAudio output is stuck** (`afplay` hangs) → user restarts coreaudiod, then `node scratchpad/s8-underrun60a.mjs 60` (headed; earlier "headless" checks were headed + `--mute-audio`). Plan CP7 §4.7 row corrected.
+- ⚠️ Gates under machine load (load ~8.6, Docker VM): vitest 314–315/316, 5 s timeouts in `acceptance.test.ts` §4.5 and `post.test.ts` caps — identical on unchanged master; the files pass alone. Queue a Tier-1: explicit timeouts on the heavy tests.
+- Still running: **planner** (`plan_live_rebuild.md` not written yet), **system-designer** (`design_milkdrop.md` not written yet).
+- **Exact next step:** log the §5 plan; present the MilkDrop variants to the user (**gate**). Then the coder queue: test timeouts (Tier 1) → §7 → §3 → §6 → §5 → §1 → §2.
 
 ### Running now (as dispatched)
 - ▶ coder (Tier 1): `AudioContext.playbackStats.underrunEvents` in `?debug` + `?bench`, plus the §4.7 60A measurement under real audio (harness `scratchpad/s8-underrun60a.mjs`).
