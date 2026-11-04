@@ -53,7 +53,11 @@
     - Harness `scratchpad/live-rebuild.mjs`: 17/17 pass (the old code fails 16/17). Milk add/remove ×15 = 1 `createVisualizer`; GL counts back to baseline after 10× add/remove.
     - Noticed, not fixed: blend `screen` on a single-layer Trails spectrum renders ~half as bright as `normal` (predates this change). A newly added milk layer is black until its preset loads (by S2.2's design).
   - ✅ **MilkDrop S2.3 merged** (`55ebecf`, ~11 min; gates 327/327): `NativeDef.warm?()`; Start loads each milk preset; the pool's 2 visualizers are made once, in turn, and both are past their first load. Browser: `createVisualizer` = 2 over Start + 31 s; 0 black milk draws on fades. A cut to an un-prepared milk scene still shows 1–2 black frames (S2.2 design).
-  - ▶ **MilkDrop S2.4** (coder): `BUILTIN = spread(OWN, MILK_SCENES)` + test regexes + the `load()` guard (a render throw resolves false, so Start can't hang); CP2 demo incl. REC + ffprobe.
+  - ✅ **MilkDrop S2.4 merged** (`a4bcd03`, ~10 min; gates 327/327). **CP2 code-complete.**
+    - `BUILTIN = spread(OWN, MILK_SCENES)`: milk at playlist 7/15/23 of 30.
+    - `load()` uses `.then().catch()`, so Start can't hang.
+    - CP2 demo: compiling 51/51 (+3 milk); autopilot fade into milk via `gl/PerlinDissolve`, with the badge naming the preset; a drop cut away from milk; panel shows 3 starred; `createVisualizer` 2 over 62 s; REC 20 s = H.264 640×360 ~59 fps + AAC with sound (ffprobe).
+  - ▶ **Lead: worst-case run** (ruling 5).
   - **Lead reorder:** S2.4 → the lead's worst-case run (ruling 5) → S3.1 → §1 → §2. §1/§2 are taste and wait for the effects re-brief anyway.
   - ✅ **planner (Fable, ~12 min) → `plan_flash_cap.md`** (§3, Tier 2): 1 step S1.1.
     - A pure `flashGate` next to `WCAG` in `gl/post.ts`: ≤3 onsets per closed 1 s window; a refused onset holds; the output never rises except through an allowed onset.
