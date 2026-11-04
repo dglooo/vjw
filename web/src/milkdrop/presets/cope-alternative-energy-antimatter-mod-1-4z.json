@@ -1,16 +1,17 @@
 {
-  "name": "cope, martin + flexi - the slickery of alternative varnish",
-  "author": "cope, martin + flexi",
+  "name": "cope - alternative energy (antimatter mod_1)4z",
+  "author": "cope",
   "url": "https://github.com/jberg/butterchurn-presets",
   "license": "content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg)",
   "preset": {
     "version": 2,
     "baseVals": {
-      "rating": 0,
+      "rating": 5,
       "gammaadj": 1.49,
       "decay": 1,
       "echo_zoom": 1,
       "echo_alpha": 0.5,
+      "echo_orient": 3,
       "wave_mode": 1,
       "wave_thick": 1,
       "wave_brighten": 0,
@@ -171,7 +172,7 @@
     "init_eqs_eel": "",
     "frame_eqs_eel": "wave_r = wave_r + 0.5*(0.6*sin(time*1.3) + 0.4*sin(0.98*time));\nwave_b = wave_b + 0.5*(0.6*sin(time*1.1) + 0.4*sin(0.78*time));\nwave_g = wave_g + 0.5*(0.6*sin(time*1.2) + 0.4*sin(0.6*time));\n\nq8=wave_r;\nq7=wave_b;\nq6=wave_g;\n\nwr = 0.5+0.3*(0.6*sin(time*1.8) + 0.4*sin(0.8*time));\nwb = 0.5+0.3*(0.6*sin(time*1.67) + 0.4*sin(0.5*time));\nwg = 0.5+0.3*(0.6*sin(time*1.92) + 0.4*sin(0.4*time));\n\nq10=wr;\nq11=wb;\nq12=wg;\n\nvol = 0.1*(vol*9 + (bass_att+mid_att+treb_att)*0.333333);\nq1=vol;\nmonitor=vol;\nmtime=mtime+vol*0.01;\nq2=mtime*0.25;\nwave_mystery = wave_mystery + 0.6*vol;\nsy=sy+vol*0.02;\nsx=sy;\n\ncx = cx + 0.2*sin(mtime);\ncy = cy - 0.2*sin(mtime*1.2);",
     "pixel_eqs_eel": "rot=log(x+0.1)*(x+0.1);\nrot=rot*0.1;",
-    "warp": " shader_body { \n  vec2 tmpvar_1;\n  tmpvar_1 = (((uv_orig * texsize.xy) * (texsize_noise_lq.zw * 1.5)) + rand_frame.xy);\n  vec4 tmpvar_2;\n  tmpvar_2.zw = vec2(0.0, 0.0);\n  tmpvar_2.xy = uv;\n  vec4 tmpvar_3;\n  tmpvar_3.zw = vec2(0.0, 0.0);\n  tmpvar_3.xy = uv_orig;\n  vec4 tmpvar_4;\n  tmpvar_4 = mix (tmpvar_2, tmpvar_3, ((1.3 - rad) + (\n    (texture (sampler_noise_lq, tmpvar_1) - 0.5)\n   * 0.15)));\n  vec4 tmpvar_5;\n  tmpvar_5.w = 1.0;\n  tmpvar_5.xyz = ((texture (sampler_main, clamp (\n    (tmpvar_4.xy - (((vec2(0.0, 64.0) * texsize.zw) * dot (\n      (texture (sampler_main, clamp (tmpvar_4.xy, 0.0, 1.0)).xyz - 0.35)\n    , vec3(0.32, 0.49, 0.29))) * (dot (texture (sampler_main, \n      clamp (tmpvar_4.xy, 0.0, 1.0)\n    ).xyz, vec3(0.32, 0.49, 0.29)) - 0.4)))\n  , 0.0, 1.0)).xyz - 0.0011) + ((texture (sampler_noise_lq, tmpvar_1) - 0.5) * 0.0038).xyz);\n  ret = tmpvar_5.xyz;\n }",
-    "comp": " shader_body { \n  vec2 uv1_1;\n  vec2 tmpvar_2;\n  tmpvar_2.y = 0.0;\n  tmpvar_2.x = texsize.z;\n  vec2 tmpvar_3;\n  tmpvar_3.x = 0.0;\n  tmpvar_3.y = texsize.w;\n  vec2 tmpvar_4;\n  tmpvar_4.x = (texture (sampler_main, (uv - tmpvar_2)).xyz - texture (sampler_main, (uv + tmpvar_2)).xyz).x;\n  tmpvar_4.y = (texture (sampler_main, (uv - tmpvar_3)).xyz - texture (sampler_main, (uv + tmpvar_3)).xyz).x;\n  uv1_1 = ((0.3 * cos(\n    ((uv - 0.5) * 2.0)\n  )) - tmpvar_4);\n  float tmpvar_5;\n  tmpvar_5 = clamp ((0.04 / sqrt(\n    dot (uv1_1, uv1_1)\n  )), 0.0, 1.0);\n  uv1_1 = ((0.3 * cos(\n    (uv1_1 * 12.0)\n  )) - (9.0 * tmpvar_4));\n  vec4 tmpvar_6;\n  tmpvar_6.w = 1.0;\n  tmpvar_6.xyz = (tmpvar_5 + ((texture (sampler_main, uv).xyz * 12.0) * vec3(clamp (\n    (0.04 / sqrt(dot (uv1_1, uv1_1)))\n  , 0.0, 1.0))));\n  ret = tmpvar_6.xyz;\n }"
+    "warp": " shader_body { \n  vec3 noise2_1;\n  vec3 ret_2;\n  vec4 tmpvar_3;\n  tmpvar_3 = texture (sampler_main, uv);\n  vec3 tmpvar_4;\n  tmpvar_4.x = q8;\n  tmpvar_4.y = q7;\n  tmpvar_4.z = q6;\n  vec3 tmpvar_5;\n  tmpvar_5.x = q10;\n  tmpvar_5.y = q11;\n  tmpvar_5.z = q12;\n  noise2_1 = (texture (sampler_noise_lq, ((\n    (uv_orig * texsize.xy)\n   * texsize_noise_lq.zw) + rand_frame.xy)).xyz * (1.7 * mix (tmpvar_4, tmpvar_5, vec3(\n    (1.0 - rad)\n  ))));\n  ret_2 = (tmpvar_3.xyz + clamp ((\n    (tmpvar_3.yzx * noise2_1.zxy)\n   - \n    (tmpvar_3.zxy * noise2_1.yzx)\n  ), 0.0, 1.0));\n  ret_2 = (ret_2 * 0.9);\n  vec4 tmpvar_6;\n  tmpvar_6.w = 1.0;\n  tmpvar_6.xyz = ret_2;\n  ret = tmpvar_6.xyz;\n }",
+    "comp": " shader_body { \n  vec3 ret_1;\n  ret_1 = (texture (sampler_main, uv).xyz * 1.49);\n  ret_1 = (ret_1 * ret_1);\n  vec4 tmpvar_2;\n  tmpvar_2.w = 1.0;\n  tmpvar_2.xyz = ret_1;\n  ret = tmpvar_2.xyz;\n }"
   }
 }
