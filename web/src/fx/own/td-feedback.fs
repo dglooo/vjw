@@ -40,7 +40,8 @@
 //               https://github.com/ashima/webgl-noise
 //               https://github.com/stegu/webgl-noise
 //
-// (From noise3D.glsl: snoise(vec3) and what it calls, unchanged.)
+// (From noise3D.glsl: snoise(vec3) and what it calls. Ours: it returns a second channel too, the same four corners
+// with their gradients' components rotated (yzx), so one call drifts both axes at half the cost of two.)
 
 vec3 mod289(vec3 x) {
   return x - floor(x * (1.0 / 289.0)) * 289.0;
@@ -59,7 +60,7 @@ vec4 taylorInvSqrt(vec4 r)
   return 1.79284291400159 - 0.85373472095314 * r;
 }
 
-float snoise(vec3 v)
+vec2 snoise(vec3 v)
   {
   const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
   const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
@@ -130,8 +131,11 @@ float snoise(vec3 v)
 // Mix final noise value
   vec4 m = max(0.5 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
   m = m * m;
-  return 105.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
-                                dot(p2,x2), dot(p3,x3) ) );
+  m = m * m;
+  return 105.0 * vec2(dot( m, vec4( dot(p0,x0), dot(p1,x1),
+                                    dot(p2,x2), dot(p3,x3) ) ),
+                      dot( m, vec4( dot(p0.yzx,x0), dot(p1.yzx,x1),
+                                    dot(p2.yzx,x2), dot(p3.yzx,x3) ) ));
   }
 // (end of webgl-noise)
 
@@ -166,9 +170,9 @@ void main() {
     }
     // Pass 0, at half size. k: this frame's length in 60 fps frames, so the look holds at any frame rate.
     float k = clamp(TIMEDELTA * 60.0, 0.0, 4.0);
-    // Zoom out of the centre, then drift along a slowly turning noise field (one noise per axis).
+    // Zoom out of the centre, then drift along a slowly turning noise field (one noise channel per axis).
     vec3 q = vec3(uv * vec2(RENDERSIZE.x / RENDERSIZE.y, 1.0) * FIELD, DRIFT * TIME);
-    vec2 p = 0.5 + (uv - 0.5) / pow(zoom, k) + displace * k * vec2(snoise(q), snoise(q + 17.0));
+    vec2 p = 0.5 + (uv - 0.5) / pow(zoom, k) + displace * k * snoise(q);
     // Four bilinear taps half a texel off the diagonals: their mean is a 3×3 tent blur (TD softens the loop too).
     vec2 h = 0.5 / RENDERSIZE;
     vec3 a = IMG_NORM_PIXEL(loop, p + h).rgb;
