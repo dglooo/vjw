@@ -167,6 +167,7 @@ Invoke the `ponytail` skill (full) before writing code.
 
 ### CP3 close-out (lead, no coder)
 A scratchpad Playwright run (as `scratchpad/s8-underrun60a.mjs`): 60 s at 60A, autopilot on, headed `--mute-audio`, silence is fine; read `store` `drops` per switch (0 expected) and `governor.jsMs` (< 9 ms). Then queue the spec §7.5 30-min run with MilkDrop in the playlist (audio flowing, after the coreaudiod restart).
+**Done (lead, 2026-11-04 04:1x, `scratchpad/milk-cp3.mjs`):** 1728×1117@2, 60A, silence, the live starred playlist (52 scenes, 25 milk), `director.next()` every 4 s: 64 s, 16 switches, governor drops +0 on every switch, 3842 frames, 0 late (> 1.5 × 16.7 ms), p99 18.5 ms, scale 1.00, `jsMs` 1.4 ms. CP2 worst-case run (design § Probe ruling 5, `scratchpad/milk-worst.mjs`): heaviest own `particles-over-tunnel` (4.17 ms) ↔ the two 3.99 ms presets, 65 s, 0 of 3901 late, 1.00×. The 30-min §7.5 re-run stays queued (STATE).
 
 ## Acceptance mapping
 - Spec §4 L78 (20–30 curated presets in the shared playlist; both engines in one recorded canvas) → CP2 (S2.2 copy into our targets, S2.4 playlist, REC demo), CP3 (S3.1 count).

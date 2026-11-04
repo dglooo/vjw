@@ -4,101 +4,39 @@
 
 ## HEAD
 
-**Updated:** 2026-11-03 (session 6)
-**Stage:** pilot ✅ → `effects` ✅ (tag `cp7-effects`) → `audio-reactivity` ✅ code-complete (22/22 steps, CP1–CP7, `8db53d0`, 316 tests). **Now: 3.5 h autonomous run (user, until 21:10 MSK) over the post-epic queue.**
-**Spec:** `thoughts/spec_veejay_wizard.md` + `spec_effects.md` + `spec_audio_reactivity.md`. **Team (user 2026-11-03):** `planner` Fable 5.1 max; everyone else Opus 5.5 max; `researcher` high. The Qwen trial (11-01..11-03) is over.
+**Updated:** 2026-11-04 04:2x (session 6; autonomous after the user's "go" at 01:2x)
+**Stage:** pilot ✅ → `effects` ✅ → `audio-reactivity` ✅ → **`milkdrop` ✅ (plan_milkdrop.md 7/7, CP1–CP3, `de557b9`)**, plus effects polish §3 §5 §6 §7 ✅. 327 tests.
+**Spec:** `thoughts/spec_veejay_wizard.md` + `spec_effects.md` + `spec_audio_reactivity.md`. **Team:** `planner` Fable 5.1 max; others Opus 5.5 max; `researcher` high.
 
-### Where we stopped (2026-11-03 21:17, autonomous window closed, heartbeat cron deleted)
-- ✅ **S8 merged** (`2f4838f`, 21:25): `underruns()` = `playbackStats.underrunEvents` in `?debug` + `?bench`. §4.7 partial: 26 s with audio flowing, 60A 1.00×, fps 60, underruns 0 on Chrome's no-device sink; **blocker: this Mac's CoreAudio output is stuck** (`afplay` hangs) → user restarts coreaudiod, then `node scratchpad/s8-underrun60a.mjs 60` (headed; earlier "headless" checks were headed + `--mute-audio`). Plan CP7 §4.7 row corrected.
-- ⚠️ Gates under machine load (load ~8.6, Docker VM): vitest 314–315/316, 5 s timeouts in `acceptance.test.ts` §4.5 and `post.test.ts` caps — identical on unchanged master; the files pass alone. Queue a Tier-1: explicit timeouts on the heavy tests.
-- ✅ **planner (Fable) → `agents/planner/plan_live_rebuild.md`** (§5, Tier 2): 1 step S1.1 in `gl/live.ts` only — per-op in-place mirror (`addFx`/`removeFx`/`addLayer`/`removeLayer`/`setBlend`) replaces `rebuild()`; survivors keep node, `u` (smoothing), targets, clocks; per-node FRAMEINDEX counter; no new Vitest (GL; mapping already pinned by `edit.test.ts:56-84`); 4 browser checks incl. GPU-memory leak after 10× add+remove. Drift: `design_effects.md:234` still says "call live.rebuild()".
-- ✅ **system-designer (Opus max, ~110 min incl. the limit pause) → `design_milkdrop.md`:** **A** (rec., M) each preset = catalog native `milk/<slug>` in a one-layer built-in `builtin:milk-<slug>`, pool of 2 visualizers (own OffscreenCanvas contexts), per-frame `texSubImage2D(internalCanvas)` GPU→GPU copy; ~6 app lines + optional `NativeDef.warm?()` / **B** (M) whole-frame deck `milk:<slug>`, MilkDrop's own morphs, no fx on presets, milk→milk compiles inside fades / **C** (L) A in a Worker, +1 frame. Common: `butterchurn@3.0.0-beta.5` exact pin (MIT), presets copied from `butterchurn-presets@3.0.0-beta.4` with credit fields, feed via `render({audioLevels})` from our `analyser`, `pixelRatio: 1`. **Plan step 1 in every variant = `?bench&milk` M4 probe, kill criteria K1 copy / K2 5 ms per preset / K3 load hitch / K4 JS < 9 ms.** Gaps G1–G3 covered by install + probe (no researcher).
-- ✅ **USER GATE passed (user, 2026-11-03): MilkDrop Variant A** (`design_milkdrop.md` § Variant A + § Common C1–C5). Q2 **no** detector hook into presets (later maybe). Q3 **we pick ~25** that pass the probe, all starred; the user unstars. Q4 autopilot mix **spread evenly** (`spread()`).
-- ✅ **planner (Fable, 14 min) → `plan_milkdrop.md`** (~19 KB, lead-verified pointers): 7 steps. CP1 = probe only: S1.1 install + `butterchurn.d.ts` + boot checks G1–G3/G9/G10; S1.2 K1–K4 + `Governor.jsMs` + export `governor`. **Hard stop on any K fail.** CP2: S2.1 `presets.ts`/test/script/3 presets → S2.2 `native.ts` + catalog → S2.3 `warm?()` → S2.4 `BUILTIN = spread()` (order mandatory: `live.ts:435-439` warm would otherwise open one context per preset). CP3: S3.1 ~25 by rule + THIRD_PARTY; lead's 60 s check. The probe needs no audio (silence bytes).
-- ✅ **MilkDrop S1.1 merged** (`63d5b4e`, coder 13 min; gates 316/316): butterchurn 3.0.0-beta.5 + presets 3.0.0-beta.4 exact, `butterchurn.d.ts`, `?bench&milk` boot. M4: internalCanvas yes, 2d null yes (G2), **createVisualizer ~1 s main thread**; 410 candidates, load errors 1, **GL link errors 22** (dist never checks link status, so the bench reads the GL flag) (G3). G1 inlined deps eel-wasm MIT, @assemblyscript/loader Apache-2.0, math-extensions MIT. G9 presets = `presets/converted/<name>.json` ×504 (`dist/all.js` lossy). G10 `elapsedTime` = dt seconds. Butterchurn patches global `Math` (clamp, scale…). Harness: scratchpad `milk-boot.mjs <port>`.
-- ⏸ Paused by the user 2026-11-03 22:59. **Resumed 2026-11-04 01:19** (cron). The S1.2 coder had been stopped before writing code, so S1.2 was re-dispatched fresh.
-- ✅ **MilkDrop S1.2 merged** (`a4abcaf`, coder ~25 min; gates 317/317). `Governor.jsMs`, `export governor`, `?bench&milk` K1–K4 (`&n`, `&res`, `&mesh`).
-  - Coder's `n=20` run: K1 fail (copy GPU p95 a 6.28 / b 6.39 / c 1.65 / d 3.03 ms; main ≤0.3), K2 fail (0/20, copy term only; Butterchurn's own GPU 2.4–5.5), K3 pass (warm 6.9/8.9 ms), K4 pass (0.30+1.40 ms). createVisualizer 51–76 ms (S1.1's ~1 s was a cold first).
-  - ⚠️ The copy GPU numbers look like cross-context sync wait, not copy work: an empty query reads 0.00, and copying an already-finished frame is no faster. This needs a design ruling before K1's "stop" counts.
-  - ✅ **Lead full probe (01:5x, M4, silence, 60A):**
-    - K1 fail (copy GPU p95: a 6.47, c 1.62, d 3.09) and K2 fail (0/387 with the copy term).
-    - **But end-to-end the 60 s run held: MilkDrop + copy (a) every frame at full size, 3600 frames, 0 late, p99 18.6 ms.** So the copy timer is sync wait, not cost.
-    - Butterchurn's own GPU p95: ≤5 ms 264/387, ≤4 ms 125. Cold loads 0 late on all 387. K3 pass (warm 6.0/9.2, max 26.1 on a fresh B). K4 pass (2.4 ms). S3.1 pool 116 presets, 49 authors.
-    - Output: session scratchpad `milk-full.out.txt` + `milk-full.raf.json`.
-  - ✅ **system-designer → `design_milkdrop.md` § Probe ruling (L384–409): CP1 = GO**, inside Variant A, no user gate.
-    - K1/K2 timed a cross-context wait: the copy reading tracks Butterchurn's own GPU, median 7.61 vs 4.51.
-    - **New K1** = 0 late frames over the 60 s full-size run + copy main-thread p95 ≤ 0.5 ms (pass). **New K2** = Butterchurn's own GPU p95 ≤ 5 ms, ≥ 20 presets (pass, 264/387).
-    - S2.2 copies with path (a).
-    - The governor never reads `gpuMs` (lead-verified: readers are only `app.ts:342` panel hint, `bench.ts:141/186`). R9 is inverted: the panel GPU hint reads high for MilkDrop scenes (display-only).
-    - The lead's extra worst-case run (2 heaviest presets fading into each other + heaviest own scene) goes at the S2.4 demo.
-    - Plan edits applied (S1.2 note, S2.1/S2.2/S2.3/S2.4/S3.1).
-  - S2.1's 3 presets (lead, by S3.1's rule; 116 eligible, 49 authors): `fiShbRaiN + geiss - witchcraft (Grow Mix 3)` (3.99), `cope, martin + flexi - the slickery of alternative varnish` (3.99), `Geiss - Reaction Diffusion (Relief Mix)` (3.64). Probe rows saved to `scratchpad/milk-probe-rows.json` (gitignored) for S3.1.
-  - ✅ **Tier-1 heavy-test timeouts merged** (`c738f85`, ~9 min): a global Vitest `testTimeout: 20_000` (the two redundant per-test 20 s in arrange.test.ts removed). Reproduced with 20 CPU burners: §4.5 timed out on unchanged code; 317/317 ×2 after the fix.
-  - ✅ **Polish §7 merged** (`d55f4ae`, ~3 min): any `keydown` that reaches `window` wakes the overlay. Browser: ArrowRight wakes the bar; `E` opens the panel at opacity 1 (before: 0). Panel slider arrows now keep the panel awake too.
-  - ✅ **Polish §6 merged** (`20a3a03`, ~11 min; gates 318/318): `rampShared()` in `spectrum.ts` ramps shared-bin low bands toward the next own-bin band; groups come from `bandEdges(ctx.sampleRate, analyser.fftSize)`.
-    - Browser (44.1 kHz here): stepped frames went 120/120 → 1/120.
-    - Remaining flat tops on loud sub come from `DB_HI` (`spectrum.ts:21`), not from lockstep.
-  - ✅ **MilkDrop S2.1 merged** (`54f7257`, ~6 min; gates 321/321): `presets.ts` (`PRESETS`, `MILK_SCENES`, `spread`) + test, `scripts/milk-presets.mjs` (byte-identical rerun), 3 presets. Drift: the package has no `repository` field, so `url` = `https://github.com/jberg/butterchurn-presets`.
-  - ✅ **Polish §3 merged** (`d73e2b9`, ~15 min; gates 327/327). `flashGate` + shared `flashOnsets`; strobe alpha 0.6.
-    - Browser at LOCK 174: rate 1 → 17/17 allowed, rate 2 → 19 of 37 allowed; max 3 in any 1 s window both times. Flash frame = a 60% wash (min channel 153).
-    - Gap noted: bool params have no binding controls in the panel, so the strobe's source and `rate` can't be changed from the UI.
-  - ✅ **MilkDrop S2.2 merged** (`9566642`, ~24 min; gates 327/327): `native.ts` (pool, copy (a) shared with bench as `copy()`, resize) + catalog line.
-    - Plain `?bench`: 3 `milk/*` with glError 0, console errors 0.
-    - Upright: the copy matches Butterchurn exactly (0.000 vs 76.6 if flipped).
-    - `?debug`: a milk layer over Tunnel reacts to music.
-    - Drift: `dispose()` returns a settled visualizer at once (the plan's `.finally` made a third one per prepare).
-    - ⚠️ A scaled per-frame `drawImage(internalCanvas)` read a frozen image, so the probe's path (c) may have copied stale frames. Path (a) is unaffected.
-    - Until S2.3, the first milk add in a page hitches ~1 s.
-  - ✅ **Polish §5 merged** (`e23c44e`, ~20 min; gates 327/327). `live.ts` mirrors each structural op; survivors keep node/u/smoothing/flash/targets/clock; per-node FRAMEINDEX (first draw now 0); `rebuild()` gone.
-    - Harness `scratchpad/live-rebuild.mjs`: 17/17 pass (the old code fails 16/17). Milk add/remove ×15 = 1 `createVisualizer`; GL counts back to baseline after 10× add/remove.
-    - Noticed, not fixed: blend `screen` on a single-layer Trails spectrum renders ~half as bright as `normal` (predates this change). A newly added milk layer is black until its preset loads (by S2.2's design).
-  - ✅ **MilkDrop S2.3 merged** (`55ebecf`, ~11 min; gates 327/327): `NativeDef.warm?()`; Start loads each milk preset; the pool's 2 visualizers are made once, in turn, and both are past their first load. Browser: `createVisualizer` = 2 over Start + 31 s; 0 black milk draws on fades. A cut to an un-prepared milk scene still shows 1–2 black frames (S2.2 design).
-  - ✅ **MilkDrop S2.4 merged** (`a4bcd03`, ~10 min; gates 327/327). **CP2 code-complete.**
-    - `BUILTIN = spread(OWN, MILK_SCENES)`: milk at playlist 7/15/23 of 30.
-    - `load()` uses `.then().catch()`, so Start can't hang.
-    - CP2 demo: compiling 51/51 (+3 milk); autopilot fade into milk via `gl/PerlinDissolve`, with the badge naming the preset; a drop cut away from milk; panel shows 3 starred; `createVisualizer` 2 over 62 s; REC 20 s = H.264 640×360 ~59 fps + AAC with sound (ffprobe).
-  - ✅ **Lead worst-case run (ruling 5): PASS.**
-    - Setup: full size 1728×1117@2, silence, 60A.
-    - Heaviest starred own scene is `particles-over-tunnel` (4.17 ms GPU); next are rainbow-trails 4.10 and trails-spectrum 4.07.
-    - 65 s of `next()` every 5 s over [witchcraft, cope, particles-over-tunnel], covering milk→milk, milk→own and own→milk fades.
-    - Result: 3901 frames, **0 late**, p99 18.6 ms, governor drops 0, **scale 1.00**, jsMs 2.2.
-    - Harness: session scratchpad `wc/worst.mjs` (copy in `scratchpad/milk-worst.mjs`).
-  - ▶ **MilkDrop S3.1** (coder): curate ~25 by rule from `scratchpad/milk-probe-rows.json`, + a contact sheet with music, + THIRD_PARTY.
-  - **Lead reorder:** S2.4 → the lead's worst-case run (ruling 5) → S3.1 → §1 → §2. §1/§2 are taste and wait for the effects re-brief anyway.
-  - ✅ **planner (Fable, ~12 min) → `plan_flash_cap.md`** (§3, Tier 2): 1 step S1.1.
-    - A pure `flashGate` next to `WCAG` in `gl/post.ts`: ≤3 onsets per closed 1 s window; a refused onset holds; the output never rises except through an allowed onset.
-    - Applied at the `live.ts` `render()` uniform write, with one shared module-level `flashOnsets` (all layers, both fade scenes). Flash class = a const set (`own/strobe.strobe`, `own/flash.flash`). The post strobe stays out (same beat grid, ≤0.15).
-    - `strobe.fs` alpha 0.6 (⚠️ taste). `__flash` under `?debug`.
-    - Fact: `tempo.ts:26` folds BPM into [90,180), so the browser check forces the gate with the panel `rate` = 2.
-    - Accepted ceiling: a slow sub-0.5 swell on a user-bound float is held, then steps at 0.5 (a counted onset).
-    - Next coder after S2.1. It has a real placement choice: a binding vs a uniform-write gate in `live.ts`, a flag in ISF metadata vs a const list, and whether the `postFor` strobe shares the 3/s budget. Lead defaults: one shared ≤3 onsets/s budget enforced at the uniform write, the pure gate next to `WCAG` in `gl/post.ts`, strobe colour alpha < 1.
-- ✅ **User "go" (2026-11-04 01:2x): the effects-polish queue is approved.** One coder at a time. Lead order:
-  - S1.2 → the lead's full `?bench&milk` on a **quiet machine** (no coder running, so the numbers stay clean) → CP1 verdict.
-  - Then Tier-1 test timeouts (they unflake every later merge).
-  - Then alternate MilkDrop CP2 (only if CP1 passes) with polish: S2.1 → §7 → S2.2 → §3 → S2.3 → §6 → S2.4 → §5 (`plan_live_rebuild.md`) → S3.1 → §1 → §2.
-  - If CP1 fails: MilkDrop stops (user decision per the K table), and polish continues.
-- **Exact next step:** merge S1.2; the lead runs the full `?bench&milk` at 60A → **CP1 hard stop or go**.
-- Ops lesson (2026-11-03 ~19:0x): three Opus/Fable-max agents in parallel hit the 5-hour usage limit in ~1.5 h; keep parallel runs to coder + one researcher.
+### Where we stopped (2026-11-04 04:2x)
+- **MilkDrop done.** 25 curated presets, one per author. Butterchurn GPU p95 2.58–3.52 ms. They are spread evenly in the autopilot and all starred.
+  - Stack: butterchurn 3.0.0-beta.5, presets from 3.0.0-beta.4, copy path (a), pool of 2 visualizers, warm at Start.
+  - CP3 close-out (lead, `scratchpad/milk-cp3.mjs`): 64 s, 16 switches over the live 52-scene playlist. 3842 frames, 0 late, jsMs 1.4, 1.00×.
+  - Worst case (ruling 5, `scratchpad/milk-worst.mjs`): 0 of 3901 frames late. Contact sheet: `scratchpad/milk-picks-sheet.png`.
+- **Polish done:** §7 keys wake the overlay (`d55f4ae`) · §6 Spectrum low-bar ramp (`20a3a03`) · §3 shared WCAG flash cap + strobe at a 60% wash (`d73e2b9`, `plan_flash_cap.md`) · §5 structural panel edits no longer restart the scene (`e23c44e`, `plan_live_rebuild.md`) · Tier 1 Vitest `testTimeout` 20 s (`c738f85`).
+- **Exact next step:** nothing is running or dispatched. The rest of the queue needs the user: §1/§2 are taste items, waiting for the effects re-brief, plus the decisions below.
+
+### Findings for the user (decide or leave)
+- ⚠️ **WCAG gap:** MilkDrop presets flash on their own; e.g. `cope-alternative-energy` luma std goes 6→72 within 2 s. `flashGate` covers only `own/strobe` + `own/flash`. Option: a frame-luminance flash limiter in the post pass (a design item).
+- Blend `screen` on a single-layer scene renders ~half as bright as `normal`. This predates §5.
+- Bool params (the strobe) have no binding controls in the panel.
+- The panel's GPU hint reads high for MilkDrop scenes (cross-context wait; display only). A cut to an unprepared milk scene shows 1–2 black frames.
 
 ### Queue (lead order)
-1. Merge the underrun step; correct the §4.7 row in the plan's CP7 closeout with its numbers.
-2. Effects polish, one coder each (user 2026-11-03 "го дальше" over the list = go; the big effects re-brief still waits for the user's brief). Lead order + defaults: **§7** overlay wakes on keys → **§3** one shared flash-rate cap ≤3/s for `own/strobe` + `own/flash` (WCAG 2.3.1) and strobe default not full white → **§6** spectrum-local low-bar interpolation (no fftSize change) → **§5** per `plan_live_rebuild.md` → **§1** slit scan, **§2** chrome ring (taste, last). **§4** deferred (perf investigation, needs a quiet-GPU `?bench`).
-3. MilkDrop epic: research → system-designer → **USER GATE (hard stop)** → planner → coders. Spec: 20–30 curated Butterchurn presets in the shared playlist + both engines composited into one recorded canvas.
-4. Blocked on the user's real tracks (`scratchpad/real/`): dubstep140 tempo lock (bar 1.71 s > max lag 1.33 s), false kicks on a bare reese, preset `proto`/`sens` tuning.
+1. §1 slit scan, §2 chrome ring: taste, after the user's effects re-brief (lead defaults in `_adhoc/effects_polish_2026-11-03.md`).
+2. §4 "Spectrum takes ≤2 filters": a perf investigation on a quiet-GPU `?bench`. Deferred.
+3. The spec §7.5 30-min run with MilkDrop in the playlist and audio flowing (CoreAudio worked for the coders on 11-04); `?flash` lag. REC backlog: a WebCodecs recorder (low priority).
+4. Blocked on real tracks (`scratchpad/real/`): dubstep140 tempo lock, false kicks on a bare reese, preset `proto`/`sens` tuning.
 
 ### Waiting on the user
-- Local CP6/CP7 check: `cd web && npm run dev` → `localhost:5173/?debug`, E opens the panel (Sources tab, meters, picker/Auto, custom band + reload, drop + LOCK).
-- §4.2: 174 vs rekordbox on the deck.
-- The effects re-brief (what to redo, including the built-in scenes).
-- Real tracks for tuning (`scratchpad/real/`).
-- The MilkDrop variant pick, when the design lands.
+- Look at MilkDrop: `cd web && npm run dev` → `localhost:5173`, press → until a MilkDrop scene; E → panel: 25 `builtin:milk-*` starred, unstar the ones you dislike.
+- Local CP6/CP7 check: `localhost:5173/?debug`, E opens the panel (Sources tab, meters, picker/Auto, custom band + reload, drop + LOCK).
+- The effects re-brief (what to redo, including the built-in scenes) · real tracks (`scratchpad/real/`) · §4.2: 174 vs rekordbox.
 
 ### Open notes
-- ⚠️ **§4.7 record correction:** the S7.2 note "the headless drop feed didn't decode (Chrome artifact)" was wrong. The lead's harness passed a Node Buffer into `page.evaluate`, which arrived as an empty File. With base64 it decodes with 0 errors, but `__src` still reads 0 in that harness (the underrun coder is diagnosing it). Under the drop, the governor stepped 1.00 → 0.72× and probed back up (0.79, 0.87). So "scale 1.00, never stepped down" holds only without audio.
+- §4.7: under the drop fixture the governor stepped 1.00 → 0.72× and probed back up, so "scale 1.00" holds only without audio (detail in TAIL, session 6). Harnesses pass files as base64 (a Node Buffer arrives empty).
 - Known limits: bass note-on-kick lag ~211 ms (accepted); kick-veto branch S3.1c kept unmerged (`413275d`); `?debug&preset=` forces the frame loop only, so it doesn't drive the Auto-style hint (by design).
-- Effects polish backlog: slit scan weak; liquid chrome rings every kick; strobe full-white every beat; spectrum takes ≤2 filters; a structural panel edit restarts the scene; steppy bass bars; keys don't wake the overlay.
-- Pilot optional (user): 30-min §7.5 run, `?flash` lag. REC is low priority; backlog: a WebCodecs recorder.
-- Fixtures: `scratchpad/fx_audio/dnb174.wav`, `dubstep140.wav` (gitignored; regenerate via `web/scripts/make-fx.mjs` through a throwaway vitest in `src/`).
+- ⚠️ assumptions: `design_pilot.md` § "Spec §8 and STATE ⚠️ ledger". Fixtures: `scratchpad/fx_audio/dnb174.wav`, `dubstep140.wav` (gitignored; regenerate via `web/scripts/make-fx.mjs` through a throwaway vitest in `src/`).
 
 **Infra:** graphify (root `.`, post-commit hook); crons are session-only; `.claude/settings.local.json` allowlist (Read/Write/Edit + common Bash incl. `npx:*`); dispatch rule CLAUDE.md #11 (one coder at a time, own worktree, the lead merges).
 
@@ -106,10 +44,7 @@
 - Session 2 (/grill-me): browser pilot, Chrome-first, localhost; Vite + React + TS; Electron later. Minimal auto-hiding overlay, REC via MediaRecorder, quality modes 60A / 60F / 30. After the pilot: editor → camera → clip mixer.
 - Session 3: any dependency license; line-in only (rekordbox, sometimes Pioneer USB), MIDI/Link later; Butterchurn moved to the next step; analysis = energy, onsets, tempo+phase.
 - 2026-10-28: effects Variant A; audio-reactivity Variant B (worklet IIR bank + fast/slow envelopes).
-- 2026-10-31: one coder at a time. 2026-11-01: fully autonomous runs (the lead halts only on hard blockers). 2026-11-03: team models above; MilkDrop Variant A, no detector hook, we curate ~25, spread evenly.
-
-### Open ⚠️ assumptions
-Tracked in `design_pilot.md` § "Spec §8 and STATE ⚠️ ledger".
+- 2026-10-31: one coder at a time. 2026-11-01: fully autonomous runs (the lead halts only on hard blockers). 2026-11-03: team models above; MilkDrop Variant A, no detector hook, we curate ~25, spread evenly. 2026-11-04: MilkDrop probe ruling (K1/K2 timed a cross-context wait → end-to-end late frames + Butterchurn-own GPU); user "go" on the polish queue.
 
 ### User preferences
 Talk in Russian. **Grill/AskUserQuestion ONLY at new-feature discovery (+ the one variant gate); never during execution** (user, 2026-10-29). **Decide minor/technical choices yourself; ask only for real gates/scope** (user, 2026-10-28). REC is low priority. No Docker. Artifacts in English. External AI reviews the user pastes are leads to verify, not facts.
@@ -189,3 +124,81 @@ Talk in Russian. **Grill/AskUserQuestion ONLY at new-feature discovery (+ the on
     - ✅ S7.2 (lead, `8db53d0`): CP7 closeout table in the plan. 60A on this M4 without audio: 60 fps / 1.00× on ANGLE Metal. (Correction 2026-11-03 in HEAD Open notes.)
   - Sub-agent wall time (this epic, Qwen medium): S5.3 66 min, S6.2 34, S4.3 23, S3.2 19, S2.5b 17, S6.1 15, S2.5a 14, S6.3 14, S7.1 4.
 - 2026-11-03 — Session 6: CLAUDE.md + agent defs back to Anthropic models (`481d97b`): planner Fable 5.1 max, others Opus 5.5 max, researcher high. TouchDesigner explained to the user (Derivative; Non-Commercial free ≤1280×1280, Commercial $600, Pro $2200). STATE HEAD compacted.
+- 2026-11-03..04 — Session 6 work log (demoted from HEAD 2026-11-04):
+  - ✅ **S8 merged** (`2f4838f`, 21:25): `underruns()` = `playbackStats.underrunEvents` in `?debug` + `?bench`. §4.7 partial: 26 s with audio flowing, 60A 1.00×, fps 60, underruns 0 on Chrome's no-device sink; **blocker: this Mac's CoreAudio output is stuck** (`afplay` hangs) → user restarts coreaudiod, then `node scratchpad/s8-underrun60a.mjs 60` (headed; earlier "headless" checks were headed + `--mute-audio`). Plan CP7 §4.7 row corrected.
+  - ⚠️ Gates under machine load (load ~8.6, Docker VM): vitest 314–315/316, 5 s timeouts in `acceptance.test.ts` §4.5 and `post.test.ts` caps — identical on unchanged master; the files pass alone. Queue a Tier-1: explicit timeouts on the heavy tests.
+  - ✅ **planner (Fable) → `agents/planner/plan_live_rebuild.md`** (§5, Tier 2): 1 step S1.1 in `gl/live.ts` only — per-op in-place mirror (`addFx`/`removeFx`/`addLayer`/`removeLayer`/`setBlend`) replaces `rebuild()`; survivors keep node, `u` (smoothing), targets, clocks; per-node FRAMEINDEX counter; no new Vitest (GL; mapping already pinned by `edit.test.ts:56-84`); 4 browser checks incl. GPU-memory leak after 10× add+remove. Drift: `design_effects.md:234` still says "call live.rebuild()".
+  - ✅ **system-designer (Opus max, ~110 min incl. the limit pause) → `design_milkdrop.md`:** **A** (rec., M) each preset = catalog native `milk/<slug>` in a one-layer built-in `builtin:milk-<slug>`, pool of 2 visualizers (own OffscreenCanvas contexts), per-frame `texSubImage2D(internalCanvas)` GPU→GPU copy; ~6 app lines + optional `NativeDef.warm?()` / **B** (M) whole-frame deck `milk:<slug>`, MilkDrop's own morphs, no fx on presets, milk→milk compiles inside fades / **C** (L) A in a Worker, +1 frame. Common: `butterchurn@3.0.0-beta.5` exact pin (MIT), presets copied from `butterchurn-presets@3.0.0-beta.4` with credit fields, feed via `render({audioLevels})` from our `analyser`, `pixelRatio: 1`. **Plan step 1 in every variant = `?bench&milk` M4 probe, kill criteria K1 copy / K2 5 ms per preset / K3 load hitch / K4 JS < 9 ms.** Gaps G1–G3 covered by install + probe (no researcher).
+  - ✅ **USER GATE passed (user, 2026-11-03): MilkDrop Variant A** (`design_milkdrop.md` § Variant A + § Common C1–C5). Q2 **no** detector hook into presets (later maybe). Q3 **we pick ~25** that pass the probe, all starred; the user unstars. Q4 autopilot mix **spread evenly** (`spread()`).
+  - ✅ **planner (Fable, 14 min) → `plan_milkdrop.md`** (~19 KB, lead-verified pointers): 7 steps. CP1 = probe only: S1.1 install + `butterchurn.d.ts` + boot checks G1–G3/G9/G10; S1.2 K1–K4 + `Governor.jsMs` + export `governor`. **Hard stop on any K fail.** CP2: S2.1 `presets.ts`/test/script/3 presets → S2.2 `native.ts` + catalog → S2.3 `warm?()` → S2.4 `BUILTIN = spread()` (order mandatory: `live.ts:435-439` warm would otherwise open one context per preset). CP3: S3.1 ~25 by rule + THIRD_PARTY; lead's 60 s check. The probe needs no audio (silence bytes).
+  - ✅ **MilkDrop S1.1 merged** (`63d5b4e`, coder 13 min; gates 316/316): butterchurn 3.0.0-beta.5 + presets 3.0.0-beta.4 exact, `butterchurn.d.ts`, `?bench&milk` boot. M4: internalCanvas yes, 2d null yes (G2), **createVisualizer ~1 s main thread**; 410 candidates, load errors 1, **GL link errors 22** (dist never checks link status, so the bench reads the GL flag) (G3). G1 inlined deps eel-wasm MIT, @assemblyscript/loader Apache-2.0, math-extensions MIT. G9 presets = `presets/converted/<name>.json` ×504 (`dist/all.js` lossy). G10 `elapsedTime` = dt seconds. Butterchurn patches global `Math` (clamp, scale…). Harness: scratchpad `milk-boot.mjs <port>`.
+  - ⏸ Paused by the user 2026-11-03 22:59. **Resumed 2026-11-04 01:19** (cron). The S1.2 coder had been stopped before writing code, so S1.2 was re-dispatched fresh.
+  - ✅ **MilkDrop S1.2 merged** (`a4abcaf`, coder ~25 min; gates 317/317). `Governor.jsMs`, `export governor`, `?bench&milk` K1–K4 (`&n`, `&res`, `&mesh`).
+    - Coder's `n=20` run: K1 fail (copy GPU p95 a 6.28 / b 6.39 / c 1.65 / d 3.03 ms; main ≤0.3), K2 fail (0/20, copy term only; Butterchurn's own GPU 2.4–5.5), K3 pass (warm 6.9/8.9 ms), K4 pass (0.30+1.40 ms). createVisualizer 51–76 ms (S1.1's ~1 s was a cold first).
+    - ⚠️ The copy GPU numbers look like cross-context sync wait, not copy work: an empty query reads 0.00, and copying an already-finished frame is no faster. This needs a design ruling before K1's "stop" counts.
+    - ✅ **Lead full probe (01:5x, M4, silence, 60A):**
+      - K1 fail (copy GPU p95: a 6.47, c 1.62, d 3.09) and K2 fail (0/387 with the copy term).
+      - **But end-to-end the 60 s run held: MilkDrop + copy (a) every frame at full size, 3600 frames, 0 late, p99 18.6 ms.** So the copy timer is sync wait, not cost.
+      - Butterchurn's own GPU p95: ≤5 ms 264/387, ≤4 ms 125. Cold loads 0 late on all 387. K3 pass (warm 6.0/9.2, max 26.1 on a fresh B). K4 pass (2.4 ms). S3.1 pool 116 presets, 49 authors.
+      - Output: session scratchpad `milk-full.out.txt` + `milk-full.raf.json`.
+    - ✅ **system-designer → `design_milkdrop.md` § Probe ruling (L384–409): CP1 = GO**, inside Variant A, no user gate.
+      - K1/K2 timed a cross-context wait: the copy reading tracks Butterchurn's own GPU, median 7.61 vs 4.51.
+      - **New K1** = 0 late frames over the 60 s full-size run + copy main-thread p95 ≤ 0.5 ms (pass). **New K2** = Butterchurn's own GPU p95 ≤ 5 ms, ≥ 20 presets (pass, 264/387).
+      - S2.2 copies with path (a).
+      - The governor never reads `gpuMs` (lead-verified: readers are only `app.ts:342` panel hint, `bench.ts:141/186`). R9 is inverted: the panel GPU hint reads high for MilkDrop scenes (display-only).
+      - The lead's extra worst-case run (2 heaviest presets fading into each other + heaviest own scene) goes at the S2.4 demo.
+      - Plan edits applied (S1.2 note, S2.1/S2.2/S2.3/S2.4/S3.1).
+    - S2.1's 3 presets (lead, by S3.1's rule; 116 eligible, 49 authors): `fiShbRaiN + geiss - witchcraft (Grow Mix 3)` (3.99), `cope, martin + flexi - the slickery of alternative varnish` (3.99), `Geiss - Reaction Diffusion (Relief Mix)` (3.64). Probe rows saved to `scratchpad/milk-probe-rows.json` (gitignored) for S3.1.
+    - ✅ **Tier-1 heavy-test timeouts merged** (`c738f85`, ~9 min): a global Vitest `testTimeout: 20_000` (the two redundant per-test 20 s in arrange.test.ts removed). Reproduced with 20 CPU burners: §4.5 timed out on unchanged code; 317/317 ×2 after the fix.
+    - ✅ **Polish §7 merged** (`d55f4ae`, ~3 min): any `keydown` that reaches `window` wakes the overlay. Browser: ArrowRight wakes the bar; `E` opens the panel at opacity 1 (before: 0). Panel slider arrows now keep the panel awake too.
+    - ✅ **Polish §6 merged** (`20a3a03`, ~11 min; gates 318/318): `rampShared()` in `spectrum.ts` ramps shared-bin low bands toward the next own-bin band; groups come from `bandEdges(ctx.sampleRate, analyser.fftSize)`.
+      - Browser (44.1 kHz here): stepped frames went 120/120 → 1/120.
+      - Remaining flat tops on loud sub come from `DB_HI` (`spectrum.ts:21`), not from lockstep.
+    - ✅ **MilkDrop S2.1 merged** (`54f7257`, ~6 min; gates 321/321): `presets.ts` (`PRESETS`, `MILK_SCENES`, `spread`) + test, `scripts/milk-presets.mjs` (byte-identical rerun), 3 presets. Drift: the package has no `repository` field, so `url` = `https://github.com/jberg/butterchurn-presets`.
+    - ✅ **Polish §3 merged** (`d73e2b9`, ~15 min; gates 327/327). `flashGate` + shared `flashOnsets`; strobe alpha 0.6.
+      - Browser at LOCK 174: rate 1 → 17/17 allowed, rate 2 → 19 of 37 allowed; max 3 in any 1 s window both times. Flash frame = a 60% wash (min channel 153).
+      - Gap noted: bool params have no binding controls in the panel, so the strobe's source and `rate` can't be changed from the UI.
+    - ✅ **MilkDrop S2.2 merged** (`9566642`, ~24 min; gates 327/327): `native.ts` (pool, copy (a) shared with bench as `copy()`, resize) + catalog line.
+      - Plain `?bench`: 3 `milk/*` with glError 0, console errors 0.
+      - Upright: the copy matches Butterchurn exactly (0.000 vs 76.6 if flipped).
+      - `?debug`: a milk layer over Tunnel reacts to music.
+      - Drift: `dispose()` returns a settled visualizer at once (the plan's `.finally` made a third one per prepare).
+      - ⚠️ A scaled per-frame `drawImage(internalCanvas)` read a frozen image, so the probe's path (c) may have copied stale frames. Path (a) is unaffected.
+      - Until S2.3, the first milk add in a page hitches ~1 s.
+    - ✅ **Polish §5 merged** (`e23c44e`, ~20 min; gates 327/327). `live.ts` mirrors each structural op; survivors keep node/u/smoothing/flash/targets/clock; per-node FRAMEINDEX (first draw now 0); `rebuild()` gone.
+      - Harness `scratchpad/live-rebuild.mjs`: 17/17 pass (the old code fails 16/17). Milk add/remove ×15 = 1 `createVisualizer`; GL counts back to baseline after 10× add/remove.
+      - Noticed, not fixed: blend `screen` on a single-layer Trails spectrum renders ~half as bright as `normal` (predates this change). A newly added milk layer is black until its preset loads (by S2.2's design).
+    - ✅ **MilkDrop S2.3 merged** (`55ebecf`, ~11 min; gates 327/327): `NativeDef.warm?()`; Start loads each milk preset; the pool's 2 visualizers are made once, in turn, and both are past their first load. Browser: `createVisualizer` = 2 over Start + 31 s; 0 black milk draws on fades. A cut to an un-prepared milk scene still shows 1–2 black frames (S2.2 design).
+    - ✅ **MilkDrop S2.4 merged** (`a4bcd03`, ~10 min; gates 327/327). **CP2 code-complete.**
+      - `BUILTIN = spread(OWN, MILK_SCENES)`: milk at playlist 7/15/23 of 30.
+      - `load()` uses `.then().catch()`, so Start can't hang.
+      - CP2 demo: compiling 51/51 (+3 milk); autopilot fade into milk via `gl/PerlinDissolve`, with the badge naming the preset; a drop cut away from milk; panel shows 3 starred; `createVisualizer` 2 over 62 s; REC 20 s = H.264 640×360 ~59 fps + AAC with sound (ffprobe).
+    - ✅ **Lead worst-case run (ruling 5): PASS.**
+      - Setup: full size 1728×1117@2, silence, 60A.
+      - Heaviest starred own scene is `particles-over-tunnel` (4.17 ms GPU); next are rainbow-trails 4.10 and trails-spectrum 4.07.
+      - 65 s of `next()` every 5 s over [witchcraft, cope, particles-over-tunnel], covering milk→milk, milk→own and own→milk fades.
+      - Result: 3901 frames, **0 late**, p99 18.6 ms, governor drops 0, **scale 1.00**, jsMs 2.2.
+      - Harness: session scratchpad `wc/worst.mjs` (copy in `scratchpad/milk-worst.mjs`).
+    - ▶ **MilkDrop S3.1** (coder): curate ~25 by rule from `scratchpad/milk-probe-rows.json`, + a contact sheet with music, + THIRD_PARTY.
+    - **Lead reorder:** S2.4 → the lead's worst-case run (ruling 5) → S3.1 → §1 → §2. §1/§2 are taste and wait for the effects re-brief anyway.
+    - ✅ **planner (Fable, ~12 min) → `plan_flash_cap.md`** (§3, Tier 2): 1 step S1.1.
+      - A pure `flashGate` next to `WCAG` in `gl/post.ts`: ≤3 onsets per closed 1 s window; a refused onset holds; the output never rises except through an allowed onset.
+      - Applied at the `live.ts` `render()` uniform write, with one shared module-level `flashOnsets` (all layers, both fade scenes). Flash class = a const set (`own/strobe.strobe`, `own/flash.flash`). The post strobe stays out (same beat grid, ≤0.15).
+      - `strobe.fs` alpha 0.6 (⚠️ taste). `__flash` under `?debug`.
+      - Fact: `tempo.ts:26` folds BPM into [90,180), so the browser check forces the gate with the panel `rate` = 2.
+      - Accepted ceiling: a slow sub-0.5 swell on a user-bound float is held, then steps at 0.5 (a counted onset).
+      - Next coder after S2.1. It has a real placement choice: a binding vs a uniform-write gate in `live.ts`, a flag in ISF metadata vs a const list, and whether the `postFor` strobe shares the 3/s budget. Lead defaults: one shared ≤3 onsets/s budget enforced at the uniform write, the pure gate next to `WCAG` in `gl/post.ts`, strobe colour alpha < 1.
+  - ✅ **User "go" (2026-11-04 01:2x): the effects-polish queue is approved.** One coder at a time. Lead order:
+    - S1.2 → the lead's full `?bench&milk` on a **quiet machine** (no coder running, so the numbers stay clean) → CP1 verdict.
+    - Then Tier-1 test timeouts (they unflake every later merge).
+    - Then alternate MilkDrop CP2 (only if CP1 passes) with polish: S2.1 → §7 → S2.2 → §3 → S2.3 → §6 → S2.4 → §5 (`plan_live_rebuild.md`) → S3.1 → §1 → §2.
+    - If CP1 fails: MilkDrop stops (user decision per the K table), and polish continues.
+  - **Exact next step:** merge S1.2; the lead runs the full `?bench&milk` at 60A → **CP1 hard stop or go**.
+  - Ops lesson (2026-11-03 ~19:0x): three Opus/Fable-max agents in parallel hit the 5-hour usage limit in ~1.5 h; keep parallel runs to coder + one researcher.
+
+  ### Queue (lead order)
+  1. Merge the underrun step; correct the §4.7 row in the plan's CP7 closeout with its numbers.
+  2. Effects polish, one coder each (user 2026-11-03 "го дальше" over the list = go; the big effects re-brief still waits for the user's brief). Lead order + defaults: **§7** overlay wakes on keys → **§3** one shared flash-rate cap ≤3/s for `own/strobe` + `own/flash` (WCAG 2.3.1) and strobe default not full white → **§6** spectrum-local low-bar interpolation (no fftSize change) → **§5** per `plan_live_rebuild.md` → **§1** slit scan, **§2** chrome ring (taste, last). **§4** deferred (perf investigation, needs a quiet-GPU `?bench`).
+  3. MilkDrop epic: research → system-designer → **USER GATE (hard stop)** → planner → coders. Spec: 20–30 curated Butterchurn presets in the shared playlist + both engines composited into one recorded canvas.
+  4. Blocked on the user's real tracks (`scratchpad/real/`): dubstep140 tempo lock (bar 1.71 s > max lag 1.33 s), false kicks on a bare reese, preset `proto`/`sens` tuning.
+
