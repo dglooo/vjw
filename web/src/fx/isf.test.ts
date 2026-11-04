@@ -85,6 +85,14 @@ describe('parseIsf', () => {
     expect(parseIsf(isf({}), 'b').bind).toBeUndefined()
   })
 
+  test('VJW_FLASH round-trips; anything but a list of declared input names is rejected', () => {
+    const INPUTS = [{ NAME: 'glow', TYPE: 'float' }, { NAME: 'level', TYPE: 'float' }]
+    expect(parseIsf(isf({ INPUTS, VJW_FLASH: ['glow', 'level'] }), 'f').flash).toEqual(['glow', 'level'])
+    expect(parseIsf(isf({ INPUTS }), 'f').flash).toBeUndefined()
+    expect(() => parseIsf(isf({ INPUTS, VJW_FLASH: ['glow', 'glo'] }), 'isf/f')).toThrow('isf/f: VJW_FLASH ["glow","glo"] must list declared input names')
+    expect(() => parseIsf(isf({ INPUTS, VJW_FLASH: 'glow' }), 'isf/f')).toThrow('VJW_FLASH "glow" must list')
+  })
+
   test('category: the first exact CATEGORIES name (any case) beats keywords, else a keyword, else none', () => {
     const cat = (CATEGORIES?: string[]) => parseIsf(isf({ CATEGORIES }), 'c').category
     expect(cat(['Glitch', 'GEOMETRY'])).toBe('geometry') // exact, though a keyword entry comes first
@@ -112,7 +120,7 @@ describe('parseIsf', () => {
     expect(() => parseIsf(isf({ PASSES: [{ TARGET: 'x y' }] }), 'isf/p')).toThrow('pass TARGET')
   })
 
-  test('our own files parse with a category and VJW_BIND on their inputs; built-in refs name a bundled file', () => {
+  test('our own files parse with a category and VJW_BIND on their inputs, strobe/flash gated; built-in refs name a bundled file', () => {
     const files = import.meta.glob(['./isf/*.fs', './own/*.fs'], { query: '?raw', import: 'default', eager: true })
     const ids = Object.keys(files).map((p) => p.slice(2, -3))
     for (const [path, src] of Object.entries(files).filter(([p]) => p.startsWith('./own/'))) {
@@ -121,6 +129,7 @@ describe('parseIsf', () => {
       expect(d.unsupported, path).toBeUndefined()
       for (const k of Object.keys(d.bind ?? {})) expect(d.inputs.map((i) => i.name), `${path} ${k}`).toContain(k)
     }
+    expect(['strobe', 'flash'].map((n) => parseIsf(files[`./own/${n}.fs`] as string, n).flash)).toEqual([['strobe'], ['flash']])
     const refs = BUILTIN.flatMap((s) => s.layers.flatMap((l) => [l.gen, ...l.fx])).map((n) => n.ref)
     for (const r of refs.filter((r) => !/^(native|toy|milk)\//.test(r))) expect(ids, r).toContain(r) // a toy's code is inline
   })

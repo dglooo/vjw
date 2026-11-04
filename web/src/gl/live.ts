@@ -43,9 +43,6 @@ interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<
 interface Layer { blend: Blend; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null }
 interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState; flash?: FlashState }
 const LAYER_INPUTS: readonly Input[] = [{ name: 'opacity', type: 'float' }, { name: 'speed', type: 'float' }] // bindable
-// WCAG 2.3.1 (polish §3): the bound params that flash, gated by flashGate. ponytail: by `ref.name`, so a user ISF with a
-// strobe-like param is uncapped; a `VJW_FLASH` header key when a third such shader appears.
-const FLASH = new Set(['own/strobe.strobe', 'own/flash.flash'])
 /** The one flash budget: the allowed onsets' `f.time`s, oldest first, shared by every layer of every scene (both of a
  *  fade). ponytail: hidden layers and a fade's outgoing scene spend it too, and two flashes in one frame count twice;
  *  both stricter, harmless. */
@@ -139,8 +136,9 @@ function create(id: SceneId): Live {
   }
 
   /** Compiles `binds` onto `u` (a node's uniforms or a layer's values). An input bound before (in `old`) first gets
-   *  its value from `base` back; one still bound keeps its smoothing state. */
-  function bindInto(u: Record<string, unknown>, inputs: readonly Input[], base: Record<string, unknown>, binds: Record<string, Binding> = {}, ref: string, old: Bound[]) {
+   *  its value from `base` back; one still bound keeps its smoothing state. The `flashes` (the def's `flash`, WCAG
+   *  2.3.1) are gated by flashGate. */
+  function bindInto(u: Record<string, unknown>, inputs: readonly Input[], base: Record<string, unknown>, binds: Record<string, Binding> = {}, ref: string, old: Bound[], flashes?: readonly string[]) {
     for (const x of old) if (x.u === u) u[x.name] = base[x.name]
     for (const [key, b] of Object.entries(binds)) {
       const [name, idx] = key.split('.')
@@ -154,7 +152,7 @@ function create(id: SceneId): Live {
       }
       if (i >= 0) u[name] = [...(v as number[])] // our own copy: never write into the def's or the doc's array
       const was = old.find((x) => x.u === u && x.name === name && x.i === i)
-      const flash = FLASH.has(`${ref}.${name}`) ? (was?.flash ?? { prev: 0, blocked: false }) : undefined // kept like `state`: a rebind mid-flash neither re-counts nor leaks
+      const flash = flashes?.includes(name) ? (was?.flash ?? { prev: 0, blocked: false }) : undefined // kept like `state`: a rebind mid-flash neither re-counts nor leaks
       bound.push({ u, name, i, type: input.type, b, state: was?.state ?? { y: 0 }, flash })
     }
   }
@@ -168,7 +166,7 @@ function create(id: SceneId): Live {
       bindInto(l.v, LAYER_INPUTS, { opacity: ld.opacity, speed: ld.speed }, ld.bind, 'layer', old)
       ;[ld.gen, ...ld.fx].forEach((n, k) => {
         const x = l.nodes[k]
-        if (x) bindInto(x.u, x.def.inputs, { ...defaults(x.def), ...n.values }, n.bind, n.ref, old)
+        if (x) bindInto(x.u, x.def.inputs, { ...defaults(x.def), ...n.values }, n.bind, n.ref, old, x.def.flash)
       })
     })
   }

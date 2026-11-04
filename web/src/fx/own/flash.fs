@@ -11,6 +11,7 @@
     "VJW_BIND": {
         "flash": { "source": "onset", "amount": 1, "attack": 0, "release": 0.1, "min": 0, "max": 0.9 }
     },
+    "VJW_FLASH": ["flash"],
     "ISFVSN": "2"
 }*/
 
