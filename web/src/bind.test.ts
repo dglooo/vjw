@@ -184,6 +184,15 @@ describe('evaluate', () => {
     expect(once(bind({ min: 1, max: 0 }), { bass: 0.25 })).toBe(0.75) // min > max inverts
   })
 
+  test('evaluate lerps an inverted range (min > max)', () => {
+    const b = bind({ source: 'build', attack: 1, release: 1, min: 0.35, max: 0.15 }) // own/bloom's threshold (G3)
+    for (const [build, want] of [[0, 0.35], [0.5, 0.25], [1, 0.15]]) expect(once({ ...b, attack: 0, release: 0 }, { build })).toBeCloseTo(want, 12)
+    const state = { y: 0 }
+    let v = 0
+    for (let i = 0; i < 60; i++) v = evaluate(b, { build: 1 }, state, 1 / 60)
+    expect(v).toBeCloseTo(0.35 - 0.2 * (1 - 1 / Math.E), 6) // the one-pole runs on y, then the range maps it down
+  })
+
   test('the one-pole is fps-independent: a fall with release 0.15 lands on the same value at 60 and 30 fps', () => {
     const fall = (fps: number) => {
       const state = { y: 1 }

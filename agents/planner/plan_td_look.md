@@ -108,6 +108,15 @@ Depends on: S1.1, S1.2. **Files:** `web/src/fx/own/bloom.fs`, `builtin.ts`, `isf
 **Inputs:** threshold ← build 1/1 .35→.15 · glow⚡ ← kick 0/.2 0→1 · level⚡ ← drop 0/1.5 0→1 · rampShift ← bar saw 0→1. `"VJW_FLASH": ["glow", "level"]`.
 **G3 check (first inverted range):** read `evaluate` in `web/src/bind.ts`; add 'evaluate lerps an inverted range (min > max)' to `bind.test.ts`. If it clamps instead, declare `tension` 0..1 and invert in-shader (`mix(.35, .15, tension)`), and report the result for S1.9, S3.2 and S4.1.
 **Scenes:** `builtin:bloom-glitch` = glitch → bloom; append bloom to `builtin:td-feedback`. **Done:** gates; bench both scenes (D5 ≈2.3 / ≈3.5); screenshot; trace + the D2 luma trace on both fixtures: `__flash` ≤3 stamps per second, no onset refused on a plain 4/4.
+**WIP (paused 00:19, 2026-11-05):** branch `worktree-agent-a46df05e1235f38a8`; harness `scratchpad/td/bloom.mjs` (+ `s1.4/run.sh`, shots `s1.4/v1–v4*.png`).
+- **In:** `own/bloom.fs` (10 passes), `builtin:bloom-glitch` (glitch → bloom), bloom appended to `builtin:td-feedback` (one shared `BLOOM` bindings const in `builtin.ts`), `NEW_OWN` += bloom, the G3 test.
+- **G3:** `evaluate` lerps (`min + (max − min)·y`), so min > max inverts. The new test pins it; S1.9, S3.2 and S4.1 can ship inverted ranges as written.
+- **Drift so far:** the first level is ¼, not ½ (P0 ¼ … P4 1/64; up 1/32 … ¼), for wider halos and less cost. The composite is an exp screen, `1 − (1 − src)·exp(−k·glowSum·tint)` with k = 1.6·(.4 + .3·glow + level), instead of add + .8 soft clip.
+  - v1 (levels' mean, add): too faint. v2 (sum, add): brights went flat at the .8 clip. v3 (¼ + exp screen): soft halos, the brights keep their shape. v4 (`INTENSITY` 1.6): not yet viewed.
+- **Bench, 1728×1118, scale 1, dnb174:** glitch alone p95 2.19 (med 1.90). bloom-glitch: v1 p95 4.03; v3 med 3.41 / p95 4.22; v4 med 3.70 / p95 3.79. So bloom costs ≈1.5–2 ms (D5 said .6–1).
+  - ⚠️ **td-feedback + bloom (v4, 20 s): med 8.38 / p95 8.72 ms, over 5 and not explained.** td-feedback alone was 3.0–4.4. Investigate first (machine state, the layer's `direct` path), then the levers (td-feedback's 2× snoise at ½).
+- **Flash (dnb174):** bloom-glitch wanted 14–18 onsets, all allowed, ≤2 stamps/s. td-feedback + bloom: 24 wanted, all allowed, ≤2/s.
+- **Left:** view v4; fix the td-feedback budget; dubstep140 trace; the final shots `scratchpad/td/bloom-glitch.png` + `td-feedback-bloom.png`; the drift note; tick.
 
 ### S1.5 [ ] [S] `own/light-tunnel.fs` (shown by S1.6's scene)
 Depends on: S1.2 (test list). **Files:** `web/src/fx/own/light-tunnel.fs`, `isf.test.ts`.

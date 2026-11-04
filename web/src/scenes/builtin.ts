@@ -1,5 +1,14 @@
+import type { Binding } from '../bind'
 import type { SceneDoc } from '../doc'
 import { MILK_SCENES, spread } from '../milkdrop/presets'
+
+// own/bloom's VJW_BIND (plan_td_look.md S1.4), for the two scenes that end on it; ⚡ = VJW_FLASH, ≤3 onsets/s
+const BLOOM: Record<string, Binding> = {
+  threshold: { source: 'build', amount: 1, attack: 1, release: 1, min: 0.35, max: 0.15 }, // a build lowers it (min > max inverts)
+  glow: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 }, // ⚡ a kick pulses the glow
+  level: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 1 }, // ⚡ the drop floods it
+  rampShift: { source: 'bar', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the tint turns once a bar
+}
 
 // Built-in scenes (design E4): JSON-compatible literals, so tsc checks them and doc.test.ts round-trips them. Immutable:
 // edits go to a copy. The order is the autopilot's: the natives, then the combinations, with the MilkDrop scenes
@@ -313,7 +322,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
           fade: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.95, max: 0.98 }, // a build lengthens the trails
           reset: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 1 }, // the drop wipes them
         },
-      }],
+      }, { ref: 'own/bloom', bind: BLOOM }],
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
@@ -333,6 +342,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       }],
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
+  },
+  {
+    v: 1, id: 'builtin:bloom-glitch', name: 'Bloom glitch', star: true, // no `bass` binding, so Auto-style changes nothing
+    layers: [{ gen: { ref: 'native/glitch' }, fx: [{ ref: 'own/bloom', bind: BLOOM }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
 ]
 
