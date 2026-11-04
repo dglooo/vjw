@@ -73,12 +73,19 @@ Depends on: none. **Files:** `web/src/fx/types.ts` (`EffectDef`: `flash?`), `web
 **Done:** gates; browser: Pixel strobe still washes ≤3/s (`__flash`, plan_flash_cap CP1 demo). No bench (no render change).
 **Changed during implementation:** `parseIsf` never rejected a malformed `VJW_BIND` (it passes through; `live.ts` `fail`s per key at bind time), so a bad `VJW_FLASH` (not an array, or a name that is no declared input) throws a readable `${id}: …` Error like `parseIsf`'s other bad-header cases; `catalog.ts` logs and skips such a file. `bindInto` takes the def's list as a trailing `flashes?` argument (the layer call has no def).
 
-### S1.2 [ ] [M] `own/td-feedback.fs` + `builtin:td-feedback`
+### S1.2 [x] [M] `own/td-feedback.fs` + `builtin:td-feedback`
 Depends on: S1.1 (order only). **Files:** `web/src/fx/own/td-feedback.fs`, `web/src/scenes/builtin.ts`, `web/src/fx/isf.test.ts`.
 **Look:** `feedbackTOP.tox` ex3 (research §1b). **Passes** (the `PASSES` syntax of the existing own multi-pass files; grep `PASSES` in `fx/own/`): P0 `loop` PERSISTENT FLOAT at ½: read `loop` (last frame) × `fade`, gamma, hue += `hueStep`, zoom by `zoom` about the centre, displace by simplex noise (webgl-noise, MIT header) × `displace`, 3×3 blur + Sobel edge of `inputImage` × `edge`, screen `inputImage`, soft-clip above .8; `reset` true → black. P1 out at full res: `mix(src, screen(src, loop), dryWet)` (TD dryWetMix; default .8 ⚠️ taste). ≈7.7 MB.
 **Inputs / VJW_BIND (D1):** zoom ← kick 0/.25 1.012→1.035 · hueStep ← snare 0/.3 3→15 (°/frame) · edge ← hats 0/.1 .12→.3 · displace ← bass .05/.4 .01→.07 · fade ← build 1/2 .97→.99 · reset ← drop. Auto-style moves only `displace` (reese / wobble / bass).
 **G2 check (first new own file):** confirm `web/src/fx/catalog.ts` picks the file up (glob import vs a list; if a list, add it) and the panel's add-fx picker shows it.
 **Scene:** `builtin:td-feedback` = spectrum → td-feedback, starred (S1.4 appends bloom). **Tests:** start `NEW_OWN` in `isf.test.ts` (conventions). **Done:** gates; bench (D5 ≈3.5 with bloom, less now); screenshot; trace: zoom on kick, hue on snare, displace on reese (DnB) / wobble (Dubstep).
+**Changed during implementation:** tuned on the spectrum until it looked like TD (shots in `scratchpad/td/s1.2/`).
+- Edge = a Sobel of the **loop** (TD's edge over the feedback), not of `inputImage`: built from the same 4 bilinear taps as the 3×3 tent blur, so no extra taps. With the image's edge, or TD's .858 source level, the big spectrum filled the screen. The source is screened in at .45.
+- Saturation is TD's HSV kind (the top channel V stays). A luma-pivot boost raised V by ≈16 %/frame and locked the loop into flat fills. Knobs: GAMMA 1.1, SAT 1.3, RED .99, LEVEL .45, FIELD 2.5, DRIFT .1.
+- D1 ranges → shipped: hueStep 3→15 → **5→15** (TD's +5°); edge .12→.3 → **.25→.6**; displace .01→.07 → **.006→.025** (reese sits ≈.5, so .07 smeared everything into grey); fade .97→.99 → **.95→.98** (≥.97 washed out). `reset` ← drop a/r 0/1.5, range 0→1 (true ≈1 s after a confident drop).
+- G2: the catalog globs `./own/*.fs`, so there is no list to edit. The panel's add-fx shows it under "feedback" (browser), and `newNode` copies `VJW_BIND`.
+- Bench at 1728×1118, scale 1: GPU p95 3.00–4.40 ms over runs. The machine reads ≈1.5× higher in some runs: spectrum alone is 1.98 or 3.19 ms. The node itself costs ≈.7–1.1 ms, and 2× snoise3D at ½ is ≈.47 of that: the lever if S1.4's bloom misses 5 ms.
+- Trace: neither fixture has a build or drop (both stay 0), so `fade`/`reset` go unexercised. The classifier stays undecided on the 12.5 s loops, so Auto-style was set the way the panel picker does (`pick`, auto on).
 
 ### S1.3 [ ] [M] `own/edge-rings.fs` + `builtin:edge-rings`
 Depends on: S1.2 (test list). **Files:** `web/src/fx/own/edge-rings.fs`, `builtin.ts`, `isf.test.ts`.

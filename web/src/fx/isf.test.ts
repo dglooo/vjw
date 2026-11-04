@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { SOURCE_IDS } from '../bind'
 import { BUILTIN } from '../scenes/builtin'
 import { parseIsf, sizeExpr } from './isf'
 
@@ -132,6 +133,15 @@ describe('parseIsf', () => {
     expect(['strobe', 'flash'].map((n) => parseIsf(files[`./own/${n}.fs`] as string, n).flash)).toEqual([['strobe'], ['flash']])
     const refs = BUILTIN.flatMap((s) => s.layers.flatMap((l) => [l.gen, ...l.fx])).map((n) => n.ref)
     for (const r of refs.filter((r) => !/^(native|toy|milk)\//.test(r))) expect(ids, r).toContain(r) // a toy's code is inline
+  })
+
+  // TD look (plan_td_look.md conventions): the own files its steps add, one entry per step.
+  const NEW_OWN = ['td-feedback']
+  test.each(NEW_OWN)('own/%s parses, binds only known sources, and binds every VJW_FLASH input from 0', (stem) => {
+    const files = import.meta.glob('./own/*.fs', { query: '?raw', import: 'default', eager: true })
+    const d = parseIsf(files[`./own/${stem}.fs`] as string, stem) // throws on a flash name that is not an input
+    for (const b of Object.values(d.bind ?? {})) expect(SOURCE_IDS, stem).toContain(b.source)
+    for (const n of d.flash ?? []) expect(d.bind?.[n]?.min, `${stem} ${n}`).toBe(0)
   })
 })
 
