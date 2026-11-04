@@ -323,7 +323,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
           reset: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 1 }, // the drop wipes them
         },
       }, { ref: 'own/bloom', bind: BLOOM }],
-      blend: 'normal', opacity: 1, speed: 1, res: 1,
+      blend: 'normal', opacity: 1, speed: 1, res: 0.5, // the spectrum at ½: the effects still run at full size (S1.4 budget)
     }],
   },
   {
