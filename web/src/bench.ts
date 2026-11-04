@@ -4,14 +4,15 @@
 // between Tunnel and Spectrum (GPU ms, GL error, console errors) into window.__bench. With &sweep, every ISF-Files .fs
 // is compiled last (run `node scripts/isf-sweep.mjs` first) into window.__sweep: last, because its compile storm makes
 // the governor step the scale down. Lines also go to a <pre>.
-import { bindFramebufferInfo, createTexture } from 'twgl.js'
+import { bindFramebufferInfo } from 'twgl.js'
 import { director, governor } from './app'
 import { ctx, underruns } from './audio/input'
 import { catalog, transitions } from './fx/catalog'
 import { parseIsf } from './fx/isf'
 import type { ShaderDef } from './fx/types'
-import { fullscreenProgram, gl, gpuMs, program, renderTarget, setTransition, stage, temps } from './gl/engine'
+import { gl, gpuMs, program, renderTarget, setTransition, stage, temps } from './gl/engine'
 import { docs } from './gl/live'
+import { copy as milkCopy } from './milkdrop/native'
 import { BUILTIN } from './scenes/builtin'
 import { store } from './store'
 
@@ -315,22 +316,10 @@ async function milk() {
   const audioLevels = { timeByteArray: silence, timeByteArrayL: silence, timeByteArrayR: silence }
   const ours = gpuTimer(gl)
   const theirs = gpuTimer(g)
-  const tex = createTexture(gl, { width: W, height: H, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE, auto: false })
-  const flip = fullscreenProgram(`#version 300 es
-precision highp float;
-uniform sampler2D uSrc;
-uniform vec2 uRes;
-out vec4 outColor;
-void main() {
-  vec2 uv = gl_FragCoord.xy / uRes;
-  outColor = texture(uSrc, vec2(uv.x, 1.0 - uv.y));
-}`)
-  /** Copy paths (a)–(c): `src` into our RGBA8 texture, then a Y-flip draw into temps[1]. */
-  const upload = (src: TexImageSource) => {
-    gl.bindTexture(gl.TEXTURE_2D, tex)
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src)
+  /** Copy paths (a)–(c): the natives' copy (milkdrop/native.ts) into temps[1]. */
+  const upload = (src: OffscreenCanvas | HTMLCanvasElement | ImageBitmap) => {
     bindFramebufferInfo(gl, temps[1])
-    flip({ uSrc: tex, uRes: [temps[1].width, temps[1].height] })
+    milkCopy(src, temps[1].width, temps[1].height)
   }
 
   // K1. Path (c) is a second visualizer C on a plain canvas: Butterchurn's drawImage runs inside its render(), so the
