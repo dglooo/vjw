@@ -26,14 +26,14 @@
 //
 // Changes (VeeJay Wizard, 2026): pure functions over our types; audio/audioFFT inputs are samplers too; the IMG_* calls
 // are preprocessor macros, with IMG_PIXEL dividing by the image's own size (ISF spec) rather than RENDERSIZE; plain
-// JSON.parse for the header (all 327 ISF-Files headers parse); our VJW_BIND key; `unsupported`; a whitelist
-// evaluator for PASSES WIDTH/HEIGHT.
+// JSON.parse for the header (all 327 ISF-Files headers parse); our VJW_BIND and VJW_FLASH keys; `unsupported`;
+// a whitelist evaluator for PASSES WIDTH/HEIGHT.
 import type { Binding } from '../bind'
 import type { Category, Input, InputType, Kind, PassDef, ShaderDef, Value } from './types'
 
 interface IsfInput { NAME: string; TYPE: InputType; LABEL?: string; DEFAULT?: Value; MIN?: Value; MAX?: Value; VALUES?: number[]; LABELS?: string[] }
 interface IsfPass { TARGET?: string; PERSISTENT?: boolean; FLOAT?: boolean; WIDTH?: string | number; HEIGHT?: string | number }
-interface IsfHeader { CREDIT?: string; CATEGORIES?: string[]; INPUTS?: IsfInput[]; PASSES?: IsfPass[]; IMPORTED?: Record<string, unknown>; VJW_BIND?: Record<string, Binding> }
+interface IsfHeader { CREDIT?: string; CATEGORIES?: string[]; INPUTS?: IsfInput[]; PASSES?: IsfPass[]; IMPORTED?: Record<string, unknown>; VJW_BIND?: Record<string, Binding>; VJW_FLASH?: string[] }
 
 const UNIFORM: Record<InputType, string> = {
   float: 'float', long: 'int', bool: 'bool', event: 'bool', color: 'vec4', point2D: 'vec2',
@@ -103,6 +103,9 @@ export function parseIsf(src: string, id: string): ShaderDef {
     if (!Object.hasOwn(UNIFORM, i.TYPE)) throw new Error(`${id}: input ${name} has unknown TYPE ${JSON.stringify(i.TYPE)}`)
     return { name, type: i.TYPE, label: i.LABEL, default: i.DEFAULT, min: i.MIN, max: i.MAX, values: i.VALUES, labels: i.LABELS }
   })
+  const flash = h.VJW_FLASH
+  if (flash !== undefined && !(Array.isArray(flash) && flash.every((n) => inputs.some((i) => i.name === n))))
+    throw new Error(`${id}: VJW_FLASH ${JSON.stringify(flash)} must list declared input names`)
   const has = (name: string, type: InputType) => inputs.some((i) => i.name === name && i.type === type)
   const kind: Kind = has('inputImage', 'image')
     ? 'filter'
@@ -142,7 +145,7 @@ export function parseIsf(src: string, id: string): ShaderDef {
 
   return {
     id, name: id.slice(id.lastIndexOf('/') + 1), kind, category: categoryOf(h.CATEGORIES ?? []), credit: String(h.CREDIT ?? ''),
-    inputs, bind: h.VJW_BIND, glsl: 100, vs: ISF_VS, fs: `${PREFIX}${decls.join('\n')}\n${body}`, passes, unsupported,
+    inputs, bind: h.VJW_BIND, flash, glsl: 100, vs: ISF_VS, fs: `${PREFIX}${decls.join('\n')}\n${body}`, passes, unsupported,
   }
 }
 

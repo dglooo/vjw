@@ -67,10 +67,11 @@ Every step: "Invoke the `ponytail` skill (full) before writing code." + the conv
 
 ### CP1 — Track A
 
-### S1.1 [ ] [S] engine — `VJW_FLASH` → `EffectDef.flash`; gate by def
+### S1.1 [x] [S] engine — `VJW_FLASH` → `EffectDef.flash`; gate by def
 Depends on: none. **Files:** `web/src/fx/types.ts` (`EffectDef`: `flash?`), `web/src/fx/isf.ts` (`parseIsf`: read `VJW_FLASH` next to `VJW_BIND`; an array of strings naming declared inputs, else reject the way a malformed `VJW_BIND` is rejected), `web/src/gl/live.ts` (delete `const FLASH`; `bindInto` carries the `flash` state when `def.flash?.includes(name)`; the `flashGate` call in `render` stays), `web/src/fx/own/strobe.fs` + `flash.fs` (one header line each: `"VJW_FLASH": ["strobe"]` / `["flash"]`). Five files, two are one-liners; they must land together or strobe/flash lose their gate. Natives: the field exists on `EffectDef`; no native sets it in this plan (D1 marks ⚡ only on bloom).
 **Tests (`isf.test.ts`):** 'VJW_FLASH round-trips' (mirror 'VJW_BIND round-trips'); an unknown name is rejected; `own/strobe` / `own/flash` parse with `flash` = `['strobe']` / `['flash']`. `post.test.ts` untouched.
 **Done:** gates; browser: Pixel strobe still washes ≤3/s (`__flash`, plan_flash_cap CP1 demo). No bench (no render change).
+**Changed during implementation:** `parseIsf` never rejected a malformed `VJW_BIND` (it passes through; `live.ts` `fail`s per key at bind time), so a bad `VJW_FLASH` (not an array, or a name that is no declared input) throws a readable `${id}: …` Error like `parseIsf`'s other bad-header cases; `catalog.ts` logs and skips such a file. `bindInto` takes the def's list as a trailing `flashes?` argument (the layer call has no def).
 
 ### S1.2 [ ] [M] `own/td-feedback.fs` + `builtin:td-feedback`
 Depends on: S1.1 (order only). **Files:** `web/src/fx/own/td-feedback.fs`, `web/src/scenes/builtin.ts`, `web/src/fx/isf.test.ts`.

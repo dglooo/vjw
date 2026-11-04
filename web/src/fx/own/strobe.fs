@@ -11,6 +11,7 @@
     "VJW_BIND": {
         "strobe": { "source": "beat", "shape": "saw", "amount": 1, "attack": 0, "release": 0, "min": 0, "max": 0.65 }
     },
+    "VJW_FLASH": ["strobe"],
     "ISFVSN": "2"
 }*/
 
