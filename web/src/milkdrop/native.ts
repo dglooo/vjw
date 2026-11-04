@@ -41,12 +41,29 @@ const PX = { pixelRatio: 1, textureRatio: 1 } // the target's own pixels
 
 // ponytail: uncapped pool, one Chromium context each (16 max); cap if ←/→ spam ever shows
 const free: Visualizer[] = []
+let made = 0 // visualizers so far, pooled or live: warm() makes the pool's 2
 function make() {
+  made++
   const canvas = document.createElement('canvas')
   canvas.getContext('bitmaprenderer') // Butterchurn gets no 2D context, so its frame stays in internalCanvas (S1.1 G2)
   const v = butterchurn.createVisualizer(ctx, canvas, { width: 16, height: 16, ...PX })
   v.internalCanvas.addEventListener('webglcontextlost', () => location.reload()) // as the stage, engine.ts:17
   return v
+}
+
+/** `p` into `v`, then one throwaway render that links its programs off screen. A failed load is logged and resolves
+ *  false (its native stays black), never rejects. */
+function load(v: Visualizer, p: (typeof PRESETS)[number]) {
+  return v.loadPreset(p.preset, 0).then(
+    () => {
+      v.render({ audioLevels, elapsedTime: 1 / 60 })
+      return true
+    },
+    (e) => {
+      console.error(`milk/${p.slug}: ${e}`)
+      return false
+    },
+  )
 }
 
 /** One native per shipped preset (CP2 contract). Its visualizer comes from the pool and goes back once its load settled. */
@@ -56,16 +73,8 @@ export const milkdrop: readonly NativeDef[] = PRESETS.map((p): NativeDef => ({
     const v = free.pop() ?? make()
     let ready = false
     let settled = false
-    // Black until the preset has loaded and rendered once: that throwaway render links its programs off screen.
-    const loading = v
-      .loadPreset(p.preset, 0)
-      .then(
-        () => {
-          v.render({ audioLevels, elapsedTime: 1 / 60 })
-          ready = true
-        },
-        (e) => console.error(`milk/${p.slug}: ${e}`),
-      )
+    const loading = load(v, p)
+      .then((ok) => (ready = ok)) // black until then
       .finally(() => (settled = true))
     return {
       draw(f) {
@@ -86,5 +95,15 @@ export const milkdrop: readonly NativeDef[] = PRESETS.map((p): NativeDef => ({
         else loading.then(() => free.push(v))
       },
     }
+  },
+  // Start (live.ts warm()): this preset loads once, so its later loads hit the caches, on either visualizer. Until the
+  // pool's 2 exist (once per page), each new one takes this load, so both are past their first (it blocks ≤ 26 ms,
+  // design § Probe ruling) even with one milk scene; make, load, make, load keeps the two creates apart.
+  async warm() {
+    do {
+      const v = made < 2 ? make() : (free.pop() ?? make())
+      await load(v, p)
+      free.push(v)
+    } while (made < 2)
   },
 }))
