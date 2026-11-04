@@ -133,12 +133,24 @@ Browser (M4, headed, autoplay, so Start = page load): 2 starred user scenes with
 - At Start: `compiling 1/50 … 50/50`, the 2 milk natives ticking last; `createVisualizer` 2; `loadPreset` 3.
 - Over Start + 31 s: `createVisualizer` stays 2. Both milk scenes came on screen (an autopilot fade, then →), each prepared ahead, with 0 black draws.
 
-### S2.4 `[ ]` `BUILTIN = spread(own, MILK_SCENES)`
+### S2.4 `[x]` `BUILTIN = spread(own, MILK_SCENES)`
 Invoke the `ponytail` skill (full) before writing code.
 **Goal:** MilkDrop scenes join the playlist, spread evenly (Q4), all starred (Q3).
 **Files:** `web/src/scenes/builtin.ts:5` (`const OWN = [...]`, `export const BUILTIN = spread(OWN, MILK_SCENES)`), `web/src/doc.test.ts:21` and `web/src/fx/isf.test.ts:125` (regex `/^(native|toy|milk)\//`).
 **Behaviour:** nothing else changes: `library.playlist()` (:88-92) already orders by `BUILTIN`; `library.test.ts:63` pins `BUILTIN[0]` = tunnel, which `spread` keeps. Accepted side effect: `Panel.tsx:410` lists built-ins in the same interleaved order (sort there later if the user wants grouping).
 **Vitest:** the existing `doc.test.ts` round-trip and ref tests now cover the milk docs. **Done-check:** gates green; the CP2 demo: `npm run dev`, Start, autopilot: a MilkDrop scene fades in through a gl-transition within a few switches, the badge names it, a kick cuts/flashes over it; panel lists the 3 starred; REC 20 s → the file plays with MilkDrop frames and sound (needs audio: a file drop, or the lead's no-device sink after a coreaudiod restart). Then the lead's harness (design § Probe ruling 5): silence, full size, ≥ 60 s with the playlist forced so that the two heaviest presets fade into each other and the heaviest starred own scene (plain `?bench` GPU) fades with a milk scene; pass = 0 late frames incl. switches and 1.00× at the end; fail → path (d), then a lower S3.1 cap, then design. **Dependencies:** S2.3. **New deps:** none.
+**Changed during implementation:**
+1. `native.ts` `load()` (lead's brief, outside this step's files) is now `.then(ok).catch(fail)`, so a throw from the throwaway `render()` is also logged and resolves false. Before, a two-argument `.then` let it reject, which would have left Start's `warm()` stuck on "compiling n/N".
+
+Browser (M4, headed, `--mute-audio`, autoplay, so Start = page load). Setup: dnb174.wav dropped and looped by the harness, 1280×720 viewport at DPR 1 (stage 640×360).
+- **Start:** `compiling 1/51 … 51/51`, which is 48 own defs + the 3 milk ones, ticking last (49–51/51). `createVisualizer` 2, `loadPreset` 4 (2 for the first preset: 1 per pool visualizer, then 1 each for the other two).
+- **Playlist:** 30 scenes; the milk scenes sit at 7, 15 and 23.
+- **Autopilot fade:** with the harness cut to the scene before it, the next switch faded CRT spectrum → milk through `gl/PerlinDissolve` (1 bar, 1.37 s). The badge named the preset. A → switch into the second preset used `gl/BurnThrough`.
+- **Drop:** the harness made a 10 s breakdown with a 400 Hz high-pass on the file's source node, then removed it. A drop fired (0.63) while milk was on screen and cut to Pixel strobe in the same frame. Its flash therefore washes the incoming scene, as for any scene; the milk frames got the heat post pass (gain ≤ 1.08).
+- **Start + 62 s:** `createVisualizer` still 2, 0 black milk draws, 0 console errors.
+- **Panel (E):** the Library lists the 3 milk rows starred at rows 8, 16 and 24, interleaved as the plan accepted.
+- **REC 20 s** from the milk fade: MP4 with H.264 High 640×360 ≈ 59 fps and AAC LC 44.1 kHz stereo (mean −16.5 dB, so not silent), 20.03 s long. Frame 4 s = the preset.
+- The lead's worst-case 60 s harness (design § Probe ruling 5) was not run here.
 
 ### S3.1 `[ ]` Curate ~25 presets, credits
 Invoke the `ponytail` skill (full) before writing code.
