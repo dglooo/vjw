@@ -231,7 +231,7 @@
   - the GPU hint.
 - **No re-renders in the loop:**
   - Sliders are uncontrolled (`defaultValue`), and `onInput` calls `panel.setValue(...)`, which mutates the doc in place. React does not re-render while dragging.
-  - Structural edits call `live.rebuild()` and bump `editRev` in the store (`useSyncExternalStore`, pilot S1). Only the panel re-renders.
+  - Structural edits mirror the one op on the built layers in place (`plan_live_rebuild.md`) and bump `editRev` in the store (`useSyncExternalStore`, pilot S1). Only the panel re-renders.
   - The GPU hint and errors patch the store at most 4×/s (pilot badge rule).
   - A live "bound value" meter is **not built**. Add it as an imperative ref writer if wanted.
 - **Keys:** `app.ts`'s global key filter also ignores `HTMLTextAreaElement`. Focused sliders keep their native `←/→`, which the existing input filter already handles.

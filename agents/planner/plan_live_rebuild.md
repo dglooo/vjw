@@ -33,7 +33,7 @@ export interface Live {
 
 ## Steps
 
-### S1.1 `[ ]` Mirror each structural op on the built layers (one coder, ~45 min)
+### S1.1 `[x]` Mirror each structural op on the built layers (one coder, ~45 min)
 Invoke the `ponytail` skill (full) before writing code.
 **Goal:** a structural panel edit builds only what it added, frees only what it removed, and leaves every other node and layer running.
 **Files:** modify `web/src/gl/live.ts` only. Read first: `live.ts` 1–40, 94–161, 193–247, 298–313, 328–366; `edit.ts` 17–73; `engine.ts` 36–43, 76–95. Names below are suggestions; the file's short style (`node`, `free`, `run`) rules.
@@ -65,6 +65,12 @@ Invoke the `ponytail` skill (full) before writing code.
 2. Add a layer, then remove it; on **Particles over tunnel** remove layer 0, then (fresh) layer 1; remove a layer's last effect; paste a Shadertoy, then remove its layer: each time the other layers keep running (tunnel travel continuous).
 3. Start a scene change (fade) and add/remove a filter in the panel while it fades: the incoming scene shows the edit, the fade completes.
 4. Leak: the DevTools console filtered on `WebGL:` shows nothing new; Chrome Task Manager (Shift+Esc, enable the GPU memory column): note the value, add + remove `isf/Long Exposure` (has a TARGET) 10×, the value returns to the baseline (±noise); the same for 10× add + remove layer.
+
+**Changed during implementation:**
+- `build()` is inlined at its one remaining call site (create time, where `errors` is still empty). `buildLayer` / `freeNode` / `freeLayer` are as planned, and `dispose()` = `layers.forEach(freeLayer)`.
+- FRAMEINDEX/iFrame: the per-node post-increment gives a node's first draw 0, as ISF and Shadertoy define it. The old Live-wide counter was incremented in `render()` before drawing, so every first draw saw 1; "as after today's rebuild" was off by one. No shipped shader reads FRAMEINDEX/iFrame (grep), so only a pasted toy can notice.
+- `web/src/milkdrop/native.ts` (S2.2, after this plan): its `dispose()` comment named `rebuild()` and stale `live.ts` lines. It is reworded, comment only. `design_effects.md:234` is now updated to the in-place mirror (the lead allowed it).
+- The browser checks ran as an automated harness, `scratchpad/live-rebuild.mjs <port> <outDir>` (headed Chrome, dnb174.wav). It counts each native's create()/dispose() per ref, logs every survivor's clock and bound `glow` per draw, and holds live WebGL texture/framebuffer sets per context. Check 4 reads those object counts in place of the Task Manager column (not scriptable). The same harness on the pre-change `live.ts` fails 16 of 17 steps (every edit re-creates the survivors). So the checks discriminate.
 
 **Dependencies:** none. **New deps:** none. **Donor:** none.
 
