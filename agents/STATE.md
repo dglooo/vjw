@@ -14,7 +14,11 @@
   - CP3 close-out (lead, `scratchpad/milk-cp3.mjs`): 64 s, 16 switches over the live 52-scene playlist. 3842 frames, 0 late, jsMs 1.4, 1.00×.
   - Worst case (ruling 5, `scratchpad/milk-worst.mjs`): 0 of 3901 frames late. Contact sheet: `scratchpad/milk-picks-sheet.png`.
 - **Polish done:** §7 keys wake the overlay (`d55f4ae`) · §6 Spectrum low-bar ramp (`20a3a03`) · §3 shared WCAG flash cap + strobe at a 60% wash (`d73e2b9`, `plan_flash_cap.md`) · §5 structural panel edits no longer restart the scene (`e23c44e`, `plan_live_rebuild.md`) · Tier 1 Vitest `testTimeout` 20 s (`c738f85`).
-- **Exact next step:** nothing is running or dispatched. The rest of the queue needs the user: §1/§2 are taste items, waiting for the effects re-brief, plus the decisions below.
+- **User decision 2026-11-04 (session 7):** next epics = **Stage 2b effect editor, then Stage 3 camera** (spec §4); user checks/tracks deferred ("проверки потом").
+- **User standing instruction 2026-11-04: "always take recommendations, don't ask"**: no grill rounds; the lead also picks the design variant (logged as a lead pick). Memory updated.
+- **2b spec written** by the lead from the recommended answers: `thoughts/spec_effect_editor.md` (library + layer-stack builder, prep at home, Bars + pixel family, undo, no node graph).
+- **Stopped ~12:06 (session 7 ended mid-run; nothing running at 17:35):** `researcher` finished `agents/research/research_effect_editor.md` (11:58, uncommitted). `frontend-coder` §1 slit scan was left half-done: worktree `.claude/worktrees/agent-ad8211cb17263523a`, `web/src/fx/own/echo.fs` +10/−6, uncommitted, no commit on its branch. **Exact next step:** re-dispatch §1 fresh (read that diff first), then: §2 chrome ring (lead default: one ring per bar) → system-designer 2b → lead pick → planner.
+- **2026-11-04 18:0x: TouchDesigner dump = the effects quality reference (user).** `donor/td-reverse/touchdesigner/` (full extract, 1.2 GB; archive kept beside it). User: our own effects look dated, MilkDrop looks better. Study TD's palette shaders and rewrite our own by analogy, no licence pushback (personal use, not for release). Excluded: TD licence-mechanism findings (04, licence parts of 02/05/06). **Running:** `researcher` → `agents/research/research_td_look.md` (TD chains + shader math → our engine map + top-8). Own graphify graph for the dump: `--graph donor/td-reverse/touchdesigner/graphify-out/graph.json` (Python + md only; the GLSL is .txt, so use `extracted/glsl_dat_manifest.json`).
 
 ### Findings for the user (decide or leave)
 - ⚠️ **WCAG gap:** MilkDrop presets flash on their own; e.g. `cope-alternative-energy` luma std goes 6→72 within 2 s. `flashGate` covers only `own/strobe` + `own/flash`. Option: a frame-luminance flash limiter in the post pass (a design item).
@@ -38,7 +42,7 @@
 - Known limits: bass note-on-kick lag ~211 ms (accepted); kick-veto branch S3.1c kept unmerged (`413275d`); `?debug&preset=` forces the frame loop only, so it doesn't drive the Auto-style hint (by design).
 - ⚠️ assumptions: `design_pilot.md` § "Spec §8 and STATE ⚠️ ledger". Fixtures: `scratchpad/fx_audio/dnb174.wav`, `dubstep140.wav` (gitignored; regenerate via `web/scripts/make-fx.mjs` through a throwaway vitest in `src/`).
 
-**Infra:** graphify (root `.`, post-commit hook); crons are session-only; `.claude/settings.local.json` allowlist (Read/Write/Edit + common Bash incl. `npx:*`); dispatch rule CLAUDE.md #11 (one coder at a time, own worktree, the lead merges).
+**Infra:** graphify (root `.`, post-commit hook); crons are session-only; `.claude/settings.local.json` allowlist (Read/Write/Edit + common Bash incl. `npx:*`); dispatch rule CLAUDE.md #11 (one coder at a time, own worktree, the lead merges). Harness (user 2026-11-04): in this project only superpowers 7.0.0 + ponytail + graphify + context7; SEO, ui-ux-pro-max, superpowers 5.0.7, claude.ai synced skills/plugins/connectors and Artifacts are off in `settings.local.json`; memory compacted to 2 notes.
 
 ### Key decisions
 - Session 2 (/grill-me): browser pilot, Chrome-first, localhost; Vite + React + TS; Electron later. Minimal auto-hiding overlay, REC via MediaRecorder, quality modes 60A / 60F / 30. After the pilot: editor → camera → clip mixer.
