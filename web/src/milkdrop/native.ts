@@ -79,8 +79,8 @@ export const milkdrop: readonly NativeDef[] = PRESETS.map((p): NativeDef => ({
         v.render({ audioLevels, elapsedTime: f.dt }) // its unit, G10
         copy(v.internalCanvas, f.width, f.height)
       },
-      // Back at once when its load has settled: prepare() and rebuild() build right after they dispose (live.ts:309-310,
-      // 412-419), and that build takes this visualizer instead of making one more. Never mid-load: two loads would race.
+      // Back at once when its load has settled: prepare() builds right after it disposes (live.ts), as does a panel remove
+      // then add, and that build takes this visualizer instead of making one more. Never mid-load: two loads would race.
       dispose() {
         if (settled) free.push(v)
         else loading.then(() => free.push(v))
