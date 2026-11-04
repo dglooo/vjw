@@ -152,12 +152,18 @@ Browser (M4, headed, `--mute-audio`, autoplay, so Start = page load). Setup: dnb
 - **REC 20 s** from the milk fade: MP4 with H.264 High 640×360 ≈ 59 fps and AAC LC 44.1 kHz stereo (mean −16.5 dB, so not silent), 20.03 s long. Frame 4 s = the preset.
 - The lead's worst-case 60 s harness (design § Probe ruling 5) was not run here.
 
-### S3.1 `[ ]` Curate ~25 presets, credits
+### S3.1 `[x]` Curate ~25 presets, credits
 Invoke the `ponytail` skill (full) before writing code.
 **Goal:** 20–30 shipped presets with credit fields and `THIRD_PARTY.md` rows.
 **Files:** generated `web/src/milkdrop/presets/*.json` (via `scripts/milk-presets.mjs`; the 3 provisional ones stay only if picked), `web/THIRD_PARTY.md` (§ MilkDrop presets: intro + table), `web/src/milkdrop/presets.test.ts` (`PRESETS.length` within 20–30).
 **Pick rule** (the coder, from S1.2's `presets` rows attached to the brief; the lead reviews the list and takes a 5 s look at each in the panel; the user unstars later): eligible = no `loadErr`, `k3` true, with margin (`gpuP95 ≤ 4 ms`, Butterchurn's own GPU; `warmMs ≤ 8 ms`; `renderMs ≤ 2.5 ms`); `k2` and `copyP95` are void (design § Probe ruling); spread = round-robin over authors (the `author` field), at most 3 per author, best margin first, until 25; prefer presets with both `warp` and `comp`. The handback lists each pick with its numbers.
 **Vitest:** `presets.test.ts` range bump. **Done-check:** gates green; plain `?bench`: every `milk/*` row without errors (its GPU column includes the cross-context wait: information only); panel lists them all starred. **Dependencies:** S2.4. **New deps:** none.
+**Changed during implementation:**
+- "Best margin" = the smallest `gpuP95` (lead). The sort key is both `warp`+`comp` first, then `gpuP95` ascending; it orders each author's list and each round-robin round.
+- `author` is the literal field, so `Flexi`/`flexi`, `martin`/`Martin`, `cope`/`Cope` and `Geiss`/`_Geiss` count as different authors. Folded together they hold 2 picks each, so the ≤ 3 cap holds either way.
+- 116 eligible from 49 authors, so round 1 alone fills the 25: one per author, all with warp+comp, `gpuP95` 2.58–3.52.
+- The 3 provisional presets are not picked and are removed: they rank #40 and #41, and Geiss's best is Tokamak Plus 2.
+- Lead's added check: headed Chrome, `dnb174.wav` looped, LOCK, each scene cut to and held 3 s. One frame per scene was not stable (`royal-mashup-307` read luma std 7.5, then 34.1 on a re-run), so the verdict uses the median of 5 frames over 1–3 s. Near-flat = < 10; all 25 read ≥ 16.2, so nothing is dropped.
 
 ### CP3 close-out (lead, no coder)
 A scratchpad Playwright run (as `scratchpad/s8-underrun60a.mjs`): 60 s at 60A, autopilot on, headed `--mute-audio`, silence is fine; read `store` `drops` per switch (0 expected) and `governor.jsMs` (< 9 ms). Then queue the spec §7.5 30-min run with MilkDrop in the playlist (audio flowing, after the coreaudiod restart).
