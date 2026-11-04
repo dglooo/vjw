@@ -447,7 +447,8 @@ const frame = () => new Promise(requestAnimationFrame)
 /** Compile-all at Start (design E2): the programs of every effect in these scenes and of every transition, so no
  *  switch compiles mid-show.
  *  Shaders compile in parallel off the main thread (KHR_parallel_shader_compile; without it 4 per frame). A native's
- *  programs live inside its create(), so a throwaway instance compiles them into the engine's cache, one per frame. */
+ *  programs live inside its create(), so a throwaway instance compiles them into the engine's cache, one per frame. A
+ *  native with warm() (milk/*: an async preset load) warms itself instead, awaited, one at a time. */
 export async function warm(ids: readonly SceneId[], onProgress?: (done: number, total: number) => void) {
   const nodes = ids.flatMap((id) => find(id)?.layers.flatMap((l) => [l.gen, ...l.fx]) ?? [])
   const defs = [...new Set([...nodes.map((n) => toyOf(n) ?? catalog.get(n.ref)), ...transitions.map((r) => catalog.get(r))])].filter((d): d is EffectDef => !!d) // live() reports bad refs
@@ -467,7 +468,8 @@ export async function warm(ids: readonly SceneId[], onProgress?: (done: number, 
     }
   }
   for (const d of natives) {
-    d.create(gl).dispose?.()
+    if (d.warm) await d.warm()
+    else d.create(gl).dispose?.()
     tick()
     await frame()
   }
