@@ -297,6 +297,26 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
     }],
   },
+  // TD look (Stage 2d, plan_td_look.md): TD's feedback chains as own files; the bindings repeat each file's VJW_BIND.
+  // Auto-style moves only the `bass`-bound param: DnB → reese, Dubstep → wobble, Techno or off → bass.
+  {
+    v: 1, id: 'builtin:td-feedback', name: 'TD feedback', star: true,
+    layers: [{
+      gen: { ref: 'native/spectrum' },
+      fx: [{
+        ref: 'own/td-feedback',
+        bind: {
+          zoom: { source: 'kick', amount: 1, attack: 0, release: 0.25, min: 1.012, max: 1.035 }, // pumps on a kick
+          hueStep: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 5, max: 15 }, // a snare sweeps the colours
+          edge: { source: 'hats', amount: 1, attack: 0, release: 0.1, min: 0.25, max: 0.6 },
+          displace: { source: 'bass', amount: 1, attack: 0.05, release: 0.4, min: 0.006, max: 0.025 }, // Auto-style's one
+          fade: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.95, max: 0.98 }, // a build lengthens the trails
+          reset: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 1 }, // the drop wipes them
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
