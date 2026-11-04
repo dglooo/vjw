@@ -3,7 +3,8 @@ import { parseScene } from '../doc'
 import { MILK_SCENES, PRESETS, spread } from './presets'
 
 test('every preset file loads with its credit and a shader', () => {
-  expect(PRESETS.length).toBeGreaterThan(0)
+  expect(PRESETS.length).toBeGreaterThanOrEqual(20) // CP3 contract: 20–30 shipped presets
+  expect(PRESETS.length).toBeLessThanOrEqual(30)
   expect(PRESETS).toHaveLength(Object.keys(import.meta.glob('./presets/*.json')).length) // none skipped by the guard
   for (const p of PRESETS) {
     for (const k of ['name', 'author', 'url', 'license'] as const) expect(p[k], `${p.slug} ${k}`).not.toBe('')

@@ -141,3 +141,38 @@ Upstream work that a file names in a comment. The files state no license for it:
 - `transitions/PerlinDissolve.glsl`: the `random` one-liner from http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/.
 - `transitions/GlitchMemories.glsl`: based on work from natewave. `transitions/Hexagonalize.glsl`: hex math from http://www.redblobgames.com/grids/hexagons/. `transitions/Swirl.glsl`: ported by gre from https://gist.github.com/corporateshark/cacfedb8cca0f5ce3f7c.
 - `own/domain-warp.fs`: the technique is after Inigo Quilez, https://iquilezles.org/articles/warp/ (named in its description).
+
+## MilkDrop presets
+
+`src/milkdrop/presets/<slug>.json`, copied from `butterchurn-presets` 3.0.0-beta.4 (`presets/converted/<name>.json`; the package is MIT, "Copyright (c) 2013-2018 Jordan Berg") by `node scripts/milk-presets.mjs "<preset name>"…`, which also prints the rows below.
+- JSON has no comment header, so each file carries the credit (spec §6) as fields: `{ name, author, url, license, preset }`. `author` is the name before the first ` - ` (MilkDrop's "author - title").
+- The presets are the MilkDrop community's work; the package gives no license for their content, so it is recorded as unknown.
+- The set is picked by `agents/planner/plan_milkdrop.md` S3.1's rule from the CP1 probe. Adding a preset = one file + one row.
+
+| slug | name | author | license |
+|---|---|---|---|
+| `adam-eatit-fx-2-martin-disco-mix-lodus-geiss-ludicrous-speed-flexi-aderrasi-n-hexcollie` | adam eatit fx 2 martin - disco mix, lodus, geiss, ludicrous speed,flexi, aderrasi n hexcollie | adam eatit fx 2 martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `adamfx-mashup-2-martin-reflections-on-black-tile-raron-n-flexi` | AdamFX Mashup 2 Martin - reflections on black tile + Raron N Flexi  | AdamFX Mashup 2 Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `aderrasi-geiss-airhandler-kali-mix-painterly-tendrils-colorfast` | Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast | Aderrasi + Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `cope-alternative-energy-antimatter-mod-1-4z` | cope - alternative energy (antimatter mod_1)4z | cope | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `cope-the-neverending-explosion-of-red-liquid-fire` | Cope - The Neverending Explosion of Red Liquid Fire | Cope | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `fed-slowfast-1-1` | fed - slowfast 1.1 | fed | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `flexi-fishbrain-geiss-martin-tokamak-witchery` | Flexi, fishbrain, Geiss + Martin - tokamak witchery | Flexi, fishbrain, Geiss + Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `flexi-fishbrain-martin-witchery` | Flexi, fishbrain + Martin - witchery | Flexi, fishbrain + Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `flexi-martin-cascading-decay-swing` | Flexi + Martin - cascading decay swing | Flexi + Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `flexi-martin-geiss-dedicated-to-the-sherwin-maxawow` | Flexi, martin + geiss - dedicated to the sherwin maxawow | Flexi, martin + geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `flexi-psychenapping` | Flexi - psychenapping | Flexi | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `flexi-swing-out-on-the-spiral` | flexi - swing out on the spiral | flexi | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `geiss-explosion-mod-2b` | _Geiss - Explosion Mod 2b | _Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `geiss-tokamak-plus-2` | Geiss - Tokamak Plus 2 | Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `martin-angel-flight` | martin - angel flight | martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `martin-liquid-arrows` | Martin - liquid arrows | Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `mig-colorful9` | _Mig_COLORFUL9 | _Mig_COLORFUL9 | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `milk-artist-at-our-best-fed-slowfast-ft-adamfx-n-martin-hd-cosmofx` | Milk Artist At our Best - FED - SlowFast Ft AdamFX n Martin - HD CosmoFX | Milk Artist At our Best | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `orb-magma-pool` | ORB - Magma Pool | ORB | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `rovastar-geiss-hyperspace-kaleidoscope` | Rovastar + Geiss - Hyperspace - kaleidoscope | Rovastar + Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `royal-mashup-307` | $$$ Royal - Mashup (307) | $$$ Royal | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `shifter-escape-sigur-ros` | shifter - escape (sigur ros) | shifter | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `suksma-vector-exp-1-couldn-t-not` | suksma - vector exp 1 - couldn′t not | suksma | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `vovan-geiss-bass-with-flover-feedback-mix-2` | _Vovan + Geiss - Bass With Flover (Feedback Mix) 2 | _Vovan + Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `zylot-true-visionary-final-mix` | Zylot - True Visionary (Final Mix) | Zylot | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
