@@ -51,19 +51,18 @@ function make() {
   return v
 }
 
-/** `p` into `v`, then one throwaway render that links its programs off screen. A failed load is logged and resolves
- *  false (its native stays black), never rejects. */
+/** `p` into `v`, then one throwaway render that links its programs off screen. A failed load or render is logged and
+ *  resolves false (its native stays black), never rejects: Start's warm() awaits it. */
 function load(v: Visualizer, p: (typeof PRESETS)[number]) {
-  return v.loadPreset(p.preset, 0).then(
-    () => {
+  return v.loadPreset(p.preset, 0)
+    .then(() => {
       v.render({ audioLevels, elapsedTime: 1 / 60 })
       return true
-    },
-    (e) => {
+    })
+    .catch((e) => {
       console.error(`milk/${p.slug}: ${e}`)
       return false
-    },
-  )
+    })
 }
 
 /** One native per shipped preset (CP2 contract). Its visualizer comes from the pool and goes back once its load settled. */

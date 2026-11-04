@@ -1,8 +1,10 @@
 import type { SceneDoc } from '../doc'
+import { MILK_SCENES, spread } from '../milkdrop/presets'
 
 // Built-in scenes (design E4): JSON-compatible literals, so tsc checks them and doc.test.ts round-trips them. Immutable:
-// edits go to a copy. The order is the autopilot's: the natives, then the combinations.
-export const BUILTIN: readonly SceneDoc[] = [
+// edits go to a copy. The order is the autopilot's: the natives, then the combinations, with the MilkDrop scenes
+// spread evenly among them (BUILTIN, at the end).
+const OWN: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:tunnel', name: 'Tunnel', star: true,
     layers: [{ gen: { ref: 'native/tunnel' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
@@ -296,3 +298,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     }],
   },
 ]
+
+// Design Q4: Tunnel stays first (library.test.ts), both orders kept.
+export const BUILTIN: readonly SceneDoc[] = spread(OWN, MILK_SCENES)
