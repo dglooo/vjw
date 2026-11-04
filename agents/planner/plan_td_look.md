@@ -87,10 +87,20 @@ Depends on: S1.1 (order only). **Files:** `web/src/fx/own/td-feedback.fs`, `web/
 - Bench at 1728×1118, scale 1: GPU p95 3.00–4.40 ms over runs. The machine reads ≈1.5× higher in some runs: spectrum alone is 1.98 or 3.19 ms. The node itself costs ≈.7–1.1 ms, and 2× snoise3D at ½ is ≈.47 of that: the lever if S1.4's bloom misses 5 ms.
 - Trace: neither fixture has a build or drop (both stay 0), so `fade`/`reset` go unexercised. The classifier stays undecided on the 12.5 s loops, so Auto-style was set the way the panel picker does (`pick`, auto on).
 
-### S1.3 [ ] [M] `own/edge-rings.fs` + `builtin:edge-rings`
+### S1.3 [x] [M] `own/edge-rings.fs` + `builtin:edge-rings`
 Depends on: S1.2 (test list). **Files:** `web/src/fx/own/edge-rings.fs`, `builtin.ts`, `isf.test.ts`.
 **Look:** `feedbackEdge`. P0 `loop` PERSISTENT FLOAT ½: last frame × `gain` (>1, self-sustaining, so soft-clip at .8, D2 rule 3), scale about the centre by `scale`, 3×3 blur, hue += `hueStep` (negative, TD's −2°), + Sobel edge of `inputImage` × `edge`, screen `inputImage`; `reset` → black. P1 out: screen(src, loop). ≈7.7 MB.
 **Inputs:** scale ← kick 0/.3 1.002→1.012 · hueStep ← snare 0/.3 −1→−8 · gain ← sub .1/.6 1.03→1.08 · edge ← bass .05/.3 .15→.4 · reset ← drop. **Scene:** tunnel → edge-rings. **Done:** gates; bench (D5 ≈2.0); screenshot; trace (gain swells on sub, rings step on snare, no white-out over 60 s of `dnb174`).
+**Changed during implementation:** tuned on the tunnel (sweeps v1–v5 in `scratchpad/td/s1.3/`, harnesses `tune-er.mjs` and `edge-rings.mjs`). Inputs, bindings and ranges ship as written.
+- **Effective loop gain < 1.** `gain` × a fixed `OPACITY` .9 gives .93 at rest and .97 on a full sub. Every variant with an effective gain ≥ 1 filled the whole tunnel to the clip within ~1 s (mean luma ≈ .9). The soft clip caps the value, not the coverage. TD does the same: its `Feedbackgain` cparm is **1.03** × level opacity .95 ≈ .98 (the research's 1.07 is the stored constant, unused in expression mode). The .8 soft clip stays as the net (D2 rule 3).
+- **Seed = the image above .7 only** (`SEED`, at `LEVEL` .5): the end light, sparks, and the walls on a hit. The whole image filled the loop, and so did its Sobel: the tunnel's 32 stripe borders are everywhere. Each hit seeds new rings.
+- **Edge = a Sobel of the loop** (TD's edge of the history, as in S1.2), from the 4 blur taps, not of `inputImage`. TD's dark edge colour drawn over the loop made grooves in a bright fill, not glowing rings.
+- **P1 = screen(.5·src, loop)** (`DRY`, TD's dry/wet). At 1, the tunnel's lit walls hid the rings. `BLACK` .01 (TD .002) kills the haze between hits.
+- Bench at 1728×1118, scale 1, tunnel included: GPU p95 **2.48 ms** (dnb174, 60 s) and 2.51 (dubstep140).
+- Trace r: scale↔kick .85/.83 · hueStep↔snare −.84/−.83 (inverted range) · gain↔sub .82/.84 · edge↔reese .62 (DnB), ↔wobble .59 (Dubstep).
+  - The fixtures' sub sits at .40–.57, so gain only swings 1.050–1.058.
+  - Neither fixture has a drop, so `reset` goes unexercised.
+- **Luma, 60 s of dnb174** (mean Rec. 709 every 0.5 s): .10–.57, mean .39; per-10 s means .43 .34 .47 .33 .43 .34 .45, no drift; 0 samples > .8. The plain tunnel alone reads .34–.66.
 
 ### S1.4 [ ] [M] `own/bloom.fs` + `builtin:bloom-glitch`; td-feedback gains bloom
 Depends on: S1.1, S1.2. **Files:** `web/src/fx/own/bloom.fs`, `builtin.ts`, `isf.test.ts` (+ `web/src/bind.test.ts` for G3).
