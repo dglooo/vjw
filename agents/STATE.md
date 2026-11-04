@@ -57,7 +57,13 @@
     - `BUILTIN = spread(OWN, MILK_SCENES)`: milk at playlist 7/15/23 of 30.
     - `load()` uses `.then().catch()`, so Start can't hang.
     - CP2 demo: compiling 51/51 (+3 milk); autopilot fade into milk via `gl/PerlinDissolve`, with the badge naming the preset; a drop cut away from milk; panel shows 3 starred; `createVisualizer` 2 over 62 s; REC 20 s = H.264 640×360 ~59 fps + AAC with sound (ffprobe).
-  - ▶ **Lead: worst-case run** (ruling 5).
+  - ✅ **Lead worst-case run (ruling 5): PASS.**
+    - Setup: full size 1728×1117@2, silence, 60A.
+    - Heaviest starred own scene is `particles-over-tunnel` (4.17 ms GPU); next are rainbow-trails 4.10 and trails-spectrum 4.07.
+    - 65 s of `next()` every 5 s over [witchcraft, cope, particles-over-tunnel], covering milk→milk, milk→own and own→milk fades.
+    - Result: 3901 frames, **0 late**, p99 18.6 ms, governor drops 0, **scale 1.00**, jsMs 2.2.
+    - Harness: session scratchpad `wc/worst.mjs` (copy in `scratchpad/milk-worst.mjs`).
+  - ▶ **MilkDrop S3.1** (coder): curate ~25 by rule from `scratchpad/milk-probe-rows.json`, + a contact sheet with music, + THIRD_PARTY.
   - **Lead reorder:** S2.4 → the lead's worst-case run (ruling 5) → S3.1 → §1 → §2. §1/§2 are taste and wait for the effects re-brief anyway.
   - ✅ **planner (Fable, ~12 min) → `plan_flash_cap.md`** (§3, Tier 2): 1 step S1.1.
     - A pure `flashGate` next to `WCAG` in `gl/post.ts`: ≤3 onsets per closed 1 s window; a refused onset holds; the output never rises except through an allowed onset.
