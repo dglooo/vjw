@@ -114,12 +114,24 @@ Invoke the `ponytail` skill (full) before writing code.
 **Vitest:** none (GL + Butterchurn; `native.ts` imports `gl` at module load). **Done-check:** gates green; plain `?bench` (its per-effect loop :113-145 builds a `bench:milk/<slug>` doc for every catalog generator) shows the 3 natives with `glError 0`, `console errors 0`, and upright (not Y-flipped) pictures (their GPU column includes the cross-context wait: information only). **Dependencies:** S2.1. **New deps:** none.
 **Changed during implementation:** (1) The copy is one function, `copy(src, w, h)`, exported by `native.ts`. bench.ts's K1 `tex`, `flip` and upload moved there with the flip shader unchanged. Bench's `upload` now binds `temps[1]` and calls it, imported as `milkCopy` because `milk()` already has a `copy` results array. The shared texture follows the source's size. On a change it calls `texImage2D(src)`, which allocates and uploads in one call, instead of `texImage2D(null)`, so a resize frame is never empty. (2) `dispose()` returns the visualizer at once when its load has settled, otherwise after the load (`loading.then`). The literal `loading.finally(() => free.push(v))` always pushes a microtask later. By then `prepare()`/`rebuild()`'s synchronous build (live.ts:309-310, 412-419) has already popped an empty pool, which gives a 3rd visualizer and context per live milk native instead of the design's pool of 2. (3) A failed `loadPreset` is logged with `console.error` (`milk/<slug>: …`) and the native stays black, with no unhandled rejection; it still counts as settled. The throwaway render uses `elapsedTime: 1 / 60`.
 
-### S2.3 `[ ]` `warm?()` at Start
+### S2.3 `[x]` `warm?()` at Start
 Invoke the `ponytail` skill (full) before writing code.
 **Goal:** Start loads every starred preset once, one at a time, behind the existing "compiling n/N" line; the pool holds 2. Both pool visualizers exist and each is past its first load when Start ends (a fresh visualizer's first load blocks ≤ 26 ms = a late frame; design § Probe ruling).
 **Files:** `web/src/gl/scene.ts:6` (`warm?(): Promise<void>`), `web/src/gl/live.ts:435-439` (`if (d.warm) await d.warm(); else d.create(gl).dispose?.()`, comment updated), `web/src/milkdrop/native.ts` (`warm` on each def).
 **Behaviour:** `warm()`: `make()` until 2 exist; `v = acquire()`; `await v.loadPreset(p.preset, 0)`; one `render()` with silence; `free.push(v)`. If S1.2 showed warm ≈ cold (no cache gain, design R1), `warm()` only makes the 2 visualizers and skips the loads; the lead says which in the brief.
 **Vitest:** none (GL). **Done-check:** gates green; the browser check is S2.4's demo: at Start "compiling n/N" counts the milk scenes, and Chrome Task Manager's GPU memory grows by two contexts' worth, not one per preset. **Dependencies:** S2.2. **New deps:** none.
+**Changed during implementation:**
+1. The natives loop in `live.ts` `warm()` is now at :469-473 (polish §5 moved it).
+2. Until the pool's 2 exist, `warm()` makes one visualizer, loads its preset into it, then makes and loads the second. The plan's order was `make()` ×2, then one `acquire()` and load.
+   - `acquire()` pops the pool, so the plan's order loads every preset into the same visualizer and leaves the other one fresh. The lead's brief requires each to be past its first load.
+   - Interleaving also keeps the two `createVisualizer` blocks in separate tasks.
+   - A module `made` count (in `make()`, live and pooled) is the "until 2 exist" test, once per page. Later calls load into one pooled visualizer, so N milk presets cost N + 1 loads at Start.
+3. `create()`'s load, throwaway render and error log moved into a shared `load(v, p)` that both `create()` and `warm()` use. Behaviour is unchanged.
+4. The "silent" render uses the shared `audioLevels`, which stay silence until the first milk draw (none has drawn at Start).
+
+Browser (M4, headed, autoplay, so Start = page load): 2 starred user scenes with one `milk/*` layer each were stored via `library.put`, then the page reloaded.
+- At Start: `compiling 1/50 … 50/50`, the 2 milk natives ticking last; `createVisualizer` 2; `loadPreset` 3.
+- Over Start + 31 s: `createVisualizer` stays 2. Both milk scenes came on screen (an autopilot fade, then →), each prepared ahead, with 0 black draws.
 
 ### S2.4 `[ ]` `BUILTIN = spread(own, MILK_SCENES)`
 Invoke the `ponytail` skill (full) before writing code.
