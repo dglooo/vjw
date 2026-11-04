@@ -49,7 +49,10 @@
     - Drift: `dispose()` returns a settled visualizer at once (the plan's `.finally` made a third one per prepare).
     - ⚠️ A scaled per-frame `drawImage(internalCanvas)` read a frozen image, so the probe's path (c) may have copied stale frames. Path (a) is unaffected.
     - Until S2.3, the first milk add in a page hitches ~1 s.
-  - ▶ **Polish §5** (coder): `plan_live_rebuild.md` S1.1, line pointers drifted (flash cap + milk natives in `live.ts`); plus a milk add/remove ×5 visualizer count. Next: MilkDrop S2.3.
+  - ✅ **Polish §5 merged** (`e23c44e`, ~20 min; gates 327/327). `live.ts` mirrors each structural op; survivors keep node/u/smoothing/flash/targets/clock; per-node FRAMEINDEX (first draw now 0); `rebuild()` gone.
+    - Harness `scratchpad/live-rebuild.mjs`: 17/17 pass (the old code fails 16/17). Milk add/remove ×15 = 1 `createVisualizer`; GL counts back to baseline after 10× add/remove.
+    - Noticed, not fixed: blend `screen` on a single-layer Trails spectrum renders ~half as bright as `normal` (predates this change). A newly added milk layer is black until its preset loads (by S2.2's design).
+  - ▶ **MilkDrop S2.3** (coder): `warm?()`. Lead decision: load every starred preset at Start, since cold median 12.6 vs warm 6.0 ms and 65 vs 3 loads were over 16 ms. Next: §1 slit scan, then S2.4.
   - ✅ **planner (Fable, ~12 min) → `plan_flash_cap.md`** (§3, Tier 2): 1 step S1.1.
     - A pure `flashGate` next to `WCAG` in `gl/post.ts`: ≤3 onsets per closed 1 s window; a refused onset holds; the output never rises except through an allowed onset.
     - Applied at the `live.ts` `render()` uniform write, with one shared module-level `flashOnsets` (all layers, both fade scenes). Flash class = a const set (`own/strobe.strobe`, `own/flash.flash`). The post strobe stays out (same beat grid, ≤0.15).
