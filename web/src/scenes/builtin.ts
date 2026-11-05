@@ -414,6 +414,26 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  {
+    v: 1, id: 'builtin:time-machine', name: 'Time machine', star: true,
+    layers: [{
+      gen: {
+        ref: 'isf/Truchet Tile', // static on its own: the kick zooms it, so the rings have a past to show
+        values: { color1: [1, 0.25, 0.7, 1], color2: [0.03, 0, 0.08, 1], lineMode: true },
+        bind: { tSize: { source: 'kick', amount: 1, attack: 0.02, release: 0.3, min: 0.06, max: 0.1 } },
+      },
+      fx: [{
+        ref: 'native/time-machine', // the def's bind (scenes/history.ts), repeated: built-ins stay JSON literals
+        values: { tint: 0.9 }, // ≈ TD's example, 330° of hue across the history: the rings show in colour, pink is the present
+        bind: {
+          swirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.3, min: 0, max: 1 }, // Auto-style's one: the rings twist
+          depth: { source: 'build', amount: 1, attack: 1, release: 1, min: 0.3, max: 1 }, // a build reaches further back
+          phase: { source: 'beat', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // one sweep per beat
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
