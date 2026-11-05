@@ -4,17 +4,17 @@
 
 ## HEAD
 
-**Updated:** 2026-11-05 (session 9; resumed after the session-8 crash; STATE compacted)
+**Updated:** 2026-11-05 23:15 (session 9; the bot reader crash blocked S3.4)
 **Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP3, S3.4 next)**. 409 tests.
 **Specs:** `thoughts/spec_veejay_wizard.md` + `spec_effects`, `spec_audio_reactivity`, `spec_td_look`, `spec_effect_editor`, `spec_camera`. **Team:** planner Fable 5.1 max; others Opus 5.5 max; researcher high.
 
 ### Where we stopped
 - **2b editor** (`plan_effect_editor.md`, Variant B): CP1 code ✅ (lead close-out pending); CP2 ✅ (demo 16/16, 0/4563 late).
   - CP3 S3.1–S3.3 ✅: library grid (135 blocks), `live.tile()`, bake queue + async readback (G1 .4 ms CPU per tile; G2 28.2 s, 31.1 MB; G4 tunnel REF).
-- After the session-8 crash (S3.4 never started), S3.4 was re-dispatched on 2026-11-05 to `frontend-coder` (worktree, background).
+- ⚠️ **S3.4 is NOT running.** Its 2026-11-05 dispatch failed: at 22:32 a full-size screenshot Read (a message over 1 MB) killed the claude-tg reader, so every Agent hook timed out.
+  - Bot fix `95c4eb4` (64 MB buffer + disconnect on crash) is live only after the user restarts `tgbot`. Until then, downscale images (`sips -Z 1200`) before Read.
 - **Exact next step: S3.4.** Live hovered tile at 20 fps, last frame → still, re-bake on save.
-  - Also the CP3 close-out 60 s run: live tile on `builtin:rgba-delay`, then `builtin:swarm`; sheet `ed/cp3-sheet.png`.
-  - Then the lead closes CP3.
+  - Also the CP3 close-out 60 s run (live tile on `builtin:rgba-delay`, then `builtin:swarm`; sheet `ed/cp3-sheet.png`), then the lead closes CP3.
   - Then CP4 S4.1–S4.4: bars, Pixellate + mosaic, led-grid + ASCII (G3), 3 built-ins + THIRD_PARTY; 60 s run on both arr fixtures.
 
 ### Queue (user order 2026-11-05)
