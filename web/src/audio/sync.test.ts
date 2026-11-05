@@ -231,6 +231,28 @@ describe('hold, confidence and hysteresis', () => {
     expect(s.at(10 + 16 * P).bpm).toBeCloseTo(128, 1)
   })
 
+  // T3′ e′ (design_audio_reactivity § Ruling: tempo ⅔): real DnB reads its two-step's ⅔ lag (116) for 30 s stretches.
+  test.each([116, 232])('a confident 174 grid ignores a stream of confident %d readings (⅔, 4/3): no relock, no confidence drop', (bpm) => {
+    const q = 60 / 174
+    const { s, src } = locked(174)
+    run(s, 0, 4, grid(q, 4, q))
+    const r = 60 / bpm
+    const frames = run(s, 4, 14, grid(4, 14, q), (t) => {
+      if (Math.round(t * 60) % 10 === 0) src.set({ bpm, anchor: 4 + Math.floor((t - 4) / r) * r, confidence: 0.9 })
+    })
+    expect(frames.every((f) => Math.abs(f.bpm - 174) < 1 && f.confidence > 0.6)).toBe(true)
+  })
+
+  test.each([[174, 140], [116, 174]])('a %d grid still moves to confident %d readings after 8 of their beats (not ⅔ or 4/3 of it)', (from, to) => {
+    const { s, src } = locked(from)
+    run(s, 0, 4, grid(60 / from, 4, 60 / from))
+    const q = 60 / to
+    run(s, 4, 10, grid(4, 10, q, 4), (t) => {
+      if (Math.round(t * 60) % 10 === 0) src.set({ bpm: to, anchor: 4 + Math.floor((t - 4) / q) * q, confidence: 0.9 })
+    })
+    expect(s.at(10).bpm).toBeCloseTo(to, 0)
+  })
+
   test('×2 and ÷2 stick: readings at the other octave keep refining the tempo instead of undoing it', () => {
     const { s, src } = locked(128)
     s.double()

@@ -185,6 +185,11 @@ describe('setRange and families (design C3)', () => {
     expect(listen(src, genre, bpm)).toEqual(golden)
   })
 
+  // T3′ acceptance: techno at its range's edges holds under Default (genre undecided), never a ⅔, 4/3 or octave lag.
+  test.each([118, 135])('the techno pattern at %d BPM reads ±1 under Default, with sub + reese too', (bpm) => {
+    for (const stems of [undefined, FULL]) expect(Math.abs(listen(createTempoSource(), 'techno', bpm, stems).bpm - bpm)).toBeLessThan(1)
+  })
+
   test('setRange(null) restores a fresh source, bit for bit, also on the bare ACF (no onsets: the prior shapes the peak)', () => {
     const cleared = ranged(dnb)
     cleared.setRange(null)

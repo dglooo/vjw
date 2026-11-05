@@ -31,6 +31,9 @@ const TOL = 1 / 8 // beat: an onset this close to a grid beat corrects it
 const MERGE = 0.03 // a reading within 3% of our tempo (any octave) and ±TOL of our phase agrees
 const MERGE_GAIN = 0.1 // knob: share of the period gap an agreeing reading closes
 const LOCK = 0.3 // knob: readings below this confidence neither start a grid nor compete with ours
+// knob (T3′ e′): a reading at ⅔ or 4/3 of our tempo (its period in our octave within this share of ¾ of ours) neither
+// merges nor competes. Limits: a two-step locked from scratch still locks 116; a mix change to within ~1 % of 4/3 never relocks.
+const PARTNER = 0.01
 const TAP_GAP = 2 // s: a longer pause starts a new tap count
 const TAPS = 4 // intervals in the tap median
 
@@ -86,6 +89,7 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
     if (!period) return lock(r.bpm, r.anchor, r.confidence) // a fresh lock
     const k = Math.round(Math.log2(60 / r.bpm / period)) // our octave of it: ×2 / ÷2 stick
     const p = 60 / r.bpm / 2 ** k
+    if (Math.abs(p / period / 0.75 - 1) < PARTNER) return // DnB's two-step reads its ⅔ lag (174 → 116) for long stretches
     if (Math.abs(p / period - 1) < MERGE && Math.abs(phase(r, period, anchor)) <= TOL) {
       rebase(t)
       period += (p - period) * MERGE_GAIN
