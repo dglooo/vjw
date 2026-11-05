@@ -114,6 +114,10 @@
       - B: Apple Vision via a Swift helper (≈22 fps reported on M1/M2; transport via WebSocket, WebRTC or a virtual camera).
       - C: macOS effects reach Chrome as processed pixels only; no mask API.
       - Gap: no Apple Silicon fps and no low-light/strobe data, so the first design step is an M4 probe. **Running:** `system-designer` → `design_camera.md`.
+    - **Camera research, cross-platform ✅** `agents/research/research_camera_xplat.md`: pure web, Chrome on Win + Mac.
+      - Shortlist: MediaPipe Selfie (<2 m, only published fps), PoseLandmarker mask (full body ≤4 m), RVM on WebGPU (GPL, recurrent alpha; no Windows fps).
+      - MediaPipe Windows GPU bugs: NVIDIA mask offset; long-session GL leak #6352 (open).
+      - No Intel-iGPU / M-series / strobe data, so we need an on-rig probe. **User scope: pure web, no native helpers.**
     - **TD wave 2 research ✅** `agents/research/research_td_wave2.md`:
       - Top-10: julia trap filter, superformula, polar wrap, phaser wipe, gradient map, XY scope (native), pointillize (scatter ext), difference feedback (VJW_FLASH), dilate melt, stars/polka noise.
       - Plus 12 quick wins (several already exist as MIT donor ISF).
