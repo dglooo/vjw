@@ -418,13 +418,60 @@
   - **GPU** (same-session A/B, med / p95 ms): bars alone 1.56 / 1.74 (dnb) and 1.61 / 1.67 (dub); + `own/flash` 2.18 / 2.65 and 2.20 / 2.41. Budget ≤5 ✓.
   - Seen, not fixed: the audio texture's −30 dB ceiling pins the bass bands at full height on a loud drop (both fixtures); `gain` < 1 lowers them. Once in the dnb trace the governor stepped the scale down (1616×1045 at the end), and it was back at full size for the A/B.
 
-#### S4.2 [ ] `isf/Pixellate` binding + tag, `own/mosaic.fs` — M
+#### S4.2 [x] `isf/Pixellate` binding + tag, `own/mosaic.fs` — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** two of the four pixel effects (S7).
 - **Files:** `web/src/fx/isf/Pixellate.fs`, new `web/src/fx/own/mosaic.fs`, `web/src/fx/isf.test.ts`.
 - **Depends on:** none.
 - **Behaviour:** Pixellate: add `VJW_BIND` cell_size←kick 0/.2 (a cell jump) and CATEGORIES `"Pixel"`; the VIDVOX header stays; `pixel-strobe`'s doc keeps its own values (file defaults only ride along on add-fx). mosaic: filter, 1 pass; `shape` {square, hex, triangle, diamond}, `cell`, `jitter`, `outline`, `outlineColor`; `VJW_BIND`: cell←kick 0/.2 · jitter←reese .05/.4 (bass class; Auto-style → wobble on Dubstep) · outline←hats 0/.08; CATEGORIES `"Pixel"`; no flash. **Donor authorisation:** study the donor's Triangle Mosaic (VIDVOX, MIT) under `donor/ISF-Files/ISF/`; copied lines keep the credit.
 - **Tests:** `isf.test.ts`: `NEW_OWN` += mosaic; Pixellate parses with its `VJW_BIND` and tag.
 - **Done:** gates; browser: mosaic over a moving generator on both fixtures: jitter idles on the intro and swings on the drop (reese / wobble), cell jumps on kicks, outline flickers on hats; `pixel-strobe` A/B unchanged; screenshot per shape.
+- **Changed during implementation:**
+  - **mosaic has 2 passes, not 1.** Pass 0 writes a 256² RGBA8 table of two random offsets per brick (VIDVOX `hash2`); pass 1 is the mosaic.
+    - Why: a hash per seed cost about 1 ms of the square's ~2.8 ms at 1728×1118 (same-session bench). A table fetch costs less.
+  - **The cells are the Voronoi cells of jittered lattice seeds,** so the fill and the outline always agree.
+    - The donor's Triangle Mosaic tears at high jitter: its fill keeps the grid cells, but its outline follows the jittered edges.
+    - Lattices:
+      - square;
+      - hex: a triangular lattice;
+      - triangle: two seeds per brick, the up- and down-triangles' centroids (a honeycomb);
+      - diamond: the squares turned 45°.
+    - The search covers the 3×3 bricks round the pixel (18 seeds on the triangle). The border is the nearest bisector, an exact distance from a second loop over the stored seeds. REACH .25 per axis is what the 3×3 margin holds.
+    - Triangles are scaled ×1.52, so a cell covers the same area as a square. The lattice is centred on the screen, so a kick grows the cells from the centre.
+  - Jitter = a fixed random offset per seed × `jitter`, with no time drift: the shards move only when the bound jitter moves, so the motion is the bass.
+  - Units:
+    - `cell` = the cell width as a share of the screen width (as Pixellate's `cell_size`).
+    - `outline` = the line width as a share of the cell, 0–.3. Its edge is 1 px AA, and it fades in below 1 px instead of popping.
+    - The fill = 4 taps ±.2 unit round the seed.
+  - Bind ranges:
+    - mosaic: cell .03→.05, jitter 0→.8, outline 0→.1.
+    - Pixellate: cell_size .01→.03, a visible fine grid at rest and 3× on the kick.
+    - Pixellate keeps `"Stylize"` beside `"Pixel"`, and `"Pixel"` makes its category `retro`.
+  - Harnesses in `scratchpad/ed/`:
+    - `mosaic.mjs` (from S4.1's `bars.mjs`): native/tunnel → own/mosaic with its `VJW_BIND`, a whole-fixture trace, one shot per shape on the drop, and an A/B on the triangle with `own/flash` appended.
+    - `mosaic-bench.mjs`: a no-audio phase bench.
+    - `mosaic-look.mjs`: shape × jitter shots with no audio.
+    - `pixel-ab.mjs`: the pixel-strobe A/B.
+    - Out: `mosaic-<fixture>.out.json`; shots `mosaic-<shape>.png` (dnb) and `mosaic-<shape>-dub.png`.
+  - **Numbers** (1728×1118, r = param↔source):
+    - dnb174-arr: cell↔kick .89 (1.07 jumps/s); jitter↔reese .96 (intro mean .07, max .20; drop mean .40, to .80); outline↔hats .90 (3.2 flicks/s).
+    - dubstep140-arr: cell↔kick .89 (.43/s); jitter↔reese .91, ↔wobble .79 (intro mean .10; drop mean .38, to .80); outline↔hats .91 (3.4/s).
+  - **GPU** (same-session A/B on the triangle, the most seeds; med / p95 ms):
+    - tunnel + mosaic: 4.08 / 4.37 (dnb), 4.09 / 4.28 (dub).
+    - + `own/flash`: 4.36 / 4.51 and 4.37 / 4.56.
+    - The square over a whole trace, without flash: 2.82 / 2.93 and 2.84 / 3.03. The tunnel alone ≈ 1.1–1.4.
+    - Budget ≤5 ✓, with less headroom than bars. The machine was loaded: one earlier dub round read p95 5.06–5.25 on both phases.
+  - **pixel-strobe A/B:** the doc's own bind still drives it. The traced cell_size was .0080…0.0250 before and .0086…0.0250 after (the file's suggestion would be .01…0.03).
+    - Shots `pixel-strobe-{before,after}-{0,1,2}.png` at fixture t ≈ 40.7 s look the same.
+  - **Donor lines (for S4.4 THIRD_PARTY):** VIDVOX, MIT ©2018, `Triangle Mosaic.fs`. Credit in `mosaic.fs` L2–6 and `CREDIT`. Hexagonalize and Mosaic were read, but nothing was taken from them.
+    - `hash2`, verbatim (pass 0).
+    - The jitter offset `(hash2 − 0.5) × jitter`, adapted: × 2·REACH·(nearest-neighbour distance).
+    - The flat fill sampled inside the cell, adapted: at the seed, 4 taps.
+    - The outline `1 − smoothstep(w/2, w/2 + 1, d px)` mixed toward `outlineColor` × its alpha, adapted: centred ±.5 px, × min(w, 1).
+    - The input names `jitter` / `outlineColor`.
+  - Seen, not fixed:
+    - Without the outline, two cells meet in a hard 1 px step with no AA (invisible at @2).
+    - On the hats the outline flicks 3.2–3.4 times a second: dark lines over up to ≈19% of the area at max. The plan says no flash, so it is not gated.
+    - If the GPU gets tight, the triangle's window could drop to 5 seed rows (15 seeds).
 
 #### S4.3 [ ] `own/led-grid.fs` + the `ASCII Art` port; G3 — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the last two pixel effects (S7); the ASCII licence line settled.

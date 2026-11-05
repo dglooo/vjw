@@ -4,7 +4,8 @@
 	"CREDIT": "by VIDVOX",
 	"ISFVSN": "2",
 	"CATEGORIES": [
-		"Stylize"
+		"Stylize",
+		"Pixel"
 	],
 	"INPUTS": [
 		{
@@ -31,7 +32,10 @@
 			"DEFAULT": 0,
 			"TYPE": "long"
 		}
-	]
+	],
+	"VJW_BIND": {
+		"cell_size": { "source": "kick", "amount": 1, "attack": 0, "release": 0.2, "min": 0.01, "max": 0.03 }
+	}
 }*/
 
 #ifndef GL_ES
