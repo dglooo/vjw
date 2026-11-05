@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { SOURCE_IDS } from '../bind'
 import { BUILTIN } from '../scenes/builtin'
-import { parseIsf, sizeExpr } from './isf'
+import { pairsByTarget, parseIsf, sizeExpr } from './isf'
 
 const BODY = '\nvoid main() {\n  gl_FragColor = IMG_THIS_PIXEL(inputImage);\n}\n'
 const isf = (header: object, body = BODY) => `/*${JSON.stringify(header)}*/${body}`
@@ -51,6 +51,11 @@ describe('parseIsf', () => {
     for (const u of ['uniform sampler2D buf;', 'uniform vec2 _buf_imgSize;', 'uniform sampler2D inputImage;', 'uniform vec2 _inputImage_imgSize;'])
       expect(count(d.fs, u)).toBe(1)
     expect(parseIsf(isf({ PASSES: [] }), 'p').passes).toHaveLength(1)
+  })
+
+  test('passes repeating a TARGET declare its sampler once (one GLSL uniform per name)', () => {
+    const d = parseIsf(isf({ PASSES: [{ TARGET: 's' }, { TARGET: 'a' }, { TARGET: 's' }, {}] }), 'p')
+    for (const u of ['uniform sampler2D s;', 'uniform vec2 _s_imgSize;', 'uniform sampler2D a;']) expect(count(d.fs, u)).toBe(1)
   })
 
   test('audio and audioFFT inputs become sampler2D uniforms with a size, and are supported', () => {
@@ -143,6 +148,15 @@ describe('parseIsf', () => {
     for (const b of Object.values(d.bind ?? {})) expect(SOURCE_IDS, stem).toContain(b.source)
     for (const n of d.flash ?? []) expect(d.bind?.[n]?.min, `${stem} ${n}`).toBe(0)
   })
+})
+
+// live.ts node() builds one read/write pair per distinct index (GL-bound: the S1.8 browser check counts its textures).
+test('pairsByTarget: pass i → the first pass naming its TARGET (the pair it shares), −1 without one', () => {
+  const at = (...names: (string | undefined)[]) => pairsByTarget(names.map((target) => ({ target })))
+  expect(at('down4', 'down8', 'up4')).toEqual([0, 1, 2]) // distinct names (own/bloom): identity, as before
+  expect(at('s', 's', 's')).toEqual([0, 0, 0]) // repeats: the first one's
+  expect(at(undefined, undefined)).toEqual([-1, -1]) // no TARGET: no pair
+  expect(at('s', 'a', undefined, 's', 'a', 'b', 's', undefined)).toEqual([0, 1, -1, 0, 1, 5, 0, -1]) // mixed order
 })
 
 describe('sizeExpr', () => {

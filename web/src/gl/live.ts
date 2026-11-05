@@ -13,7 +13,7 @@ import { CODE_MAX, defaults, type Blend, type LayerDoc, type NodeDoc, type Scene
 import * as edit from '../edit'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
-import { sizeExpr } from '../fx/isf'
+import { pairsByTarget, sizeExpr } from '../fx/isf'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
 import { store } from '../store'
@@ -33,10 +33,10 @@ export interface Live {
   addLayer(): void; removeLayer(i: number): void; setBlend(layer: number, b: Blend): void
 }
 
-/** A built node: a native, or a shader program and its passes; `u` holds its values (+ the ISF uniforms). A pass with
- *  a TARGET owns a read/write pair, swapped after it draws (design E2): a PERSISTENT one reads its last frame, and
- *  no pass samples the texture it draws into. `w`/`h`: the size the targets were fitted for. `frames`: a shader's
- *  FRAMEINDEX, its own draws so far (0 on its first). */
+/** A built node: a native, or a shader program and its passes; `u` holds its values (+ the ISF uniforms). The passes
+ *  naming one TARGET share a read/write pair, swapped after each of them draws (design E2): a PERSISTENT one reads its
+ *  last frame, a later pass what the previous one wrote, and no pass samples the texture it draws into. `w`/`h`: the
+ *  size the targets were fitted for. `frames`: a shader's FRAMEINDEX, its own draws so far (0 on its first). */
 interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number }
 /** A built layer: its nodes (a null one blacks the layer out), its live opacity/speed (bindable) and res, its clock,
  *  the reused FrameInput copy a native reads, and its own target once `res` < 1. */
@@ -131,8 +131,9 @@ function create(id: SceneId): Live {
       u[name] = type === 'audio' ? audioTex.wave : audioTex.fft
       u[`_${name}_imgSize`] = AUDIO_SIZE
     }
-    const pair = (p: PassDef) => (p.target ? [renderTarget(p.float, p.persistent), renderTarget(p.float, p.persistent)] : null)
-    return { def, info, u, events, passes: passes.map((p) => ({ p, pair: pair(p) })), w: 0, h: 0, frames: 0 }
+    const at = pairsByTarget(passes) // passes naming one TARGET share a pair, built to its first pass's FLOAT/PERSISTENT
+    const pairs = passes.map((p, j) => (at[j] === j ? [renderTarget(p.float, p.persistent), renderTarget(p.float, p.persistent)] : null))
+    return { def, info, u, events, passes: passes.map((p, j) => ({ p, pair: at[j] < 0 ? null : pairs[at[j]] })), w: 0, h: 0, frames: 0 }
   }
 
   /** Compiles `binds` onto `u` (a node's uniforms or a layer's values). An input bound before (in `old`) first gets
@@ -190,8 +191,8 @@ function create(id: SceneId): Live {
     n.h = h
     const vars: Record<string, number> = { WIDTH: w, HEIGHT: h }
     for (const [k, v] of Object.entries(n.u)) if (typeof v === 'number') vars[k] = v
-    for (const { p, pair } of n.passes) {
-      if (!pair) continue
+    for (const [j, { p, pair }] of n.passes.entries()) {
+      if (!pair || n.passes.findIndex((x) => x.pair === pair) < j) continue // a shared pair: fitted once, to its first pass
       const tw = dim(p.width, vars, w)
       const th = dim(p.height, vars, h)
       for (const t of pair) t.fit(tw, th)
@@ -243,7 +244,7 @@ function create(id: SceneId): Live {
    *  goes back to its pool), every pass target. */
   function freeNode(n: Node | null) {
     n?.native?.dispose?.()
-    for (const { pair } of n?.passes ?? []) pair?.forEach(free)
+    new Set(n?.passes.flatMap((x) => x.pair ?? [])).forEach(free) // a shared pair once
   }
   function freeLayer(l: Layer) {
     if (l.small) free(l.small)
