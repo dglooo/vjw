@@ -37,7 +37,8 @@
     - Both fixed in new step **S1.11** (Tier 1).
     - Side note: the classifier reads `dubstep140-arr` as techno; that is a separate issue, queued for the real-track tuning.
   - S1.11 ✅ arrange `near` = features `HOLD` + 0.15: app drop 5/5 DnB and 5/5 Dubstep, no extras. acceptance §4.5 now runs the held path on both arr fixtures at 20 frame phases; the fire lands 0.32–0.34 s after the drop, ~6 ms inside one DnB beat. RD seed min .3: coral ≈3 s on the bed. 340 tests.
-  - **Running:** `frontend-coder` S2.2 (history ring + rgba-delay).
+  - S2.2 ✅ history ring (`scenes/history.ts`, 32 slots at ½ stage, 61.8 MB allocated in create and fully freed) + `native/rgba-delay` (spread←reese, rotate←snare event) + `builtin:rgba-delay`: p95 2.62, own ≈.9 ms; G1/G2 hold; no ghost. Finding: the first ring scene per session drops one frame (Metal cache); check it in the CP2 run (fix: `warm()` draws once into a 1×1 array).
+  - **Running:** `frontend-coder` S2.3 (`native/time-machine`).
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
