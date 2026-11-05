@@ -123,10 +123,22 @@ Depends on: S1.1, S1.2. **Files:** `web/src/fx/own/bloom.fs`, `builtin.ts`, `isf
 - Shots `scratchpad/td/bloom-glitch.png` and `td-feedback-bloom.png` (+ `-rest`).
 - Out of scope, for the lead: a res < 1 layer that ends on an effect could stay `direct` (in `live.ts`, `!small` → `!(small && l.nodes.length === 1)`, since effects draw at full size). That saves one full-size composite of real work but ≈0 on this timer, so it isn't shipped.
 
-### S1.5 [ ] [S] `own/light-tunnel.fs` (shown by S1.6's scene)
+### S1.5 [x] [S] `own/light-tunnel.fs` (shown by S1.6's scene)
 Depends on: S1.2 (test list). **Files:** `web/src/fx/own/light-tunnel.fs`, `isf.test.ts`.
 **Look:** `lightTunnel` (Benson lineage). One pass: polar `r, θ` about `(centerX, .5)`; clamp/wrap `r` to `radius` (the mouth), `θ += twirl·(1 − r)`; sample `inputImage` at the remapped uv; dark falloff beyond the mouth. No targets.
 **Inputs:** radius ← sub .05/.4 .3→.6 · twirl ← bass .05/.4 0→4 · centerX ← bar sine .45→.55 (a float input; no point2D component binding). **Done:** gates; a panel-built spectrum → light-tunnel: screenshot + trace (the mouth breathes on sub, the twirl on reese/wobble); the bench comes with S1.6.
+**Changed during implementation:** harness `scratchpad/td/light-tunnel.mjs` (the panel's `addFx` on `builtin:spectrum`, trace + same-session A/B); shots `scratchpad/td/light-tunnel*.png` and `s1.5/` (v1–v3).
+- Clamp, not wrap (TD's look). TD's units: y runs −1..1 over the height, so `radius` .3→.6 is a mouth 30–60% of the height across.
+- The twirl turns by the clamped `r`, `twirl·(1 − min(r, radius))`: the streaks stay straight and turn with the rim. The raw `r` would curl them into spirals, which smear.
+- No `atan`, which is undefined at the centre: a `mat2` rotation and the rim scale `m / max(r, 1e-6)` replace it.
+- The falloff beyond the mouth is 1/r². With 1/r (v1) the streaks ran to the edges as flat wedges.
+- **Fixture limit (as S1.3):** `sub` is relative (≈ .5 on a steady sub): dnb174 .42–.56, dubstep140 .47–.56. So radius only moves .444–.461 (r↔sub .88 / .91).
+  - The range is shown by hand: `light-tunnel-r30.png` / `-r60.png`, radius unbound and set to .3 / .6.
+- **Trace** (Auto-style on, genre picked):
+  - twirl↔reese .57 on DnB (1.90–2.47 rad); twirl↔wobble .52 on Dubstep (.05–1.28).
+  - centerX↔bar sine 1.00 (.45–.55, tempo-gated).
+  - Luma (2 Hz): .07–.24 (DnB), .10–.27 (Dubstep), 0 samples > .8.
+- **A/B** (same session, dnb174, 3 rounds × 4 s, med / p95 ms): spectrum 3.08 / 3.15 · + light-tunnel 3.33 / 3.39 · + flash 3.28 / 3.37 · + light-tunnel + flash 3.57 / 3.68. With light-tunnel billed (not last), its own cost is ≈ .29 ms.
 
 ### S1.6 [ ] [S] `own/radial-blur.fs` + `builtin:light-tunnel`
 Depends on: S1.5. **Files:** `web/src/fx/own/radial-blur.fs`, `builtin.ts`, `isf.test.ts`.
