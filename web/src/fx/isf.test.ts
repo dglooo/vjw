@@ -156,7 +156,7 @@ describe('parseIsf', () => {
   })
 
   // TD look (plan_td_look.md conventions): the own files its steps add, one entry per step.
-  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars'] // bars: 2b S4.1
+  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic'] // bars, mosaic: 2b S4.1, S4.2
   test.each(NEW_OWN)('own/%s parses, binds only known sources, and binds every VJW_FLASH input from 0', (stem) => {
     const files = import.meta.glob('./own/*.fs', { query: '?raw', import: 'default', eager: true })
     const d = parseIsf(files[`./own/${stem}.fs`] as string, stem) // throws on a flash name that is not an input
@@ -167,6 +167,15 @@ describe('parseIsf', () => {
   test('own/bars: a persistent float 128×1 levels pass, then the draw (2b S4.1)', () => {
     const src = import.meta.glob('./own/bars.fs', { query: '?raw', import: 'default', eager: true })['./own/bars.fs'] as string
     expect(parseIsf(src, 'bars').passes).toEqual([{ target: 'levels', persistent: true, float: true, width: '128', height: '1' }, { persistent: false, float: false }])
+  })
+
+  test('isf/Pixellate: the Pixel tag and a cell jump on the kick (2b S4.2)', () => {
+    const src = import.meta.glob('./isf/Pixellate.fs', { query: '?raw', import: 'default', eager: true })['./isf/Pixellate.fs'] as string
+    const d = parseIsf(src, 'isf/Pixellate')
+    expect(d.tags).toContain('Pixel')
+    expect(Object.keys(d.bind ?? {})).toEqual(['cell_size'])
+    expect(d.inputs.map((i) => i.name)).toContain('cell_size')
+    expect(d.bind?.cell_size.source).toBe('kick')
   })
 })
 
