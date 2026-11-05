@@ -818,3 +818,56 @@ Everything else is a `(default)` that the user can veto without answering:
 - **Acceptance:** `run-all.sh` + `t3-tempo.py` against the T2 baseline, with ¾ and 3/2 added to the run classes, which is where a wrong switch lands.
   - Kanine ⅔ ≤ 5 %. No new off-ref run ≥ 2 s on any track (Bicep from 199 s is reported, not gated).
   - Rumble's ref share is ≥ T2 − .02. Lock and correct-lock are within +0.5 s of T2. The techno fixture holds 118–135.
+
+## Ruling: drop detection v2 (2026-11-05)
+**Inputs:** T4 evidence `scratchpad/real/t4/t4/t4-drops.md`; the captures `scratchpad/real/t4/cap/*.json` (`ain`); `replay/out.txt` (`nob`, minConf .5) and `replay/diag.txt` (Bicep); the audit `agents/research/_adhoc/real_tracks_2026-11-05.md` (drop times, Method); the tuning ruling (b) (L730–738) and the tempo ruling (L778–820) above. Code read 2026-11-05: `web/src/audio/arrange.ts` (all), `arrange.test.ts` L89–230, `bands.ts` (`held`), `features.ts` (`HOLD`), `presets.ts` (`floors`), `app.ts` L292–302.
+**⚠️ Hand-traced, not replayed.** This agent has no shell, so `replay.sh` was not run. `ain` frames were read by time window (`t`, `low`, `total`, `kick`), and G and `slow` were estimated from 1 Hz `low` profiles (±20 %). Every fire below is a prediction, and each step's first gate is the replay.
+
+**Trace facts:**
+- `low` is an amplitude (held |y|), so `ret` 4 = +12 dB. The audit's own drop rule is +6 dB over 4 bars.
+- Most real drops come out of a pre-drop cut that is quieter than their break: Andy C 44.41–47.11, 88.61–91.25 and 154.75–157.45 (≤ .07; returns at 47.16 / 91.31 / 157.50); Kanine 42.6–44.5 (.01–.13); Sub Focus 145.11–146.45 (≤ .055); Bicep 176.0–176.85 (≤ .08). The section `mean` never sees that level, hence problem 3's 2.4–3.4×.
+- In-groove dips under .2 G last ≤ .85 s: Andy C 101.6 and 167.75; Sub Focus 54.0; Bicep 65.7, 87.7 and 109.8.
+- Rumble's 91–108 s is a stutter: `low` swings .004 ↔ .69 every .3–.5 s. Its 108.12–109.85 cut returns at 110.0, which is not an audit drop. `total` doesn't separate that cut from the one before 117.0 (.01–.23 against .0005–.13).
+- Bicep 176.5's miss under `nob`, traced cause (estimated): its cut re-enters sparse inside GRACE, and the reset zeroes `dur` and `peak`, so conf ≈ .5. Sub Focus 147.9 has the same shape: break → 3 s bass build → cut.
+
+**(1) Path (b): delete it** (the code, `beats`, `up`/`upBeat`). All false fires came through (b), and no real drop did. `held` gates kicks out of `low`, so (b) only sees partial-bass returns such as Bicep 167.2. Effect: 167.2 goes away, and nothing real is lost (lead's `nob` replay).
+- Ceiling: a kick-only techno drop never fires; the techno fixture (L95–102) flips to 0. Rejected: build evidence (167.2 rides a big riser, peak ≈ .9); a minimum breakdown (its break is 35 s).
+
+**(3) `ret` stays 4; the reference becomes `min(mean, slow)`** in both the ret test and the conf ratio, so the return is measured against the quieter of the breakdown and the last second. `slow` updates before the test, so on a spike 4·`slow` climbs about .035 a frame. In effect this demands a ≥ ≈ 1.4 s dip, and no in-groove dip is that long.
+- Effect: Kanine 44.3 ≈ 44.7 (+0.4, with 7a); Andy C 46.9 ≈ 47.3 (+0.4, with 7a); Bicep 176.5 ≈ 177.0 (+0.5, with 7b); Kanine 154.3 with (5).
+- Still blocked (traced): Andy C 141.0's build bump (.76 against 4·min(.25, .45)); Bicep 167.2 (.27 against .56); Sub Focus's 52 s bass entry (.48 against .60); Bicep's 66.5/88.5/110.6 dip returns (.57 against ≥ .9); Andy C 132.67 (.71 after a .3 s dip, kick at 132.49), whose rise lasts ≈ .03 s.
+- Rejected: `ret` 2.5–3 (admits Sub Focus's 52 s entry at 3.2× and Andy C 141.0 at 3.0×); a per-path `ret`.
+
+**(7) Where a sparse run starts (found in the traces):**
+- (a) The intro survives sparse runs shorter than `arm`, so it ends at the first drop or the first run ≥ `arm`. `build` reads the run's length (`run`), not `dur`, so the intro's visuals don't change. Today a pre-drop cut's first sparse frame resets the intro into a 1–2 s section that never arms (Kanine 44.3, Andy C 46.9).
+- (b) A run that starts while still `armed` resets `dur`/`sum` but keeps `peak` (Bicep 176.5, Sub Focus 147.9). The short run doesn't refresh `armed`, so a missed drop's GRACE doesn't chain through groove dips.
+
+**(5) `sparse` .6:** with the drift it acts as ≈ .52 G, the edge the tuning ruling intended. Kanine 154.3 arms (lead's trace) and fires ≈ 155.1 (+0.8). Rumble's stutter runs stay 1–2 s, so they don't arm.
+- ⚠️ Kanine's break sits at .56–.6 G: if it flickers in the gate, use .65, not a hold. Rejected: freezing G under X·G (a DJ fader or gain move would pin G for the rest of the set); an asymmetric τ.
+
+**(6) Debounce: defer.** A hold, or `JOIN`ing runs ≤ 2 s apart, merges Rumble's 90–115 s stutter runs (gaps ≲ 1 s) into an armed section, and its ≈ .6 stabs would then pass 4·min(mean, slow). Rumble is already at 2/4. Named knob: `JOIN`.
+
+**(2) `CUT`, a deep cut that arms (a):** `low < CUT·G` (raw `low`, `CUT` .2) for ≥ `CUTMIN` 1.5 s, with music ≥ `warmup` and `x.cuts` on, sets `armed = now + GRACE` and `peak = 1`. The cut counts as a full build, so conf is ≥ .6 at `align` ≥ .25.
+- Effect: Andy C 91.0 and 157.2 fire at ≈ 91.4 and 157.6 (+0.4). No other DnB run qualifies (the longest in-groove run is .85 s, a .65 s margin). On Rumble, 108.12–109.85 (1.73 s) would fire at ≈ 110.0, and its refractory would swallow 116.9.
+- So **`ArrangeIn.cuts`** = `PRESETS[configured].cuts !== false` (app.ts, the previous frame's preset), with `Preset.cuts?: false` on Dubstep. Dubstep's bass stops are its groove, and Rumble reads as dubstep from 24 s.
+- Ceilings: Dubstep's cut drops stay missed (Rumble 117.0); a DnB groove with ≥ 1.5 s deep stops would fire (none here); ⚠️ a techno 1-bar fill (1.875 s) passes. Rejected: "drums running" (`total`, see above); `CUTMIN` 1.2 (a 1-bar fill at 174 is 1.38 s); the cut on `slow` (1.6–2.2 s late); a return ≥ 1.5 G instead of the preset gate (Rumble 110 reads 1.1–1.5 G).
+
+**(4) No-bass-dip drops: defer.** Sub Focus 44.1's `low` is flat at .12–.21 over 40–51 s (the bass enters at 52), and Bicep 66.2 is a .7 s cut (65.7–66.4), the same shape as the in-groove dips. Kicks are gated out of `held`, so a drums-only drop is invisible to arrange. Research gap: per-bar kick/snare density around both drops, against the grooves. Named lever: a density jump after a `build` peak (M).
+
+**⚠️ Label: Sub Focus 147.9.** The bass is back at 146.51 (.41 ≈ .8 G, after the cut) and full at ≈ 151. v2 fires between 146.6 and ≈ 149, depending on the kick. Re-place the drop by ear before scoring a 146.6 fire as false, and don't tune `back` to the label.
+
+**Combined A + B (hand-traced):**
+| track | audit drops | v2 fire (lag) | false |
+|---|---|---|---|
+| Kanine | 44.3 · 88.4 · 154.3 | 44.7 (+.4) ⚠️ · 91.6 (+3.2; T3′ should bring it to ≈ 88.9) · 155.1 (+.8) | — |
+| Sub Focus | 44.1 · 147.9 · 171.0 | — · 146.6–149 (label) · — (split cut, .85 + .45 s) | 146.6, if the label stands |
+| Andy C | 46.9 · 91.0 · 157.2 | 47.3 · 91.4 · 157.6 (each +.4) | — |
+| Rumble | 21.0 · 48.4 · 75.8 · 117.0 | 20.9 · — · 75.8 · — | — |
+| Bicep | 66.2 · 176.5 | — · 177.0 (+.5) | — (167.2 gone) |
+
+DnB **7/11** (6 if Kanine 44.3 misses, 8 if 147.9 is re-placed), Rumble 2/4, 0 false outside the label case, lag +0.4…+0.8 s (Kanine 88.4 is +3.2 s until T3′).
+
+**Steps:** one `frontend-coder` step each, A then B. Each runs the replay on all five captures before merging (B maps `cuts` from `rows[].det`), keeps §4.5 at 5/5 on both arr fixtures, and adds tests and mutants for its rules.
+- **A (S):** (1), (3), (5) and (7) in `arrange.ts`, plus `arrange.test.ts`. Tests: the (b) cases flip; a break at .3 G, then a 1.5 s cut at .02, then 1.0 G fires; a groove start with .8 s dips fires 0 in 60 s.
+  - Gate: Kanine 88.4 + 154.3, Andy C 46.9 and Bicep 176.5 fire (Kanine 44.3 is reported); 0 false outside the label case; Rumble keeps 20.9 + 75.8 and fires nothing in 90–115 s; no fire at Andy C 132.7. Fallback: if Kanine flickers, `sparse` .65; if Rumble fires in 90–115 s, .55.
+- **B (S):** `CUT` in `arrange.ts`, `ArrangeIn.cuts`, `presets.ts`, `app.ts` (one field), plus tests: a 2.7 s cut at .03 G mid-groove fires at ≥ .6; a 1.2 s cut, or `cuts: false`, fires 0. Gate: Andy C 91.0 + 157.2 fire, which makes DnB ≥ 6/11; 0 false; Rumble unchanged.

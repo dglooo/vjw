@@ -111,7 +111,14 @@
         - **T3′ bar check ❌** (probe gate GO; 116 sections fire 100 % at EDGE 1.3, false .21 %). In the browser, Kanine's silent/sparse first windows false-fire into a ~30 s wrong ¾ lock (lock 6.5 → 42.7 s); no EDGE fixes it.
           - **Lead pick: fallback e′.** The sync ignores ⅔/4/3 readings of a confident grid. Offline: 0/31 starts worse; Kanine's ⅔ runs gone.
           - The same coder is rebuilding T3′ as e′ now.
-        - **Running:** `frontend-coder` T3′ = e′ ∥ `system-designer` drop-v2 ruling (gate path (b); `CUT`; `ret` / `sparse` / G drift; flicker breaks).
+        - **Drop v2 ruling** (`design_audio_reactivity.md` L822–873; hand-traced, replay not run). Lead pick, all items:
+          - delete path (b); the `ret` reference becomes min(section mean, slow); `sparse` .6;
+          - the intro survives short sparse runs; peak survives an armed re-sparse;
+          - CUT: `low` < .2·G for ≥ 1.5 s, off under Dubstep (`Preset.cuts`);
+          - deferred: no-bass-dip drops, flicker debounce.
+          - Predicted DnB 7/11, Rumble 2/4, 0 false. The Sub Focus 147.9 label is suspect (bass back at 146.5): **the user checks it by ear.**
+          - Steps: **D-A** (S, `arrange.ts`, replay-gated) → **D-B** (S, CUT + preset gate).
+        - **Running:** `frontend-coder` T3′ = e′. Next: D-A → D-B → back to 2b.
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
