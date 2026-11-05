@@ -15,6 +15,7 @@ export interface ArrangeIn {
   total: number // broadband RMS of the frame (energy.ts `rms`); at or below `silence` = no music
   kick: boolean // a kick hit was drained this frame
   beat: number | null // sync.beat (continuous) while sync is confident
+  cuts: boolean // a deep cut arms a drop: the active preset's `cuts` (presets.ts; off under Dubstep)
   now: number // s
 }
 export interface ArrangeOut {
@@ -34,6 +35,8 @@ export interface ArrangeOpts {
   near: number // …this long of a kick (s: app.ts's `low` holds features.ts's HOLD past each kick, ≈ 0.203 s hop-rounded)
   refractory: number // s between drops
   minConf: number // a drop under this confidence is ignored: no fire, no refractory (re-checked each frame of its return)
+  cut: number // a deep cut: raw `low` under this × G…
+  cutMin: number // …for this long (s, music frames) arms a drop as a full build, with `cuts` on and after `warmup`
   warmup: number // s of music before G is trusted
   silence: number // `total` at or below = no music (−60 dBFS RMS): a stopped deck is not a breakdown
 }
@@ -41,8 +44,14 @@ export interface ArrangeOpts {
 // sparse .6 (drop v2 (5); was .5, .35): real breaks keep `low` ≈ .4–.6 G (Kanine 77–88 s, 140–154 s); with G's drift it acts
 // as ≈ .52 G. refractory 20 (was 30): drops 23.1 s apart (Sub Focus). minConf .56: on real tracks the weak fires read
 // .44–.53 (Rumble's build growls, the old kick-only path; Bicep's bass entry after its intro), and every real one ≥ .60
+// cut .2 / cutMin 1.5 (drop v2 (2)): DnB drops come out of 2.6–2.7 s pre-drop cuts (Andy C 91.0, 157.2), too short to arm
+// as a run, while in-groove dips last ≤ .85 s. Replay edges: Andy C needs cut ≥ .13 and cutMin ≤ 2.7; the first false fire
+// (Sub Focus 178.3) comes at cutMin ≤ .4. Not "drums running": `total` doesn't separate a cut from a stutter. Ceiling: a
+// techno 1-bar fill (1.875 s) passes. Off under Dubstep, whose bass stops are its groove (Rumble's 108–110 s cut fires
+// 110.1 and its refractory would swallow 117.0)
 const DEFAULTS: ArrangeOpts = {
   groove: 20, sparse: 0.6, arm: 6, ret: 4, back: 0.6, sustain: 0.1, near: HOLD + 0.15, refractory: 20, minConf: 0.56, warmup: 20, silence: 1e-3,
+  cut: 0.2, cutMin: 1.5,
 }
 // knobs (C6 defaults), s unless noted
 const SLOW = 1 // τ of the sparse detector's EMA of `low`
@@ -70,6 +79,7 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
   let music = 0 // s with `total` above silence
   let g = 0 // G
   let slow = 0
+  let deep = 0 // s of raw `low` under cut × G (music frames; silence neither counts nor resets it)
   let [hiFast, hiSlow] = [0, 0]
   let [dur, sum, peak] = [0, 0, 0] // the section (the last sparse run, or the intro): length, ∫low dt (sum / dur = its mean), build's peak
   let [run, runSum] = [0, 0] // the current (or last) sparse run: length, ∫low dt
@@ -88,10 +98,13 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
       const isMusic = x.total > o.silence
       // `slow` follows music only, as G does: a stopped deck is no cut for `ref` (it would fire a drop on play from the intro)
       if (isMusic) [music, slow] = [music + dt, slow + (x.low - slow) * ema(dt, SLOW)]
+      if (isMusic) deep = x.low < o.cut * g ? deep + dt : 0
       const sparse = isMusic && music >= o.warmup && slow < o.sparse * g
       if (isMusic && !sparse) g += ((x.low - g) * dt) / Math.min(o.groove, music) // a plain mean until `groove` s of music
       hiFast += (x.high - hiFast) * ema(dt, RISER[0])
       hiSlow += (x.high - hiSlow) * ema(dt, RISER[1])
+      // drop v2 (2): a deep cut arms (a) as a full build (before the run below starts, so that run keeps the peak: 7b)
+      if (x.cuts && music >= o.warmup && deep >= o.cutMin) [armed, peak] = [x.now + GRACE, 1]
       if (sparse) {
         // a new run resets the section (outside the intro), but (7b) one that starts while armed (a cut between the build
         // and its drop) keeps the build's peak, and (7a) the intro lives on through runs shorter than `arm`
@@ -127,7 +140,8 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
         const c = (Math.min(1, dur / FULL) + clamp(Math.log(ratio) / Math.log(RATIO)) + align + peak) / 4
         if (c >= o.minConf) {
           out.fired = conf = c
-          ;[firedAt, heatAt, warm, out.build, intro] = [x.now, out.heat, 0, 0, false] // `armed`, `rise`: the refractory covers them
+          // `armed` ends: its peak doesn't carry into a break that starts within GRACE (7b); `rise`: the refractory covers it
+          ;[firedAt, heatAt, warm, out.build, intro, armed] = [x.now, out.heat, 0, 0, false, -Infinity]
           slow = Math.max(slow, g) // the drop ends the breakdown
         }
       }
