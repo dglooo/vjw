@@ -211,7 +211,7 @@ function create(id: SceneId): Live {
       fl.dt = dt
       fl.width = dst.width
       fl.height = dst.height
-      n.native.draw(fl, n.u as Record<string, Value>)
+      n.native.draw(fl, n.u as Record<string, Value>, src) // a native filter reads it; null for a generator
     } else {
       if (n.w !== dst.width || n.h !== dst.height) resize(n, dst.width, dst.height)
       n.u.TIME = n.u.iTime = l.t // ISF's names and a toy's

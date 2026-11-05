@@ -243,10 +243,11 @@ Depends on: S1.8, S1.4 (G3 result). **Files:** `web/src/fx/own/reaction-diffusio
 
 ### CP2 — Track B(a): native filters + the history ring
 
-### S2.1 [ ] [S] engine — `Native.draw(f, v, src?)`
+### S2.1 [x] [S] engine — `Native.draw(f, v, src?)`
 Depends on: none (CP1 merged first, by order). **Files:** `web/src/gl/scene.ts` (`Native`), `web/src/gl/live.ts` (`run()`: pass the previous node's texture, the chain temp an ISF filter would read as `inputImage`), `web/src/fx/catalog.ts` (the native def type takes `kind: 'filter'` and `bind`, if it doesn't already).
 **Behaviour (D3):** the CP2 contract; existing natives compile unchanged (optional arg) and ignore it; the fast path holds (natives have no pass targets). A native filter draws into the layer's current output exactly as a generator does.
 **Tests:** typecheck is the test; add a Vitest only if `live.ts` already loads under node (no `live.test.ts` exists today, so don't force one). **Done:** gates; no-regression bench on `builtin:tunnel` and `builtin:particles`; the proof that `src` arrives is S2.2's delayed image.
+**Changed during implementation:** `catalog.ts` is untouched: `NativeDef extends EffectDef`, which already has `kind` and `bind`. The panel's picker (`Panel.tsx` `FILTERS` = `byName('filter')` over `catalog.values()`, computed once at import) lists any catalog def with `kind: 'filter'`, native or not, under its `category` ('other' without one). `fresh()` copies its `bind`, and `node()`/`warm()` build natives in any slot, so G2 holds by code; S2.2 still checks it live. There is no Vitest, because `engine.ts` reads `document` at import. `src` was proven early by harness `scratchpad/td/s2.1/s2.1.mjs`, using test-only natives (a constant gen plus an invert filter) on the direct path, at res .5 and over the tunnel: out = 255 − src, and the generator gets null.
 
 ### S2.2 [ ] [L] `scenes/history.ts`: `ring()` + `native/rgba-delay` + `builtin:rgba-delay`
 Depends on: S2.1. **Files:** `web/src/scenes/history.ts`, `web/src/scenes/history.test.ts`, `web/src/fx/catalog.ts` + `web/src/scenes/builtin.ts` (one entry each).
