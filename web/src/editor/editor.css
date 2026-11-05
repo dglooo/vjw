@@ -67,6 +67,10 @@
   background: #ffffff0d;
   border-radius: 6px;
 }
+/* Drag to reorder (S2.3): the insert line, above the row a drop lands before (above the add select: the end). */
+.stack .ins {
+  box-shadow: 0 -3px 0 #f2c14e;
+}
 /* Mute / solo: preview only. A layer muted by its own M or by another's S dims its name. */
 .stack .head button[aria-pressed='true'] {
   color: #f2c14e;

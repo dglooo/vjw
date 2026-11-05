@@ -164,13 +164,31 @@
     - Controls with no edits (through the drop, editor open, 30 screenshots @2x) showed no swap. Nor did the last 3 runs, with whole-run canvas/scale logging.
     - No Stack op resizes or rebuilds that node. The lead should watch it in the CP2 late-frame run.
 
-#### S2.3 [ ] native DnD reorder of layers and fx — M
+#### S2.3 [x] native DnD reorder of layers and fx — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** reorder by drag with HTML5 DnD, no dependency (S8).
 - **Files:** new `web/src/editor/dnd.ts` + `web/src/editor/dnd.test.ts`, `web/src/editor/Stack.tsx`, `editor.css`.
 - **Depends on:** S2.2.
 - **Behaviour:** `dnd.ts`: the MIME `application/x-vjw-block`; `insertIndex(y, mids)` = the count of row midpoints above the pointer; `adjustForSource(idx, from)` (idx > from → idx−1). Layer rows and fx rows are `draggable`; each list is a drop target that shows an insert line at the index and on drop calls `moveLayer`/`moveFx` through `panel`. The document's audio drop handler already returns early without files (research §5): verify, don't change. The same drop targets accept a block id in the MIME (S3.1 wires the add). Keyboard path = Alt+↑/↓ from S2.2.
 - **Tests:** `dnd.test.ts`: `insertIndex` above the first → 0, between → i+1, below the last → n; `adjustForSource` for a down-move, an up-move and the adjacent no-op.
 - **Done:** gates; browser: Playwright `dragAndDrop` layer 2 above layer 1 and an fx to the end of its chain: the doc order changes, the trail survives, Cmd+Z restores; screenshot mid-drag with the insert line (dispatch `dragover` by hand if the helper skips that frame).
+- **Changed during implementation:**
+  - Lead fix first: `git mv` `editor/stack.ts` → `editor/layers.ts` and `stack.test.ts` → `layers.test.ts`, so `./Stack` no longer resolves to `stack.ts` on a case-blind disk; `Editor.tsx` imports `./Stack` again (S2.2 note).
+  - Drag handle: a drag starts from a row's head only (a layer's number · gen and the gaps between its buttons; an effect's name row), never from a control.
+    - The browser check caught it: Chrome starts a DnD of a `draggable` ancestor even from a range input inside it. The opacity jumped to the press point, then the whole layer dragged.
+    - The press target is kept in a ref (`pointerdown`, capture), and `dragstart` refuses any other start, so the slider keeps the pointer.
+  - One drop handler on the stack's list instead of one per list: an effect drag measures the open layer's `.fx` rows; a layer or library-block drag measures the layer sections.
+    - Index n is drawn as the line above that list's add select (`.ins`, a box-shadow, no layout shift).
+    - The dragged row sits in a ref: a re-render in `dragstart` can cancel the drag.
+    - The drop recomputes the index from its own `clientY` and clears the state itself: the move re-keys the list, so `dragend` on the removed row never reaches React.
+    - A no-op (`to === from`) records no undo step. The moved item becomes the selection, as with Alt+↑/↓.
+  - S3.1 hook: a drag carrying `application/x-vjw-block` shows the line in the layer list. The drop returns at a `// S3.1` comment, where the add goes.
+  - `ponytail:` there is no `dragleave`, so the line stays while the pointer is off the list, until the drop or `dragend`. A library tile's `dragend` fires on the tile, so S3.1 clears the line there too.
+  - Browser (`scratchpad/ed/s2.3-dnd.mjs` + log, dnb174-arr): **19/19 PASS, 0 console errors**, two consecutive runs.
+    - Covered: slider still slides; layer and fx mid-drag lines; both `dragAndDrop` moves; 3 × Cmd+Z back to the built-in; trail kept, same `Live`; an audio file dropped on the stack still plays.
+    - Viewport 1728×2500 @1x, because `dragAndDrop` can't reach a target below the fold. It scrolls the target in after the press, and Chrome then hit-tests the press point in the scrolled content (another row drags).
+    - Chrome drops CDP `dragOver`s while the renderer is busy. The harness settles with paced 1 px nudges at the target; real drags stream OS updates.
+    - Shots: `s2.3-mid-drag-layer.png`, `s2.3-mid-drag-fx.png` (+ `-stack` crop), `s2.3-after-moves.png`, `s2.3-end.png`.
+  - Not checked by harness: at 1117 px an fx moved to the end of td-feedback's chain needs a scroll mid-drag (Chrome autoscrolls near the stack's edge). The drag image is the whole row, tall for an open layer; `setDragImage(head)` if it bothers.
 
 #### S2.4 [ ] editor header: New, open, Save / Save as / star, export/import — S
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the file operations in the editor on the existing library API (S1, S9).
