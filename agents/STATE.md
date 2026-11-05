@@ -11,7 +11,7 @@
 ### Where we stopped
 - **2b editor** (`plan_effect_editor.md`, Variant B): CP1 code ✅ (lead close-out pending); CP2 ✅ (demo 16/16, 0/4563 late).
   - CP3 S3.1–S3.3 ✅: library grid (135 blocks), `live.tile()`, bake queue + async readback (G1 .4 ms CPU per tile; G2 28.2 s, 31.1 MB; G4 tunnel REF).
-- The session-8 crash hit during the S3.4 dispatch; S3.4 never started (no worktree; master `231028b` clean).
+- After the session-8 crash (S3.4 never started), S3.4 was re-dispatched on 2026-11-05 to `frontend-coder` (worktree, background).
 - **Exact next step: S3.4.** Live hovered tile at 20 fps, last frame → still, re-bake on save.
   - Also the CP3 close-out 60 s run: live tile on `builtin:rgba-delay`, then `builtin:swarm`; sheet `ed/cp3-sheet.png`.
   - Then the lead closes CP3.
