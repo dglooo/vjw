@@ -1,33 +1,25 @@
-import FFT from 'fft.js'
 import { expect, test } from 'vitest'
+import { createAnalysis } from './analysis'
 import { createDrums, type Drum } from './drums'
-import { mix, pattern, SR, type Stem, type Track } from './synth'
+import { mix, pattern, reese, room, SR, sub, wobble, type Stem, type Track } from './synth'
 
-const N = 512 // as the worklet: mono → Hann → 512-point FFT every 256 samples, stamped at the window's end
+const N = 512 // as the worklet: a 512-point FFT every 256 samples (the spectrum-level tests below)
 const HOP = 256
-const hann = Float32Array.from({ length: N }, (_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / N))
 const DRUMS: Drum[] = ['kick', 'snare', 'hats']
 const BED: Stem[] = ['reese', 'sub', 'room']
 
-/** Hit times per drum for a signal run through the worklet's FFT path, after a 0.5 s warm-up (the bed's own start). */
+/** Hit times per drum for a signal run through the worklet's body (analysis.ts) in render quanta, after a 0.5 s warm-up
+ *  (the bed's own start). */
 function hitsOf(x: Float32Array) {
-  const fft = new FFT(N)
-  const out = new Float64Array(2 * N)
-  const frame = new Float64Array(N)
-  const mag = new Float32Array(N / 2 + 1)
-  const drums = createDrums(SR, N)
+  const a = createAnalysis(SR)
   const hits: Record<Drum, number[]> = { kick: [], snare: [], hats: [] }
-  for (let e = HOP; e <= x.length; e += HOP) {
-    for (let i = 0; i < N; i++) frame[i] = (x[e - N + i] ?? 0) * hann[i]
-    fft.realTransform(out, frame)
-    for (let k = 0; k <= N / 2; k++) mag[k] = Math.hypot(out[2 * k], out[2 * k + 1])
-    for (const h of drums.detect(mag, e / SR)) {
-      expect(h.t).toBe(e / SR)
-      expect(h.strength).toBeGreaterThan(1.5) // the detector's odf/mean, capped at 4 (bind.ts maps (s − 1.5)/2.5)
+  for (let i = 0; i + 128 <= x.length; i += 128)
+    a.block([x.subarray(i, i + 128)], i, (h) => {
+      if (h.kind !== 'hit') return
+      expect(h.strength).toBeGreaterThanOrEqual(1.5) // odf/mean or the kick's gate ratio, capped at 4 (bind.ts maps (s − 1.5)/2.5)
       expect(h.strength).toBeLessThanOrEqual(4)
       if (h.t > 0.5) hits[h.drum].push(h.t)
-    }
-  }
+    })
   return hits
 }
 
@@ -51,7 +43,7 @@ const scores = (track: Track, x = mix(track)) => {
 }
 
 test('DnB 174 two-step mix: F1 per drum ≥ 0.70 at ±30 ms', () => {
-  // Measured 2026-10-31: kick 0.79, snare 0.97, hats 1.00.
+  // Measured 2026-11-05: kick 1.00 (the bin-1 detector: 0.79), snare 0.97, hats 1.00.
   const f = scores(dnb)
   for (const d of DRUMS) expect(f[d], d).toBeGreaterThanOrEqual(0.7)
   expect(f.snare).toBeGreaterThanOrEqual(0.9)
@@ -59,7 +51,8 @@ test('DnB 174 two-step mix: F1 per drum ≥ 0.70 at ±30 ms', () => {
 })
 
 test('dubstep 140 and techno 128 mixes: every drum F1 ≥ 0.70', () => {
-  // Measured: dubstep kick 0.80, snare 1.00, hats 1.00; techno kick 0.89, snare 0.77 (claps on kicks), hats 1.00.
+  // Measured 2026-11-05: dubstep kick 1.00 (bin 1: 0.80), snare 1.00, hats 1.00; techno kick 1.00 (0.89), snare 0.83
+  // (claps on kicks; 0.77), hats 1.00.
   for (const g of ['dubstep', 'techno'] as const) {
     const f = scores(pattern(g, 8))
     for (const d of DRUMS) expect(f[d], `${g} ${d}`).toBeGreaterThanOrEqual(0.7)
@@ -79,10 +72,22 @@ test('the bed alone (reese, sub, room tone) gives no hits', () => {
   expect(hitsOf(mix(dnb, BED))).toEqual({ kick: [], snare: [], hats: [] })
 })
 
+test.each([
+  ['a full-range reese', (n: number) => reese(n, 0.15)], // no high-pass: its 55 and 110 Hz partials beat inside bin 1
+  ['a 4.67 Hz wobble', (n: number) => wobble(n)],
+  ['an 11.6 Hz wobble', (n: number) => wobble(n, 11.6)],
+])('%s over the sub and room tone gives no kicks (ruling 2026-11-05: the bin-1 detector fired 32–41 in 4 s)', (_, bass) => {
+  const n = 4 * SR
+  const x = bass(n)
+  for (const s of [sub(n, 0.2, 55), room(n)]) s.forEach((v, i) => (x[i] += v))
+  expect(hitsOf(x).kick).toEqual([])
+})
+
 /** One hop per spectrum: `on` bins at `level`, the rest at `rest`. */
 const frame = (on: [number, number][], level = 100, rest = 0) =>
   Float32Array.from({ length: N / 2 + 1 }, (_, k) => (on.some(([a, b]) => k >= a && k <= b) ? level : rest))
-const fire = (frames: Float32Array[], d = createDrums(SR, N)) => frames.map((m, i) => d.detect(m, i * (HOP / SR)).map((h) => h.drum))
+/** Drums per hop; every hop's kick gate ratio is `ratio`. */
+const fire = (frames: Float32Array[], d = createDrums(SR, N), ratio = 2) => frames.map((m, i) => d.detect(m, i * (HOP / SR), ratio).map((h) => h.drum))
 
 test('bands are the bins whose centre lies in the Hz range (kick 40–150, snare 1–5 kHz, hats 7–16 kHz at 93.75 Hz bins)', () => {
   const quiet = frame([])
@@ -108,12 +113,21 @@ test('configure re-maps Hz to bins, and the mapping follows the sample rate', ()
   expect(fire([quiet, frame([[2, 2]])], createDrums(44100, N))[1]).toEqual([])
 })
 
-test("crosstalk: a snare in a kick's hop is dropped unless its flux is at least as far above its floor", () => {
-  // From silence: kick bin 1 at 0.01 is log1p(10) = 2.4 = 3.4 kick floors; 43 snare bins at 0.01 are 1.3 snare floors
-  // (a click), at 100 they are 6.2 (a clap on the kick).
+test("crosstalk: a snare in a kick's hop is dropped unless it is as far over its floor as the kick's ratio over TRANSIENT", () => {
+  // From silence: 43 snare bins at 0.01 are 1.3 snare floors (a click), at 100 they are 6.2 (a clap on the kick); a kick
+  // ratio of 3 is 2 TRANSIENTs. Kick bin 1 at 1000 holds ≥ 0.7 of the hop's power either way.
   const hop = (kick: number, snare: number) => Float32Array.from({ length: N / 2 + 1 }, (_, k) => (k === 1 ? kick : k >= 11 && k <= 53 ? snare : 0))
   const quiet = hop(0, 0)
-  expect(fire([quiet, quiet, hop(0.01, 0.01)])[2]).toEqual(['kick'])
-  expect(fire([quiet, quiet, hop(0.01, 100)])[2]).toEqual(['kick', 'snare'])
-  expect(fire([quiet, quiet, hop(0, 0.01)])[2]).toEqual(['snare']) // no kick, nothing to drop
+  expect(fire([quiet, quiet, hop(1000, 0.01)], undefined, 3)[2]).toEqual(['kick'])
+  expect(fire([quiet, quiet, hop(1000, 100)], undefined, 3)[2]).toEqual(['kick', 'snare'])
+  expect(fire([quiet, quiet, hop(0, 0.01)], undefined, 3)[2]).toEqual(['snare']) // no kick, nothing to drop
+})
+
+test('a kick needs both: the gate ratio at TRANSIENT and its bins over SHARE of the hop power, DC excluded', () => {
+  const kick = (ratio: number, m: Float32Array) => fire([frame([]), m], undefined, ratio)[1].includes('kick')
+  const share = (s: number) => frame([[1, 1]], 100, 100 * Math.sqrt((1 - s) / s / 255)) // bin 1 = s of bins 1–256
+  expect([kick(1.5, frame([[1, 1]])), kick(1.49, frame([[1, 1]]))]).toEqual([true, false])
+  expect([kick(2, share(0.21)), kick(2, share(0.19))]).toEqual([true, false])
+  const dc = (d: number, b1: number) => Float32Array.from({ length: N / 2 + 1 }, (_, k) => (k === 0 ? d : k === 1 ? b1 : 0))
+  expect([kick(2, dc(1000, 100)), kick(2, dc(1000, 0))]).toEqual([true, false]) // a line-in offset neither dilutes nor fakes it
 })

@@ -1,7 +1,7 @@
 // Build, drop and heat (design C6): a pure per-frame heuristic over the song's shape. The low end gone for a while is a
 // breakdown (`sparse`); its return is the drop. app.ts feeds update() once per frame (plan S5.3).
-// Kicks are weak evidence here: in a breakdown, drums.ts reads a riser, room tone or a snare roll as ~13 kicks a bar
-// (plan S1.2), so a drop always needs the low end back, never kicks alone.
+// Kicks are weak evidence here: a teaser kick or a stray low hit in a breakdown reads as a kick (drums.ts no longer reads
+// the riser, room tone or snare roll as one: ruling 2026-11-05), so a drop always needs the low end back, never kicks alone.
 import { HOLD } from './features'
 
 export interface ArrangeIn {
