@@ -5,6 +5,7 @@
   inset: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr); /* a long stack scrolls in its column, the preview cell keeps its size */
   gap: 12px;
   padding: 12px;
   box-sizing: border-box;
@@ -15,5 +16,63 @@
   background: #0b0b0bf0;
   border: 1px solid #ffffff17;
   border-radius: 10px;
-  color: #d8d8d88c; /* placeholders: the library (S3.1) and the builder (S2.2) */
+  color: #d8d8d88c; /* placeholder: the library (S3.1) */
+  pointer-events: auto;
+}
+
+/* The builder (S2.2): the panel's controls (panel.css), larger. */
+.editor > .stack {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: 14px;
+  color: inherit;
+  accent-color: #bdbdbd;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff2e transparent;
+}
+.stack .row {
+  grid-template-columns: 116px 1fr 16px;
+  min-height: 30px;
+}
+.stack .bind {
+  grid-template-columns: 72px 1fr;
+  gap: 4px 10px;
+}
+.stack input[type='range'] {
+  height: 20px;
+}
+.stack select,
+.stack button {
+  padding: 4px 8px;
+}
+.stack button.dot {
+  width: 14px;
+  height: 14px;
+}
+.stack .head {
+  min-height: 34px;
+}
+.stack .layer > .head > span {
+  font-size: 12px;
+}
+/* The selected layer (open) and effect: what Delete and Alt+↑/↓ act on. */
+.stack .layer {
+  padding-left: 10px;
+  border-left: 2px solid transparent;
+}
+.stack .layer.on {
+  border-left-color: #f2c14e;
+}
+.stack .fx.on {
+  background: #ffffff0d;
+  border-radius: 6px;
+}
+/* Mute / solo: preview only. A layer muted by its own M or by another's S dims its name. */
+.stack .head button[aria-pressed='true'] {
+  color: #f2c14e;
+  border-color: #f2c14e66;
+}
+.stack .layer.muted > .head > span {
+  opacity: 0.35;
+  text-decoration: line-through;
 }

@@ -120,13 +120,49 @@
   - 60 s late-frame run with the editor open (`s2.1-late.mjs`, held on `builtin:swarm`): 0/3600 late, max 18.7 ms, governor drops 0, scale 1, jsMs 0.6.
   - Seen, not changed: leaving after a long edit finds the autopilot overdue, so its next switch starts at the next bar line (0.96 s in the check). Space-unlock does the same. "Plays until the next switch" holds, but the built scene gets ≤1 bar. A full shot after leaving would need the director to restart its shot clock on leave.
 
-#### S2.2 [ ] `Stack` — L
+#### S2.2 [x] `Stack` — L
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the layer stack and params on the live mirrors, with undo keys (S2, S3, S4).
 - **Files:** new `web/src/editor/Stack.tsx`, new `web/src/editor/stack.ts` + `web/src/editor/stack.test.ts` (pure `muteMask`), `web/src/ui/Panel.tsx` (export `Fx`, `Param`, `Gpu`), `web/src/editor/Editor.tsx` (mount + key listener), `editor.css`.
 - **Depends on:** S2.1, CP1.
 - **Behaviour:** layers: select, add (today's picker lists, Panel L23–26), duplicate = `insertLayer(structuredClone(layer), i+1)`, remove (false at 1), mute/solo (preview-only through `Live.mute`; solo l = every other layer muted; reset on leave), blend/opacity/speed/res through the existing panel ops. Fx rows with params through `Fx`/`Param` (bool/event binding from S1.3), meters via `Live.read` in one rAF loop, `Gpu`, node errors. Keys on the editor's listener: Cmd+Z / Shift+Cmd+Z → `edits.undo/redo`; Delete → the selected fx, else the selected layer; Alt+↑/↓ → `moveFx`/`moveLayer` of the selection; a focused text field keeps the browser's Cmd+Z. Every edit goes through `panel`, so its inverse is recorded. Controls larger than the panel's by CSS only.
 - **Tests:** `stack.test.ts`: `muteMask(muted, solo)`: null solo returns the flags; solo l unmutes l and mutes the rest; length = layer count.
 - **Done:** gates; browser on `builtin:td-feedback`: add, duplicate, mute, solo, remove, Alt-move a layer; add/remove/move an fx; change a binding; Cmd+Z back through every op until the doc JSON equals the original (console); the trail survives throughout; screenshot of the stack with a bool block and live meters.
+- **Changed during implementation:**
+  - Two files outside the list:
+    - `ui/panel.css`: its `.panel X` control rules became `:is(.panel, .stack) X`, so the stack shares the look; `editor.css` sizes it up.
+    - `editor/Editor.tsx` imports `./Stack.tsx` with its extension. `Stack.tsx` and `stack.ts` differ only in case, and on a case-blind disk `./Stack` resolves `Stack.ts` → `stack.ts` before `.tsx` (TS1149; Vite would load the wrong module). Rename `stack.ts` if that trips anyone.
+  - `Panel.tsx` also exports `LAYERS_MAX` and five small components, which the panel itself now uses:
+    - `Meters`: the one rAF meter loop, moved out of `Open`.
+    - `LayerHead`: number · gen, blend, `children`, remove.
+    - `LayerParams`: opacity, speed, res.
+    - `FxOptions` and `GenOptions`: the picker lists.
+    - Components only, because the react-refresh lint rule rejects non-component exports from a `.tsx`.
+    - Panel regression (`s2.2-panel.mjs`): it renders, the pickers include the paste, 6/10 meters move.
+  - Selection `{ layer, fx | null }` lives in `Editor` (its keys need it), and pure `clampSel` (`stack.ts`, tested) clamps it after a removal or an undo.
+    - Only the selected layer is open (spec §2.1 "layer stack + selected block's parameters"). The others show their head row: blend, M, S, ⧉, ×.
+    - Selection happens on click, in capture: with pointer-down, opening a layer moved the rows under the pointer and the click was lost (found by the browser check).
+    - Add layer, duplicate and add fx select the new item.
+  - Keys:
+    - Order follows the panel (bottom layer first), so Alt+↑ moves towards index 0, up the list.
+    - Delete also takes Backspace, the Mac "delete" key.
+    - `typing(t)` is a textarea, or an input with a text selection (`selectionStart !== null`). It keeps its own Cmd+Z and Delete.
+    - The editor root has the panel's blur-after-mouse handlers, minus text fields, so L and the keys stay live.
+    - Nothing renders or acts until `edited` is set (`''` for the first frames after load).
+  - Mute and solo state is kept per `LayerDoc` (a Set, plus the solo doc), so a move, a removal and its undo take it along.
+    - An effect applies `muteMask` after every render, because a layer built again by an undo comes back unmuted. Unmount (leave) unmutes every layer.
+    - edit.ts clones the doc on a scene's first edit, so the Stack re-keys the state by position then. Ceiling, as a `ponytail:` note: a first edit that adds, moves or removes a layer shifts an earlier mute.
+  - Browser (`scratchpad/ed/s2.2-stack.mjs` + log, dnb174-arr, 1728×1117 @2x): **45/45 PASS**, every op through the Stack's own buttons, pickers and keys.
+    - Layers: a mute survives the scene's first edit (the clone); add tunnel; duplicate; mute 3; solo 1 (2 and 3 muted); unsolo/unmute; × layer 3; Alt+↑ moves the tunnel under td-feedback.
+    - Fx: add `own/strobe` (bound bool), then its source beat → kick; meters 7/11 moving; Alt+↑ the strobe; Delete it.
+    - A focused text field keeps Cmd+Z.
+    - 9 × Cmd+Z: the doc JSON equals the built-in. One more does nothing; Shift+Cmd+Z redoes the first edit; Cmd+Z undoes it again.
+    - Mute layer 1, then L: `mute(0, false)` is called and td-feedback draws again.
+    - Throughout: the same `Live`; td-feedback's `loop` textures are kept and its draws keep counting; only the touched tunnel is built or freed; 0 console errors.
+    - Shots: `s2.2-stack-panel.png` (the bool block + meters), `s2.2-stack-bool-meters.png`, 16 step shots.
+  - Seen, not fixed: in 3 of 10 harness runs, td-feedback's persistent `loop` pair got new textures mid-run, never with a black frame.
+    - One of those runs logged the governor at 0.935 → 1. A rescale refits the targets, and E2 resamples into new textures by design.
+    - Controls with no edits (through the drop, editor open, 30 screenshots @2x) showed no swap. Nor did the last 3 runs, with whole-run canvas/scale logging.
+    - No Stack op resizes or rebuilds that node. The lead should watch it in the CP2 late-frame run.
 
 #### S2.3 [ ] native DnD reorder of layers and fx — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** reorder by drag with HTML5 DnD, no dependency (S8).

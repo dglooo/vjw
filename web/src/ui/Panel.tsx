@@ -4,7 +4,7 @@ import { activePreset } from '../audio/settings'
 import { PRESETS } from '../audio/presets'
 import { BAND_COUNT } from '../audio/energy'
 import { BIND_DEFAULTS, sourceGroups, type Binding, type Shape } from '../bind'
-import { defaults, type Blend, type NodeDoc, type SceneId } from '../doc'
+import { defaults, type Blend, type LayerDoc, type NodeDoc, type SceneId } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
 import type { Kind, Value } from '../fx/types'
 import { live, panel, type NodePath } from '../gl/live'
@@ -15,7 +15,7 @@ import { store, type UiSnapshot } from '../store'
 import './panel.css'
 
 const GPU_BUDGET = 5 // ms per scene (CP4's bench gate): the hint turns amber above 80 % of it, red above it
-const LAYERS_MAX = 4 // doc.ts's limit
+export const LAYERS_MAX = 4 // doc.ts's limit
 const BLENDS: readonly Blend[] = ['normal', 'add', 'screen', 'multiply']
 const SHAPES: readonly Shape[] = ['sine', 'tri', 'saw', 'square', 'random']
 const PHASES = ['beat', 'bar', 'lfo'] // counts, not levels: bound through a shape
@@ -62,7 +62,7 @@ const slider = (lo: number, hi: number, v: number, set: (v: number) => void, ste
 
 /** `gate`: a bool or event, on at .5 (bind.ts `level`): its block has amount, release and invert, no attack/min/max. */
 interface Bindable { path: NodePath; k: string; lo: number; hi: number; init?: Binding; gate?: boolean }
-/** The bound rows' meters, written from `Live.read` by Open's one rAF loop: nothing re-renders per frame. */
+/** The bound rows' meters, written from `Live.read` by `Meters`' one rAF loop: nothing re-renders per frame. */
 const meters = new Map<HTMLMeterElement, Bindable>()
 
 /** S6.3's dim hint: a built-in row whose source the active preset's map rewrites while Auto-style is on. Its own
@@ -76,7 +76,7 @@ function AutoHint({ source }: { source: string }) {
 }
 
 /** One parameter row. A numeric one gets a bind dot that opens its binding's controls (design E3) under it. */
-function Param({ label, bind, children }: { label: string; bind?: Bindable; children: ReactNode }) {
+export function Param({ label, bind, children }: { label: string; bind?: Bindable; children: ReactNode }) {
   const [b, show] = useState(bind?.init) // what is drawn: bound or not, and whether the source takes a shape
   const s = useSyncExternalStore(settings.onChange, settings.get) // the custom bands in the select
   const send = (x: Binding | undefined, redraw = false) => {
@@ -156,7 +156,7 @@ function Param({ label, bind, children }: { label: string; bind?: Bindable; chil
 }
 
 /** A node's inputs as controls by their type (design E3); images and audio have none. */
-function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove?: () => void }) {
+export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove?: () => void }) {
   const def = defOf(n)
   const v: Record<string, Value> = def ? { ...defaults(def), ...n.values } : {}
   return (
@@ -243,10 +243,84 @@ function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove?: () =
 }
 
 /** The GPU hint: the edited scene's median against the budget. Its 4×/s update re-renders only this. */
-function Gpu() {
+export function Gpu() {
   const ms = useSnap('gpuMs')
   if (ms === null) return null // no GPU timer
   return <span className={ms > GPU_BUDGET ? 'gpu over' : ms > 0.8 * GPU_BUDGET ? 'gpu near' : 'gpu'}>GPU {ms.toFixed(1)} ms</span>
+}
+
+/** The one rAF loop that writes every bound row's meter (`meters`) from `Live.read`: nothing re-renders per frame. */
+export function Meters({ id }: { id: SceneId }) {
+  useEffect(() => {
+    let raf = 0
+    const loop = () => {
+      const l = live(id)
+      for (const [el, b] of meters) el.value = l.read(b.path, b.k) ?? 0
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [id])
+  return null
+}
+
+/** A layer's head row: its number and generator, its blend, `children` (the editor's buttons), remove. */
+export function LayerHead({ i, l, n, children }: { i: number; l: LayerDoc; n: number; children?: ReactNode }) {
+  return (
+    <div className="head">
+      <span>
+        {i + 1} · {defOf(l.gen)?.name ?? l.gen.ref}
+      </span>
+      <select aria-label="Blend" defaultValue={l.blend} onChange={(e) => panel.setBlend(i, e.target.value as Blend)}>
+        {BLENDS.map((b) => <option key={b}>{b}</option>)}
+      </select>
+      {children}
+      {n > 1 && (
+        <button className="x" aria-label="Remove layer" onClick={() => panel.removeLayer(i)}>
+          ×
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** A layer's opacity and speed (both bindable) and res. */
+export function LayerParams({ i, l }: { i: number; l: LayerDoc }) {
+  const at: NodePath = { layer: i, node: 'layer' }
+  const set = (k: string) => (y: number) => panel.setValue(at, k, y)
+  return (
+    <>
+      <Param label="opacity" bind={{ path: at, k: 'opacity', lo: 0, hi: 1, init: l.bind?.opacity }}>
+        {slider(0, 1, l.opacity, set('opacity'))}
+      </Param>
+      <Param label="layer speed" bind={{ path: at, k: 'speed', lo: 0, hi: 4, init: l.bind?.speed }}>
+        {slider(0, 4, l.speed, set('speed'))}
+      </Param>
+      <Param label="res">{slider(0.25, 1, l.res, set('res'), 0.05)}</Param>
+    </>
+  )
+}
+
+/** The "+ effect" picker's entries: every filter, by category. */
+export function FxOptions() {
+  return FILTERS.map(([c, ds]) => (
+    <optgroup key={c} label={c}>
+      {ds.map((d) => (
+        <option key={d.id} value={d.id}>
+          {d.name}
+        </option>
+      ))}
+    </optgroup>
+  ))
+}
+
+/** The "+ layer" picker's entries: every generator. */
+export function GenOptions() {
+  return GENERATORS.map((d) => (
+    <option key={d.id} value={d.id}>
+      {d.name}
+    </option>
+  ))
 }
 
 /** The Shadertoy paste (spec §4.4, design E5): a single-pass `mainImage` becomes a new top layer, or its compile log
@@ -317,16 +391,6 @@ function Open({ id }: { id: SceneId }) {
   const { layers, name } = live(id).doc // its name is the bar's, right above
   const star = !!library.get(id)?.star
   const builtin = id.startsWith('builtin:')
-  useEffect(() => {
-    let raf = 0
-    const loop = () => {
-      const l = live(id)
-      for (const [el, b] of meters) el.value = l.read(b.path, b.k) ?? 0
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [id])
   return (
     <div
       className="panel"
@@ -457,52 +521,22 @@ function Open({ id }: { id: SceneId }) {
       ))}
       {/* Keyed by the edit: after a structural one, every control starts again from the doc. */}
       <div key={`${id} ${rev}`}>
-        {layers.map((l, i) => {
-          const at: NodePath = { layer: i, node: 'layer' }
-          const set = (k: string) => (y: number) => panel.setValue(at, k, y)
-          return (
-            <section key={i} className="layer">
-              <div className="head">
-                <span>
-                  {i + 1} · {defOf(l.gen)?.name ?? l.gen.ref}
-                </span>
-                <select aria-label="Blend" defaultValue={l.blend} onChange={(e) => panel.setBlend(i, e.target.value as Blend)}>
-                  {BLENDS.map((b) => <option key={b}>{b}</option>)}
-                </select>
-                {layers.length > 1 && (
-                  <button className="x" aria-label="Remove layer" onClick={() => panel.removeLayer(i)}>
-                    ×
-                  </button>
-                )}
-              </div>
-              <Param label="opacity" bind={{ path: at, k: 'opacity', lo: 0, hi: 1, init: l.bind?.opacity }}>
-                {slider(0, 1, l.opacity, set('opacity'))}
-              </Param>
-              <Param label="layer speed" bind={{ path: at, k: 'speed', lo: 0, hi: 4, init: l.bind?.speed }}>
-                {slider(0, 4, l.speed, set('speed'))}
-              </Param>
-              <Param label="res">{slider(0.25, 1, l.res, set('res'), 0.05)}</Param>
-              <Fx path={{ layer: i, node: 'gen' }} n={l.gen} />
-              {l.fx.map((n, k) => (
-                <Fx key={k} path={{ layer: i, node: k }} n={n} onRemove={() => panel.removeFx(i, k)} />
-              ))}
-              <select className="add" value="" onChange={(e) => panel.addFx(i, e.target.value)}>
-                <option value="" disabled>
-                  + effect
-                </option>
-                {FILTERS.map(([c, ds]) => (
-                  <optgroup key={c} label={c}>
-                    {ds.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </section>
-          )
-        })}
+        {layers.map((l, i) => (
+          <section key={i} className="layer">
+            <LayerHead i={i} l={l} n={layers.length} />
+            <LayerParams i={i} l={l} />
+            <Fx path={{ layer: i, node: 'gen' }} n={l.gen} />
+            {l.fx.map((n, k) => (
+              <Fx key={k} path={{ layer: i, node: k }} n={n} onRemove={() => panel.removeFx(i, k)} />
+            ))}
+            <select className="add" value="" onChange={(e) => panel.addFx(i, e.target.value)}>
+              <option value="" disabled>
+                + effect
+              </option>
+              <FxOptions />
+            </select>
+          </section>
+        ))}
         <select
           className="add"
           value=""
@@ -512,11 +546,7 @@ function Open({ id }: { id: SceneId }) {
           <option value="" disabled>
             {layers.length >= LAYERS_MAX ? `${LAYERS_MAX} layers` : '+ layer'}
           </option>
-          {GENERATORS.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
+          <GenOptions />
           <option value={PASTE}>Shadertoy (paste)…</option>
         </select>
       </div>
@@ -524,6 +554,7 @@ function Open({ id }: { id: SceneId }) {
       )}
       {tab === 'sources' && <SourcesTab />}
       <Paste ref={paste} />
+      <Meters id={id} />
     </div>
   )
 }

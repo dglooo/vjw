@@ -1,5 +1,6 @@
 /* The effects panel (design E6): a quiet column over the output's right edge. It fades out with the bar's idle state
-   (the bar's own class, no second timer) and is DOM, so REC never captures it. */
+   (the bar's own class, no second timer) and is DOM, so REC never captures it. Its controls' look is shared with the
+   editor's builder (`:is(.panel, .stack)`), which sizes them up in editor.css. */
 .panel {
   position: absolute;
   top: 58px;
@@ -137,23 +138,23 @@
 }
 
 /* star · Save · Save as … GPU, or Save as…'s name · OK · Cancel */
-.panel header {
+:is(.panel, .stack) header {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.panel header > .gpu {
+:is(.panel, .stack) header > .gpu {
   margin-left: auto;
 }
-.panel header form {
+:is(.panel, .stack) header form {
   display: flex;
   flex: 1;
   gap: 6px;
 }
-.panel header input {
+:is(.panel, .stack) header input {
   flex: 1;
 }
-.panel .note {
+:is(.panel, .stack) .note {
   margin: 6px 0 0;
   opacity: 0.55;
   animation: note-out 0.6s 2.4s forwards; /* a confirmation fades and goes; an error (.err) stays */
@@ -192,7 +193,7 @@
 .lib li.on {
   opacity: 1; /* the scene on screen */
 }
-.panel .head > span {
+:is(.panel, .stack) .head > span {
   flex: 1;
   overflow: hidden;
   white-space: nowrap;
@@ -212,7 +213,7 @@
 .gpu.over {
   color: #ff6b6b;
 }
-.panel .err {
+:is(.panel, .stack) .err {
   margin: 6px 0 0;
   font: 11px/1.4 ui-monospace, monospace;
   white-space: pre-wrap;
@@ -224,7 +225,7 @@
   padding-top: 8px;
   border-top: 1px solid #ffffff14;
 }
-.panel .head {
+:is(.panel, .stack) .head {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -266,14 +267,14 @@
   opacity: 0.3; /* bound: the binding drives this value now */
 }
 
-.panel input[type='range'] {
+:is(.panel, .stack) input[type='range'] {
   width: 100%;
   height: 14px;
   margin: 0;
 }
-.panel select,
-.panel button,
-.panel header input {
+:is(.panel, .stack) select,
+:is(.panel, .stack) button,
+:is(.panel, .stack) header input {
   min-width: 0;
   padding: 2px 6px;
   font: inherit;
@@ -282,15 +283,15 @@
   border: 1px solid #ffffff24;
   border-radius: 5px;
 }
-.panel button {
+:is(.panel, .stack) button {
   cursor: pointer;
 }
-.panel button:disabled,
-.panel select:disabled {
+:is(.panel, .stack) button:disabled,
+:is(.panel, .stack) select:disabled {
   opacity: 0.4;
   cursor: default;
 }
-.panel button.star {
+:is(.panel, .stack) button.star {
   padding: 0 2px;
   font-size: 15px;
   line-height: 1;
@@ -298,13 +299,13 @@
   background: none;
   border: none;
 }
-.panel button.star:hover {
+:is(.panel, .stack) button.star:hover {
   color: #f2c14e;
 }
-.panel button.star.on {
+:is(.panel, .stack) button.star.on {
   color: #f2c14e;
 }
-.panel button.x {
+:is(.panel, .stack) button.x {
   padding: 0 4px;
   font-size: 15px;
   line-height: 1;
@@ -312,10 +313,10 @@
   border: none;
   opacity: 0.45;
 }
-.panel button.x:hover {
+:is(.panel, .stack) button.x:hover {
   opacity: 1;
 }
-.panel button.dot {
+:is(.panel, .stack) button.dot {
   width: 10px;
   height: 10px;
   padding: 0;
@@ -323,14 +324,14 @@
   border-color: #ffffff59;
   border-radius: 50%;
 }
-.panel button.dot:hover {
+:is(.panel, .stack) button.dot:hover {
   border-color: #f2c14e;
 }
-.panel button.dot.on {
+:is(.panel, .stack) button.dot.on {
   background: #f2c14e;
   border-color: #f2c14e;
 }
-.panel .add {
+:is(.panel, .stack) .add {
   width: 100%;
   margin-top: 8px;
   color: #d8d8d8a6;
