@@ -427,6 +427,13 @@ Depends on: S1.1 (the key); CP3 closed (order). **Files:** `web/src/scenes/built
 - Trace (`scratchpad/td/s4.2/`, DnB 17.1–37.1 s): `flash` r(snare) .886, n 0…1; 14 allowed, ≤3 per 1 s. `glow` held at 1.0 in every frame. `height ← kick`: 11/11 jumps on kicks, r .85. The grid shows in the rest shot.
 
 **CP4 close (lead):** reaction check over the 9 formerly "on a kick" scenes (fact 8) on both fixtures; the same 60 s autopilot run again (20+ scenes changed bindings): 0 late, 1.00×; commit; STATE queue → 2b editor.
+**CP4 Done (lead, 2026-11-05 10:xx):** `scratchpad/td/cp4-close.mjs`. Autopilot through **all 38 starred own scenes** (23 rebound + 11 TD + others), 2 s each, Auto-style picked:
+- `dnb174-arr`: 76 s, 4564 frames, **0 late**, p99 18.6, 1.00×.
+- `dubstep140-arr`: 76 s, 4563 frames, **0 late**, 1.00×. No errors.
+- Reaction per S4.1/S4.2 traces: DnB kick params land on kicks only (0 stray in the groove); flashes ≤3/s.
+- ⚠️ Dubstep `kick` storms on the wobble and the riser. That is a source bug, not the rebind; it is the follow-up item in STATE.
+
+**Epic done 2026-11-05:** 18 steps (S1.1–S1.11, S2.1–S2.4, S3.1–S3.2, S4.1–S4.2), 11 new scenes, 349 tests.
 
 ## Acceptance mapping (`thoughts/spec_td_look.md` §4)
 | §4 | Proof |

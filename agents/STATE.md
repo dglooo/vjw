@@ -4,8 +4,8 @@
 
 ## HEAD
 
-**Updated:** 2026-11-04 22:1x (session 8; autonomous after the user's "гоу" at 22:10)
-**Stage:** pilot ✅ → `effects` ✅ → `audio-reactivity` ✅ → **`milkdrop` ✅ (plan_milkdrop.md 7/7, CP1–CP3, `de557b9`)**, plus effects polish §3 §5 §6 §7 ✅. 327 tests.
+**Updated:** 2026-11-05 10:xx (session 8; autonomous since the user's "гоу" at 22:10 on 11-04)
+**Stage:** pilot ✅ → `effects` ✅ → `audio-reactivity` ✅ → `milkdrop` ✅ → **`2d TD look` ✅ (plan_td_look.md, 18 steps, CP1–CP4; 11 new scenes + rebind of 23)**; polish §3 §5 §6 §7 ✅. 349 tests.
 **Spec:** `thoughts/spec_veejay_wizard.md` + `spec_effects.md` + `spec_audio_reactivity.md`. **Team:** `planner` Fable 5.1 max; others Opus 5.5 max; `researcher` high.
 
 ### Where we stopped (2026-11-04 04:2x)
@@ -46,7 +46,9 @@
   - **CP3 ✅ closed (lead):** 66 s over all 11 new scenes, 0/3962 late on both arr fixtures, 1.00×; WCAG luma flashes max 3/s (at the cap); `__flash` ≤2/s. Sheet `scratchpad/td/cp3-sheet.png`.
   - S4.1 ✅ rebind of the 23 pre-TD own scenes (kick 14, snare 5, sub 6, reese 8, build 3, hats 1, beat 1, lfo 2; no bass/onset/treb) + `VJW_FLASH` on tunnel-mesh/fractal/wave-landscape + THIRD_PARTY own 23; 349 tests. DnB: kick params jump on kicks only; flashes ≤3/s.
   - ⚠️ **Kick-detector bug (pre-2c, now reproducible):** on `dubstep140-arr` and through DnB's build, `kick` sits at p50 .66 (the detector fires ≈every 50 ms on the wobble and the riser). So every kick-bound param, TD scenes included, idles high and pulses with the wobble. Lead pick: its own item right after CP4: a system-designer ruling (kick vs sustained or modulated bass), then a coder step, before 2b. It supersedes queue #4's "false kicks on a bare reese".
-  - **Running:** `frontend-coder` S4.2 (wave-landscape own flash input; its grid vanished at glow 0).
+  - S4.2 ✅ wave-landscape has its own `flash` (snare) and steady `glow`: the grid stays visible.
+  - **CP4 ✅ closed (lead): Stage 2d DONE.** All 38 starred own scenes, 2 s each, 76 s per arr fixture: 0 late on both, 1.00×.
+  - **Running:** `system-designer` ruling: kick vs sustained/modulated bass (append to `design_audio_reactivity.md`). Next: the coder step for it → then 2b editor (system-designer).
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
