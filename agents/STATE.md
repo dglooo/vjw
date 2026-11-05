@@ -69,7 +69,15 @@
       - Snare rolls 0/32 (pre-existing): left for the audit too.
     - **Bot restart (user asked, 12:3x):** the claude-tg hook fix `8684ac0` goes live when the lead restarts the bot detached (new copy after 25 s; single.py stops the old one, which ends this Telegram session).
       - Restart 1 (12:30) went live, but launches were still denied. The CLI strips the unoffered `run_in_background` *before* PreToolUse, so the hook saw it absent. Second fix: claude-tg `1c7350e` (absent passes; only an explicit false is denied, and logged). Restart 2 at 13:51 (avadge-web idle): **the hook passes. Agent launches work from Telegram** (verified 13:58).
-      - **Running:** `frontend-coder` real-track audit, measure only → `agents/research/_adhoc/real_tracks_2026-11-05.md`. Next: lead picks the tuning set → a tuning coder step → 2b S1.3.
+      - **Real-track audit ✅** (`agents/research/_adhoc/real_tracks_2026-11-05.md`; data in `scratchpad/real/`; reference tempos DnB 174.00, Rumble 140.00).
+        - DnB snare/hats near-silent (`FLOORS.snare` 80 above real flux).
+        - 0/11 DnB drops (`sparse`/`arm` never arm).
+        - Kick recall ≈30–60%.
+        - ⅔ tempo slips (116) while the genre is undecided.
+        - The classifier is late or never decides; Bicep flips to techno.
+        - Rumble snare fires on growls.
+        - The bass class works.
+      - **Running:** `system-designer` real-track tuning ruling: per-genre floors, drop path, kick threshold, tempo prior / ⅔ fold, growls, step split. Next: lead pick → coders step by step (each re-runs `scratchpad/real/run-all.sh`) → 2b S1.3.
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
