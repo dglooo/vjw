@@ -2,6 +2,8 @@
 // breakdown (`sparse`); its return is the drop. app.ts feeds update() once per frame (plan S5.3).
 // Kicks are weak evidence here: in a breakdown, drums.ts reads a riser, room tone or a snare roll as ~13 kicks a bar
 // (plan S1.2), so a drop always needs the low end back, never kicks alone.
+import { HOLD } from './features'
+
 export interface ArrangeIn {
   low: number // sub + reese `held` (bands.ts): the sustained bass, kicks gated out. Any unit: only its ratios are used
   high: number // energy at ≥ 4 kHz (risers, rolls, hats). Any unit: only its log ratio is used
@@ -24,14 +26,15 @@ export interface ArrangeOpts {
   ret: number // a drop: `low` back at ≥ this × its sparse mean…
   back: number // …and ≥ this × G…
   sustain: number // …for this long (s: a lone kick's tail through held's gate lasts ≈ 30 ms), starting within…
-  near: number // …this long of a kick (s: held's gate releases ≈ 0.14 s after the kick)
+  near: number // …this long of a kick (s: app.ts's `low` holds features.ts's HOLD past each kick, ≈ 0.203 s hop-rounded)
   beats: number // or, for kick-only drops: two kicks at most this many beats apart, each lifting `low` through back × G
   refractory: number // s between drops
   warmup: number // s of music before G is trusted
   silence: number // `total` at or below = no music (−60 dBFS RMS): a stopped deck is not a breakdown
 }
+// near: the hold plus 0.15 s for the frame clock and audioNow's jitter (S1.11: at exactly HOLD the drop was a coin flip)
 const DEFAULTS: ArrangeOpts = {
-  groove: 20, sparse: 0.35, arm: 6, ret: 4, back: 0.6, sustain: 0.1, near: 0.2, beats: 1.2, refractory: 30, warmup: 20, silence: 1e-3,
+  groove: 20, sparse: 0.35, arm: 6, ret: 4, back: 0.6, sustain: 0.1, near: HOLD + 0.15, beats: 1.2, refractory: 30, warmup: 20, silence: 1e-3,
 }
 // knobs (C6 defaults), s unless noted
 const SLOW = 1 // τ of the sparse detector's EMA of `low`

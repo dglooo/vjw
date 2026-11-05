@@ -390,7 +390,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [{
         ref: 'own/reaction-diffusion',
         bind: {
-          seed: { source: 'sub', amount: 1, attack: 0.02, release: 0.25, min: 0, max: 0.6 }, // the sub feeds the growth
+          seed: { source: 'sub', amount: 1, attack: 0.02, release: 0.25, min: 0.3, max: 0.6 }, // a steady bed grows it, the sub speeds it up
           kill: { source: 'reese', amount: 1, attack: 0.1, release: 0.6, min: 0.062, max: 0.064 }, // Auto-style's one: mazes ↔ spots
           feed: { source: 'build', amount: 1, attack: 2, release: 2, min: 0.0545, max: 0.04 }, // a build starves it
           palette: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0, max: 0.15 }, // a snare turns the colours
