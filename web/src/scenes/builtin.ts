@@ -156,7 +156,7 @@ const OWN: readonly SceneDoc[] = [
         ref: 'own/wave-landscape',
         bind: {
           height: { source: 'kick', amount: 1, attack: 0.03, release: 0.3, min: 0.5, max: 1.8 }, // the mountains lift on a kick
-          glow: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 0, max: 2.5 }, // ⚡ from 0: a gated rest ≥ .5 freezes
+          flash: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 }, // ⚡ on top of a steady glow (S4.2: a gated glow lost the grid)
         },
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
