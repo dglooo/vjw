@@ -6,4 +6,6 @@ import type { EffectDef, Value } from '../fx/types'
 // can be a filter (`kind: 'filter'`, no inputImage input); a generator gets null. Natives that don't read it ignore it.
 export interface Native { draw(f: FrameInput, v: Readonly<Record<string, Value>>, src?: WebGLTexture | null): void; dispose?(): void } // into the bound FB
 // warm?() (CP2, milkdrop): Start awaits it instead of a throwaway create() (live.ts warm()).
-export interface NativeDef extends EffectDef { create(gl: WebGL2RenderingContext): Native; warm?(): Promise<void> }
+// size (2b S3.2, design S6): the stage it draws for, px; default the drawing buffer. A tile (live.ts tile()) passes its
+// own, so the heavy natives shrink to it: the ring, scatter's grid, the point counts. Every other native ignores it.
+export interface NativeDef extends EffectDef { create(gl: WebGL2RenderingContext, size?: readonly [number, number]): Native; warm?(): Promise<void> }

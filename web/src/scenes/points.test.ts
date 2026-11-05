@@ -3,7 +3,7 @@
 import { expect, test, vi } from 'vitest'
 import { SOURCE_IDS } from '../bind'
 import { BUILTIN } from './builtin'
-import { gridFor, scatter, swarm, swarmLayout } from './points'
+import { gridFor, scatter, swarm, swarmLayout, swarmN } from './points'
 
 vi.mock('../gl/engine', () => ({})) // takes the page's canvas + WebGL at import; the defs and the layout need neither
 
@@ -16,6 +16,12 @@ test('gridFor: one point per cell, edge cells cut; ≈121k at 4 px on the 1728×
   expect(gridFor(1728, 1117, 4)).toEqual({ cols: 432, rows: 280, count: 120960 })
   expect(gridFor(1728, 1117, 3).count).toBe(214848)
   expect(gridFor(8, 8, 4).count).toBe(4)
+})
+
+test('a 320×180 tile (2b S3.2): scatter grids 3600 points at 4 px; the swarm runs 4096 under a size, 65536 without', () => {
+  expect(gridFor(320, 180, 4)).toEqual({ cols: 80, rows: 45, count: 3600 })
+  expect(swarmN([320, 180])).toBe(4096)
+  expect(swarmN()).toBe(65536)
 })
 
 const layer = (id: string) => BUILTIN.find((d) => d.id === id)!.layers[0]

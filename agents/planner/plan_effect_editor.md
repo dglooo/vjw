@@ -270,13 +270,29 @@
     - Shots: `s3.1-grid-filters.png` (+ `-library` crop), `s3.1-grid-effect-library.png`, `s3.1-try.png`, `s3.1-try-generator.png`, `s3.1-replace-at-4.png`, `s3.1-mid-drag-effect.png`, `s3.1-mid-drag-generator.png`, `s3.1-end.png`.
   - Seen, not done: a long name runs into the tile's `+`/★ corner (S3.3 puts the still there anyway).
 
-#### S3.2 [ ] `live.tile()` + the `NativeDef.create(gl, size?)` size hint — M (render path)
+#### S3.2 [x] `live.tile()` + the `NativeDef.create(gl, size?)` size hint — M (render path)
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** a small, self-contained `Live` for tiles; heavy natives shrink to the tile (S6).
 - **Files:** `web/src/gl/scene.ts`, `web/src/gl/live.ts` (`tile`), `web/src/scenes/history.ts` + `web/src/scenes/history.test.ts`, `web/src/scenes/points.ts` + `web/src/scenes/points.test.ts`, `web/src/scenes/particles.ts`. 5 files, one idea.
 - **Depends on:** CP1 merged (same `live.ts`); no editor code.
 - **Behaviour:** `NativeDef.create(gl, size?: readonly [number, number])`: `size` is the stage it draws for, default the drawing buffer as today. Users: the ring slot size (`history.ts`), scatter's grid (`points.ts`), swarm/particles `N = size ? 4096 : N`. Every other native ignores it; the live path is byte-for-byte unchanged. `tile(doc, w, h): Live` = `create()` kept outside `cache` (so `prepare()` never frees it) with its own temps at w×h, its own flash-onset list (a tile never spends the preview's WCAG budget), natives created at `[w, h]`, and `res < 1` layers scaling with the tile via their own `small` target; `dispose` frees all of it. Milk layers: one pooled visualizer resized to the tile (`milkdrop/native.ts`), no new pool.
 - **Tests:** `history.test.ts`: the ring at 320×180 → 160×90×32 slots (≈1.8 MB) vs the live 61.8 MB; `points.test.ts`: the scatter grid at tile size (3600 pts at 4 px) and swarm N 4096 under a size.
 - **Done:** gates; browser via a `?debug` window hook: `tile(doc of builtin:rgba-delay, 320, 180)`, 90 frames, sync `readPixels`, dump `ed/s3.2-tile.png` (recognisable); allocation ≈ +2 MB, not +62 MB; dispose frees it. Render-path A/B on `builtin:rgba-delay` and `builtin:swarm` (p95 unchanged) + 60 s late-frame run.
+- **Changed during implementation:**
+  - No window hook in product code. `scratchpad/ed/s3.2-tile.mjs` imports `tile` from `/src/gl/live.ts` through Vite, as the A/B harness imports `app.ts`. It takes the app's own FrameInput and Sources by wrapping `scenes.live` once: same calls, captured in the live scene's render. S3.3's `tiles.frame(f, s)` is the real hook.
+  - `live.ts`: `create(id, own?: { doc, size })`. With `own`, it makes two temps of its own at the size and an empty flash-onset list, passes `own.size` to every native, and `dispose` frees the temps. Without it (`live()`): the shared `temps`, `flashOnsets`, `create(gl, undefined)`, so nothing changes there. `tile = (doc, w, h) => create(doc.id, { doc, size: [w, h] })`.
+  - `points.ts` exports `swarmN(size)`, the test's pure handle. particles keeps `size ? 4096 : N` inline: importing points from particles would be a cycle.
+  - `milkdrop/native.ts` is untouched. `create()` already pops the pool or makes one, and `draw` already resizes to `f.width × f.height`.
+  - Browser check (dnb174-arr, 1728×1117 @2; the live scene held on `builtin:rgba-delay`; 90 tile frames, one per rAF after the app's, dt 1/60; GPU bytes counted per texture/buffer, tagged by maker): 0 errors in all four.
+    - rgba-delay: +2.304 MB (ring 1.843 + temps .461) beside the live 61.821 MB ring; 0 left after dispose.
+    - swarm: +.592 MB at create, peak 1.325 (trail + bloom at 240×135, res .75); 0 left.
+    - scatter: +.576 MB; 0 left.
+    - milk: +.461 MB, peak 1.656; 1.195 left = the pooled visualizer and `copy()`'s shared texture at 320×180, kept by design.
+  - Shots: `s3.2-tile.png` (rgba-delay: tunnel with RGB fringes), `s3.2-tile-swarm.png` (threads), `-scatter.png` (4 px squares), `-milk.png` (the preset's palette; its dot grid reads denser than live, `s3.2-live-milk.png`), `s3.2-stage-after.png` (live stage intact).
+  - Tile cost: any single tile frame reads ≈2.4 ms on the per-span timer, while an empty query reads 0. 6 tile frames in one query read 3.87 / 3.37 / 2.84 / 8.41 ms (rgba-delay / swarm / scatter / milk), so the marginal cost per tile frame is .29 / .16 / .09 / .86 ms. CPU per `render` ≤ .1 ms (milk 1.7). Sync `readPixels` at 320×180: 4.0–5.4 ms CPU (input for S3.3's G1).
+  - A/B (`s3.2-ab.mjs`, 3 × 8 s each, same session): rgba-delay p95 2.63 → 2.65 (med 2.49 → 2.54); swarm p95 4.23 → 4.17 (med 3.94 → 3.96). Late run (`s3.2-late.mjs`): 76 s over 38 scenes, 0/4564 late, 0 governor drops, scale 1, jsMs .6. Gates: lint and typecheck clean, 403 tests.
+  - Seen, not done (S3.3/S3.4):
+    - `copy()` in `milkdrop/native.ts` shares one texture: a milk tile beside a live milk scene re-allocates it twice a frame (`texImage2D` on each size change).
+    - A milk tile hands its visualizer back to the pool at 320×180. The next live milk scene that takes it resizes at its first draw, as a fresh one from `make()` (16×16) does today.
 
 #### S3.3 [ ] bake queue, async readback, tile canvases; probes G1, G2, G4 — L
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** every tile gets a still in the background without a late frame (S6, Variant B readback).
