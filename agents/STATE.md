@@ -51,7 +51,7 @@
   - **Kick ruling** (`design_audio_reactivity.md` § Ruling, L612–656), lead pick (d).
     - Cause: the kick detector read bin-1 log flux, and a full-range bass's 55/110 Hz partials beat inside that bin. The HP'd fixture reese hid it.
     - Fix: kick = `tempo.ratio(0) ≥ 1.5` (the existing IIR gate) + kick-bin power share ≥ 0.2; the bin-1 detector is deleted; CPU ≈ 0; ≤1 hop later.
-  - **Running:** `frontend-coder` kick-fix step (M). Next: 2b editor (system-designer).
+  - **Running (parallel: one coder + one non-coder):** `frontend-coder` kick-fix step (M) ∥ `system-designer` → `agents/system-designer/design_effect_editor.md` (2b; told about 2d's native filters, heavy ring natives in tile previews, the binding policy, and the bool/event binding-UI gap). Next: lead pick → planner → coders.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
