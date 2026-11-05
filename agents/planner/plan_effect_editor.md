@@ -334,13 +334,56 @@
     - S3.4: `invalidate(id)` bakes the doc Library last handed over through `want()`. After a save, call it once Library has re-rendered, or pass the doc in.
     - `s3.1-library.mjs` `names()` reads `button.pick`'s first child, which is now the canvas.
 
-#### S3.4 [ ] live tile (hover/select, 20 fps), last frame → still, re-bake on save — M
+#### S3.4 [x] live tile (hover/select, 20 fps), last frame → still, re-bake on save — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the hovered or selected tile moves; a saved scene gets its thumbnail (Variant B, S6, spec §2.3).
 - **Files:** `web/src/editor/tiles.ts` (`hover`), `web/src/editor/Library.tsx`, `web/src/gl/live.ts` (`panel.save/saveAs` → `tiles.invalidate(id)`; a store subscription in `tiles.ts` instead if shorter).
 - **Depends on:** S3.3.
 - **Behaviour:** `hover(id | null)` after a 150 ms hover delay, or on select: one `tile()` instance runs every frame, read back asynchronously every 3rd frame (20 fps) on S3.3's path; on leave its last frame becomes the still; still ≤2 instances alive (bake + live). Save / Save as invalidate the scene's tile. Under the G1 fallback: sync readback every 3rd frame, or the live tile is dropped (recorded as the design A deviation).
 - **Tests:** `tiles.test.ts`: `hover` swaps the live id and releases the old one; the every-3rd-frame cadence.
 - **Done:** gates; browser: hover a ring-native tile, then swarm, then a milk tile: it moves, the others stay stills, leaving keeps the last frame; save a scene → its tile re-bakes; CP3 close-out: 60 s with the library open, the bake running and the live tile on `builtin:rgba-delay` then `builtin:swarm` → 0 late; `ed/cp3-sheet.png`.
+- **Changed during implementation:**
+  - Files as listed; no others.
+  - API:
+    - `tiles.hover(id | null)`: Library's `li` calls it 150 ms after `pointerenter` (one module-level timer), and `null` on `pointerleave`. A tile's click calls it at once.
+    - `pause()` also lets the hovered tile go. Library's unmount clears the timer.
+    - `tiles.invalidate(id, doc?)`: a doc passed in wins over the one `want()` last handed over.
+  - The live tile:
+    - It is one more `tile()` instance. It draws into the bake's `acc` before the slice does, on `f` as given (the live clock, heat-scaled dt). Its frames 0, 3, 6, … go through `read()`, so the PBO + fence path and the cache are shared with the bake.
+    - Sharing `acc` is safe: `render()` overwrites it (layer 0 clears it or draws it whole, and the natives clear their own), and GL runs the readback before the slice's draws.
+    - A swap or a leave disposes the instance. No read on leave: `acc` may hold a bake frame by then. The last read-back frame (≤ 2 frames old) stays as the still.
+    - ≤ 2 instances: the started bake job plus the hovered one.
+  - Milk pick: a hovered milk tile **waits** while the edited scene has a milk layer. Its instance is disposed, so its pooled visualizer goes back. A fresh one starts once the scene has none.
+  - Save: `panel.save()` calls `tiles.invalidate(doc.id, library.get(doc.id))` with the stored copy, so later edits don't reach the tile.
+    - Save as needs no code: its new id is a new block, which `want()` queues on Library's next render.
+    - A `library.onChange` subscription in `tiles.ts` was not shorter: `parseScene` gives every put a fresh doc, so a star toggle would re-bake too.
+    - ⚠️ This adds an import cycle `gl/live.ts` ↔ `editor/tiles.ts`. Both use the other only at call time; tests and the browser are fine.
+  - Browser (`scratchpad/ed/s3.4-live.mjs`; same setup as S3.3: ?debug 1728×1117 @2, dnb174-arr, live held on `builtin:swarm`, real mouse; 0 console errors):
+    - Hover, with the bake idle, 1.5 s each:
+      - `builtin:rgba-delay`, `builtin:swarm` and `milk/geiss-explosion-mod-2b`: 30 new stills each (20/s). No other listed tile changed.
+      - After the leave, 1 s: the target got 0 new stills, and its canvas checksum equals its cached still and stays put.
+      - Shots: `s3.4-hover-{rgba,swarm,milk}.png`.
+    - Milk wait: on a live milk scene, a hovered milk tile got 0 stills in 1.5 s, while a plain one moved (20 in 1 s). Back on swarm, the milk tile moved (30 in 1.5 s).
+    - Save:
+      - Save as… (UI) "RGBA delay saved": its first still landed 255 ms later.
+      - + Pixellate, then Save (UI): re-baked in 256 ms, with a new checksum.
+      - Shots: `s3.4-save-before.png`; `cp3-sheet.png` (search "rgba": the effect tile, the live `builtin:rgba-delay` scene tile, the re-baked pixellated scene).
+    - **CP3 run** (`s3.4-run-1.json`, 60 s from L; bake from an empty cache, kept running; live tile on rgba-delay +0.68–30.0 s, then swarm):
+      - Totals: 3595 frames, **4 late**. 573 / 580 stills from the live tile (19.1 and 19.3 per s). First full bake 28.24 s. `tiles.frame` med .6, p99 4.3, max 7.4 ms. 3 governor drops, scale 1.
+      - Pre-existing: the library mount, 66.7 ms at +78 ms (a 58 ms long task). The first-milk-tile spike didn't show in this run.
+      - The other 3 are single missed vsyncs (33.4 / 33.3 / 33.3 ms at +14.2, +22.9, +39.5 s). Each had `tiles.frame` ≤ 2.4 ms around it and no long task. None fell within 1 s of a hover start or swap.
+      - Same-session baselines, the same 60 s:
+        - Bake without a live tile, pointer off the list (`s3.4-nohover-2.json`): mount 66.7 ms, the first-bake-slice spike (33.4 ms at +147 ms, a 15.4 ms slice: compile + link + 10 texImage2D), then 3 sporadic (≈50 ms at +9.6, +11.2, +46.1 s).
+        - No bake and no live tile (`tiles.frame` stubbed, `s3.4-idle-1.json`): mount 50 ms, then 2 sporadic 33 ms (+0.6, +1.7 s).
+      - So the live tile adds no measurable lates. This session's machine misses 2–3 vsyncs a minute on its own (load ≈ 2.2, a VM, WindowServer 36% CPU). S3.3's 0 came from a quieter session.
+      - `s3.4-live.json` (the full-mode run) agrees: mount 83.1 ms, then 33.2 / 33.1 / 50.0 ms at +2.3, +4.0, +48.9 s.
+      - `s3.4-nohover-1.json` is void: the pointer rested on `builtin:tunnel`'s tile, so a live tile ran.
+      - A traced run (`s3.4-run-trace-1.json`; the trace's overhead made 12 late, so attribution only) points the same way.
+        - Most late frames show a nearly idle main thread (a ≤ 9 ms task plus Layerize): a frame missed on the compositor side.
+        - The ones with work are sync GL round-trips waiting on a busy GPU process (`WaitForCmd` 19 ms in GetProgramiv at +63 ms: the first link; 16 ms in a bake slice at +25.7 s), and one 13.6 ms style recalc plus 8.7 ms layout at +18 s.
+  - Gates: lint and typecheck clean, 411 tests (+2: hover swap/release, the every-3rd-frame cadence on a fake GL).
+  - Seen, not done:
+    - A tile hovered before its first bake lands: the bake lands later and replaces the last hovered frame. This is possible only in the first seconds, since visible tiles bake first.
+    - `requeue`'s compile-failure path does `queue.splice(queue.indexOf(j), 1)`. That would drop the last job if `j` were already gone, which is unreachable today.
 
 ### CP4 (no code dependency on CP1–3; S4.1–S4.3 are independent of each other)
 

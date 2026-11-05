@@ -1,7 +1,8 @@
 // The library's tile stills (2b S3.3, design S6, Variant B): a bake queue renders each block's tile scene on its own
 // tile() instance (live.ts), K frames at dt 1/60 on the live Sources and audio textures, then reads it back
-// asynchronously (a pixel-pack buffer behind a fence, MDN's pattern) into an ImageData kept for the session. App.ts
-// calls frame() before the live render, editor only; Library.tsx hands over the blocks and which tiles are on screen.
+// asynchronously (a pixel-pack buffer behind a fence, MDN's pattern) into an ImageData kept for the session. The hovered
+// tile (S3.4) runs live on one more instance, its frames read back the same way. App.ts calls frame() before the live
+// render, editor only; Library.tsx hands over the blocks, which tiles are on screen and the hovered one.
 import { bindFramebufferInfo } from 'twgl.js'
 import type { Sources } from '../bind'
 import type { SceneDoc } from '../doc'
@@ -81,8 +82,10 @@ const subs = new Set<() => void>()
 /** The tiles on screen (Library.tsx's IntersectionObserver): baked first. */
 export const visible = new Set<string>()
 const tf = {} as FrameInput // the tile frames' input: the live one at dt 1/60
-let acc: Target | undefined // the bake's W×H target, made at its first frame
+let acc: Target | undefined // the W×H target the bake and the hovered tile draw into, made at the first frame
 let prev = 0 // the last frame's time, s
+/** The hovered tile (S3.4): `n` its frames so far, `live` its tile() instance once it drew. */
+let hot: { id: string; doc: SceneDoc; milk: boolean; n: number; live?: Live } | undefined
 
 /** acc's pixels into a pixel-pack buffer, then a fence: poll() reads them once the GPU got there (no stall). */
 function read(id: string) {
@@ -118,21 +121,30 @@ function poll() {
   }
 }
 
-/** The bake (frozen contract CP3, without S3.4's hover). */
+/** The bake and the hovered tile (frozen contract CP3). */
 export const tiles = {
-  /** Every rAF in the editor, right before the live render: reads back what the GPU finished, then bakes this rAF's
-   *  slice. A milk tile waits while the live scene has a milk layer: both would take turns resizing milkdrop's one
-   *  copy() texture. ponytail: the 30 fps mode renders every other rAF, so its every frame reads as late and nothing
-   *  bakes; compare to the mode's interval if the editor runs there. */
+  /** Every rAF in the editor, right before the live render: reads back what the GPU finished, draws the hovered tile
+   *  (every 3rd frame read back: 20 fps), then bakes this rAF's slice. A milk tile waits while the live scene has a
+   *  milk layer: both would take turns resizing milkdrop's one copy() texture; a hovered one lets its instance go.
+   *  ponytail: the 30 fps mode renders every other rAF, so its every frame reads as late and nothing bakes; compare to
+   *  the mode's interval if the editor runs there. */
   frame(f: FrameInput, s: Sources) {
     poll()
     const dt = f.time - prev // rAF's, unscaled by heat
     prev = f.time
     const id = store.getSnapshot().edited
     const milk = !!id && hasMilk(live(id).doc)
+    if (!acc) (acc = renderTarget()).fit(W, H)
+    if (hot?.milk && milk) {
+      hot.live?.dispose() // its pooled visualizer back; a fresh instance once the live scene has no milk layer
+      hot.live = undefined
+    } else if (hot) {
+      hot.live ??= tile(hot.doc, W, H)
+      hot.live.render(f, s, acc) // the live clock: f's dt
+      if (hot.n++ % 3 === 0) read(hot.id) // before the slice draws into acc
+    }
     const slice = nextSlice(milk ? queue.filter((j) => j.live || !j.milk) : queue, dt, visible)
     if (!slice.length) return
-    if (!acc) (acc = renderTarget()).fit(W, H)
     Object.assign(tf, f).dt = DT
     for (const [j, n] of slice) {
       j.live ??= tile(j.doc, W, H)
@@ -145,18 +157,27 @@ export const tiles = {
   },
   /** A tile's still, rows bottom-up; undefined until its first bake lands. */
   get: (id: string) => cache.get(id),
-  /** Bakes `id` again from its latest doc (once, however often called); its old still shows until then. */
-  invalidate(id: string) {
-    const doc = docs.get(id)
+  /** Bakes `id` again from `doc` (a saved scene's stored doc: Library hands it over a render later), else from its
+   *  latest doc, once however often called; its old still shows until then. */
+  invalidate(id: string, doc = docs.get(id)) {
     if (doc) requeue(queue, id, doc, catalog, compile)
   },
   onChange(cb: () => void) {
     subs.add(cb)
     return () => subs.delete(cb)
   },
-  /** Library.tsx, as the editor closes: a started bake lets its instance go (a milk one holds a pooled visualizer the
-   *  live show may need) and starts over next time. */
+  /** Library.tsx: the tile that moves (S3.4), after a 150 ms hover or at once on a click; null as the pointer leaves.
+   *  One instance at a time, the old one let go; its last read-back frame stays as the still. */
+  hover(id: string | null) {
+    if (hot?.id === id) return
+    hot?.live?.dispose()
+    const doc = id === null ? undefined : docs.get(id)
+    hot = doc && { id: id!, doc, milk: hasMilk(doc), n: 0 }
+  },
+  /** Library.tsx, as the editor closes: the hovered tile and a started bake let their instances go (a milk one holds a
+   *  pooled visualizer the live show may need); the bake starts over next time. */
   pause() {
+    tiles.hover(null)
     for (const j of queue) {
       if (!j.live) continue
       j.live.dispose()
