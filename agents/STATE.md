@@ -118,7 +118,10 @@
           - deferred: no-bass-dip drops, flicker debounce.
           - Predicted DnB 7/11, Rumble 2/4, 0 false. The Sub Focus 147.9 label is suspect (bass back at 146.5): **the user checks it by ear.**
           - Steps: **D-A** (S, `arrange.ts`, replay-gated) → **D-B** (S, CUT + preset gate).
-        - **Running:** `frontend-coder` T3′ = e′. Next: D-A → D-B → back to 2b.
+        - **T3′ ✅ e′ merged:** sync ignores ⅔/4/3 readings of a locked grid (`PARTNER` 1 %).
+          - Kanine ⅔ .25 → .00, ref .72 → .97, lock 6.5 → 4.4 s; Bicep ⅔@108 gone; others unchanged; 389 tests.
+          - Limits: a two-step locked from scratch still locks 116; a mix change within 1 % of 4/3 never relocks.
+        - **Running:** `frontend-coder` D-A (drop v2 step A). Next: D-B → back to 2b (S2.2).
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
