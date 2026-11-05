@@ -57,20 +57,21 @@ const mix = (a: Float32Array, b: Float32Array, at: number) => {
   return o
 }
 
-/** A fresh one-band bank over `x`: e2 and held after each quantum. */
+/** A fresh one-band bank over `x`: e2, held and the gate ratio after each quantum. */
 function run(spec: BandSpec, x: Float32Array, sr: number) {
   const bank = createBank(sr)
   bank.configure([spec])
   const out = new Float32Array(2)
   const n = Math.floor(x.length / QUANTUM)
-  const e2 = new Float32Array(n), held = new Float32Array(n)
+  const e2 = new Float32Array(n), held = new Float32Array(n), ratio = new Float32Array(n)
   for (let k = 0; k < n; k++) {
     bank.process(x.subarray(k * QUANTUM, (k + 1) * QUANTUM))
     bank.read(out)
     e2[k] = out[0]
     held[k] = out[1]
+    ratio[k] = bank.ratio(0)
   }
-  return { e2, held }
+  return { e2, held, ratio }
 }
 const gatedQuanta = (r: { e2: Float32Array; held: Float32Array }, from: number) =>
   r.e2.subarray(from).filter((v, k) => r.held[from + k] !== v).length
@@ -126,6 +127,19 @@ test.each(RATES)('kick vs sustained bass: kicks stay out of held, a sustained 55
     expect(hi).toBeLessThan(1.3) // …held stays flat through them, tail included
     expect(lo).toBeGreaterThan(0.7)
   }
+})
+
+test('held is gated at TRANSIENT 1.5, not at the kick trigger (drums.ts KICK 1.35, real-track ruling 2026-11-05 (c))', () => {
+  const sr = 48000
+  // A 100 Hz tone stepping up ×k at 0.5 s: the gate's fast/slow ratio peaks under k (gs moves during gf's attack).
+  // Measured: ×1.7 peaks at 1.42, held untouched; ×2.5 at 1.78, held frozen for 43 quanta.
+  const step = (k: number) => run({ id: 'b', lo: 60, hi: 250 }, sine(100, 1, sr, 0.2).map((v, i) => (i < len(0.5, sr) ? v : k * v)), sr)
+  const from = blk(0.3, sr)
+  const [lo, hi] = [step(1.7), step(2.5)]
+  expect(Math.max(...lo.ratio.subarray(from))).toBeGreaterThan(1.35) // the kick trigger sees it…
+  expect(gatedQuanta(lo, from)).toBe(0) // …held doesn't
+  expect(Math.max(...hi.ratio.subarray(from))).toBeGreaterThan(1.5)
+  expect(gatedQuanta(hi, from)).toBeGreaterThan(0)
 })
 
 test.each([4.67, 11.6])('a wobble at %f Hz (rises >= 40 ms) passes the gate and e2 follows it', (lfo) => {
