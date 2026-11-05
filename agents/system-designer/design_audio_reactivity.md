@@ -699,3 +699,8 @@ Everything else is a `(default)` that the user can veto without answering:
 - **Mutants:** `TILT` at 0 or 0.6, and the veto moved from the ODF to the post, each fail ≥ 1 test.
 
 **Size: S**, one `frontend-coder` step: `onset.ts` (one param, one line), `drums.ts` (`TILT`, two sums, `ok` to the snare's detector, header comment), `drums.test.ts`, `acceptance.test.ts`.
+
+**Lead amendment (2026-11-05, measured by the snare coder):** the ruling as written reached Dubstep arr snare F1 .71 (target ≥ .8). Two causes, each with a measured fix, both adopted:
+- **E1:** kick↔snare crosstalk checks ±1 hop (the kick ruling item 4, now evidenced: the kick's 3 kHz click posts a snare one hop before the kick fires under the wobble) → .83.
+- **E2:** a vetoed hop does not become the flux reference, so the real snare right after a saw-edge spike is not masked → .84.
+- E1 + E2 → 1.00 in the probe. Wobble beds stay 0; patterns and kick unchanged.
