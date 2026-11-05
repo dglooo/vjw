@@ -4,18 +4,23 @@
 import { expect, test, vi } from 'vitest'
 import { createAnalysis } from './analysis'
 import { createBank, type BandSpec } from './bands'
+import { FLOORS, type Floors } from './drums'
 import type { WorkletIn, WorkletMsg } from './onset.worklet'
 import { kick, mix, pattern, reese } from './synth'
 
 // Drum re-tuning is checked on configure calls; the real drums still run, so block() posts their hits (S1.4, last test).
-const drumsConfigure = vi.hoisted(() => vi.fn())
+const [drumsConfigure, drumsFloors] = vi.hoisted(() => [vi.fn(), vi.fn()])
 vi.mock('./drums', async (importOriginal) => {
   const m = await importOriginal<typeof import('./drums')>()
   return {
     ...m,
     createDrums: (sr: number, n: number) => {
       const d = m.createDrums(sr, n)
-      return { ...d, configure: (b: Parameters<typeof d.configure>[0]) => (drumsConfigure(b), d.configure(b)) }
+      return {
+        ...d,
+        configure: (b: Parameters<typeof d.configure>[0]) => (drumsConfigure(b), d.configure(b)),
+        setFloors: (f: Floors) => (drumsFloors(f), d.setFloors(f)),
+      }
     },
   }
 })
@@ -82,7 +87,7 @@ test('block() posts the pre-move onset/odf messages on a synthetic kick train (g
 
 // plan S2.3: the band bank inside block().
 const DR = { kick: [40, 150], snare: [1000, 5000], hats: [7000, 16000] } as const
-const cfg = (rev: number, bands: BandSpec[], drums: WorkletIn['drums'] = DR): WorkletIn => ({ kind: 'config', rev, drums, bands })
+const cfg = (rev: number, bands: BandSpec[], drums: WorkletIn['drums'] = DR, floors = FLOORS): WorkletIn => ({ kind: 'config', rev, drums, floors, bands })
 
 /** 2 s mono: a full-range reese (55 Hz root, in the sub band) with kicks at 0.5 and 1.25 s. */
 function reeseKick() {
@@ -165,6 +170,18 @@ test('config: a newer rev re-tunes at the next batch start, batches keep their r
   const rev = (i: number) => (i < 101 ? 1 : i < 151 ? 3 : 4)
   expect(feat.map((m) => [m.rev, [...m.values]])).toEqual(feat.map((_, i) => [rev(i), batch(i)])) // `sub` keeps its state
   expect(drumsConfigure.mock.calls).toEqual([[DR], [D2]])
+})
+
+test('config: a floors-only change (a preset switch: real-track ruling 2026-11-05) restarts no drum; the floors apply at once', () => {
+  drumsConfigure.mockClear()
+  drumsFloors.mockClear()
+  const DUB = { snare: 80, hats: 100 }
+  const a = createAnalysis(SR)
+  a.configure(cfg(1, [], DR))
+  a.configure(cfg(2, [], DR, DUB))
+  a.configure(cfg(2, [], DR, FLOORS)) // repeated rev: ignored
+  expect(drumsConfigure.mock.calls).toEqual([[DR]])
+  expect(drumsFloors.mock.calls).toEqual([[FLOORS], [DUB]])
 })
 
 // plan S1.4: drums.ts runs in the onset's hop, so the hits of a mixed DnB two-step (kick + snare + hats over the bass

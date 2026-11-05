@@ -19,7 +19,9 @@ const PEAK_HOPS = 3 // odf must be ≥ each of the previous 3 hops
 const MAX_STRENGTH = 4
 
 export function createDetector(opts?: Partial<DetectorOpts>) {
-  const { threshold, meanWindow, minGap, floor } = { ...DEFAULTS, ...opts }
+  const o = { ...DEFAULTS, ...opts }
+  const { threshold, meanWindow, minGap } = o
+  let { floor } = o
   const hist = new Float64Array(meanWindow) // ODF ring, oldest at `pos`
   let pos = 0
   let prev: Float64Array | null = null // last hop's log-compressed magnitudes
@@ -30,6 +32,13 @@ export function createDetector(opts?: Partial<DetectorOpts>) {
     /** The latest ODF value, for the (c) batch. */
     get odf() {
       return odf
+    },
+    /** The ODF floor, settable in place (drums.ts's per-preset floors): the flux history, mean and minGap stay. */
+    get floor() {
+      return floor
+    },
+    set floor(v: number) {
+      floor = v
     },
     /** `ok` false vetoes the hop (drums.ts: the snare's tilt): its ODF is 0, so it arms no minGap, wins no peak window
      *  and doesn't lift the mean, and the last hop that passed stays the reference (a snare right after a vetoed saw

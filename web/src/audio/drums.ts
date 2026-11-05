@@ -11,8 +11,14 @@ export interface Hit { drum: Drum; t: number; strength: number } // t = AudioCon
 // knobs (default; presets may override). At 48 kHz the kick is bin 1 alone: DC (a sine's ± images interfere there)
 // and bin 2 (187.5 Hz, a snare's body) fall outside 40–150 Hz. Snare/clap 1–5 kHz, hats 7–16 kHz.
 const BANDS: Record<Drum, readonly [lo: number, hi: number]> = { kick: [40, 150], snare: [1000, 5000], hats: [7000, 16000] }
-// knobs: per-band ODF floors (log units summed over the band's bins), tuned on the synth.ts fixtures (drums.test.ts).
-const FLOORS = { snare: 80, hats: 100 }
+export type Floors = Record<'snare' | 'hats', number>
+// knobs: per-band ODF floors (log units summed over the band's bins): the default for Default, undecided, DnB and Techno;
+// a preset may carry its own (presets.ts: Dubstep 80/100). Real DnB masters' backbeat flux reads p50 16–17 / p90 32–50
+// (real-track ruling 2026-11-05); 40/50 gives .85–1.93 snares and 3.7–5.4 hats a bar there, on-grid ≥ .97.
+export const FLOORS: Floors = { snare: 40, hats: 50 }
+// The crosstalk's snare unit (its flux over this = 1), tuned at the old floor of 80: tied to the live floor, halving it
+// would double every snare's weight against the kick.
+const XT_SNARE = 80
 // knob: the kick bins' least share of the hop's power, DC excluded (a line-in offset can't fake it). In an empty band the
 // gate also trips on a riser, room tone or a snare's body; those hold ≲ 0.06 of the power, a kick ≈ 0.4–0.9.
 const SHARE = 0.2
@@ -29,7 +35,8 @@ export function createDrums(sampleRate: number, fftSize: number) {
   let bands: { drum: 'snare' | 'hats'; lo: number; hi: number; d: ReturnType<typeof createDetector> }[] = []
   let lastKick = -Infinity
   let lastRatio = 0 // the last hop's kick ratio, 0 if it posted no kick
-  let held: { hit: Hit; s: number } | null = null // the last hop's snare and its flux over the floor (crosstalk ±1 hop)
+  let held: { hit: Hit; s: number } | null = null // the last hop's snare and its flux over XT_SNARE (crosstalk ±1 hop)
+  let floors = FLOORS // setFloors moves them in place; a configure restart keeps them
 
   /** Bins whose centre lies in [lo, hi] Hz (at least one). Detectors restart: their flux history is per bin. */
   function configure(b: Record<Drum, readonly [lo: number, hi: number]>) {
@@ -38,12 +45,17 @@ export function createDrums(sampleRate: number, fftSize: number) {
       return { lo, hi: Math.min(Math.max(lo, Math.floor(b[d][1] / hz)), fftSize / 2) }
     }
     kick = bins('kick')
-    bands = (['snare', 'hats'] as const).map((drum) => ({ drum, ...bins(drum), d: createDetector({ floor: FLOORS[drum] }) }))
+    bands = (['snare', 'hats'] as const).map((drum) => ({ drum, ...bins(drum), d: createDetector({ floor: floors[drum] }) }))
   }
   configure(BANDS)
 
   return {
     configure,
+    /** The snare/hats ODF floors, in place: the detectors keep their flux history, so a switch fires nothing. */
+    setFloors(f: Floors) {
+      floors = f
+      for (const b of bands) b.d.floor = f[b.drum]
+    },
     /** `kickRatio` = the 40–150 Hz gate's fast/slow ratio at this hop (analysis.ts's tempo bank): a steady or beating
      *  bass stays ≤ 1.30 there, so the kick fires on its transient, never on a full-range bass's in-bin beating. */
     detect(mag: Float32Array, t: number, kickRatio: number): readonly Hit[] {
@@ -63,8 +75,8 @@ export function createDrums(sampleRate: number, fftSize: number) {
         }
       }
       // Crosstalk: a kick's click reaches 1–5 kHz and can lead its 40–150 Hz gate by a hop, so a snare within a hop of a
-      // kick is dropped unless it is at least as strong. Strong = in units of each side's own threshold: the snare's flux
-      // over its floor (`strength` saturates at its cap in sparse bands, mean ≈ 0), the kick's ratio over TRANSIENT. So a
+      // kick is dropped unless it is at least as strong. Strong = in tuned units, not the live floor: the snare's flux over
+      // XT_SNARE (`strength` saturates at its cap in sparse bands, mean ≈ 0), the kick's ratio over TRANSIENT. So a
       // snare waits one hop (+5.3 ms) and keeps its own t; it posts ahead of this hop's kick, in time order.
       const ratio = kickRatio >= TRANSIENT && own > SHARE * all && t - lastKick >= MIN_GAP ? kickRatio : 0 // 0: no kick
       if (held && held.s >= ratio / TRANSIENT) hits.push(held.hit)
@@ -76,7 +88,7 @@ export function createDrums(sampleRate: number, fftSize: number) {
       for (const { drum, lo, hi, d } of bands) {
         const o = d.detect(mag.subarray(lo, hi + 1), t, drum !== 'snare' || up >= TILT * band)
         if (o && drum === 'hats') hits.push({ drum, ...o })
-        else if (o && d.odf / FLOORS.snare >= Math.max(ratio, lastRatio) / TRANSIENT) held = { hit: { drum, ...o }, s: d.odf / FLOORS.snare }
+        else if (o && d.odf / XT_SNARE >= Math.max(ratio, lastRatio) / TRANSIENT) held = { hit: { drum, ...o }, s: d.odf / XT_SNARE }
       }
       lastRatio = ratio
       return hits

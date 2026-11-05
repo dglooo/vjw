@@ -191,17 +191,18 @@ const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the 
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
 if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets }) // ?debug: the live binding sources, settings and the flash budget's onsets, for DevTools and browser checks
 
-/** S2.5: the worklet's config. Sent only when the band list (ids + Hz, drums too) really changed — a sens or auto
- * toggle must not re-send, and a re-send restarts the drum detectors (analysis.ts). `rev` grows per send; the worklet
- * ignores a `rev <= applied`. */
+/** S2.5: the worklet's config for the active preset (T1: frame() moves `configured` to it, picked or detected). Sent
+ * only when it really changed (ids + Hz, drums and floors too) — a sens or auto toggle must not re-send. `rev` grows
+ * per send; the worklet ignores a `rev <= applied`. */
 let rev = 0
 let sent = ''
+let configured: PresetId = 'default'
 function sendConfig() {
-  const b = workletBands(settings.get(), null)
+  const b = workletBands(settings.get(), configured)
   const key = bandKey(b)
   if (key === sent) return
   sent = key
-  configure({ kind: 'config', rev: ++rev, drums: b.drums, bands: b.bands })
+  configure({ kind: 'config', rev: ++rev, ...b })
 }
 sendConfig() // start: the first config wakes the band bank (one drum restart blip, contract 3)
 settings.onChange(sendConfig) // custom-band edits and preset switches; sens/auto leave the key untouched
@@ -293,6 +294,10 @@ function frame(now: number) {
   styleOut = style.update(styleIn({ kick8, hat8, bpm: f.sync.bpm, confidence: f.sync.confidence, wobble: features.raw.wobbleDepth, bass: total > 0 ? (features.raw.sub + features.raw.reese) / total : 0, families: { dnb: fdn, dubstep: fdu, techno: fte }, freeze }), now / 1000)
   // A manual pick (incl. the ?preset= dev hook) locks the classifier; else Auto follows `detected`.
   const active = activePreset(DEBUG_PRESET ? { ...st, pick: DEBUG_PRESET } : st, styleOut.detected)
+  if (active !== configured) {
+    configured = active
+    sendConfig() // T1: Dubstep's floors and reese band follow Auto too
+  }
   // S3.2: the active preset's band drives the tempo range; a change snaps the running grid one octave toward it.
   const band = PRESETS[active].bpm
   if (band !== lastBand) {

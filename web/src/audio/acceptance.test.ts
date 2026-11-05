@@ -11,7 +11,7 @@ import { rms } from './energy'
 import { createFeatures } from './features'
 import type { WorkletMsg } from './onset.worklet'
 import { PRESETS, type Genre } from './presets'
-import { createSettings, parseSettings, type AudioSettings } from './settings'
+import { createSettings, parseSettings, workletBands, type AudioSettings } from './settings'
 import { createStyle, type StyleIn, type StyleOut } from './style'
 import { arrangement, crossfade, GROOVES, mix, pattern, rng, SR, T0, wobble, type Groove, type Stem } from './synth'
 import { createTempoSource, type TempoSource } from './tempo'
@@ -21,9 +21,10 @@ const N = 512
 const hann = Float32Array.from({ length: N }, (_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / N))
 const DRUMS: Drum[] = ['kick', 'snare', 'hats']
 
-/** Hit times per drum for a signal run through analysis.ts, after a 0.5 s warm-up. */
-function hitsOf(x: Float32Array) {
+/** Hit times per drum for a signal run through analysis.ts, after a 0.5 s warm-up; at `genre`'s config (its floors) if given. */
+function hitsOf(x: Float32Array, genre?: Genre) {
   const a = createAnalysis(SR)
+  if (genre) a.configure({ kind: 'config', rev: 1, ...workletBands(parseSettings(null), genre) })
   const hits: Record<Drum, number[]> = { kick: [], snare: [], hats: [] }
   for (let i = 0; i + 128 <= x.length; i += 128) a.block([x.subarray(i, i + 128)], i, (m) => m.kind === 'hit' && m.t > 0.5 && hits[m.drum].push(m.t))
   return hits
@@ -102,9 +103,8 @@ const Q = 128
 const HZ = SR / N
 const FPS_APP = 60
 function inputs(x: Float32Array, genre: Genre, bpm: number) {
-  const B = PRESETS[genre].bands
   const a = createAnalysis(SR)
-  a.configure({ kind: 'config', rev: 1, drums: { kick: B.kick, snare: B.snare, hats: B.hats }, bands: (['sub', 'reese', 'wobble'] as const).map((id) => ({ id, lo: B[id][0], hi: B[id][1] })) })
+  a.configure({ kind: 'config', rev: 1, ...workletBands(parseSettings(null), genre) })
   const feats: Extract<WorkletMsg, { kind: 'feat' }>[] = []
   const kicks: number[] = []
   for (let i = 0; i + Q <= x.length; i += Q)
@@ -182,7 +182,7 @@ test.each([['dnb', 174, 2], ['dubstep', 140, 1]] as const)('§4.1 kicks on the %
   const s = arr(genre)
   const bar = 240 / bpm
   const end = s.drop + 8 * bar
-  const { kick, snare } = hitsOf(s.x)
+  const { kick, snare } = hitsOf(s.x, genre) // at the floors the genre gets once classified (Dubstep 80/100)
   // Snares outside the breakdown (snare ruling 2026-11-05 + lead amendment). Measured: DnB .92 (.91 untilted), Dubstep
   // .89, all 24 found (untilted .11: the wobble's 1–3 kHz flank fired 148 false snares; tilt alone .71). Left: 6 kick
   // clicks 1–2 hops before their kick at 1.15–1.47 floors, against a kick that fires at 1.01–1.17 TRANSIENTs. The roll

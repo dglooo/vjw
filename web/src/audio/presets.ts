@@ -1,5 +1,7 @@
 // The genre presets (design C3), code data: the user tunes `sens` and adds custom bands instead of editing these. Pure.
 // The tempo range is applied by tempo.ts and the bands by the worklet (plan S3.x); the `proto` rows feed style.ts (S4.1).
+import type { Floors } from './drums'
+
 export type Genre = 'dnb' | 'dubstep' | 'techno'
 export type PresetId = 'default' | Genre
 export type Band = readonly [lo: number, hi: number] // Hz for a frequency band, BPM for `bpm`
@@ -10,6 +12,7 @@ export interface Preset {
   sens: Readonly<Record<string, number>> // missing = 1
   map: Readonly<Record<string, string>> // built-in source -> new source while Auto-style is on
   proto?: { kickPerBeat: number; hatsPerBeat: number; wobble: number; bass: number } // classifier (genres only)
+  floors?: Floors // the worklet's snare/hats ODF floors; missing = drums.ts FLOORS (real-track ruling 2026-11-05)
 }
 
 const BANDS: Preset['bands'] = { kick: [40, 150], snare: [1000, 5000], hats: [7000, 16000], sub: [30, 60], reese: [60, 250], wobble: [150, 1500] }
@@ -39,6 +42,7 @@ export const PRESETS: Readonly<Record<PresetId, Preset>> = {
     sens: {},
     map: { reese: 'wobble', onset: 'snare', treb: 'hats' }, // the bass class binds reese (design ruling 2026-11-05)
     proto: { kickPerBeat: 0.35, hatsPerBeat: 1, wobble: 0.8, bass: 0.7 },
+    floors: { snare: 80, hats: 100 }, // growls fire the default's 40/50: Rumble 7.3 snares a bar at 40, 2.4 at 80
   },
   techno: {
     name: 'Techno / house',

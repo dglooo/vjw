@@ -1,12 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import { SOURCE_IDS, type Sources } from '../bind'
 import { createAnalysis } from './analysis'
-import type { BandSpec } from './bands'
 import type { Drum, Hit } from './drums'
 import { createFeatures } from './features'
-import type { WorkletIn, WorkletMsg } from './onset.worklet'
+import type { WorkletMsg } from './onset.worklet'
 import { PRESETS, type Preset } from './presets'
-import type { AudioSettings, CustomBand } from './settings'
+import { workletBands, type AudioSettings, type CustomBand } from './settings'
 import { mix, pattern, reese, SR, sub, wobble } from './synth'
 
 const DRUMS: Drum[] = ['kick', 'snare', 'hats']
@@ -272,12 +271,10 @@ describe('custom bands u:<id> (design C1)', () => {
 })
 
 // The real chain: a 48 kHz fixture → analysis.ts with bands sub, reese and wobble first, then the settings' custom
-// bands (as S2.5's config sends them) → push → at(∞) → fill, after each batch from `from` s.
-const B = PRESETS.default.bands
+// bands (S2.5's config: workletBands) → push → at(∞) → fill, after each batch from `from` s.
 function listen(x: Float32Array, from = 5, s: AudioSettings = settings()) {
   const a = createAnalysis(SR)
-  const c: WorkletIn = { kind: 'config', rev: 1, drums: { kick: B.kick, snare: B.snare, hats: B.hats }, bands: (['sub', 'reese', 'wobble'] as const).map((id): BandSpec => ({ id, lo: B[id][0], hi: B[id][1] })).concat(s.custom.map((b): BandSpec => ({ id: b.id, lo: b.lo, hi: b.hi }))) }
-  a.configure(c)
+  a.configure({ kind: 'config', rev: 1, ...workletBands(s, 'default') })
   const f = createFeatures()
   const out: Sources = {}
   const rows: Sources[] = []
