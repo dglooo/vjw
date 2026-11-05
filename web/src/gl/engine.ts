@@ -176,8 +176,8 @@ function drawScene(id: SceneId, f: FrameInput, src: Sources, styled: Sources | n
 
 /** The post pass's input (design C6): `{ gain: 1, flash: 0 }` leaves the frame as it is. */
 export interface Post { gain: number; flash: number }
-/** The post pass: one colour over the stage, through fixed-function blending. */
-const tint = fullscreenProgram(`#version 300 es
+/** The post pass: one colour over the stage, through fixed-function blending (also the swarm's trail fade). */
+export const tint = fullscreenProgram(`#version 300 es
 precision highp float;
 uniform vec4 uColor;
 out vec4 outColor;

@@ -128,6 +128,7 @@ No `#include` machinery: each file carries its own copy, with the library's head
 - webgl-noise, MIT ("Copyright (C) 2011 by Ashima Arts (Simplex noise)", "Copyright (C) 2011-2016 by Stefan Gustavson (Classic noise and others)"). URLs: https://github.com/ashima/webgl-noise, https://github.com/stegu/webgl-noise.
   - `snoise` (`noise2D.glsl`, Ian McEwan, Ashima Arts) in `own/domain-warp.fs` and `own/ink.fs`.
   - `srdnoise` with `rgrad2`, `permute` and `mod289` (`psrdnoise2D.glsl`, Stefan Gustavson) in `own/smoke.fs`.
+  - `snoise(vec3, out vec3 gradient)` with `mod289`, `permute` and `taylorInvSqrt` (`noise3Dgrad.glsl`, Ian McEwan, Ashima Arts) in `src/scenes/points.ts`.
 - hg_sdf (Mercury, version 2021-07-28), https://mercury.sexy/hg_sdf/hg_sdf.glsl. Dual-licensed `MIT OR CC-BY-NC-4.0`, used under MIT ("Copyright (c) 2011-2021 Mercury Demogroup"). In `own/sdf-shapes.fs`, adapted to GLSL ES 1.00 (float literals; `fDodecahedron` is `fGDF` unrolled).
 
 ### Credits in the files' comments
