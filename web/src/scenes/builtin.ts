@@ -10,9 +10,17 @@ const BLOOM: Record<string, Binding> = {
   rampShift: { source: 'bar', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the tint turns once a bar
 }
 
+// native/particles in its two scenes (S4.1): its onsets and bass live in its code; these add the bass class and a build.
+const PARTICLES: Record<string, Binding> = {
+  swirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 1.5, max: 3.5 }, // the bass spins the disc
+  glow: { source: 'build', amount: 1, attack: 1, release: 2, min: 2, max: 4 }, // a build heats the bloom
+}
+
 // Built-in scenes (design E4): JSON-compatible literals, so tsc checks them and doc.test.ts round-trips them. Immutable:
 // edits go to a copy. The order is the autopilot's: the natives, then the combinations, with the MilkDrop scenes
 // spread evenly among them (BUILTIN, at the end).
+// Bindings (design_td_look.md policy, rebind S4.1): drums, sub and build/drop bound directly; the bass class on `reese`,
+// which Auto-style moves per genre; no `onset`/`treb`. A file's VJW_BIND stays its suggestion for a new node.
 const OWN: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:tunnel', name: 'Tunnel', star: true,
@@ -25,7 +33,7 @@ const OWN: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:particles', name: 'Particles', star: true,
     // res 0.5: GPU p95 with kicks 6.4 → 3.2 ms at 1728×1118 (S4.2b); the points scale with the layer height
-    layers: [{ gen: { ref: 'native/particles' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/particles', bind: PARTICLES }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   {
     v: 1, id: 'builtin:glitch', name: 'Glitch', star: true,
@@ -38,7 +46,7 @@ const OWN: readonly SceneDoc[] = [
       fx: [{
         ref: 'isf/Kaleidoscope',
         values: { center: [0.5, 0.5] }, // the file's default is the corner
-        bind: { angle: { source: 'bass', amount: 1, attack: 0, release: 0.15, min: 0, max: 0.125 } }, // ≤ 45° on a kick
+        bind: { angle: { source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0, max: 0.125 } }, // ≤ 45° on a kick
       }],
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
@@ -48,8 +56,9 @@ const OWN: readonly SceneDoc[] = [
     layers: [{
       gen: { ref: 'native/tunnel' },
       fx: [
-        { ref: 'isf/Chromatic Aberration' }, // a steady RGB split, as a worn tape
-        { ref: 'isf/VHS Glitch', bind: { yScanlineAmount: { source: 'bass', amount: 1, attack: 0, release: 0.2, min: 0, max: 0.8 } } }, // tracking skew on a kick
+        // A worn tape's steady RGB split (the file's .02), jittered by the hats.
+        { ref: 'isf/Chromatic Aberration', bind: { amount: { source: 'hats', amount: 1, attack: 0, release: 0.06, min: 0.02, max: 0.04 } } },
+        { ref: 'isf/VHS Glitch', bind: { yScanlineAmount: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 0.8 } } }, // tracking skew on a kick
         { ref: 'own/flash', bind: { flash: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 0, max: 0.9 } } }, // CP1 demo
       ],
       blend: 'normal', opacity: 1, speed: 1, res: 1,
@@ -62,8 +71,8 @@ const OWN: readonly SceneDoc[] = [
       gen: { ref: 'native/spectrum' },
       fx: [
         { ref: 'own/scanlines' },
-        // Last, so the scanlines bend with the glass, which bulges on a kick.
-        { ref: 'isf/v002-CRT-Displacement', bind: { Amount: { source: 'bass', amount: 1, attack: 0, release: 0.2, min: 0.3, max: 0.8 } } },
+        // Last, so the scanlines bend with the glass, which bulges on the bass.
+        { ref: 'isf/v002-CRT-Displacement', bind: { Amount: { source: 'reese', amount: 1, attack: 0, release: 0.2, min: 0.3, max: 0.8 } } },
       ],
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
@@ -73,7 +82,7 @@ const OWN: readonly SceneDoc[] = [
     layers: [{
       gen: { ref: 'native/tunnel' },
       fx: [
-        { ref: 'isf/Pixellate', bind: { cell_size: { source: 'bass', amount: 1, attack: 0, release: 0.2, min: 0.008, max: 0.025 } } }, // bigger pixels on a kick
+        { ref: 'isf/Pixellate', bind: { cell_size: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0.008, max: 0.025 } } }, // bigger pixels on a kick
         { ref: 'isf/Posterize', values: { numColors: 5 } },
         // On for the first part of every beat: the saw falls 1 → 0 over the beat, and a bool is on at ≥ 0.5.
         { ref: 'own/strobe', bind: { strobe: { source: 'beat', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 0.65 } } },
@@ -82,13 +91,13 @@ const OWN: readonly SceneDoc[] = [
     }],
   },
   // 3D / geometry (S4.2): one generator per scene, so each shows before layers composite (S3.3); `res` and the layer
-  // speed binding take effect from S3.3 too. The gen bindings repeat each file's VJW_BIND suggestion.
+  // speed binding take effect from S3.3 too.
   {
     v: 1, id: 'builtin:flythrough', name: 'Flythrough', star: true,
     layers: [{
-      gen: { ref: 'own/flythrough', bind: { glow: { source: 'bass', amount: 1, attack: 0.02, release: 0.25, min: 0.3, max: 2 } } },
+      gen: { ref: 'own/flythrough', bind: { glow: { source: 'sub', amount: 1, attack: 0.02, release: 0.25, min: 0.3, max: 2 } } },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
-      bind: { speed: { source: 'bass', amount: 1, attack: 0.05, release: 0.5, min: 0.7, max: 2 } }, // faster flight on bass
+      bind: { speed: { source: 'reese', amount: 1, attack: 0.05, release: 0.5, min: 0.7, max: 2 } }, // faster flight on bass
     }],
   },
   {
@@ -97,8 +106,8 @@ const OWN: readonly SceneDoc[] = [
       gen: {
         ref: 'own/tunnel-mesh',
         bind: {
-          twist: { source: 'bass', amount: 1, attack: 0.03, release: 0.35, min: 0.01, max: 0.1 }, // the tube screws on a kick
-          flash: { source: 'onset', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 },
+          twist: { source: 'kick', amount: 1, attack: 0.03, release: 0.35, min: 0.01, max: 0.1 }, // the tube screws on a kick
+          flash: { source: 'snare', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }, // ⚡
         },
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75,
@@ -110,7 +119,7 @@ const OWN: readonly SceneDoc[] = [
       gen: {
         ref: 'isf/Worley Cells',
         values: { density: 7, speed: 0.8, colorMode: 1, cellColor1: [0.2, 0.9, 1, 1], cellColor2: [0.08, 0, 0.2, 1] },
-        bind: { borderWidth: { source: 'bass', amount: 1, attack: 0.02, release: 0.25, min: 0.03, max: 0.3 } },
+        bind: { borderWidth: { source: 'sub', amount: 1, attack: 0.02, release: 0.25, min: 0.03, max: 0.3 } },
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75,
     }],
@@ -121,7 +130,7 @@ const OWN: readonly SceneDoc[] = [
       gen: {
         ref: 'isf/Truchet Tile',
         values: { color1: [1, 0.25, 0.7, 1], color2: [0.03, 0, 0.08, 1], lineMode: true },
-        bind: { tSize: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 0.06, max: 0.1 } }, // the maze breathes
+        bind: { tSize: { source: 'sub', amount: 1, attack: 0.02, release: 0.3, min: 0.06, max: 0.1 } }, // the maze breathes
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75,
     }],
@@ -133,8 +142,8 @@ const OWN: readonly SceneDoc[] = [
       gen: {
         ref: 'own/fractal',
         bind: {
-          fold: { source: 'bass', amount: 1, attack: 0.03, release: 0.3, min: 0.06, max: 0.32 }, // the sponge twists into crystal
-          glow: { source: 'onset', amount: 1, attack: 0, release: 0.25, min: 0.4, max: 2.5 },
+          fold: { source: 'reese', amount: 1, attack: 0.03, release: 0.3, min: 0.06, max: 0.32 }, // the sponge twists into crystal
+          glow: { source: 'kick', amount: 1, attack: 0, release: 0.25, min: 0, max: 2.5 }, // ⚡ from 0: at .4 the gate held it (S4.1)
         },
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
@@ -146,8 +155,8 @@ const OWN: readonly SceneDoc[] = [
       gen: {
         ref: 'own/wave-landscape',
         bind: {
-          height: { source: 'bass', amount: 1, attack: 0.03, release: 0.3, min: 0.5, max: 1.8 }, // the mountains lift on a kick
-          glow: { source: 'onset', amount: 1, attack: 0, release: 0.2, min: 0.8, max: 2.5 },
+          height: { source: 'kick', amount: 1, attack: 0.03, release: 0.3, min: 0.5, max: 1.8 }, // the mountains lift on a kick
+          glow: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 0, max: 2.5 }, // ⚡ from 0: a gated rest ≥ .5 freezes
         },
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
@@ -159,8 +168,8 @@ const OWN: readonly SceneDoc[] = [
       gen: {
         ref: 'own/sdf-shapes',
         bind: {
-          morph: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 0, max: 1 }, // cube → dodecahedron on a kick
-          burst: { source: 'onset', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 },
+          morph: { source: 'kick', amount: 1, attack: 0.02, release: 0.3, min: 0, max: 1 }, // cube → dodecahedron on a kick
+          burst: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 },
         },
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
@@ -170,14 +179,18 @@ const OWN: readonly SceneDoc[] = [
     v: 1, id: 'builtin:particles-over-tunnel', name: 'Particles over tunnel', star: true,
     layers: [
       { gen: { ref: 'native/tunnel' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 },
-      { gen: { ref: 'native/particles' }, fx: [], blend: 'add', opacity: 0.9, speed: 1, res: 0.5 },
+      { gen: { ref: 'native/particles', bind: PARTICLES }, fx: [], blend: 'add', opacity: 0.9, speed: 1, res: 0.5 },
     ],
   },
   {
     v: 1, id: 'builtin:trails-spectrum', name: 'Trails spectrum', star: true,
     layers: [{
       gen: { ref: 'native/spectrum' },
-      fx: [{ ref: 'isf/Long Exposure', values: { absorptionRate: 0.1, dischargeRate: 0.12 } }], // longer, softer trails
+      fx: [{
+        ref: 'isf/Long Exposure',
+        values: { absorptionRate: 0.1, dischargeRate: 0.12 }, // longer, softer trails
+        bind: { dischargeRate: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.12, max: 0.05 } }, // a build lengthens them (min > max inverts)
+      }],
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
@@ -209,11 +222,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       gen: {
         ref: 'own/tunnel-mesh',
         bind: {
-          twist: { source: 'bass', amount: 1, attack: 0.03, release: 0.35, min: 0.01, max: 0.1 },
-          flash: { source: 'onset', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 },
+          twist: { source: 'reese', amount: 1, attack: 0.03, release: 0.35, min: 0.01, max: 0.1 },
+          flash: { source: 'snare', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }, // ⚡ (tunnel-mesh's key)
         },
       },
-      fx: [{ ref: 'own/feedback-zoom', bind: { zoom: { source: 'onset', amount: 1, attack: 0, release: 0.2, min: 0.01, max: 0.06 } } }], // the trails punch out on a hit
+      fx: [{ ref: 'own/feedback-zoom', bind: { zoom: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0.01, max: 0.06 } } }], // the trails punch out on a hit
       blend: 'normal', opacity: 1, speed: 1, res: 0.75,
     }],
   },
@@ -223,7 +236,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       gen: { ref: 'native/tunnel' },
       fx: [
         { ref: 'isf/Sine Warp Tile', bind: { angle: { source: 'lfo', shape: 'saw', rate: 0.03, amount: 1, attack: 0, release: 0, min: 0, max: 1 } } },
-        { ref: 'own/echo', bind: { speed: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 2, max: 10 } } }, // the stream rushes on a kick
+        { ref: 'own/echo', bind: { speed: { source: 'kick', amount: 1, attack: 0.02, release: 0.3, min: 2, max: 10 } } }, // the stream rushes on a kick
       ],
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
@@ -234,14 +247,14 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       gen: {
         ref: 'isf/Truchet Tile',
         values: { color1: [0.03, 0, 0.08, 1], color2: [0.2, 0.9, 1, 1], lineMode: true }, // color2 is the line
-        bind: { tSize: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 0.06, max: 0.1 } },
+        bind: { tSize: { source: 'sub', amount: 1, attack: 0.02, release: 0.3, min: 0.06, max: 0.1 } },
       },
       fx: [
         {
           ref: 'isf/Kaleidoscope Tile',
           bind: {
             rotation: { source: 'lfo', shape: 'saw', rate: 0.05, amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // one turn per 20 s
-            angle: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 0, max: 0.08 },
+            angle: { source: 'kick', amount: 1, attack: 0.02, release: 0.3, min: 0, max: 0.08 },
           },
         },
         { ref: 'isf/Comet Tails', values: { dischargeRate: 0.08 } },
@@ -259,8 +272,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
           ref: 'isf/Circular Feedback Mask',
           values: { maskRadius: 0.22, fadeRate: 0.6 },
           bind: {
-            twirlAmount: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 0.01, max: 0.08 }, // the rings spiral on a kick
-            feedbackRate: { source: 'onset', amount: 1, attack: 0, release: 0.2, min: 3, max: 10 },
+            twirlAmount: { source: 'kick', amount: 1, attack: 0.02, release: 0.3, min: 0.01, max: 0.08 }, // the rings spiral on a kick
+            feedbackRate: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 3, max: 10 },
           },
         },
       ],
@@ -271,38 +284,38 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:rainbow-trails', name: 'Rainbow trails', star: true,
     layers: [{
       gen: { ref: 'native/spectrum' },
-      fx: [{ ref: 'own/trails', bind: { rise: { source: 'bass', amount: 1, attack: 0.02, release: 0.3, min: 1, max: 8 } } }], // kicks blow the trails up
+      fx: [{ ref: 'own/trails', bind: { rise: { source: 'kick', amount: 1, attack: 0.02, release: 0.3, min: 1, max: 8 } } }], // kicks blow the trails up
       blend: 'normal', opacity: 1, speed: 1, res: 0.5,
     }],
   },
   // Liquids / metal (S4.3): procedural, plus feedback advection (smoke), no Navier–Stokes (design E8). The noise-heavy
-  // generators run at res 0.5–0.75; the bindings repeat each file's VJW_BIND suggestion.
+  // generators run at res 0.5–0.75.
   {
     v: 1, id: 'builtin:liquid-chrome', name: 'Liquid chrome', star: true,
     layers: [{
-      gen: { ref: 'own/liquid-chrome', bind: { burst: { source: 'onset', amount: 1, attack: 0, release: 0.35, min: 0, max: 1 } } }, // a drop on every hit
+      gen: { ref: 'own/liquid-chrome', bind: { burst: { source: 'kick', amount: 1, attack: 0, release: 0.35, min: 0, max: 1 } } }, // a drop on every kick
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75,
     }],
   },
   {
     v: 1, id: 'builtin:fluid', name: 'Fluid', star: true,
     layers: [{
-      gen: { ref: 'own/domain-warp', bind: { warp: { source: 'bass', amount: 1, attack: 0.05, release: 0.4, min: 1, max: 2.2 } } }, // folds deeper on bass
+      gen: { ref: 'own/domain-warp', bind: { warp: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 1, max: 2.2 } } }, // folds deeper on bass
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
     }],
   },
   {
     v: 1, id: 'builtin:lava-smoke', name: 'Lava smoke', star: true,
     layers: [{
-      gen: { ref: 'own/metaballs', bind: { size: { source: 'bass', amount: 1, attack: 0.03, release: 0.3, min: 0.9, max: 1.3 } } },
-      fx: [{ ref: 'own/smoke', bind: { curl: { source: 'bass', amount: 1, attack: 0.05, release: 0.5, min: 0.2, max: 0.7 } } }], // the blobs steam
+      gen: { ref: 'own/metaballs', bind: { size: { source: 'sub', amount: 1, attack: 0.03, release: 0.3, min: 0.9, max: 1.3 } } },
+      fx: [{ ref: 'own/smoke', bind: { curl: { source: 'reese', amount: 1, attack: 0.05, release: 0.5, min: 0.2, max: 0.7 } } }], // the blobs steam
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
   {
     v: 1, id: 'builtin:ink', name: 'Ink', star: true,
     layers: [{
-      gen: { ref: 'own/ink', bind: { spread: { source: 'bass', amount: 1, attack: 0.05, release: 0.5, min: 0.4, max: 0.75 } } }, // the clouds swell
+      gen: { ref: 'own/ink', bind: { spread: { source: 'sub', amount: 1, attack: 0.05, release: 0.5, min: 0.4, max: 0.75 } } }, // the clouds swell
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
     }],
   },

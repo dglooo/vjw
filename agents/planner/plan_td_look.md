@@ -398,10 +398,25 @@ Depends on: S3.1. **Files:** `points.ts`, `points.test.ts`, `catalog.ts` + `buil
 
 ### CP4 — the rebind pass
 
-### S4.1 [ ] [S] the rebind pass + 3 `VJW_FLASH` keys
+### S4.1 [x] [S] the rebind pass + 3 `VJW_FLASH` keys
 Depends on: S1.1 (the key); CP3 closed (order). **Files:** `web/src/scenes/builtin.ts`, `web/src/fx/own/tunnel-mesh.fs` (`"VJW_FLASH": ["flash"]`), `fractal.fs` (`["glow"]`), `wave-landscape.fs` (`["glow"]`, after re-ranging its `glow` binding so min = 0, fact 6). Four files, three are one-liners.
 **Behaviour:** apply the CP4 table (design L81–105) row by row, by scene id; attack/release and ranges stay unless the row gives them; `trails-spectrum` `dischargeRate ← build 1/2 .12→.05` uses S1.4's G3 result; milk-* untouched. Net: kick 14, snare 5, sub 6, `bass` 8, build 3, hats 1, beat 1, lfo 2, onset 0, treb 0.
 **Tests:** the existing builtin doc round-trip; add: no own scene binds `onset` or `treb`; every scene binding source ∈ `SOURCE_IDS`; the three keyed files parse with `flash`. **Done:** gates; `?debug` on both fixtures: kick-class params jump on kicks only, the three ⚡ scenes ≤3/s; no bench (bindings only).
+**Changed during implementation:**
+- The bass class binds `reese` (ruling L420–452). Net tally on the 23 pre-TD own scenes: kick 14, snare 5, sub 6, reese 8, build 3, hats 1, beat 1, lfo 2; bass, onset and treb 0 (pinned in `doc.test.ts`).
+- Ranges the rows left open: particles in both scenes share a `PARTICLES` binding set (like `BLOOM`); VHS Chromatic Aberration `amount ← hats` runs .02→.04 (rest = the file's default).
+- **fractal `glow` was re-ranged to min 0**, in the scene and in `fractal.fs` VJW_BIND. At .4, the gated glow stayed ≥ .5 between kicks: 2 flashes in 20 s on DnB, r(kick) −.11. At 0: 8/8 jumps on kicks, r .71.
+- wave-landscape `glow` min 0 also went into its file's VJW_BIND. `edit.ts` copies VJW_BIND into new nodes, and the key would freeze .8.
+- New guard (`isf.test.ts`): every keyed input binds from 0, in its file and in the built-ins.
+- `scripts/shaders.mjs` gained one `INLINE` row so flow-smear's MIT port shows in the own table, which is now 23.
+- Trace (`scratchpad/td/s4.1/`): on DnB, the 9 scenes' kick params jump only on kicks. On Dubstep they do not. Details below.
+  - DnB: 0 stray jumps in the groove; r(kick) .78–.92, r(reese) ≤ 0.
+  - ⚡ allowed ≤3 per 1 s on both fixtures.
+  - ⚠️ **Dubstep fails "kicks only":** the `kick` source itself sits at p50 .659 (median age ≈ 50 ms) through the whole of `dubstep140-arr` and through DnB's build.
+    - The kick band detector fires on the wobble (≈5/s) and on the riser. S3.2's log shows the same, so this predates S4.1.
+    - Every kick binding idles at 40–65 % of its range there and pulses with the wobble. This includes the TD scenes.
+    - Fractal's gated glow holds (0 flashes).
+    - Wave-landscape at glow 0 loses its neon grid between snares (`s4.1/dnb-wave-landscape-rest.png`). A 0-rest `flash` input of its own would keep the grid.
 
 **CP4 close (lead):** reaction check over the 9 formerly "on a kick" scenes (fact 8) on both fixtures; the same 60 s autopilot run again (20+ scenes changed bindings): 0 late, 1.00×; commit; STATE queue → 2b editor.
 

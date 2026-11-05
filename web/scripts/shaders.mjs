@@ -9,6 +9,7 @@ const INLINE = [
   [/Copyright \(C\) 2011 Ashima Arts/, 'webgl-noise snoise (Ian McEwan, Ashima Arts)', 'https://github.com/ashima/webgl-noise', 'MIT (webgl-noise)'],
   [/Copyright \(c\) 2016 Stefan Gustavson/, 'webgl-noise srdnoise (Stefan Gustavson)', 'https://github.com/stegu/webgl-noise', 'MIT (webgl-noise)'],
   [/SPDX-License-Identifier: MIT OR CC-BY-NC-4\.0/, 'hg_sdf (Mercury)', 'https://mercury.sexy/hg_sdf/hg_sdf.glsl', 'MIT (hg_sdf, its MIT option)'],
+  [/github\.com\/v002\/v002-Optical-Flow/, 'Optical Flow Generator (VIDVOX / v002 / Andrew Benson)', 'https://github.com/Vidvox/ISF-Files', 'MIT (ISF-Files)'],
 ]
 
 for (const dir of ['isf', 'own', 'transitions']) {

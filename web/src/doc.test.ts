@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import type { Binding } from './bind'
-import { defaults, parseLibrary, parseScene } from './doc'
+import { SOURCE_IDS, type Binding } from './bind'
+import { defaults, parseLibrary, parseScene, type SceneDoc } from './doc'
 import type { EffectDef } from './fx/types'
 import { BUILTIN } from './scenes/builtin'
 
@@ -13,6 +13,16 @@ describe('parseScene', () => {
   test('every built-in round-trips through JSON', () => {
     expect(BUILTIN.length).toBeGreaterThan(0)
     for (const d of BUILTIN) expect(parseScene(JSON.parse(JSON.stringify(d)))).toStrictEqual(d)
+  })
+
+  test('built-in bindings (design_td_look.md policy, S4.1): known sources, no onset/treb in own scenes, the CP4 tally', () => {
+    const sources = (d: SceneDoc) => d.layers.flatMap((l) => [l.bind, l.gen.bind, ...l.fx.map((n) => n.bind)]).flatMap((b) => Object.values(b ?? {})).map((b) => b!.source)
+    for (const d of BUILTIN) for (const s of sources(d)) expect(SOURCE_IDS, d.id).toContain(s)
+    const own = BUILTIN.filter((d) => !d.id.startsWith('builtin:milk-'))
+    for (const d of own) expect(sources(d).filter((s) => s === 'onset' || s === 'treb'), d.id).toEqual([])
+    const tally: Record<string, number> = {} // the own scenes before the TD look's, which were bound by the policy from the start
+    for (const s of own.slice(0, own.findIndex((d) => d.id === 'builtin:td-feedback')).flatMap(sources)) tally[s] = (tally[s] ?? 0) + 1
+    expect(tally).toEqual({ kick: 14, snare: 5, sub: 6, reese: 8, build: 3, hats: 1, beat: 1, lfo: 2 }) // bass, onset, treb: 0
   })
 
   test('every built-in ref is a native or a file under fx/isf or fx/own', () => {
