@@ -4,15 +4,15 @@
 
 ## HEAD
 
-**Updated:** 2026-11-06 01:0x (session 10; S4.3 + wave-2 designer ⏸ paused on user request, progress saved)
-**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP4: S4.3 ⏸ paused, progress saved)**. 415 tests.
+**Updated:** 2026-11-06 (session 10; both agents resumed after the pause)
+**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP4: S4.3 + wave-2 designer running)**. 415 tests.
 **Specs:** `thoughts/spec_veejay_wizard.md` + `spec_effects`, `spec_audio_reactivity`, `spec_td_look`, `spec_effect_editor`, `spec_camera`. **Team:** planner Fable 5.1 max; others Opus 5.5 max; researcher high.
 
 ### Where we stopped
 - **2b editor** (`plan_effect_editor.md`, Variant B): CP1 code ✅ (lead close-out pending); CP2 ✅; **CP3 ✅ closed (lead, 2026-11-05)**.
   - S3.4 ✅ (merge after `c56b682`): `tiles.hover` runs the hovered tile live (≈19 stills/s); on leave its last frame stays as the still; milk waits; Save re-bakes from the stored doc (new import cycle live↔tiles, call-time only). 411 tests.
   - CP3 run: 4 late = the mount + 3 × 33 ms. A/B (bake only 3, no bake 2) says environment, on a loaded machine. Re-run quiet at the 2b close-out.
-- **CP4:** S4.1 ✅ `own/bars.fs` (merge after `901bdc6`; line/circle/mirror/wave; r glow↔kick .92, hue↔snare .84, thickness↔sub .99/.88, smoothing↔build .90; bars+flash p95 2.65 ms; donor VIDVOX lines noted for S4.4). 413 tests. S4.2 ✅ Pixellate kick bind + `own/mosaic.fs` (Voronoi sq/hex/tri/diamond, 2 passes; r cell↔kick .89, jitter↔reese .96/.91, outline↔hats .90; tri+flash p95 4.56 ms). 415 tests. **⏸ S4.3 paused by the user, progress saved:** worktree `agent-ae013c0256252d053` (branch same name), WIP commit `a5a68ed` = `own/led-grid.fs` + `ASCII Art.fs` port + `isf.test.ts` (gates and the browser checks NOT yet run). Resume: SendMessage → `ae013c0256252d053`. G3 lead ruling: the donor names no Shadertoy licence → record CC BY-NC-SA 3.0, ⚠️ for any release; port anyway, personal use.
+- **CP4:** S4.1 ✅ `own/bars.fs` (merge after `901bdc6`; line/circle/mirror/wave; r glow↔kick .92, hue↔snare .84, thickness↔sub .99/.88, smoothing↔build .90; bars+flash p95 2.65 ms; donor VIDVOX lines noted for S4.4). 413 tests. S4.2 ✅ Pixellate kick bind + `own/mosaic.fs` (Voronoi sq/hex/tri/diamond, 2 passes; r cell↔kick .89, jitter↔reese .96/.91, outline↔hats .90; tri+flash p95 4.56 ms). 415 tests. **S4.3 running** (resumed via SendMessage from WIP `a5a68ed` in worktree `agent-ae013c0256252d053`: `own/led-grid.fs` + `ASCII Art.fs` port + `isf.test.ts` written; gates, GPU A/B and the browser checks still to run). G3 lead ruling: the donor names no Shadertoy licence → record CC BY-NC-SA 3.0, ⚠️ for any release; port anyway, personal use.
 - Then the 2b close-out: CP1 lead close-out + a quiet-machine CP3/CP4 run.
 
 ### Queue (user order 2026-11-05)
@@ -20,7 +20,7 @@
 2. **Stage 3 camera** (`plan_camera.md`, Variant B): pure web, Chrome on Mac + Windows, no native helpers.
    - Coders: CP0 S0.1–S0.5 on synthetic input + a webcam. S1.5 is model-free and may go earlier.
    - R0 and the USER steps wait for the user, who is on vacation until he is back in Stockholm.
-3. **TD wave 2 (Stage 2e)**, the rest of the dump (user 2026-11-06 asked for "all remaining shaders"): lead spec `thoughts/spec_td_wave2.md` (top-10 + quick wins q1–q11 + blends/stereo wave/plexus; meshes, splats, explode deferred). system-designer ⏸ paused 2026-11-06 with a 146-line draft `agents/system-designer/design_td_wave2.md` on disk (facts, per-item mapping, engine contracts, variants A+B started; ends mid-variant-B, no decision section). Resume: SendMessage → `a54636c653a41dd8b` → lead pick → planner. Lead order: coders on wave 2 fill the camera wait (camera CP0 S0.1–S0.5 + S1.5 first after 2b, then wave 2 while R0 waits for the user).
+3. **TD wave 2 (Stage 2e)**, the rest of the dump (user 2026-11-06 asked for "all remaining shaders"): lead spec `thoughts/spec_td_wave2.md` (top-10 + quick wins q1–q11 + blends/stereo wave/plexus; meshes, splats, explode deferred). system-designer running (resumed): its report claimed the draft complete (249 lines) but the file on disk was 146 lines, ending mid-variant-B — ordered to finish variant B + variant C + the decision section and verify `wc -l` (report recommends A; C is the fallback if B's plexus neighbour search fails the cost check) → lead verifies on disk, picks, commits → planner. Lead order: coders on wave 2 fill the camera wait (camera CP0 S0.1–S0.5 + S1.5 first after 2b, then wave 2 while R0 waits for the user).
 4. Deferred audio:
    - classifier lateness (Kanine dnb@162; Bicep flips to techno @199);
    - Rumble growl snares (`floors.tilt`);
