@@ -37,8 +37,8 @@ test('the C3 table: bands, auto-style maps and classifier prototypes', () => {
   for (const id of ['default', 'dnb', 'techno'] as const) expect(PRESETS[id].bands, id).toEqual(BASE)
   expect(PRESETS.dubstep.bands).toEqual({ ...BASE, reese: [70, 350] }) // only dubstep's reese is wider
   expect(PRESETS.default.map).toEqual({})
-  expect(PRESETS.dnb.map).toEqual({ bass: 'reese', onset: 'kick', treb: 'hats' })
-  expect(PRESETS.dubstep.map).toEqual({ bass: 'wobble', onset: 'snare', treb: 'hats' })
+  expect(PRESETS.dnb.map).toEqual({ onset: 'kick', treb: 'hats' }) // the bass class binds reese (design ruling 2026-11-05)
+  expect(PRESETS.dubstep.map).toEqual({ reese: 'wobble', onset: 'snare', treb: 'hats' })
   expect(PRESETS.techno.map).toEqual({ onset: 'kick', treb: 'hats' })
   expect(PRESETS.default.proto).toBeUndefined()
   expect(PRESETS.dnb.proto?.kickPerBeat).toBe(0.5)

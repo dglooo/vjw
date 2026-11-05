@@ -24,8 +24,8 @@
         {}
     ],
     "VJW_BIND": {
-        "seed": { "source": "sub", "amount": 1, "attack": 0.02, "release": 0.25, "min": -1.8, "max": 2.486 },
-        "kill": { "source": "bass", "amount": 1, "attack": 0.1, "release": 0.6, "min": 0.062, "max": 0.064 },
+        "seed": { "source": "sub", "amount": 1, "attack": 0.02, "release": 0.25, "min": 0, "max": 0.6 },
+        "kill": { "source": "reese", "amount": 1, "attack": 0.1, "release": 0.6, "min": 0.062, "max": 0.064 },
         "feed": { "source": "build", "amount": 1, "attack": 2, "release": 2, "min": 0.0545, "max": 0.04 },
         "palette": { "source": "snare", "amount": 1, "attack": 0, "release": 0.3, "min": 0, "max": 0.15 },
         "reset": { "source": "drop", "amount": 1, "attack": 0, "release": 1.5, "min": 0, "max": 1 }

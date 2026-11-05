@@ -23,7 +23,7 @@
         "zoom": { "source": "kick", "amount": 1, "attack": 0, "release": 0.25, "min": 1.012, "max": 1.035 },
         "hueStep": { "source": "snare", "amount": 1, "attack": 0, "release": 0.3, "min": 5, "max": 15 },
         "edge": { "source": "hats", "amount": 1, "attack": 0, "release": 0.1, "min": 0.25, "max": 0.6 },
-        "displace": { "source": "bass", "amount": 1, "attack": 0.05, "release": 0.4, "min": 0.006, "max": 0.025 },
+        "displace": { "source": "reese", "amount": 1, "attack": 0.05, "release": 0.4, "min": 0.006, "max": 0.025 },
         "fade": { "source": "build", "amount": 1, "attack": 1, "release": 2, "min": 0.95, "max": 0.98 },
         "reset": { "source": "drop", "amount": 1, "attack": 0, "release": 1.5, "min": 0, "max": 1 }
     }

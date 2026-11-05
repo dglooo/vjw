@@ -241,9 +241,22 @@ Depends on: S1.8, S1.4 (G3 result). **Files:** `web/src/fx/own/reaction-diffusio
 - Reaction per coder traces (S1.2–S1.9): drums r .83–.91; reese/wobble r .52–.62.
 - ⚠️ Open: relative `sub`/`bass` barely swing (ruling requested of the designer). Build/drop bindings are unexercised: no fixture has them.
 
-### S1.10 [ ] [S] relative band sources → rest at 0 (design § Ruling 2026-11-05); arrangement fixtures
+### S1.10 [x] [S] relative band sources → rest at 0 (design § Ruling 2026-11-05); arrangement fixtures
 **Added by the lead 2026-11-05** (design ruling, lead pick). Runs after S2.1 and before S2.2. Depends on: CP1. **Files:** `web/src/audio/features.ts` (`sub`, `reese` → `max(0, r − 1)` like `wobble`), `web/src/audio/presets.ts` (DnB drops `bass: 'reese'`; Dubstep `bass: 'wobble'` → `reese: 'wobble'`), `web/src/scenes/builtin.ts` (S1.2 displace, S1.3 edge, S1.5 twirl, S1.7 force, S1.9 kill `bass` → `reese`, ranges kept; S1.9 seed back to the plan's 0→.6; S1.3 gain and S1.5 radius unchanged), plus the matching `VJW_BIND` defaults in those `.fs` files, `features.test.ts`, `settings.test.ts`, `web/scripts/make-fx.mjs` (`arrangement()` fixtures with a build and a drop; Dubstep mixes in the existing `wobble()` stem).
 **Done:** gates. New fixtures written to `scratchpad/fx_audio/`. Trace on them: sub/reese/wobble rest ≈0 and swing on the bass; build/drop fire; RD seed, td-feedback displace and edge-rings gain visibly move. No-regression A/B on two scenes.
+**Changed during implementation:**
+- Fixtures reuse synth.ts's existing `arrangement()` (S5.1): 16 groove bars, then an 8-bar breakdown (riser + snare roll), the drop, then 8 bars. `make-fx.mjs` writes `<genre><bpm>-arr.wav`. Dubstep adds `wobble()`, gated off over the breakdown with the same 5 ms edges. Both mixes peak over .99 and are scaled to .99; the ratio sources don't care about level.
+  - DnB: 45.6 s, build 23.07 s, drop 34.10 s. Dubstep: 56.4 s, build 28.43 s, drop 42.14 s.
+  - Generated through a throwaway Vitest that imports the script (Node 20 has no strip-types). The two old fixtures come out byte-identical.
+- `features.test.ts`:
+  - The ÷2 test now pins rest 0. The kick-hold test expects 0.
+  - The sens test steps sub/reese ×2 so they read ≈.44, because a steady bed now reads 0.
+  - The fixture bed test checks p50 <.1 and max <.2. The kick/gain tolerances are doubled, which is the same ratio tolerance as before.
+  - New test: a bed returning after a gap reads ≥.9, then decays.
+- edge-rings `gain` and light-tunnel `radius` are not widened. On the arr fixtures they swing their full range at the drop (1.030→1.080, .30→.60); body p50/p90 1.044/1.071 and .38/.53. They sit flat at rest on a steady bed, by design.
+- **Found, not fixed (outside this step's files):**
+  - (1) In the app the drop fires only on a coin flip with the DnB fixture: 1 of 5 runs; Dubstep fired 2 of 2. features.ts `HOLD` (0.2 s) delays `low`'s rise past arrange.ts `near` (0.2 s). `acceptance.test.ts` feeds bands.ts `held` directly, so it passes.
+  - (2) RD is black at rest. With seed 0→.6 and sub resting at 0, a steady bed grows no coral: luma 0 until the first sub swell (34 s DnB, 43 s Dubstep), and seed ≤.18 doesn't nucleate. S1.9's rest ≈.3 did. Once grown, kill .062 at rest holds with no flood (coverage .34→.61, stdB ≈.13, 0 NaN over 52 s).
 
 ### CP2 — Track B(a): native filters + the history ring
 

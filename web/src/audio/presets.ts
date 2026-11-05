@@ -29,7 +29,7 @@ export const PRESETS: Readonly<Record<PresetId, Preset>> = {
     bpm: [160, 185],
     bands: { ...BANDS },
     sens: {},
-    map: { bass: 'reese', onset: 'kick', treb: 'hats' },
+    map: { onset: 'kick', treb: 'hats' },
     proto: { kickPerBeat: 0.5, hatsPerBeat: 2, wobble: 0.25, bass: 0.7 },
   },
   dubstep: {
@@ -37,7 +37,7 @@ export const PRESETS: Readonly<Record<PresetId, Preset>> = {
     bpm: [135, 150],
     bands: { ...BANDS, reese: [70, 350] },
     sens: {},
-    map: { bass: 'wobble', onset: 'snare', treb: 'hats' },
+    map: { reese: 'wobble', onset: 'snare', treb: 'hats' }, // the bass class binds reese (design ruling 2026-11-05)
     proto: { kickPerBeat: 0.35, hatsPerBeat: 1, wobble: 0.8, bass: 0.7 },
   },
   techno: {

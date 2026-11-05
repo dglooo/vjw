@@ -18,7 +18,7 @@
         {}
     ],
     "VJW_BIND": {
-        "force": { "source": "bass", "amount": 1, "attack": 0.05, "release": 0.3, "min": 0.5, "max": 3 },
+        "force": { "source": "reese", "amount": 1, "attack": 0.05, "release": 0.3, "min": 0.5, "max": 3 },
         "decay": { "source": "build", "amount": 1, "attack": 1, "release": 2, "min": 0.92, "max": 0.97 },
         "tint": { "source": "hats", "amount": 1, "attack": 0, "release": 0.12, "min": 0, "max": 0.35 }
     }
