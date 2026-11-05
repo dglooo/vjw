@@ -2,6 +2,7 @@
 // that fails to parse is logged and skipped, so one bad file never breaks the show.
 import { milkdrop } from '../milkdrop/native'
 import { glitch } from '../scenes/glitch'
+import { rgbaDelay } from '../scenes/history'
 import { particles } from '../scenes/particles'
 import { spectrum } from '../scenes/spectrum'
 import type { NodeDoc } from '../doc'
@@ -12,7 +13,7 @@ import type { EffectDef, ShaderDef } from './types'
 
 const files = import.meta.glob(['./isf/*.fs', './own/*.fs'], { query: '?raw', import: 'default', eager: true })
 
-export const catalog = new Map<string, EffectDef>([tunnel, spectrum, particles, glitch, ...milkdrop].map((d) => [d.id, d] as const))
+export const catalog = new Map<string, EffectDef>([tunnel, spectrum, particles, glitch, rgbaDelay, ...milkdrop].map((d) => [d.id, d] as const))
 for (const [path, src] of Object.entries(files)) {
   const id = path.slice('./'.length, -'.fs'.length) // isf/<stem> or own/<stem>
   try {

@@ -400,6 +400,20 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 0.5, // the spectrum at ½ (RD itself runs at ½ and colours at full size)
     }],
   },
+  {
+    v: 1, id: 'builtin:rgba-delay', name: 'RGBA delay', star: true,
+    layers: [{
+      gen: { ref: 'native/tunnel' }, // its rings move everywhere, so every edge fringes
+      fx: [{
+        ref: 'native/rgba-delay', // the def's bind (scenes/history.ts), repeated: built-ins stay JSON literals
+        bind: {
+          spread: { source: 'reese', amount: 1, attack: 0.05, release: 0.3, min: 1, max: 12 }, // Auto-style's one: the split widens
+          rotate: { source: 'snare', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // a snare cycles the channel order
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
