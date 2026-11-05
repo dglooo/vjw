@@ -4,7 +4,7 @@
 
 ## HEAD
 
-**Updated:** 2026-11-05 12:3x (session 8; bot restart for the hook fix)
+**Updated:** 2026-11-05 13:5x (session 8, Telegram; hook fixed, real-track audit running)
 **Stage:** pilot ✅ → `effects` ✅ → `audio-reactivity` ✅ → `milkdrop` ✅ → **`2d TD look` ✅ (plan_td_look.md, 18 steps, CP1–CP4; 11 new scenes + rebind of 23)**; polish §3 §5 §6 §7 ✅. 349 tests.
 **Spec:** `thoughts/spec_veejay_wizard.md` + `spec_effects.md` + `spec_audio_reactivity.md`. **Team:** `planner` Fable 5.1 max; others Opus 5.5 max; `researcher` high.
 
@@ -68,8 +68,8 @@
       - Residual: 3–4 beat-1 flashes per snare-bound param in a 23 s Dubstep window. The kick's 3 kHz click posts 1–2 hops before a weak kick, and a constant can't split it from Techno claps without a fixture-tuned margin. Lead: don't tune on the fixture; re-check on real tracks in the audit.
       - Snare rolls 0/32 (pre-existing): left for the audit too.
     - **Bot restart (user asked, 12:3x):** the claude-tg hook fix `8684ac0` goes live when the lead restarts the bot detached (new copy after 25 s; single.py stops the old one, which ends this Telegram session).
-      - Restart 1 (12:30) went live, but launches were still denied. The CLI strips the unoffered `run_in_background` *before* PreToolUse, so the hook saw it absent. Second fix: claude-tg `1c7350e` (absent passes; only an explicit false is denied, and logged). **Restart 2 pending:** wait for `avadge-web` idle (subscribed).
-      - **Exact next step after the restart:** a tiny test Agent launch, to confirm the hook passes. Then the real-track audit (a coder step; tracks in `tracks/`), then 2b S1.3.
+      - Restart 1 (12:30) went live, but launches were still denied. The CLI strips the unoffered `run_in_background` *before* PreToolUse, so the hook saw it absent. Second fix: claude-tg `1c7350e` (absent passes; only an explicit false is denied, and logged). Restart 2 at 13:51 (avadge-web idle): **the hook passes. Agent launches work from Telegram** (verified 13:58).
+      - **Running:** `frontend-coder` real-track audit, measure only → `agents/research/_adhoc/real_tracks_2026-11-05.md`. Next: lead picks the tuning set → a tuning coder step → 2b S1.3.
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
