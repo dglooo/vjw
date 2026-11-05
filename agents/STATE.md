@@ -5,17 +5,15 @@
 ## HEAD
 
 **Updated:** 2026-11-05 23:15 (session 9; the bot reader crash blocked S3.4)
-**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP3, S3.4 next)**. 409 tests.
+**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP4, S4.1 next)**. 411 tests.
 **Specs:** `thoughts/spec_veejay_wizard.md` + `spec_effects`, `spec_audio_reactivity`, `spec_td_look`, `spec_effect_editor`, `spec_camera`. **Team:** planner Fable 5.1 max; others Opus 5.5 max; researcher high.
 
 ### Where we stopped
-- **2b editor** (`plan_effect_editor.md`, Variant B): CP1 code ✅ (lead close-out pending); CP2 ✅ (demo 16/16, 0/4563 late).
-  - CP3 S3.1–S3.3 ✅: library grid (135 blocks), `live.tile()`, bake queue + async readback (G1 .4 ms CPU per tile; G2 28.2 s, 31.1 MB; G4 tunnel REF).
-- ⚠️ **S3.4 is NOT running.** Its 2026-11-05 dispatch failed: at 22:32 a full-size screenshot Read (a message over 1 MB) killed the claude-tg reader, so every Agent hook timed out.
-  - Bot fix `95c4eb4` (64 MB buffer + disconnect on crash) is live only after the user restarts `tgbot`. Until then, downscale images (`sips -Z 1200`) before Read.
-- **Exact next step: S3.4.** Live hovered tile at 20 fps, last frame → still, re-bake on save.
-  - Also the CP3 close-out 60 s run (live tile on `builtin:rgba-delay`, then `builtin:swarm`; sheet `ed/cp3-sheet.png`), then the lead closes CP3.
-  - Then CP4 S4.1–S4.4: bars, Pixellate + mosaic, led-grid + ASCII (G3), 3 built-ins + THIRD_PARTY; 60 s run on both arr fixtures.
+- **2b editor** (`plan_effect_editor.md`, Variant B): CP1 code ✅ (lead close-out pending); CP2 ✅; **CP3 ✅ closed (lead, 2026-11-05)**.
+  - S3.4 ✅ (merge after `c56b682`): `tiles.hover` runs the hovered tile live (≈19 stills/s); on leave its last frame stays as the still; milk waits; Save re-bakes from the stored doc (new import cycle live↔tiles, call-time only). 411 tests.
+  - CP3 run: 4 late = the mount + 3 × 33 ms. A/B (bake only 3, no bake 2) says environment, on a loaded machine. Re-run quiet at the 2b close-out.
+- **Exact next step: CP4 S4.1** `own/bars.fs` (then S4.2 Pixellate + mosaic, S4.3 led-grid + ASCII (G3), S4.4 3 built-ins + THIRD_PARTY + sheet + 60 s runs).
+- Then the 2b close-out: CP1 lead close-out + a quiet-machine CP3/CP4 run.
 
 ### Queue (user order 2026-11-05)
 1. Finish 2b.
