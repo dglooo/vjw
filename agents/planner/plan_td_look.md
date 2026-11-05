@@ -161,10 +161,34 @@ Depends on: S1.5. **Files:** `web/src/fx/own/radial-blur.fs`, `builtin.ts`, `isf
   radial-blur's own cost ≈ 1.0 ms (trio + flash − lt + flash). The whole trio, billed, ≈ 3.2 / 3.4.
 - **Harness trap:** restart the dev server after any source edit, not only `.fs`. After a `builtin.ts` edit the harness's `import('/src/app.ts')` became a second, silent app (likely HMR-stamped module URLs), and the first scene run traced zeros. A restart fixed it.
 
-### S1.7 [ ] [M] `own/flow-smear.fs` + `builtin:flow-smear`
+### S1.7 [x] [M] `own/flow-smear.fs` + `builtin:flow-smear`
 Depends on: S1.2 (test list). **Files:** `web/src/fx/own/flow-smear.fs`, `builtin.ts`, `isf.test.ts`.
 **Look:** `opticalFlow` TOP math, rewritten. **Donor authorised (optional):** `donor/ISF-Files/ISF/Optical Flow Generator.fs` (MIT): its flow-estimation block may be adapted; keep its licence header inside ours. Passes: P0 `flow` PERSISTENT FLOAT ⅛: luma of `inputImage` in .r, flow in .gb against last frame's .r (fact 1: a persistent pass reads its own last frame), `flow = −It·∇I / (|∇I|² + ε)`; P1 `smear` PERSISTENT FLOAT ½: `smear(uv − flow·force)·decay + src·hueRotate(tint)`; P2 out: screen(src, smear). Distinct TARGET names, so S1.8 isn't needed. ≈9.2 MB.
 **Inputs:** force ← bass .05/.3 .5→3 · decay ← build 1/2 .85→.96 · tint ← hats 0/.12 0→.35 (hue rotation only, never brightness, D2 rule 2). **Scene:** tunnel → flow-smear. **Done:** gates; bench (D5 ≈2.2); screenshot; trace (smear length on reese/wobble, decay on build).
+**Changed during implementation:** harness `scratchpad/td/flow-smear.mjs` (`gen`: generator comparison; `scene`: trace + 30 s luma; `ab`: + same-session A/B). Shots `scratchpad/td/flow-smear.png` and `s1.7/` (v1–v7, `scene-*`). The donor's flow block is adapted with its MIT notice inside the file.
+- **Flow = the donor's / TD's bounded form**, `−It·∇I / sqrt(|∇I|² + λ)` (λ .1, offset 3 texels at ⅛), not `/(|∇I|² + ε)`, which blows up on weak gradients. Luma is an 8×8 box (16 taps, TD's preshrink).
+- **Passes:** P0 `flow` ⅛ = (luma now, luma last frame, wake .ba). It reads only its own last frame, so the flow is one frame late (invisible) and the 16-tap box runs once. P1 `smear` ½, P2 out. ≈8.2 MB.
+- **A wake, not the raw flow.** Raw flow lives only within the 3-texel offset of a moving edge, so a trail pushed by it stalls in a few px (v1–v3: ghosting, then moiré copies). The wake (`flow + .9·tent(last wake)`) keeps the trail flowing where the motion passed. The push is `W/(|W| + .1)·force·6` half-size px per frame (a knee: slow motion still streaks, fast motion can't tear). It is the max of 4 taps along it, so a bright point grows into a segment, with no gaps.
+- **The trail streams back along the motion** (sample at uv + push). The plan's `uv − flow` (TD's direction) only hugged the moving edge (v7). The seed is gated by the wake (`smoothstep(.05, .25, |W|)`): a `|ΔL|` gate seeded only edges. The seed is `.8·hue(src, tint·2π)`, so tint is in turns, and the trail is kept by `max`, not added: no white-out by construction.
+- **Out = lighten** `max(src, smear)`, not screen: screen brightened everything that moves into a pastel wash (v1–v2).
+- **decay .85→.96 → .92→.97:** at .85 the trail falls to ⅓ in 5 frames and reads as a smudge (v4–v5).
+- **Generator `native/spectrum`, not the tunnel** (`s1.7/v2`–`v6-gen-*`). The tunnel moves everywhere: |ΔL| and the wake saturate over the whole frame (debug view), so all of it seeds and washes out. On the spectrum each bar moves on its own, and the falling tops leave tinted plumes with upward striations. SDF shapes, flythrough, worley, truchet, glitch and particles read as weak smudges, static, mush or too costly.
+- **Layer `res` .5** (S1.4's lever). At res 1 the scene billed p95 6.23 ms, and fs alone ≈3.0. A probe with P1 reduced to a copy and P0 to 1 tap still billed ≈2.4: structural, not shader work. It is the S1.4 timer anomaly, for the lead. At res .5 fs bills ≈.7.
+- **Bench** 1728×1118, scale 1, same session, med / p95 ms (dnb174 3 rounds × 4 s, dubstep140 2 × 4 s):
+
+  | Config | dnb174 | dubstep140 |
+  |---|---|---|
+  | scene [fs] | 3.07 / 3.41 | 3.09 / 3.39 |
+  | fs + flash | 3.33 / 3.66 | 3.44 / 3.70 |
+  | flash | 2.61 / 2.97 | 2.73 / 2.99 |
+  | spectrum ½ alone | 1.98 / 2.20 | 1.99 / 2.25 |
+
+  The final code's 30 s trace: p95 3.35 (dnb174). fs's own cost ≈ .72 / .71 (fs + flash − flash).
+- **Trace** (Auto-style on, genre picked):
+  - force↔reese r .61 (1.67–2.04) on DnB; force↔wobble .57 (.51–1.34) on Dubstep.
+  - tint↔hats .84 / .87 (0–.35).
+  - Neither fixture has a build, so decay stays .92 (unexercised).
+- **Luma (2 Hz, 30 s):** .052–.287, mean .17 (dnb174) and .049–.256, mean .14 (dubstep140); 0 samples > .8. Per-10 s means .19 .16 .16 / .16 .13 .12, no climb.
 
 ### S1.8 [ ] [S] engine — TARGET pairs by name
 Depends on: none (lands right before S1.9). **Files:** `web/src/fx/isf.ts` (`pairsByTarget`, pure), `web/src/fx/isf.test.ts`, `web/src/gl/live.ts` (`node()`, `run()`, `resize()`, `freeNode()`).

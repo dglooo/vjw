@@ -368,6 +368,21 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  {
+    v: 1, id: 'builtin:flow-smear', name: 'Flow smear', star: true,
+    layers: [{
+      gen: { ref: 'native/spectrum' }, // its bars move on their own (the tunnel moves everywhere, so it all trailed: S1.7)
+      fx: [{
+        ref: 'own/flow-smear',
+        bind: {
+          force: { source: 'bass', amount: 1, attack: 0.05, release: 0.3, min: 0.5, max: 3 }, // Auto-style's one: the streaks stretch
+          decay: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.92, max: 0.97 }, // a build lengthens them
+          tint: { source: 'hats', amount: 1, attack: 0, release: 0.12, min: 0, max: 0.35 }, // hats turn their colour
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 0.5, // the spectrum at ½, flow-smear still at full size (S1.4's lever)
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
