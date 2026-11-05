@@ -258,7 +258,8 @@
   opacity: 0.55;
 }
 .row > input[type='checkbox'],
-.row > button:not(.dot) {
+.row > button:not(.dot),
+.bind input[type='checkbox'] {
   justify-self: start;
 }
 .row:has(> .dot.on) > :nth-child(2) {

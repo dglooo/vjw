@@ -31,7 +31,7 @@ export function postFor(heat: number, drop: number, beat: number, bpm: number, c
   return { gain: 1 + visible(HEAT_GAIN * h + strobe), flash: visible(drop >= 0 ? FLASH * Math.exp(-drop / TAU) : 0) }
 }
 
-const ON = 0.5 // a bool binding's on-level (live.ts); a float flash rises through the same line
+const ON = 0.5 // a bool/event binding's on-level (bind.ts level); a float flash rises through the same line
 
 /** One flash-class binding's gate memory: `prev` = its last output; `blocked` = an onset was refused, until the raw
  *  falls below ON. */

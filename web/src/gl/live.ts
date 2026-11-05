@@ -9,7 +9,7 @@
 // into the library (E4), where `live` finds every scene.
 import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { ctx } from '../audio/input'
-import { evaluate, type Binding, type BindState, type Sources } from '../bind'
+import { evaluate, level, type Binding, type BindState, type Sources } from '../bind'
 import { CODE_MAX, defaults, type Blend, type LayerDoc, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
 import * as edit from '../edit'
 import type { FrameInput } from '../frame'
@@ -278,7 +278,8 @@ function create(id: SceneId): Live {
         if (x.flash) y = flashGate(y, x.flash, flashOnsets, f.time)
         x.y = y
         if (x.i >= 0) (x.u[x.name] as number[])[x.i] = y
-        else x.u[x.name] = x.type === 'long' ? Math.round(y) : x.type === 'bool' || x.type === 'event' ? y >= 0.5 : y
+        else if (x.type === 'bool' || x.type === 'event') [x.u[x.name], x.state.held] = level(x.type, y, x.state.held)
+        else x.u[x.name] = x.type === 'long' ? Math.round(y) : y
       }
       SIZE[0] = acc.width
       SIZE[1] = acc.height
