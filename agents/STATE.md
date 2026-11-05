@@ -121,7 +121,11 @@
         - **T3′ ✅ e′ merged:** sync ignores ⅔/4/3 readings of a locked grid (`PARTNER` 1 %).
           - Kanine ⅔ .25 → .00, ref .72 → .97, lock 6.5 → 4.4 s; Bicep ⅔@108 gone; others unchanged; 389 tests.
           - Limits: a two-step locked from scratch still locks 116; a mix change within 1 % of 4/3 never relocks.
-        - **Running:** `frontend-coder` D-A (drop v2 step A). Next: D-B → back to 2b (S2.2).
+        - **D-A ✅ merged:** path (b) deleted, `ret` ref min(mean, slow), `sparse` .6, intro/peak fixes, plus return frames kept out of the run mean and `slow` music-only.
+          - Replay + browser: DnB 1/11 → **5/11** (Kanine 44.7 / 88.8 / 155.0, Andy C 47.3, Bicep 176.9). Bicep false 167.2 is gone; Rumble 21.0 + 75.8 kept; nothing at Rumble 90–115 s or Andy C 132.7; 22/22 mutants.
+          - Sub Focus 146.6 (.71) is the label case: **the user checks it by ear**; if it is the drop, 6/11.
+          - Data: `scratchpad/real/da/`.
+        - **Running:** `frontend-coder` D-B (CUT + `Preset.cuts` off under Dubstep + `armed` reset at fire). Next: back to 2b (S2.2).
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
