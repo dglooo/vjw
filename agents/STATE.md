@@ -102,6 +102,7 @@
 
 ### Queue (lead order)
 0. **Order (user, 2026-11-04 22:2x):** 2d TD look → **rebind pass**: retune ALL existing built-ins to the 2c sources (reese/sub/wobble, kick/snare/hats, build/drop). The binding policy goes in the same design (`design_td_look.md` § Binding policy, asked of the running designer) → 2b effect editor (spec + research ready; system-designer next) → Stage 3 camera.
+0b. **Order (user, 2026-11-05 15:0x):** finish audio tuning T1–T4 + 2b editor → **Stage 3 camera** (the big closing epic) → **TD wave 2**. Wave 2: a researcher triages the rest of the dump (160 OPSnippets GLSL, the remaining ImageFilters such as twirl/dent/polar/pointillize/solarize, julia/mandelbrot/superFormula, the 50 noise variants, GaussianSplats) → top-10 → design/plan/coders, each on the 2c bindings.
 1. §1 slit scan, §2 chrome ring: taste, after the user's effects re-brief (lead defaults in `_adhoc/effects_polish_2026-11-03.md`).
 2. §4 "Spectrum takes ≤2 filters": a perf investigation on a quiet-GPU `?bench`. Deferred.
 3. The spec §7.5 30-min run with MilkDrop in the playlist and audio flowing (CoreAudio worked for the coders on 11-04); `?flash` lag. REC backlog: a WebCodecs recorder (low priority).
