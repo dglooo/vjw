@@ -44,7 +44,9 @@
   - S3.1 ✅ `native/swarm` + `builtin:swarm`: N 65536 (131k = 5.61 ms; the D5 lever), p95 4.13 ms, +22.4 MB freed; glowing filament threads; burst↔kick .96, trail↔build .89, size↔sub .996, turbulence↔reese .97 / wobble .82; spawn on drop. Finding: TF ≈25 µs per 1k points, so D5's swarm budget was ≈2× low.
   - S3.2 ✅ `native/scatter` + `builtin:scatter` (4 px, 121k pts, p95 2.65 ms, +3.9 MB freed; `spring` = ω, loosens through the build: lead keeps that, musically right). THIRD_PARTY lists td-feedback's noise.
   - **CP3 ✅ closed (lead):** 66 s over all 11 new scenes, 0/3962 late on both arr fixtures, 1.00×; WCAG luma flashes max 3/s (at the cap); `__flash` ≤2/s. Sheet `scratchpad/td/cp3-sheet.png`.
-  - **Running:** `frontend-coder` S4.1 (rebind pass + 3 `VJW_FLASH` keys + THIRD_PARTY own-table rows for the 7 TD `.fs`).
+  - S4.1 ✅ rebind of the 23 pre-TD own scenes (kick 14, snare 5, sub 6, reese 8, build 3, hats 1, beat 1, lfo 2; no bass/onset/treb) + `VJW_FLASH` on tunnel-mesh/fractal/wave-landscape + THIRD_PARTY own 23; 349 tests. DnB: kick params jump on kicks only; flashes ≤3/s.
+  - ⚠️ **Kick-detector bug (pre-2c, now reproducible):** on `dubstep140-arr` and through DnB's build, `kick` sits at p50 .66 (the detector fires ≈every 50 ms on the wobble and the riser). So every kick-bound param, TD scenes included, idles high and pulses with the wobble. Lead pick: its own item right after CP4: a system-designer ruling (kick vs sustained or modulated bass), then a coder step, before 2b. It supersedes queue #4's "false kicks on a bare reese".
+  - **Running:** `frontend-coder` S4.2 (wave-landscape own flash input; its grid vanished at glow 0).
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).

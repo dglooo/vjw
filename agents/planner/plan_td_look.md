@@ -418,6 +418,9 @@ Depends on: S1.1 (the key); CP3 closed (order). **Files:** `web/src/scenes/built
     - Fractal's gated glow holds (0 flashes).
     - Wave-landscape at glow 0 loses its neon grid between snares (`s4.1/dnb-wave-landscape-rest.png`). A 0-rest `flash` input of its own would keep the grid.
 
+### S4.2 [ ] [S] wave-landscape: its own 0-rest flash input; glow steady again
+**Added by the lead 2026-11-05** (S4.1 finding). With `glow` keyed and bound from 0, the neon grid vanishes between snares. **Files:** `web/src/fx/own/wave-landscape.fs` (a new input, e.g. `flash` 0..1 added on top of the grid, listed in `VJW_FLASH` instead of `glow`; `glow` back to a steady default/binding), `web/src/scenes/builtin.ts` (its row: snare → the new input, from 0), `isf.test.ts` if the keyed-input test names it. **Done:** gates; DnB `?debug`: the grid stays visible at rest and flashes on snares ≤3/s; a rest/peak shot pair.
+
 **CP4 close (lead):** reaction check over the 9 formerly "on a kick" scenes (fact 8) on both fixtures; the same 60 s autopilot run again (20+ scenes changed bindings): 0 late, 1.00×; commit; STATE queue → 2b editor.
 
 ## Acceptance mapping (`thoughts/spec_td_look.md` §4)
