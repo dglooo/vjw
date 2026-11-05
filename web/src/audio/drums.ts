@@ -22,6 +22,10 @@ const XT_SNARE = 80
 // knob: the kick bins' least share of the hop's power, DC excluded (a line-in offset can't fake it). In an empty band the
 // gate also trips on a riser, room tone or a snare's body; those hold ≲ 0.06 of the power, a kick ≈ 0.4–0.9.
 const SHARE = 0.2
+// knob: the kick's gate-ratio trigger (real-track ruling 2026-11-05 (c)): real masters' kicks and a 16th double kick's
+// 2nd (≈ 1.39) peak under TRANSIENT, a steady or beating bass stays ≤ 1.30. TRANSIENT 1.5 still gates bands.ts's
+// `held` (the bass sources, arrange `low`) and stays the crosstalk's kick unit.
+const KICK = 1.35
 const MIN_GAP = 0.05 // s between kicks (onset.ts's minGap)
 // knob: the snare hop's least share of its band's power above the band's midpoint (3 kHz at the default). A snare or
 // clap is flat noise there (≈ .4–.9), a wobble's saw edge falls ≈ 18 dB/oct (≈ .01–.02). A failed hop's ODF is 0 inside
@@ -34,7 +38,8 @@ export function createDrums(sampleRate: number, fftSize: number) {
   let kick = { lo: 1, hi: 1 }
   let bands: { drum: 'snare' | 'hats'; lo: number; hi: number; d: ReturnType<typeof createDetector> }[] = []
   let lastKick = -Infinity
-  let lastRatio = 0 // the last hop's kick ratio, 0 if it posted no kick
+  let lastRatio = 0 // the last hop's kick weight in the crosstalk, 0 if none
+  let rising = false // the last hop posted a kick under TRANSIENT
   let held: { hit: Hit; s: number } | null = null // the last hop's snare and its flux over XT_SNARE (crosstalk ±1 hop)
   let floors = FLOORS // setFloors moves them in place; a configure restart keeps them
 
@@ -78,8 +83,11 @@ export function createDrums(sampleRate: number, fftSize: number) {
       // kick is dropped unless it is at least as strong. Strong = in tuned units, not the live floor: the snare's flux over
       // XT_SNARE (`strength` saturates at its cap in sparse bands, mean ≈ 0), the kick's ratio over TRANSIENT. So a
       // snare waits one hop (+5.3 ms) and keeps its own t; it posts ahead of this hop's kick, in time order.
-      const ratio = kickRatio >= TRANSIENT && own > SHARE * all && t - lastKick >= MIN_GAP ? kickRatio : 0 // 0: no kick
-      if (held && held.s >= ratio / TRANSIENT) hits.push(held.hit)
+      const ratio = kickRatio >= KICK && own > SHARE * all && t - lastKick >= MIN_GAP ? kickRatio : 0 // 0: no kick
+      // xk = the kick's weight here. One posted under TRANSIENT is still rising: the next hop's ratio weighs it there,
+      // as when it posted at TRANSIENT (T2: without this its click passed for a snare, techno pattern F1 .80 → .76).
+      const xk = ratio || (rising ? kickRatio : 0)
+      if (held && held.s >= xk / TRANSIENT) hits.push(held.hit)
       held = null
       if (ratio) {
         lastKick = t
@@ -88,9 +96,10 @@ export function createDrums(sampleRate: number, fftSize: number) {
       for (const { drum, lo, hi, d } of bands) {
         const o = d.detect(mag.subarray(lo, hi + 1), t, drum !== 'snare' || up >= TILT * band)
         if (o && drum === 'hats') hits.push({ drum, ...o })
-        else if (o && d.odf / XT_SNARE >= Math.max(ratio, lastRatio) / TRANSIENT) held = { hit: { drum, ...o }, s: d.odf / XT_SNARE }
+        else if (o && d.odf / XT_SNARE >= Math.max(xk, lastRatio) / TRANSIENT) held = { hit: { drum, ...o }, s: d.odf / XT_SNARE }
       }
-      lastRatio = ratio
+      lastRatio = xk
+      rising = ratio > 0 && ratio < TRANSIENT
       return hits
     },
   }

@@ -19,7 +19,7 @@ function hitsOf(x: Float32Array, genre?: Genre) {
   for (let i = 0; i + 128 <= x.length; i += 128)
     a.block([x.subarray(i, i + 128)], i, (h) => {
       if (h.kind !== 'hit') return
-      expect(h.strength).toBeGreaterThanOrEqual(1.5) // odf/mean or the kick's gate ratio, capped at 4 (bind.ts maps (s − 1.5)/2.5)
+      expect(h.strength).toBeGreaterThanOrEqual(h.drum === 'kick' ? 1.35 : 1.5) // odf/mean or the kick's gate ratio (KICK), capped at 4
       expect(h.strength).toBeLessThanOrEqual(4)
       if (h.t > 0.5) hits[h.drum].push(h.t)
     })
@@ -92,11 +92,11 @@ test.each([
 const frame = (on: [number, number][], level = 100, rest = 0) =>
   Float32Array.from({ length: N / 2 + 1 }, (_, k) => (on.some(([a, b]) => k >= a && k <= b) ? level : rest))
 /** Drums per hop, each hit in the hop of its own t (a snare posts a hop late), plus one silent hop that releases the
- *  last snare. Every hop's kick gate ratio is `ratio`. */
-const fire = (frames: Float32Array[], d = createDrums(SR, N), ratio = 2) => {
+ *  last snare. Every hop's kick gate ratio is `ratio`, or per hop (the silent one at 1). */
+const fire = (frames: Float32Array[], d = createDrums(SR, N), ratio: number | number[] = 2) => {
   const out = frames.map((): Drum[] => [])
   for (const [i, m] of [...frames, frame([])].entries())
-    for (const h of d.detect(m, i * (HOP / SR), ratio)) out[Math.round((h.t * SR) / HOP)].push(h.drum)
+    for (const h of d.detect(m, i * (HOP / SR), typeof ratio === 'number' ? ratio : (ratio[i] ?? 1))) out[Math.round((h.t * SR) / HOP)].push(h.drum)
   return out
 }
 
@@ -136,6 +136,12 @@ test("crosstalk: a snare within a hop of a kick is dropped unless it is as far o
   expect(fire([quiet, quiet, hop(0, 0.01), hop(1000, 0.01)], undefined, 3).slice(2)).toEqual([[], ['kick']])
   expect(fire([quiet, quiet, hop(1000, 0), hop(1000, 0.01)], undefined, 3).slice(2)).toEqual([['kick'], []])
   expect(fire([quiet, quiet, hop(0, 100), hop(1000, 100)], undefined, 3).slice(2)).toEqual([['snare'], ['kick']])
+  // T2: KICK posts a kick at 1.4, a hop before its gate reaches 2.5. A click there (1.3 ≥ 1.4 / 1.5), or one or two hops
+  // later, is still dropped: the next hop's 2.5 weighs the kick, as when it posted at 2.5.
+  const [k, c] = [hop(1000, 0), hop(1000, 0.01)]
+  expect(fire([quiet, quiet, c, k], undefined, [1, 1, 1.4, 2.5]).slice(2)).toEqual([['kick'], []])
+  expect(fire([quiet, quiet, k, c], undefined, [1, 1, 1.4, 2.5]).slice(2)).toEqual([['kick'], []])
+  expect(fire([quiet, quiet, k, k, c], undefined, [1, 1, 1.4, 2.5, 1.2]).slice(2)).toEqual([['kick'], [], []])
 })
 
 test('a snare hop needs ≥ TILT of its band power from 3 kHz up; a vetoed hop arms no minGap (snare ruling 2026-11-05)', () => {
@@ -152,10 +158,11 @@ test('a snare hop needs ≥ TILT of its band power from 3 kHz up; a vetoed hop a
   expect(fire([quiet, quiet, steep, flat(0.003)])[3]).toEqual(['snare'])
 })
 
-test('a kick needs both: the gate ratio at TRANSIENT and its bins over SHARE of the hop power, DC excluded', () => {
+test('a kick needs both: the gate ratio at KICK (1.35, not TRANSIENT) and its bins over SHARE of the hop power, DC excluded', () => {
   const kick = (ratio: number, m: Float32Array) => fire([frame([]), m], undefined, ratio)[1].includes('kick')
   const share = (s: number) => frame([[1, 1]], 100, 100 * Math.sqrt((1 - s) / s / 255)) // bin 1 = s of bins 1–256
-  expect([kick(1.5, frame([[1, 1]])), kick(1.49, frame([[1, 1]]))]).toEqual([true, false])
+  // real-track ruling 2026-11-05 (c): a hop at 1.4 with its share posts, one at 1.30 doesn't
+  expect([1.4, 1.35, 1.34, 1.3].map((r) => kick(r, share(0.21)))).toEqual([true, true, false, false])
   expect([kick(2, share(0.21)), kick(2, share(0.19))]).toEqual([true, false])
   const dc = (d: number, b1: number) => Float32Array.from({ length: N / 2 + 1 }, (_, k) => (k === 0 ? d : k === 1 ? b1 : 0))
   expect([kick(2, dc(1000, 100)), kick(2, dc(1000, 0))]).toEqual([true, false]) // a line-in offset neither dilutes nor fakes it
