@@ -80,7 +80,7 @@ void main() {
   float a = max(0.0, 1.0 - dot(q, q)); // soft round sprite
   outColor = vec4(vColor * a * a, 1.0);
 }`
-const COMPOSITE_FS = `#version 300 es
+export const COMPOSITE_FS = `#version 300 es
 precision highp float;
 uniform sampler2D uSrc;
 uniform vec2 uRes;

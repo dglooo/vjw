@@ -350,11 +350,26 @@ Depends on: S2.2. **Files:** `history.ts`, `catalog.ts`, `builtin.ts`.
 
 ### CP3 — Track B(b): transform-feedback points
 
-### S3.1 [ ] [L] `scenes/points.ts`: `native/swarm` + `builtin:swarm`
+### S3.1 [x] [L] `scenes/points.ts`: `native/swarm` + `builtin:swarm`
 Depends on: S2.1 (def `kind`/`bind`). **Files:** `web/src/scenes/points.ts`, `web/src/scenes/points.test.ts`, `catalog.ts` + `builtin.ts` (one entry each).
 **Design (D4):** N = 131072 (module knob); pos/vel in TF ping-pong buffers after `web/src/scenes/particles.ts` (twgl `createTransformFeedback`, two VAOs); one pass updates and rasterises: `vel += curl(simplex3(pos·s + t·drift))·turbulence + radial·burst − drag·vel` (webgl-noise 3D simplex, MIT header), respawn hashed per `gl_VertexID` (`spawn` true → all at once); points of `size` px drawn additively into one persistent RGBA16F trail (`renderTarget(true, true)`), faded by a constant blend `ZERO, CONSTANT_ALPHA` = `trail` (the `post.ts` trick: no texture read, no ping-pong); then `createBloom` (reuse) and the `particles.ts` composite. ⚠️ point sizes 1.5–6 px are safe on ANGLE-Metal. ≈25 MB.
 **Bind:** burst ← kick 0/.1 0→3 · hueStep ← snare 0/.3 0→.2 · sparkle ← hats 0/.08 0→.5 (a thin per-point flicker, not brightness) · size ← sub .05/.3 1.5→3 · turbulence ← bass .05/.4 .2→2 · trail ← build 1/2 .85→.97 · spawn ← drop. **Scene:** swarm alone, layer `res` .75.
 **Tests (`points.test.ts`):** the def's `inputs` and `bind` names match and every source ∈ `SOURCE_IDS`; `swarmLayout(N)` buffer byte sizes (pure). **Done:** gates; bench (D5 1.5–2.5; lever N → 65536); screenshot; trace (burst on kick, trail on build, respawn on drop).
+**Changed during implementation:**
+- **N = 65536, the D5 lever.** 131072 measured p95 5.61 ms at res .75 (2 rounds, `scratchpad/td/s3.1/s3.1.mjs`, worktree). Halving N saved 1.6 ms: TF costs ≈25 µs per 1k points on ANGLE-Metal. The res A/B (.75 vs .5: 5.48 vs 3.67 med) put ≈3.3 ms in the full-res passes at .75 (fade, bloom, tone map). D5's 1.5–2.5 was ⚠️ low by ≈2×. Final p95 4.13 ms (particles reference 3.21, same session); swarm → `own/flash` 6.47 (the known timer tail); 0 late frames over the hold, 0 on entry.
+- **Bindings.** `turbulence` binds `reese` (ruling 2026-11-05), not `bass`. `spawn` is an `event` bound `drop 0/.1` (S2.2's rotate lesson); the native fires on its rising edge. `builtin:swarm` repeats the def's bind as a literal; the test checks they are equal.
+- **The look, from 3 iterations of shots.**
+  - A pure curl field stays uniform (incompressible): grainy fur, the "static noise" case. Adding `−n·∇n`×GATHER pulls the points onto the noise's zero contour, so they form glowing threads that flow along themselves, with dark voids between.
+  - The hue is the noise value (magenta/blue/cyan), plus `hueStep`. Fast points go whiter. Points fade in and out over their 6 s life.
+  - `sparkle` is a zero-mean per-point twinkle. The deposit is ÷ size, so `size ← sub` reads thicker, not 4× brighter.
+- **Drop respawn = the regular respawn, all at once** (the design's literal text), scattered over the stage at rest; the threads re-form in ≈1 s. A first try (all reborn in a core and flying out) whited out the stage (white share .65).
+- **Bug avoided:** `fract(sin(x)·43758)` has ≈8 bits at these arguments, and 512 points shared the origin as one bright streak. The hash is integer lowbias32.
+- **Engine / THIRD_PARTY.** One-word exports: `engine.ts` `tint` (the post pass; the fade is `blendFunc(ZERO, SRC_ALPHA)` with alpha = trail, the same constant as `CONSTANT_ALPHA` without `blendColor`) and `particles.ts` `COMPOSITE_FS`. THIRD_PARTY.md lists the inlined `noise3Dgrad.glsl`.
+- **Measured** (`scratchpad/td/s3.1/`, worktree):
+  - **Memory:** +26.7 MB live (swarm 22.4 + the layer's res-.75 RGBA8 target 4.3), back to baseline exactly on dispose, twice. The GPU process goes +29 MB and returns within ±1 MB.
+  - **Trace DnB** (pick dnb): burst↔kick r .96, trail↔build .89 (.85 → .93 over the build), size↔sub .996, turbulence↔reese .97, hueStep↔snare .83, sparkle↔hats .91. One spawn edge at 34.49 s (drop 34.1). Luma: groove .12, body .15; white share ≤ .001 in the body, ≤ .20 in the drop second, which includes the engine's drop flash.
+  - **Trace Dubstep** (pick dubstep): styled reese = wobble, turbulence↔wobble r .82, trail↔build .92, size↔sub .91. Spawn at 42.52 s (drop 42.1). Drop white share ≤ .105. The classifier still says techno (known).
+- ponytail: the fade is per frame, as in the feedback effects, so trails are half as long in time at 120 Hz.
 
 ### S3.2 [ ] [M] `native/scatter` + `builtin:scatter`
 Depends on: S3.1. **Files:** `points.ts`, `points.test.ts`, `catalog.ts` + `builtin.ts`.
