@@ -41,3 +41,5 @@
 - `agents/system-designer/design_camera.md`: Stage 3 camera, pure web. A main-thread MediaPipe / B segmentation worker + `LayerDoc.mask` (rec) / C shared GL context; smoothing + strobe gate, `presence` source, worker recycle for the leak; CP0 browser probe on M4 + Windows; 4 CPs / 9 steps. Lead pick B 2026-11-05. Current.
 - `agents/planner/plan_camera.md`: Stage 3 camera plan (Variant B), 4 CPs / 15 steps + R0 probe ruling; CP0 `?camprobe` on M4 + Windows (USER sub-steps U0.0–U0.4, U2.1); [R0]-tagged model code behind the worker interface. 2026-11-05. Current.
 - `thoughts/spec_td_wave2.md` — Stage 2e spec (lead, 2026-11-06): TD wave 2 = research_td_wave2 top-10 + quick wins + blends/stereo wave/plexus; `(default)` answers.
+
+- `system-designer/design_td_wave2.md` — Stage 2e design (2026-11-06, 224 lines, verified on disk). Variant A picked by the lead: 5 donor ISF copies + 15 own ISF (≤2 passes) + scope (LINE_STRIP, stereo) / plexus (CPU grid-hash) natives + scatter-dots + blend max/difference/dodge + waveLR; julia gated S1.2; donor Emboss/Sharpen rejected (`varying`).

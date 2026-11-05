@@ -4,8 +4,8 @@
 
 ## HEAD
 
-**Updated:** 2026-11-06 (session 10; both agents resumed after the pause)
-**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP4: S4.3 + wave-2 designer running)**. 415 tests.
+**Updated:** 2026-11-06 (session 10; wave-2 design ✅ verified on disk, variant A picked, planner running)
+**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP4: S4.3 running; wave-2: design ✅ → planner running)**. 415 tests.
 **Specs:** `thoughts/spec_veejay_wizard.md` + `spec_effects`, `spec_audio_reactivity`, `spec_td_look`, `spec_effect_editor`, `spec_camera`. **Team:** planner Fable 5.1 max; others Opus 5.5 max; researcher high.
 
 ### Where we stopped
@@ -20,7 +20,7 @@
 2. **Stage 3 camera** (`plan_camera.md`, Variant B): pure web, Chrome on Mac + Windows, no native helpers.
    - Coders: CP0 S0.1–S0.5 on synthetic input + a webcam. S1.5 is model-free and may go earlier.
    - R0 and the USER steps wait for the user, who is on vacation until he is back in Stockholm.
-3. **TD wave 2 (Stage 2e)**, the rest of the dump (user 2026-11-06 asked for "all remaining shaders"): lead spec `thoughts/spec_td_wave2.md` (top-10 + quick wins q1–q11 + blends/stereo wave/plexus; meshes, splats, explode deferred). system-designer running (resumed): its report claimed the draft complete (249 lines) but the file on disk was 146 lines, ending mid-variant-B — ordered to finish variant B + variant C + the decision section and verify `wc -l` (report recommends A; C is the fallback if B's plexus neighbour search fails the cost check) → lead verifies on disk, picks, commits → planner. Lead order: coders on wave 2 fill the camera wait (camera CP0 S0.1–S0.5 + S1.5 first after 2b, then wave 2 while R0 waits for the user).
+3. **TD wave 2 (Stage 2e)**, the rest of the dump (user 2026-11-06 asked for "all remaining shaders"): lead spec `thoughts/spec_td_wave2.md` (top-10 + quick wins q1–q11 + blends/stereo wave/plexus; meshes, splats, explode deferred). design ✅ `design_td_wave2.md` 224 lines, verified on disk (the 146-line draft was finished after the pause). **Lead pick (2026-11-06): Variant A** + the designer's marked defaults: plexus = the CPU grid-hash native in CP2; q5+q6 from one donor `Color Replacement` copy (full input list verified at its step); melt = donor Dilate+Erode (drop-flip not bindable, erode catalog-only); the 15 built-ins (quick wins grouped solar-emboss / poster / halo); CP order CP0 engine → CP1 top-10 own (julia gated at S1.2) → CP2 natives → CP3 donors + quick wins → CP4 close. **Planner running** → `plan_td_wave2.md`. Coders after the 2b close-out + camera CP0 (filling the R0 wait). Lead order: coders on wave 2 fill the camera wait (camera CP0 S0.1–S0.5 + S1.5 first after 2b, then wave 2 while R0 waits for the user).
 4. Deferred audio:
    - classifier lateness (Kanine dnb@162; Bicep flips to techno @199);
    - Rumble growl snares (`floors.tilt`);
