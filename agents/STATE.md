@@ -85,7 +85,11 @@
         - `sparse` .5, `refractory` 20, `GRACE` 8, plus a bass-less-intro rule; `KICK` 1.35 (kick-only); `PRIOR_BPM` 150.
         - Deferred, with named knobs: `CUT` (bass cuts), `floors.tilt` (growls), and a classifier floor/margin + 3:2 ruling after a re-measure.
         - Baseline JSONs copied to `scratchpad/real/baseline/`.
-      - **Audio tuning steps:** T1 floors + worklet preset (M) → T2 KICK (S) → T3 prior (S) → T4 arrangement (S). Each re-runs `scratchpad/real/run-all.sh` + `an.py` against the audit table. They run interleaved with the 2b steps, one coder at a time. **Running: T1.**
+      - **Audio tuning steps:** T1 floors + worklet preset (M) → T2 KICK (S) → T3 prior (S) → T4 arrangement (S). Each re-runs `scratchpad/real/run-all.sh` + `an.py` against the audit table. They run interleaved with the 2b steps, one coder at a time.
+      - **T1 ✅** floors 40/50 (Dubstep 80/100), and the worklet follows the active preset. DnB snare .12–.33 → 1.09–2.30 a bar, hats 3.7–5.5, on-grid ≥ .98; 380 tests; harness + table in `scratchpad/real/t1/`.
+        - Techno fixture snare F1 .80 (at its bar).
+        - ❌ Rumble drop 1/4 → 0/4: Dubstep's reese 70–350 is now live under Auto and fires a weak false drop (conf .43) at 70.6 s, which swallows 75.8 s. **Lead pick:** keep the band; T4 adds a drop-confidence floor (named knob) and must restore Rumble's 75.8 s.
+      - **Running:** T2 (`KICK` 1.35).
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
