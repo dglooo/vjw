@@ -31,7 +31,9 @@ export function createDetector(opts?: Partial<DetectorOpts>) {
     get odf() {
       return odf
     },
-    detect(mag: Float32Array, t: number): Onset | null {
+    /** `ok` false vetoes the hop (drums.ts: the snare's tilt): its ODF is 0, so it arms no minGap, wins no peak window
+     *  and doesn't lift the mean; its magnitudes still become the next hop's reference. */
+    detect(mag: Float32Array, t: number, ok = true): Onset | null {
       prev ??= new Float64Array(mag.length)
       odf = 0
       for (let k = 0; k < mag.length; k++) {
@@ -39,6 +41,7 @@ export function createDetector(opts?: Partial<DetectorOpts>) {
         if (v > prev[k]) odf += v - prev[k]
         prev[k] = v
       }
+      if (!ok) odf = 0
       let sum = 0
       for (const v of hist) sum += v
       const mean = sum / meanWindow

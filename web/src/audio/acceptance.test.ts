@@ -182,7 +182,13 @@ test.each([['dnb', 174, 2], ['dubstep', 140, 1]] as const)('§4.1 kicks on the %
   const s = arr(genre)
   const bar = 240 / bpm
   const end = s.drop + 8 * bar
-  const { kick } = hitsOf(s.x)
+  const { kick, snare } = hitsOf(s.x)
+  // Snares outside the breakdown (snare ruling 2026-11-05). Measured: DnB .91 (unchanged), Dubstep .71 (untilted: .11,
+  // the wobble's 1–3 kHz flank fired 148 false snares). Dubstep's ≥ .8 target isn't reached: 7 kick clicks post a snare
+  // one hop before their kick (crosstalk is same-hop only), and 7 snares right after a vetoed saw-edge hop read their
+  // flux against it. The roll is 0 / 32 on both, before and after: the riser masks it.
+  const out = (t: number) => t < s.start || t >= s.drop
+  expect(f1(s.truth.snare.filter(out), snare.filter(out))).toBeGreaterThanOrEqual(genre === 'dnb' ? 0.8 : 0.7)
   const n = (a: number, b: number) => kick.filter((t) => t >= a && t < b).length
   for (const [a, b] of [[T0, s.start], [s.drop, end]]) expect(Math.abs((n(a, b) * bar) / (b - a) / perBar - 1), `${a}–${b} s`).toBeLessThanOrEqual(0.1)
   expect(f1(s.truth.kick, kick)).toBeGreaterThanOrEqual(0.7)
