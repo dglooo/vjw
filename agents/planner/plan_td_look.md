@@ -207,11 +207,31 @@ Depends on: none (lands right before S1.9). **Files:** `web/src/fx/isf.ts` (`pai
   - GL calls per method over 120 frames (`calls.mjs`) are identical before vs after for all 4 scenes, so the ±.15 ms spread is timer noise.
 - **Shots:** `scratchpad/td/s1.8/sheet.png` (reference · before · after per scene): same look.
 
-### S1.9 [ ] [L] `own/reaction-diffusion.fs` + `builtin:reaction-diffusion`; plan-B gate
+### S1.9 [x] [L] `own/reaction-diffusion.fs` + `builtin:reaction-diffusion`; plan-B gate
 Depends on: S1.8, S1.4 (G3 result). **Files:** `web/src/fx/own/reaction-diffusion.fs`, `builtin.ts`, `isf.test.ts`.
 **Look:** TD reaction-diffusion feedback palette; algorithm reference jsexp Gray-Scott (BSD-3, credit only). Passes: 8 step passes, all `TARGET rd` PERSISTENT FLOAT ½ (one pair after S1.8, ≈7.7 MB): A,B in .rg; Laplacian 3×3 (.05/.2/−1); `dA = Da∇²A − AB² + feed(1−A)`, `dB = Db∇²B + AB² − (kill+feed)B`, Da 1, Db .5, dt 1; `B += seed·luma(inputImage)·.02`; `reset` → A 1, B 0 plus a seed splash. P8 colour out: palette by B, hue += `palette`.
 **Inputs:** seed ← sub .02/.25 0→.6 · kill ← bass .1/.6 .060→.064 · feed ← build 2/2 .0545→.040 (inverted, per S1.4's G3 result) · palette ← snare 0/.3 0→.15 · reset ← drop. **Scene:** spectrum (layer `res` .5) → reaction-diffusion.
 **G5 gate:** patterns hold 60 s in half float (no die-out, no blow-up). On a miss, or p95 > 5 ms after the 8 → 6 step lever: stop and report "plan B" (a native RD filter after S2.1, design L292); the lead reorders. **Done:** gates; bench (D5 ≈3–3.5); screenshot; trace (seed on sub, feed on build, palette on snare).
+**Changed during implementation:** G5 passes in half float with 6 steps. Harness `scratchpad/td/s1.9/rd.mjs` (`scene`: 2 s readback of `rd` as FLOAT; `ab`: same-session A/B); logs and shots are in `s1.9/`.
+- **Seeding has a threshold.** Gray-Scott's rest state (A 1, B 0) is linearly stable, so a seed only nucleates above ≈.0034/step. Weaker seeding grows nothing (SEED .002: coverage 0 for 30 s). Stronger seeding held the spectrum's bars as a flat B flood, because sustained seeding keeps the flood state stable (v1, x1, x2 shots).
+  - Fix: seed fresh A only, `·smoothstep(.5, .8, A)`. A bright patch nucleates, and once coral covers it (A < .5) the seeding stops, so the flood can't hold. A gate at (.8, 1) closed before B cleared the hump (B stalled at .09, coverage 0).
+  - `SEED` stays the plan's .02.
+- **seed ← sub, measured:** with the plan's 0→.6, seed moved only .287–.330 (sub .41–.56, p10–p90 .48–.52). The binding now spreads 0→.6 over sub .42–.56, i.e. min −1.8, max 2.486. The shader clamps it at `max(seed, 0)` and `bind.ts` is unchanged.
+  - Seed now moves .25–.56 (p10 .27, p90 .45), r_sub .94/.95 (dnb/dub). With the sub silent, seed rests at 0 and nothing grows. `bass` was rejected: it is just as flat (relative, .43–.54) and already drives kill.
+- **kill .060→.064 became .062→.064.** At feed .0545 the flat-flood state is stable below kill ≈ √F/2 − F = .0622 (the saddle-node).
+  - Dubstep's styled bass is `wobble`, which rests near 0 (p90 .086), so kill sat at .060. By 60 s a flat flood filled the centre with a holes pattern around it (`g5-dub-60s.png`). dnb only held because reese parks kill at ≈.062.
+  - Now it rests at the Sims coral value. Kill is as flat as seed: .0630–.0632 (dnb), .0620–.0626 (dub). That is the CP1 bass/sub offset decision. ⚠️ feed .040 (a build) with kill ≥ .062 may starve the coral; no fixture has a build to check it.
+- **Bench** (dnb174, 1728×1118, scale 1, same-session A/B, med/p95 ms):
+  - 8 steps: rd 4.66/5.08 (a miss) · rd+flash 5.04/5.34 · flash 2.63/2.95 · gen 2.02/2.23.
+  - 6 steps: rd 4.28/4.63 · rd+flash 4.64/4.89 · flash 2.62/2.98 · gen 1.96/2.17.
+  - RD's own cost ≈ (rd+flash) − flash: 2.4 ms with 8 steps, 2.0 with 6. The scene misses D5's 3–3.5 because the spectrum at res .5 alone costs 2.0. 60 s traces: p95 4.59 (dnb), 4.66 (dub).
+- **G5 60 s** (final params; cov = share of `rd` texels with B > .1; every 10 s):
+  - dnb cov .31 .39 .41 .56 .61 .57 .60, stdB .12–.13 throughout, maxB ≤ .60, 0 NaN, luma .16–.33.
+  - dub cov .24 .41 .53 .62 .71 .69 .69, stdB .12–.13, maxB ≤ .47, 0 NaN, luma .13–.38.
+  - No die-out, no blow-up, no flood. Coverage plateaus where the source never reaches.
+- **Trace:** palette↔snare r .84/.83. Neither fixture has a build or drop, so feed (.0545) and reset never move. The reset splash (A 1, B .25 where luma > .5) is untested in the browser.
+- **Look:** a cosine ramp by B, lit by B's own relief. The bars print parallel coral stripes and a labyrinth spreads around them. Shot `scratchpad/td/reaction-diffusion.png` (dnb, 20 s).
+- Once the screen is covered, the maze is near-static except where the bars keep seeding gaps; snares turn the palette. More motion needs kill to actually swing (the CP1 decision).
 
 **CP1 close (lead):** contact sheet `scratchpad/td/cp1-sheet.png` of the 6 scenes; reaction check on both fixtures (td-feedback zoom/kick, hue/snare, displace reese → wobble when the genre flips; RD seed/sub); bloom `__flash` ≤3/s; commit.
 

@@ -383,6 +383,25 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 0.5, // the spectrum at ½, flow-smear still at full size (S1.4's lever)
     }],
   },
+  {
+    v: 1, id: 'builtin:reaction-diffusion', name: 'Reaction-diffusion', star: true,
+    layers: [{
+      gen: { ref: 'native/spectrum' }, // its bars seed the coral
+      fx: [{
+        ref: 'own/reaction-diffusion',
+        bind: {
+          // The sub feeds the growth. A steady sub reads ≈.42–.56 (relative: 1 ≈ average → .5), so the plan's 0→.6 is
+          // spread over that swing (S1.9: the plan's range moved seed .29–.33 only); below .42 it rests at 0 in-shader.
+          seed: { source: 'sub', amount: 1, attack: 0.02, release: 0.25, min: -1.8, max: 2.486 },
+          kill: { source: 'bass', amount: 1, attack: 0.1, release: 0.6, min: 0.062, max: 0.064 }, // Auto-style's one: mazes ↔ spots
+          feed: { source: 'build', amount: 1, attack: 2, release: 2, min: 0.0545, max: 0.04 }, // a build starves it
+          palette: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0, max: 0.15 }, // a snare turns the colours
+          reset: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 1 }, // the drop wipes it to a splash
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 0.5, // the spectrum at ½ (RD itself runs at ½ and colours at full size)
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
