@@ -4,7 +4,7 @@
 
 ## HEAD
 
-**Updated:** 2026-11-05 10:xx (session 8; autonomous since the user's "гоу" at 22:10 on 11-04)
+**Updated:** 2026-11-05 11:xx (session 8; PAUSED by the user)
 **Stage:** pilot ✅ → `effects` ✅ → `audio-reactivity` ✅ → `milkdrop` ✅ → **`2d TD look` ✅ (plan_td_look.md, 18 steps, CP1–CP4; 11 new scenes + rebind of 23)**; polish §3 §5 §6 §7 ✅. 349 tests.
 **Spec:** `thoughts/spec_veejay_wizard.md` + `spec_effects.md` + `spec_audio_reactivity.md`. **Team:** `planner` Fable 5.1 max; others Opus 5.5 max; `researcher` high.
 
@@ -65,7 +65,10 @@
     - S1.1 ✅ `edit.ts` structural ops with round-tripped inverses + `undo.ts` `edits` stack (key coalescing, sliding 1 s window); 370 tests.
     - S1.2 ✅ Live mirrors (addFx at, move, setGen, addLayer at, mute, read) + `panel` records inverses: 23/23 ops+undo keep the trail; 0/4563 late. Mute is deliberately not undoable (design S2: preview-only; Esc undoes a pending try).
     - Snare fix as ruled: wobble beds 12/17 → 0, but Dubstep arr F1 only .71. Lead amendment E1 (±1-hop crosstalk) + E2 (a vetoed hop is not the reference) → 1.00 in the probe; the same coder is applying it now. Pre-existing: arr snare rolls 0/32 (riser masks; flux splits over 2 hops); left for the real-track audit.
-    - **Running:** `frontend-coder` snare E1+E2. **Next: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
+    - **⏸ PAUSED by the user 2026-11-05 11:xx ("остановись, продолжим когда скажу"). Nothing running; no crons; dev servers stopped.**
+      - Snare branch `worktree-agent-a8394d69dde7d24c0`: `35d5901` (tilt veto, gates green, 374 tests) + `8e39289` WIP (E1+E2 applied, **unverified**, the arr test still pinned at ≥.7). The worktree `.claude/worktrees/agent-a8394d69dde7d24c0` is KEPT and not merged. Its probe is parked in the worktree's `scratchpad/snare/zz_probe.test.ts.wip.txt`.
+      - **Exact next step on resume:** a fresh `frontend-coder` in its own worktree: `git merge worktree-agent-a8394d69dde7d24c0`, then verify E1+E2 (Dubstep arr groove+drop snare F1 ≥ .8, beds 0, patterns/kick unchanged, mutants E1-off/E2-off fail, app trace with no beat-1 flashes, drops 5/5). The lead then merges and removes the old worktree.
+    - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
