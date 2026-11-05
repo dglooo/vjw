@@ -12,8 +12,9 @@
     ],
     "VJW_BIND": {
         "height": { "source": "bass", "amount": 1, "attack": 0.03, "release": 0.3, "min": 0.5, "max": 1.8 },
-        "glow": { "source": "onset", "amount": 1, "attack": 0, "release": 0.2, "min": 0.8, "max": 2.5 }
-    }
+        "glow": { "source": "onset", "amount": 1, "attack": 0, "release": 0.2, "min": 0, "max": 2.5 }
+    },
+    "VJW_FLASH": ["glow"]
 }*/
 
 // Knobs: march steps (the GPU cost; bench budget p95 ≤ 5 ms at 1728×1118), the least step (a fraction of the

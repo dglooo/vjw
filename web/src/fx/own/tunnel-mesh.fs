@@ -14,7 +14,8 @@
     "VJW_BIND": {
         "twist": { "source": "bass", "amount": 1, "attack": 0.03, "release": 0.35, "min": 0.01, "max": 0.1 },
         "flash": { "source": "onset", "amount": 1, "attack": 0, "release": 0.15, "min": 0, "max": 1 }
-    }
+    },
+    "VJW_FLASH": ["flash"]
 }*/
 
 // Knobs: focal length, mesh cells across a face, line half-width (world units), flight m/s.

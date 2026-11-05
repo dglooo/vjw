@@ -126,7 +126,7 @@ describe('parseIsf', () => {
     expect(() => parseIsf(isf({ PASSES: [{ TARGET: 'x y' }] }), 'isf/p')).toThrow('pass TARGET')
   })
 
-  test('our own files parse with a category and VJW_BIND on their inputs, strobe/flash gated; built-in refs name a bundled file', () => {
+  test('our own files parse with a category and VJW_BIND on their inputs, the flash-keyed ones gated; built-in refs name a bundled file', () => {
     const files = import.meta.glob(['./isf/*.fs', './own/*.fs'], { query: '?raw', import: 'default', eager: true })
     const ids = Object.keys(files).map((p) => p.slice(2, -3))
     for (const [path, src] of Object.entries(files).filter(([p]) => p.startsWith('./own/'))) {
@@ -135,7 +135,15 @@ describe('parseIsf', () => {
       expect(d.unsupported, path).toBeUndefined()
       for (const k of Object.keys(d.bind ?? {})) expect(d.inputs.map((i) => i.name), `${path} ${k}`).toContain(k)
     }
-    expect(['strobe', 'flash'].map((n) => parseIsf(files[`./own/${n}.fs`] as string, n).flash)).toEqual([['strobe'], ['flash']])
+    const keyed = { strobe: ['strobe'], flash: ['flash'], 'tunnel-mesh': ['flash'], fractal: ['glow'], 'wave-landscape': ['glow'] } // the last 3: S4.1
+    // A gated input binds from 0, in the files and the built-ins: a rest near the gate's 0.5 holds the flash (fact 6, S4.1).
+    for (const [n, f] of Object.entries(keyed)) {
+      const d = parseIsf(files[`./own/${n}.fs`] as string, n)
+      expect(d.flash, n).toEqual(f)
+      for (const k of f) expect(d.bind?.[k]?.min, `${n} ${k}`).toBe(0)
+    }
+    for (const x of BUILTIN.flatMap((s) => s.layers.flatMap((l) => [l.gen, ...l.fx])).filter((x) => x.ref.startsWith('own/')))
+      for (const k of parseIsf(files[`./${x.ref}.fs`] as string, x.ref).flash ?? []) if (x.bind?.[k]) expect(x.bind[k].min, `${x.ref} ${k}`).toBe(0)
     const refs = BUILTIN.flatMap((s) => s.layers.flatMap((l) => [l.gen, ...l.fx])).map((n) => n.ref)
     for (const r of refs.filter((r) => !/^(native|toy|milk)\//.test(r))) expect(ids, r).toContain(r) // a toy's code is inline
   })

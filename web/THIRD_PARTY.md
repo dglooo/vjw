@@ -77,23 +77,30 @@ The three tables come from `node scripts/shaders.mjs`, which reads each file's h
 | `isf/Worley Cells.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/v002-CRT-Displacement.fs` | vade | https://github.com/Vidvox/ISF-Files | MIT |
 
-### own (16)
+### own (23)
 
 | path | author | source | license |
 |---|---|---|---|
+| `own/bloom.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/domain-warp.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/echo.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/edge-rings.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/feedback-zoom.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/flash.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/flow-smear.fs` | VeeJay Wizard (own) + Optical Flow Generator (VIDVOX / v002 / Andrew Benson) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
 | `own/flythrough.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/fractal.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/ink.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
+| `own/light-tunnel.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/liquid-chrome.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/metaballs.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/radial-blur.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/reaction-diffusion.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/scanlines.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/sdf-shapes.fs` | VeeJay Wizard (own) + hg_sdf (Mercury) | https://mercury.sexy/hg_sdf/hg_sdf.glsl | MIT (own), MIT (hg_sdf, its MIT option) |
 | `own/smoke.fs` | VeeJay Wizard (own) + webgl-noise srdnoise (Stefan Gustavson) | https://github.com/stegu/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/strobe.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/td-feedback.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/trails.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/tunnel-mesh.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/wave-landscape.fs` | VeeJay Wizard (own) | - | MIT (own) |
@@ -143,6 +150,8 @@ Upstream work that a file names in a comment. The files state no license for it:
 - `transitions/PerlinDissolve.glsl`: the `random` one-liner from http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/.
 - `transitions/GlitchMemories.glsl`: based on work from natewave. `transitions/Hexagonalize.glsl`: hex math from http://www.redblobgames.com/grids/hexagons/. `transitions/Swirl.glsl`: ported by gre from https://gist.github.com/corporateshark/cacfedb8cca0f5ce3f7c.
 - `own/domain-warp.fs`: the technique is after Inigo Quilez, https://iquilezles.org/articles/warp/ (named in its description).
+- `own/bloom.fs`: the dual filter is after Bjørge, "Bandwidth-Efficient Rendering" (ARM, SIGGRAPH 2015), via our `src/gl/bloom.ts`. `own/reaction-diffusion.fs`: the Gray-Scott step follows jsexp's grayscott (pmneila, https://github.com/pmneila/jsexp, BSD-3-Clause) as the algorithm reference only; no code copied.
+- The TD look files (`own/td-feedback.fs`, `edge-rings.fs`, `bloom.fs`, `light-tunnel.fs`, `radial-blur.fs`, `flow-smear.fs`, `reaction-diffusion.fs`): each header's `Look:` line names the TouchDesigner component it studies; rewritten, no TD code. `own/light-tunnel.fs` adds that TD's shader names Andrew Benson (Cycling '74) as its origin.
 
 ## MilkDrop presets
 

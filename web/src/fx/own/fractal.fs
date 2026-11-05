@@ -12,8 +12,9 @@
     ],
     "VJW_BIND": {
         "fold": { "source": "bass", "amount": 1, "attack": 0.03, "release": 0.3, "min": 0.06, "max": 0.32 },
-        "glow": { "source": "onset", "amount": 1, "attack": 0, "release": 0.25, "min": 0.4, "max": 2.5 }
-    }
+        "glow": { "source": "onset", "amount": 1, "attack": 0, "release": 0.25, "min": 0, "max": 2.5 }
+    },
+    "VJW_FLASH": ["glow"]
 }*/
 
 // Knobs: march steps × fold iterations is the GPU cost (bench budget: p95 ≤ 5 ms at 1728×1118).
