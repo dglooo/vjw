@@ -1,0 +1,184 @@
+# Plan — Effect editor (Stage 2b, epic `effect-editor`, Variant B)
+
+## TL;DR
+- Builds `design_effect_editor.md` Variant B: a full-window editor (key `L`) whose preview is the live stage CSS-scaled; DOM tiles baked in-session plus one async live tile; the builder on the existing `panel` ops with inverse-step undo; bool/event binding UI plus the event rising-edge fix; 5 new blocks (bars, Pixellate binding, mosaic, led-grid, ASCII port) and 3 built-ins.
+- 4 CPs in the design's order (CP1 builder core → CP2 editor screen → CP3 library + tiles → CP4 blocks). **15 steps, not 14:** the design's S3.2 is split at the engine/editor seam (see `**Changed:**` in CP3). No new npm dependency. SceneDoc v1 unchanged, no migration.
+- Research gaps: G1 (async readback) and G2 (bake time/memory) are measured in S3.3, G4 (tunnel under effect tiles) is judged in S3.3, G3 (ASCII licence) is checked in S4.3; each has its fallback named in the step.
+- CP1 already gives the user something without a new screen: a bool bound to `kick` toggles in the E panel, and a bound event fires once per hit instead of every frame.
+
+## Freshness
+- 2026-11-05, master `2a0cdc1` (Stage 2d done; the kick-fix coder step runs in parallel, STATE HEAD L54).
+- Read: `agents/system-designer/design_effect_editor.md` L1–236 (TL;DR, constraints, S1–S10), L274–300 (Variant B), L355–403 (CPs, gaps, decisions), plus L237–273 (Variant A) because B defines its files and the `tiles` contract "as A". `thoughts/spec_effect_editor.md` L19–76. `agents/planner/plan_td_look.md` L15–26. `agents/STATE.md` HEAD. `CLAUDE.md` § Lead workflow #11, § Constraints.
+- Verified by glob/grep only (no code read): every path under **Files** exists or is marked new; `KeyL` is unused in `web/src/app.ts` (the switch is on `e.code`: E T B F Q R), so the design's `L` assumption holds; Vitest runs in Node with no jsdom/testing-library, so there are no component tests and `.tsx` logic that needs a test lives in a `.ts` helper (the `ui/SourcesTab.test.ts` → `audio/settings.ts` pattern); `donor/ISF-Files/ISF/ASCII Art.fs`, `web/src/fx/isf/Pixellate.fs`, `web/THIRD_PARTY.md` exist; harnesses `scratchpad/td/{td-feedback,cp3-close,cp4-close}.mjs` and `scratchpad/live-rebuild.mjs` exist.
+- The kick-fix step lives in `audio/*`; no file overlap with this plan. S1.3's kick-toggle demo reads cleanly only after its merge (false kicks on the dubstep fixture before it).
+
+## Chosen variant
+`agents/system-designer/design_effect_editor.md` § Variant B (L274–300). Lead pick 2026-11-05 under the user's standing instruction ("take recommendations, don't ask"), all designer defaults (§ Decision needed 1–8): inverse-step undo recorded in `panel`; try = add + pending mark + Esc; mute/solo preview-only; editor key `L`; session-only thumbnails; port the donor `ASCII Art.fs`; CP order 1→4. CP4 has no code dependency on CP1–3 (design L381): its steps may fill a gap if a CP1–3 step is blocked, still one coder at a time.
+
+## Conventions (every step; a step's text states only what differs)
+- **Brief opener, verbatim:** "Invoke the `ponytail` skill (full) before writing code." Then: ~45 min (L ≈60–75), own worktree with `web/node_modules` symlinked, reads by symbol (never by line number), ≤ ~3 files plus their tests, one targeted browser check. The lead merges into `master`, runs the gates and commits (CLAUDE.md #11); one coder at a time.
+- **Gates:** `cd web && npm run lint && npm run typecheck && npm test`.
+- **Dev server:** `cd web && npm run dev -- --port 5174` → `http://localhost:5174/`. **Restart Vite after ANY `web/src` edit** before the browser check.
+- **Worktree isolation:** the coder writes only inside its worktree. Harness scripts and screenshots go to `<worktree>/scratchpad/ed/<step>-<what>.{mjs,png}`; the lead copies them to `/Users/shaixee/Codered/Veejay-Wizard/scratchpad/ed/`. Patterns: `scratchpad/td/td-feedback.mjs` (one scene on `?debug`, trace + screenshot), `scratchpad/live-rebuild.mjs` (a structural panel edit leaves a feedback trail intact), `scratchpad/td/cp3-close.mjs` (contact sheet), `scratchpad/td/cp4-close.mjs` (60 s autopilot late-frame run).
+- **Browser check:** Playwright, headed Chrome, `localhost:5174/?debug`, file source `scratchpad/fx_audio/dnb174-arr.wav` (build 23.1 s, drop 34.1 s); steps that bind a param also run `dubstep140-arr.wav` (build 28.4 s, drop 42.1 s) with Auto-style on via E → Sources. Every step leaves ≥1 screenshot for the lead.
+- **Render-path change** (anything in `gl/live.ts` `run`/`render`, `gl/scene.ts`, `scenes/*.ts`, `bind.ts`): a same-session A/B of GPU p95 on `builtin:rgba-delay` and `builtin:swarm` (`?bench`, 1728×1117, scale 1) before/after, and a 60 s autopilot late-frame run on `dnb174-arr` → 0 late, 1.00× (`cp4-close.mjs` pattern). The per-scene GPU timer under-reports (STATE L22); the late-frame run is the truth.
+- **Tests:** Vitest next to the code (`x.test.ts` beside `x.ts`), Node environment, pure logic first. Design S10 is the list; each step names its share.
+- **New blocks (2d policy,** `design_td_look.md` L51–110 + ruling L420–452): drums (`kick`/`snare`/`hats`), `sub`, `build`/`drop` bind direct; the bass class binds `reese` (Auto-style maps it to `wobble` on Dubstep); flash-class inputs are 0..1 with binding min 0 and listed in `VJW_FLASH` (→ `EffectDef.flash`); `hats` drives thin detail only; `VJW_BIND` defaults live in the file so add-fx brings them along. Header per spec §6 (`Look:`/`Credits:` line, donor author/URL/licence). Shared header test `web/src/fx/isf.test.ts` `NEW_OWN` gets one entry per new own file (parses; sources ∈ `SOURCE_IDS`; flash inputs min 0).
+- **Lead close-out per CP:** contact sheet or screen-recording stills at `scratchpad/ed/cpN-sheet.png` plus one end-to-end check (named per CP).
+
+## Research gaps → steps (design L389–394)
+- **G1** sync `readPixels` vs async PBO + fence at 320×180 on ANGLE-Metal → **S3.3** measures both. Pass for B: the fence signals within ≤3 frames and the 60 s run with the bake running stays at 0 late. Fail → S3.3 ships Variant A's sync path (≤1 readback per rAF, before `render()`), S3.4 runs the live tile on it at 20 fps, or drops it if the run shows late frames (design A's deviation: §2.2 hovered-live not met; the try in the preview stands in).
+- **G2** full-library bake time (est. 15–25 s) and ~150 tile canvases (est. ≈34 MB) → **S3.3** records both. Late frames during the bake → lower the slice 6 → 3 tile-frames per rAF and K 90 → 45 for persistent-pass tiles (⚠️ planner's levers, the design's two knobs). Memory is reported for the lead; thumbnails stay session-only (S9).
+- **G3** the licence line of Shadertoy `lssGDj` → **S4.3** reads it off the donor header; absent there, the step stops and reports (lead: Tier 1 researcher look-up). Fallback = decision 7's alternative, an own glyph shader.
+- **G4** `native/tunnel` as the source under effect tiles → **S3.3** judges the 5 effect tiles on the sheet; a bad read → the coder picks another moving, colourful generator (S5 allows it) and records the pick.
+
+## Checkpoints
+**CP1 — Builder core, no new screen (S1.1–S1.3).** Frozen: `edit.ts` ops `addFx(d,l,n,at?)`, `removeFx → NodeDoc`, `moveFx(d,l,from,to)`, `setGen(d,l,n) → old NodeDoc`, `insertLayer(d,layer,at) → false at 4`, `removeLayer → Layer | false at 1`, `moveLayer(d,from,to)`, `addLayer` stays; `undo.ts` `Step { undo(); redo(); key?; t? }` and `edits { record, undo(): boolean, redo(): boolean, clear() }`; `bind.ts` pure `level(type, y, held)`; on `Live`: `addFx(l, at?)`, `moveFx`, `setGen`, `addLayer(at?)`, `moveLayer`, `mute(l, on)`, `read(p, key)`. **Demo:** in the E panel, bind the strobe's bool to `kick`: it toggles on kicks; an ISF event bound to `snare` fires once per hit. **Lead close-out:** stills of the panel's bool binding block with its meter; a structural panel edit on `builtin:td-feedback` keeps the trail (no restart).
+
+**CP2 — Editor screen + builder (S2.1–S2.4).** Frozen: `UiSnapshot.editor: boolean` with the store's setter (name fixed by S2.1's note); `Fx`/`Param`/`Gpu` exported from `ui/Panel.tsx`; `editor/Editor.tsx` mounted in `main.tsx`, Overlay and Panel render null while `editor` is on; the editor's listener owns Esc, Cmd+Z, Shift+Cmd+Z, Delete, Alt+↑/↓ and the global keydown returns early for everything but `L`. **Demo:** `L` opens the editor; build a scene (add layer, add fx from today's picker lists, reorder by drag, bind a param incl. a bool, undo/redo), Save as, star; `L` again and it plays in the autopilot. **Lead close-out:** stills of that demo; then 60 s in live mode on `dnb174-arr` → 0 late (§7.5 unchanged).
+
+**CP3 — Library + tiles (S3.1–S3.4).** Frozen: `editor/blocks.ts` (`Block`, `blocks()`, `filterBlocks()` as S5); `EffectDef.tags?: readonly string[]`; `library.favs()` / `setFav(id, on)` under `vjw.favs`; `live.tile(doc, w, h): Live`; `NativeDef.create(gl, size?: readonly [number, number])`; `tiles: { frame(f, s); get(id): ImageData | undefined; invalidate(id); onChange(cb): () => void; hover(id: string | null) }`. **Demo:** library open: filters, search and favourites survive a reload; every tile shows a still; the hovered tile moves; Esc takes a tried effect back; 0 late frames. **Lead close-out:** 60 s late-frame run with the library open, the bake running and the live tile on a ring native, then on swarm → 0 late; contact sheet of the tile grid.
+
+**CP4 — New blocks (S4.1–S4.4).** Frozen: S7's inputs and `VJW_BIND` per block (restated in each step); CATEGORIES `"Pixel"` on the 4 pixel files; built-ins `builtin:bars`, `builtin:led-grid`, `builtin:ascii` (⚠️ ids are the planner's; keep them unless the look dictates otherwise, and say so). **Demo on `dnb174-arr`:** the bars' glow pulses on kicks (≤3/s), mosaic jitters on the reese, the LED dots swell on the sub, the ASCII cells jump on kicks. **Lead close-out:** contact sheet `ed/cp4-sheet.png` + a 60 s autopilot run over the 3 new built-ins on both arr fixtures → 0 late, 1.00×; then the full playlist run once.
+
+## Steps
+
+### CP1
+
+#### S1.1 [ ] `edit.ts` ops + `undo.ts` — M
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** the pure half of every builder op and the undo stack (S2 pure column, S3).
+- **Files:** `web/src/edit.ts`, `web/src/edit.test.ts`, new `web/src/undo.ts`, new `web/src/undo.test.ts`.
+- **Depends on:** none (may start now).
+- **Behaviour:** `addFx` gains `at = fx.length`; `removeFx` returns the removed `NodeDoc`; new `moveFx`, `setGen` (returns the old gen), `insertLayer` (false at 4), `moveLayer`; `removeLayer` returns the removed layer, false at 1; `addLayer(gen)` stays as sugar over `insertLayer`. Every op yields a doc `parseScene` accepts (S9). `undo.ts`: `edits.record(step)` pushes and clears redo; a step whose `key` equals the top's within 1 s (`t`) only replaces the top's `redo` (one slider drag = one step); `undo()/redo()` return false on an empty stack; `clear()`.
+- **Tests:** `edit.test.ts`: insert-at, moves (incl. from === to), `setGen` and the returned old gen, the insert/remove return values, the limits 1 and 4; every op: apply → its inverse → `toEqual` the original doc. `undo.test.ts`: undo/redo order, redo cleared by a new record, coalescing by key within 1 s (fixed `t`), not across keys, `clear()`.
+- **Done:** gates. No browser check (pure).
+
+#### S1.2 [ ] `Live` mirrors + `panel` records inverse steps — M
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** every S2 op mirrored on the built `Live` without a restart, and `panel` as the single choke point that records inverses into `edits` (S2, S3).
+- **Files:** `web/src/gl/live.ts` (`restructure` mirrors, `panel`, `mute`, `read`); `web/src/edit.ts` only if a signature needs a tweak.
+- **Depends on:** S1.1.
+- **Behaviour:** add fx at `at` builds `fx[at]` and splices into `nodes` at `at+1`; move fx / move layer splice the node or `Layer` objects, no rebuild; `setGen` frees `nodes[0]` and builds the new gen; `addLayer(at?)`/duplicate build and splice, false at 4; existing `removeFx`/`removeLayer` mirrors stay. `mute(l, on)` sets `l.muted`; `ok = !l.muted && …` so the fast path and the clear both honour it (a muted layer 0 needs nothing else); never saved. `read(p, key)` returns a bound input's last evaluated value. Each `panel` action records its inverse at the point it has the data (old value, removed node, removed layer). `edits.clear()` where `store.edited` changes (open, Save as). Moving an fx across layers: not built.
+- **Tests:** none new in Node (GL); the pure inverses are S1.1's tests.
+- **Done:** gates; browser (`live-rebuild.mjs` pattern) on `builtin:td-feedback`: add fx, remove fx, add layer, remove layer, move via a console call: the trail is intact, screenshot before/after; render-path A/B + 60 s late-frame run.
+
+#### S1.3 [ ] bool/event binding UI, event rising edge, meter — M
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** close the 2a gap (S4): bool and event get binding controls in the shared `Param`, a bound event fires once per hit, the bound signal shows on a meter.
+- **Files:** `web/src/bind.ts` + `web/src/bind.test.ts`, `web/src/gl/live.ts` (the bound-input loop in `render`), `web/src/ui/Panel.tsx` (`Param`).
+- **Depends on:** S1.2 (`read`).
+- **Behaviour:** `Param` renders `bind(x.name, 0, 1)` for `bool` and `event`; their block shows source, amount (on when the source reaches .5/amount), release and an *invert* box (min/max = 1/0); attack/min/max hidden. `bool` still writes `y ≥ .5`; `event` writes `true` only on the rising edge via a `held` flag on `Bound` and a pure `level(type, y, held)` in `bind.ts` (returns the value to write and the new held flag; coder fixes the exact shape, keeps it pure). `color` stays unbindable; `point2D` per component as today. The natives' own edge detectors stay (deletion later, YAGNI). Meter: one rAF loop in Panel writes `<meter>` values from `Live.read` through refs; no per-frame React render.
+- **Tests:** `bind.test.ts`: `level()`: bool follows y ≥ .5; event fires once on a rising edge, stays false while held, re-arms after y < .5.
+- **Done:** gates; browser on `dnb174-arr`: `own/strobe`'s bool bound to `kick` toggles on kicks; `isf/Circular Feedback Mask`'s event bound to `snare` fires about as many times as snares in 10 s (every frame before the fix); meters move; screenshot of the binding block. Render-path A/B + 60 s late-frame run.
+
+### CP2
+
+#### S2.1 [ ] editor flag, `L` + bar button, hold/restore, key guard, `prepare` without peek, layout — L
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** enter and leave the editor with nothing reallocated and the autopilot held (S1).
+- **Files:** `web/src/store.ts` + `web/src/store.test.ts`, `web/src/app.ts`, `web/src/main.tsx`, new `web/src/editor/Editor.tsx` + `web/src/editor/editor.css`, `web/src/ui/Overlay.tsx` (bar button; null while editing), `web/src/ui/Panel.tsx` (null while editing). 7 files of a few lines each; the logic sits in `app.ts`.
+- **Depends on:** none in code; kept after CP1 per the design's order.
+- **Behaviour:** `UiSnapshot.editor` (fields only ever added; the setter's name goes in the step note and becomes the CP2 contract). `KeyL` and the bar button toggle it. Enter: close the E panel, remember the hold, `director.setHold(true)` (the `setPanel` pattern); `store.edited` stays the current scene. While on, the global keydown returns early for every key but `L`; the modifier-chord and focused-input skips stay. Leave: restore the hold, **no cut** (the scene plays until the next autopilot switch, which lands on the slot it left). `prepare()` skips `director.peek()` while editing (one condition). `Editor.tsx`: a 3-column grid (library placeholder | preview cell | builder placeholder); a ResizeObserver on the cell sets the stage canvas's `transform: translate(x,y) scale(k)` (letterboxed fit) and nothing else, so `clientWidth`, `measure()`, `setOutput`, the governor, ring sizes, Auto-style, the flash gate and `gpuMs` stay live.
+- **Tests:** `store.test.ts`: `editor` defaults false; the setter toggles it and notifies (the file's existing pattern).
+- **Done:** gates; browser: `L` → Overlay/Panel gone, the stage's rect fits the cell, `canvas.width/height` unchanged (no realloc), the scene id holds 30 s, ←/→/Space inert; `L` → hold restored, no cut, the next switch lands on the slot it left. Screenshot of the layout. 60 s late-frame run with the editor open → 0 late.
+
+#### S2.2 [ ] `Stack` — L
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** the layer stack and params on the live mirrors, with undo keys (S2, S3, S4).
+- **Files:** new `web/src/editor/Stack.tsx`, new `web/src/editor/stack.ts` + `web/src/editor/stack.test.ts` (pure `muteMask`), `web/src/ui/Panel.tsx` (export `Fx`, `Param`, `Gpu`), `web/src/editor/Editor.tsx` (mount + key listener), `editor.css`.
+- **Depends on:** S2.1, CP1.
+- **Behaviour:** layers: select, add (today's picker lists, Panel L23–26), duplicate = `insertLayer(structuredClone(layer), i+1)`, remove (false at 1), mute/solo (preview-only through `Live.mute`; solo l = every other layer muted; reset on leave), blend/opacity/speed/res through the existing panel ops. Fx rows with params through `Fx`/`Param` (bool/event binding from S1.3), meters via `Live.read` in one rAF loop, `Gpu`, node errors. Keys on the editor's listener: Cmd+Z / Shift+Cmd+Z → `edits.undo/redo`; Delete → the selected fx, else the selected layer; Alt+↑/↓ → `moveFx`/`moveLayer` of the selection; a focused text field keeps the browser's Cmd+Z. Every edit goes through `panel`, so its inverse is recorded. Controls larger than the panel's by CSS only.
+- **Tests:** `stack.test.ts`: `muteMask(muted, solo)`: null solo returns the flags; solo l unmutes l and mutes the rest; length = layer count.
+- **Done:** gates; browser on `builtin:td-feedback`: add, duplicate, mute, solo, remove, Alt-move a layer; add/remove/move an fx; change a binding; Cmd+Z back through every op until the doc JSON equals the original (console); the trail survives throughout; screenshot of the stack with a bool block and live meters.
+
+#### S2.3 [ ] native DnD reorder of layers and fx — M
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** reorder by drag with HTML5 DnD, no dependency (S8).
+- **Files:** new `web/src/editor/dnd.ts` + `web/src/editor/dnd.test.ts`, `web/src/editor/Stack.tsx`, `editor.css`.
+- **Depends on:** S2.2.
+- **Behaviour:** `dnd.ts`: the MIME `application/x-vjw-block`; `insertIndex(y, mids)` = the count of row midpoints above the pointer; `adjustForSource(idx, from)` (idx > from → idx−1). Layer rows and fx rows are `draggable`; each list is a drop target that shows an insert line at the index and on drop calls `moveLayer`/`moveFx` through `panel`. The document's audio drop handler already returns early without files (research §5): verify, don't change. The same drop targets accept a block id in the MIME (S3.1 wires the add). Keyboard path = Alt+↑/↓ from S2.2.
+- **Tests:** `dnd.test.ts`: `insertIndex` above the first → 0, between → i+1, below the last → n; `adjustForSource` for a down-move, an up-move and the adjacent no-op.
+- **Done:** gates; browser: Playwright `dragAndDrop` layer 2 above layer 1 and an fx to the end of its chain: the doc order changes, the trail survives, Cmd+Z restores; screenshot mid-drag with the insert line (dispatch `dragover` by hand if the helper skips that frame).
+
+#### S2.4 [ ] editor header: New, open, Save / Save as / star, export/import — S
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** the file operations in the editor on the existing library API (S1, S9).
+- **Files:** `web/src/editor/Editor.tsx`; `web/src/ui/Panel.tsx` (export the save/export/import helpers if module-private); `web/src/gl/live.ts` only if `panel` lacks an action.
+- **Depends on:** S2.1 (S2.2 for the demo).
+- **Behaviour:** open = a `<select>` of library scenes → `director.cut(id)` (off-playlist works, director L112–117; `store.edited` follows and `edits` clears via S1.2). New = a one-layer `native/spectrum` doc through the laziest existing route (`saveAs` + cut, or a dirty doc under a fresh id; the route goes in the step note). Save / Save as / star = `panel.save/saveAs/toggleStar`. Export = the Panel's export; import = a native `<input type="file">` feeding the Panel's JSON import parser (its drop zone is unmounted here). The thumbnail on save comes in S3.4.
+- **Tests:** if a `newScene()` helper lands in `edit.ts`/`doc.ts`, one test: `parseScene` accepts it. Otherwise none (wiring).
+- **Done:** gates; browser = the CP2 demo end to end: New → add fx → bind → Save as `ed-test` → star → `L` → the playlist contains it and it plays within the cycle; export, then import round-trips it. Screenshot of the header + stack.
+
+### CP3
+**Changed:** the design's S3.2 (`tile()` + size hint + bake queue + async readback, 8 files) is split at the engine/editor seam into S3.2 (engine: `tile()` + `NativeDef.create(gl, size?)`, a render-path change with its A/B) and S3.3 (editor: bake queue, async readback, tile canvases; G1/G2/G4). The design's S3.3 (live tile) becomes S3.4. Reason: one coder session and ≤ ~3 files per step; the halves carry different risks (render regression vs readback stalls). Order inside the CP is unchanged.
+
+#### S3.1 [ ] `blocks.ts`, `tags`, favourites, `Library` grid with placeholders; add by click/drag/`+`; try = pending + Esc — L
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** the library's data and grid, without previews yet (S5, S3).
+- **Files:** new `web/src/editor/blocks.ts` + `web/src/editor/blocks.test.ts`; `web/src/fx/types.ts` + `web/src/fx/isf.ts` (`tags`) + `web/src/fx/isf.test.ts`; `web/src/library.ts` + `web/src/library.test.ts` (favs); new `web/src/editor/Library.tsx`; `web/src/editor/Editor.tsx` (mount, Esc). 6 files; the logic is in `blocks.ts`.
+- **Depends on:** S2.3 (drop MIME, selection).
+- **Behaviour:** `blocks(catalog, scenes)` derives, never stores: every non-transition def once (`milk/*` → group `milkdrop`); toys inside scene docs → generator blocks whose `node` is what an add inserts; built-in and user scenes → kind `scene`. `Block.scene` = what a tile renders: a generator alone; an effect as `REF → effect` with `REF = native/tunnel` (G4, judged in S3.3). `filterBlocks` ANDs kind, group, tag, text (case-insensitive substring over name, credit, tags) and favs. `isf.ts` keeps the raw `CATEGORIES` as `EffectDef.tags` beside the reduced `Category`. `library.favs()/setFav()` on the `vjw.stars` pattern, key `vjw.favs`, not exported. `Library.tsx`: kind chips, group/tag chips, a search box, a fav toggle per tile, grey name placeholders until S3.3 bakes; a scene tile opens that scene (`director.cut`). Adds: click = add + *pending* mark (an effect appends to the selected layer; a generator goes on top as a new soloed layer, or at 4 layers replaces the selected layer's gen); Enter or any other edit keeps it; Esc = `edits.undo()`; another tile swaps it (undo, then add); `+` and a drag onto a stack row (S2.3's MIME) add without the mark. Transitions excluded; scenes never inserted into scenes.
+- **Tests:** `blocks.test.ts`: every non-transition def exactly once; the milk group; toys from scenes become generators with a `node`; user scenes appear as `scene`; `filterBlocks` by kind, group, tag, text, fav, and ANDed. `library.test.ts`: favs via the kv stub survive a reload; a corrupt value → an empty set. `isf.test.ts`: a parsed file keeps `tags` = its raw CATEGORIES.
+- **Done:** gates; browser: all three kinds listed; chips + search narrow; a fav survives reload; click an effect tile → appended + pending, Esc → gone; a generator tile at 4 layers replaces the selected gen; a tile dragged onto a layer row adds there. Screenshot of the grid with filters.
+
+#### S3.2 [ ] `live.tile()` + the `NativeDef.create(gl, size?)` size hint — M (render path)
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** a small, self-contained `Live` for tiles; heavy natives shrink to the tile (S6).
+- **Files:** `web/src/gl/scene.ts`, `web/src/gl/live.ts` (`tile`), `web/src/scenes/history.ts` + `web/src/scenes/history.test.ts`, `web/src/scenes/points.ts` + `web/src/scenes/points.test.ts`, `web/src/scenes/particles.ts`. 5 files, one idea.
+- **Depends on:** CP1 merged (same `live.ts`); no editor code.
+- **Behaviour:** `NativeDef.create(gl, size?: readonly [number, number])`: `size` is the stage it draws for, default the drawing buffer as today. Users: the ring slot size (`history.ts`), scatter's grid (`points.ts`), swarm/particles `N = size ? 4096 : N`. Every other native ignores it; the live path is byte-for-byte unchanged. `tile(doc, w, h): Live` = `create()` kept outside `cache` (so `prepare()` never frees it) with its own temps at w×h, its own flash-onset list (a tile never spends the preview's WCAG budget), natives created at `[w, h]`, and `res < 1` layers scaling with the tile via their own `small` target; `dispose` frees all of it. Milk layers: one pooled visualizer resized to the tile (`milkdrop/native.ts`), no new pool.
+- **Tests:** `history.test.ts`: the ring at 320×180 → 160×90×32 slots (≈1.8 MB) vs the live 61.8 MB; `points.test.ts`: the scatter grid at tile size (3600 pts at 4 px) and swarm N 4096 under a size.
+- **Done:** gates; browser via a `?debug` window hook: `tile(doc of builtin:rgba-delay, 320, 180)`, 90 frames, sync `readPixels`, dump `ed/s3.2-tile.png` (recognisable); allocation ≈ +2 MB, not +62 MB; dispose frees it. Render-path A/B on `builtin:rgba-delay` and `builtin:swarm` (p95 unchanged) + 60 s late-frame run.
+
+#### S3.3 [ ] bake queue, async readback, tile canvases; probes G1, G2, G4 — L
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** every tile gets a still in the background without a late frame (S6, Variant B readback).
+- **Files:** new `web/src/editor/tiles.ts` + `web/src/editor/tiles.test.ts`, `web/src/editor/Library.tsx` (a canvas per tile, CSS `scaleY(-1)`, IntersectionObserver), `web/src/app.ts` (`tiles.frame(f, src)` right before `render()`, editor only).
+- **Depends on:** S3.1, S3.2.
+- **Behaviour:** per tile: build `tile()`, render K frames at dt 1/60 on the live Sources and audio textures (K = 1 when no node is a native or has a persistent pass, else 90), read back, dispose. Scheduling: ≤6 tile-frames per rAF, none on the rAF after a late frame (dt > 20 ms), visible tiles first, a shader def waits for `programAsync` before its first bake. Readback = `PIXEL_PACK_BUFFER` + `fenceSync`, polled with `clientWaitSync(…, 0)`, then `getBufferSubData` (research §3). Cache `Map<id, ImageData>` for the session; `invalidate(id)` re-queues; `onChange` wakes React once per finished tile. At most 2 instances alive. **G1:** log sync `readPixels` vs async (CPU ms per call, frames until the fence signals) over ≥100 tiles; pass/fail per § Research gaps. **G2:** log the full-library bake time and the cache's bytes. **G4:** screenshot the 5 effect tiles; a bad read → another REF generator in `blocks.ts`, noted.
+- **Tests:** `tiles.test.ts` (pure scheduler): `bakeFrames(doc, catalog)` → 1 vs 90; `nextSlice(queue, dt, visible)` → ≤6 tile-frames, nothing after a late frame, visible first; `invalidate` re-queues once.
+- **Done:** gates; browser: open the library, every tile gets a still; 60 s late-frame run with the bake running → 0 late (else the sync fallback, recorded); `ed/s3.3-grid.png` + the G1/G2/G4 numbers and picks in the step note.
+
+#### S3.4 [ ] live tile (hover/select, 20 fps), last frame → still, re-bake on save — M
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** the hovered or selected tile moves; a saved scene gets its thumbnail (Variant B, S6, spec §2.3).
+- **Files:** `web/src/editor/tiles.ts` (`hover`), `web/src/editor/Library.tsx`, `web/src/gl/live.ts` (`panel.save/saveAs` → `tiles.invalidate(id)`; a store subscription in `tiles.ts` instead if shorter).
+- **Depends on:** S3.3.
+- **Behaviour:** `hover(id | null)` after a 150 ms hover delay, or on select: one `tile()` instance runs every frame, read back asynchronously every 3rd frame (20 fps) on S3.3's path; on leave its last frame becomes the still; still ≤2 instances alive (bake + live). Save / Save as invalidate the scene's tile. Under the G1 fallback: sync readback every 3rd frame, or the live tile is dropped (recorded as the design A deviation).
+- **Tests:** `tiles.test.ts`: `hover` swaps the live id and releases the old one; the every-3rd-frame cadence.
+- **Done:** gates; browser: hover a ring-native tile, then swarm, then a milk tile: it moves, the others stay stills, leaving keeps the last frame; save a scene → its tile re-bakes; CP3 close-out: 60 s with the library open, the bake running and the live tile on `builtin:rgba-delay` then `builtin:swarm` → 0 late; `ed/cp3-sheet.png`.
+
+### CP4 (no code dependency on CP1–3; S4.1–S4.3 are independent of each other)
+
+#### S4.1 [ ] `own/bars.fs` — L
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** the Bars generator, 4 shapes, bound per the policy (S7, spec §2.4).
+- **Files:** new `web/src/fx/own/bars.fs`, `web/src/fx/isf.test.ts` (`NEW_OWN`), `web/src/fx/catalog.ts` only if own files are not glob-loaded.
+- **Depends on:** none.
+- **Behaviour:** generator, 2 passes: pass 1 `levels` (PERSISTENT FLOAT 128×1): log bands from `audioFFT`, release = `smoothing`; pass 2 draws `shape` ∈ {line, circle, mirror, wave}, wave reading the `audio` waveform texture. Inputs: `shape` (long), `bands` 8–128, `gap`, `thickness`, `gain`, `colorA`, `colorB`, `hue`, `glow`, `smoothing`, `spin`. `VJW_BIND`: glow←kick 0/.15 · hue←snare 0/.3 · thickness←sub .05/.4 · spin←bar (saw) · smoothing←build 1/2. `VJW_FLASH`: glow (0..1, min 0, added on top). Complements `native/spectrum`, never replaces it. Budget ≤5 ms p95 (two cheap passes; expect well under ⚠️ estimate). **Donor authorisation:** read and adapt the band mapping from the donor's FFT Color Lines / FFT Filled Waveform files under `donor/ISF-Files/ISF/` (VIDVOX, MIT ©2018); copied lines keep the MIT credit in the file header and in THIRD_PARTY (S4.4).
+- **Tests:** `isf.test.ts` `NEW_OWN` += bars (parses; 2 passes with `levels` persistent; sources ∈ `SOURCE_IDS`; `glow` min 0). Band edges are GLSL; if the coder lifts them into a TS table, test monotonic edges for 8 and 128 bands.
+- **Done:** gates; `?bench` p95; browser on both arr fixtures: glow↔kick with `__flash` ≤3/s; thickness idles at min on the intro and swings on the drop (sub); hue steps on snares; smoothing rises on the build; one screenshot per shape `ed/bars-<shape>.png`.
+
+#### S4.2 [ ] `isf/Pixellate` binding + tag, `own/mosaic.fs` — M
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** two of the four pixel effects (S7).
+- **Files:** `web/src/fx/isf/Pixellate.fs`, new `web/src/fx/own/mosaic.fs`, `web/src/fx/isf.test.ts`.
+- **Depends on:** none.
+- **Behaviour:** Pixellate: add `VJW_BIND` cell_size←kick 0/.2 (a cell jump) and CATEGORIES `"Pixel"`; the VIDVOX header stays; `pixel-strobe`'s doc keeps its own values (file defaults only ride along on add-fx). mosaic: filter, 1 pass; `shape` {square, hex, triangle, diamond}, `cell`, `jitter`, `outline`, `outlineColor`; `VJW_BIND`: cell←kick 0/.2 · jitter←reese .05/.4 (bass class; Auto-style → wobble on Dubstep) · outline←hats 0/.08; CATEGORIES `"Pixel"`; no flash. **Donor authorisation:** study the donor's Triangle Mosaic (VIDVOX, MIT) under `donor/ISF-Files/ISF/`; copied lines keep the credit.
+- **Tests:** `isf.test.ts`: `NEW_OWN` += mosaic; Pixellate parses with its `VJW_BIND` and tag.
+- **Done:** gates; browser: mosaic over a moving generator on both fixtures: jitter idles on the intro and swings on the drop (reese / wobble), cell jumps on kicks, outline flickers on hats; `pixel-strobe` A/B unchanged; screenshot per shape.
+
+#### S4.3 [ ] `own/led-grid.fs` + the `ASCII Art` port; G3 — M
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** the last two pixel effects (S7); the ASCII licence line settled.
+- **Files:** new `web/src/fx/own/led-grid.fs`, new `web/src/fx/isf/ASCII Art.fs`, `web/src/fx/isf.test.ts`; `web/src/fx/isf.ts` as a 4th file only for a ≤10-line parser gap (else report).
+- **Depends on:** none.
+- **Behaviour:** led-grid: filter, 1 pass; `cell`, `dot`, `gap`, `levels`, `off` (unlit floor), `glow`, `round`; `VJW_BIND`: dot←sub .05/.4 · glow←kick 0/.15 · levels←build 1/2; `VJW_FLASH`: glow; CATEGORIES `"Pixel"`; refs RGB/CMYK Halftone (zoidberg), studied only, nothing copied. ASCII, **donor authorisation:** copy `donor/ISF-Files/ISF/ASCII Art.fs` → `web/src/fx/isf/ASCII Art.fs`, keep the VIDVOX MIT header and the Shadertoy `lssGDj` origin line; add `VJW_BIND`: size←kick 0/.2 · gamma←build 1/2; `tint` (bool) left unbound on purpose (the user's bool test); CATEGORIES `"Pixel"`. **G3:** the header must name the Shadertoy source's licence; if the donor header lacks it, stop and report (fallback: an own glyph shader, decision 7).
+- **Tests:** `isf.test.ts`: `NEW_OWN` += led-grid; ASCII Art parses with its binding.
+- **Done:** gates; browser on `dnb174-arr`: the LED dots swell on the drop (sub), glow ≤3/s on kicks; the ASCII cells jump on kicks, gamma rises on the build; bind `tint` to `kick` in the panel (S1.3 UI) and it toggles; screenshots.
+
+#### S4.4 [ ] 3 built-ins, THIRD_PARTY, reaction check, contact sheet — M
+- Invoke the `ponytail` skill (full) before writing code. **Goal:** the new blocks in the autopilot at the quality bar, credited (S7, spec §2.4).
+- **Files:** `web/src/scenes/builtin.ts`, `web/THIRD_PARTY.md`, the existing test that parses every built-in (add the 3 ids if one lists them).
+- **Depends on:** S4.1–S4.3.
+- **Behaviour:** `builtin:bars` (bars + one post fx by look), `builtin:led-grid` (a moving gen → mosaic → led-grid), `builtin:ascii` (a moving gen → ASCII); each starred, ≤5 ms GPU p95 at 1728×1117 (E2), bound per the policy, the Auto-style note in the scene comment, composed by look against the TD/MilkDrop bar. THIRD_PARTY: ASCII Art (VIDVOX MIT + Shadertoy `lssGDj` + its licence), Pixellate if missing, any copied donor lines in bars/mosaic.
+- **Tests:** the built-in parse test covers the new ids.
+- **Done:** gates; `?bench` p95 per scene; reaction check on both arr fixtures (every bound param moves on its source; `__flash` ≤3/s); contact sheet `ed/cp4-sheet.png` (`cp3-close.mjs` pattern); 60 s autopilot run over the 3 new built-ins on both fixtures → 0 late, 1.00× (`cp4-close.mjs` pattern).
+
+## Acceptance mapping (`spec_effect_editor.md` §4; `spec_veejay_wizard.md` §7.5)
+| § | Criterion | Proven by |
+|---|---|---|
+| 4.1 | opens/closes by hotkey/button; live output and autopilot resume | S2.1 (CP2 demo) |
+| 4.2 | every block kind with previews; kind/category filter; name search; favourites across reloads | S3.1 (data, filters, favs), S3.3 (stills), S3.4 (live hovered tile); CP3 demo |
+| 4.3 | a scene built entirely in the editor incl. a bool binding, saved, starred, plays; undo/redo on every edit | S2.2–S2.4, S3.1 (adds from the library), S1.3 (bool); undo S1.1/S1.2/S2.2; CP2 + CP3 demos |
+| 4.4 | Bars (4 shapes) + 4 pixel effects, bindable, in ≥2 built-ins | S4.1–S4.4; CP4 demo |
+| 4.5 | 60 fps preview with the library open; the edited scene within budget | S2.1 (held-scene run), S3.3/S3.4 (bake budget; CP3 close-out 0 late), S4.4 (≤5 ms p95 per built-in) |
+| 4.6 | gates; pure tests for undo, reorder ops, favourites, filters/search; one browser check per step | S1.1 (undo, ops), S3.1 (favs, filters); every step's Done |
+| §7.5 | live output unchanged | S1.2 / S1.3 / S3.2 A/B + late-frame runs; CP2 and CP4 live-mode runs |

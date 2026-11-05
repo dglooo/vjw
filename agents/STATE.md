@@ -61,7 +61,8 @@
     - Undo = inverse steps in `panel`; Try = pending add, Esc undoes it; mute/solo are preview-only; editor key `L`; session-only thumbnails.
     - Port the ASCII Art; CP order 1→4.
     - Includes the bool/event binding UI and the event rising-edge fix. A bound ISF event fired every frame while its source stayed >.5, a real bug.
-    - **Running:** `planner` → `agents/planner/plan_effect_editor.md` (4 CPs / 14 steps).
+    - **Plan done:** `agents/planner/plan_effect_editor.md`, 4 CPs / 15 steps (design S3.2 split into engine S3.2 + editor S3.3; live tile = S3.4). G1/G2/G4 → S3.3, G3 → S4.3. `L` is free; Vitest is Node-only, so logic lives in `.ts` helpers.
+    - **Running:** `frontend-coder` 2b S1.1 (`edit.ts` ops + `undo.ts`, pure), in parallel with the snare ruling. The snare coder step goes before 2b S1.2.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
