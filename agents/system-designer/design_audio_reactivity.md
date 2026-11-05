@@ -608,3 +608,49 @@ Everything else is a `(default)` that the user can veto without answering:
 - Heat: +25% brightness, +50% clock, a strobe of ≤ 0.15 amplitude at ≤ 1/8 notes, and a drop flash of 0.8.
 - Classifier: dwell 16 s, min-hold 32 s, margin 0.15.
 - Settings in localStorage `vjw.audio`; ≤ 8 custom bands.
+
+## Ruling: kick vs sustained/modulated bass (2026-11-05)
+**Inputs:** lead brief 2026-11-05 (TD S4.1 trace: `kick` p50 .66 on `dubstep140-arr` and through `dnb174-arr`'s build); C2 (L90–97) and C10 (L315–353) above; `research_audio_features.md` TL;DR, §1–§3; code read 2026-11-05: `web/src/audio/{drums,onset,analysis,bands,features,synth,arrange}.ts`, `drums.test.ts`, `bands.test.ts`, `acceptance.test.ts`, `web/scripts/make-fx.mjs` L44–54.
+
+**Root cause (code + derived).** At 48 kHz, 40–150 Hz is **bin 1 alone** of the 512-point FFT (`drums.ts` L9–14), and the kick's ODF is that one bin's log flux.
+- **Full-range bass:** its 55 and 110 Hz partials both sit in bin 1 and beat at 55 Hz, so the bin swings ≈2–3× from hop to hop. `synth.ts` L96–97 already names this for the reese. It is not the LFO: `wobble()` is a full-range 55 Hz saw at amp 0.5, and its sweep only sets the swing depth, which is why the storm pulses with it.
+- **Empty band:** the log flux is level-independent (`drums.ts` L13), so in a breakdown, room tone, the riser's leak and the snare's 190 Hz body read as full flux. `arrange.ts` L3–4 already logs "~13 kicks a bar".
+- The detector then fires at its 50 ms `minGap` (`onset.ts` L14), and `e^(−age/0.12)` (`features.ts` L14) holds `kick` at .66–1.
+- The fixtures hid this. `pattern()` high-passes the reese at 300 Hz (`synth.ts` L96–98), so the bed test passes and the DnB groove looks clean. Even so, kick F1 is only 0.79 / 0.80 / 0.89 (`drums.test.ts` L54, L62).
+
+**Decision: (d) a kick is a transient in the kick band's existing IIR gate that also carries the hop's power.**
+1. **Trigger:** `tempo.ratio(0) ≥ TRANSIENT` (1.5). This is `bands.ts`'s differential-envelope gate (research §2) on 40–150 Hz, which `analysis.ts` already runs every quantum for the tempo ODF (L15–17, L86); the band is every preset's kick band (C3). It works on samples with a 200 ms peak-hold, so partials beating in-band read as one steady level (`bands.ts` L11–13): sustained material ≤ 1.30, a kick ≥ 1.65 (L88). A full-range reese and a 4.67/11.6 Hz wobble never trip it on their own bands (`bands.test.ts` L105–137).
+2. **Confirm:** at that hop the kick bins hold ≥ `SHARE` of the hop's power. `drums.ts` computes it as Σ mag², with DC excluded so a line-in offset can't fake it. `SHARE` is a knob, start 0.2. Derived: fixture kicks ≈ 0.4–0.9; the riser, room tone and the snare's body ≲ 0.06. Those three do trip the ratio in an empty band, which is why the share check is needed.
+3. **Post** at the first hop where both hold, keeping `minGap` 50 ms; `strength = min(4, ratio)`. Delete the kick's bin-1 `createDetector`. Snare and hats are unchanged.
+4. **Crosstalk:** today's rule stays (a snare in a kick's hop is dropped unless it is at least as strong), with `ratio` as the kick's side. The band-passed body may trip a hop after the 3 kHz click. If the crosstalk matrix (`drums.test.ts` L69) shows that, widen the rule to ±1 hop: a snare then waits one hop (+5.3 ms).
+
+**Rejected:**
+- **(a) wide-band flux / sharpness:** all three false sources are wide-band flux (the wobble's 150 Hz–1.5 kHz sweep, the riser, the roll), and the bin-1 beating stays.
+- **(b) ⅛-note IOI + beat grid:** the wobble is tempo-synced at ⅛, so one false kick per LFO cycle passes by construction. It also cuts real 16th and ghost kicks and ties hits to tempo lock.
+- **(c) suppress while `reese`/`wobble`/`wobbleDepth` move:** these sources are main-thread, per-frame and themselves kick-gated (`features.ts` L62–67), so the logic is circular. The 1 s `wobbleDepth` lags, and the rule is blind in the build, which has no bass. Its "clears the bass envelope by a margin" half *is* (d)'s ratio.
+- **HPSS / a 2048 kick FFT:** the harmonic median needs 43–80 ms of look-ahead (research §3); on the 512 FFT, HPSS would call the beating percussive. A 2048 FFT splits the partials at the cost of ≈21 ms more lag, and it still fires on an empty band.
+
+**What it does:**
+- **DnB groove:** every kick trips the gate. `features.ts` L62–63 already relies on the same gate (on the reese band) to catch "every kick, the FFT detector's misses too". The groove stays clean, and F1 should hold or rise from 0.79.
+- **Dubstep wobble:** the sweep moves the in-band level ≈ +25 % over ≈ 40 ms, a ratio of ≈ 1.1–1.2 (derived ⚠️; test 5 pins it). That gives 0 kicks between real kicks, and `kick` idles at 0. S1.10's "classifier reads `dubstep140-arr` as techno" likely has the same cause (kicks per beat inflated): check it in the same run, but don't tune for it.
+- **Riser + snare roll:** the share is ≪ `SHARE`, so 0 kicks. The roll still drives `snare`.
+
+**Cost:**
+- Worklet CPU ≈ 0. The ratio is already computed; the share adds 256 multiply-adds per 5.33 ms hop, and one log1p bin goes away. That is less than one band chain (research TL;DR: 16 chains ≈ 9 µs per quantum).
+- Latency: kicks may land up to 1 hop later than today, from the band-pass rise and because the share needs the body inside the window. That is still within ±30 ms and one frame. This supersedes C2's "Nothing is added" (L97).
+
+**Ceilings (⚠️ real tracks, queue #4):**
+- An equal 16th double kick at ≳ 150 BPM: the 2nd kick reads ≈ 1.39, because `gf` holds for 200 ms (derived). Knob: the kick band's gate release.
+- A square-LFO wobble whose filter closes below its fundamental can jump > 1.5× in band. Knob: a kick-only threshold.
+- A loud 40–150 Hz bass stab reads as a kick. A kick that is no louder in band than the bass under it can be missed, as today.
+
+**Acceptance (Vitest, through `createAnalysis(SR).block()` in 128-frame quanta; `hitsOf` in `drums.test.ts` and `acceptance.test.ts` moves onto it):** both arr fixtures are built the way `make-fx.mjs` L46–54 builds them: `arrangement({ genre })`, plus the gated `wobble()` for Dubstep, peak-scaled.
+- (1) Groove and drop: kick hits per bar, averaged over each section, = truth ±10 % (DnB 2, Dubstep 1); F1 ≥ 0.70 at ±30 ms (log the value).
+- (2) Breakdown (truth 0): ≤ 1 kick in its 8 bars, and 0 in the 4 roll bars.
+- (3) Storms: no two kicks closer than an ⅛ note, anywhere.
+- (4) `createFeatures` `kick` sampled at 60 Hz: p50 ≤ 0.1 over the Dubstep groove and drop and over the DnB breakdown (today .66).
+- (5) 4 s beds give 0 kicks: a full-range `reese(n, 0.15)` (no `hp`) + `sub` + room tone; `wobble()` at 4.67 and 11.6 Hz + `sub` + room tone.
+- Regression: §4.1 F1, the crosstalk matrix, §4.3 and §4.5 (5/5) stay green.
+- Mutants (C10): the kick threshold, `SHARE` and `minGap` each fail ≥ 1 test when broken alone.
+
+**Size: M**, one `frontend-coder` step: `drums.ts` (the kick path; C9's `detect` gains `kickRatio`), `analysis.ts` (passes `tempo.ratio(0)`), both test harnesses plus the tests above, and comment fixes at `drums.ts` L13 and `arrange.ts` L3–4. `WorkletMsg` and `Hit` are unchanged.

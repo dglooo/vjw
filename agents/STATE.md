@@ -48,7 +48,10 @@
   - ⚠️ **Kick-detector bug (pre-2c, now reproducible):** on `dubstep140-arr` and through DnB's build, `kick` sits at p50 .66 (the detector fires ≈every 50 ms on the wobble and the riser). So every kick-bound param, TD scenes included, idles high and pulses with the wobble. Lead pick: its own item right after CP4: a system-designer ruling (kick vs sustained or modulated bass), then a coder step, before 2b. It supersedes queue #4's "false kicks on a bare reese".
   - S4.2 ✅ wave-landscape has its own `flash` (snare) and steady `glow`: the grid stays visible.
   - **CP4 ✅ closed (lead): Stage 2d DONE.** All 38 starred own scenes, 2 s each, 76 s per arr fixture: 0 late on both, 1.00×.
-  - **Running:** `system-designer` ruling: kick vs sustained/modulated bass (append to `design_audio_reactivity.md`). Next: the coder step for it → then 2b editor (system-designer).
+  - **Kick ruling** (`design_audio_reactivity.md` § Ruling, L612–656), lead pick (d).
+    - Cause: the kick detector read bin-1 log flux, and a full-range bass's 55/110 Hz partials beat inside that bin. The HP'd fixture reese hid it.
+    - Fix: kick = `tempo.ratio(0) ≥ 1.5` (the existing IIR gate) + kick-bin power share ≥ 0.2; the bin-1 detector is deleted; CPU ≈ 0; ≤1 hop later.
+  - **Running:** `frontend-coder` kick-fix step (M). Next: 2b editor (system-designer).
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
