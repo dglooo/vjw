@@ -418,8 +418,13 @@ Depends on: S1.1 (the key); CP3 closed (order). **Files:** `web/src/scenes/built
     - Fractal's gated glow holds (0 flashes).
     - Wave-landscape at glow 0 loses its neon grid between snares (`s4.1/dnb-wave-landscape-rest.png`). A 0-rest `flash` input of its own would keep the grid.
 
-### S4.2 [ ] [S] wave-landscape: its own 0-rest flash input; glow steady again
+### S4.2 [x] [S] wave-landscape: its own 0-rest flash input; glow steady again
 **Added by the lead 2026-11-05** (S4.1 finding). With `glow` keyed and bound from 0, the neon grid vanishes between snares. **Files:** `web/src/fx/own/wave-landscape.fs` (a new input, e.g. `flash` 0..1 added on top of the grid, listed in `VJW_FLASH` instead of `glow`; `glow` back to a steady default/binding), `web/src/scenes/builtin.ts` (its row: snare → the new input, from 0), `isf.test.ts` if the keyed-input test names it. **Done:** gates; DnB `?debug`: the grid stays visible at rest and flashes on snares ≤3/s; a rest/peak shot pair.
+**Changed during implementation:**
+- `flash` (0..1) lights the grid only: line colour × `glow + 1.5·flash`, so a full flash peaks at the old max of 2.5. The sun halo stays on `glow`.
+- `glow` is unbound in the file and the built-in, so it holds its DEFAULT of 1. The design table had no gentle `glow` binding. Before S4.1 it rested at .8 (`onset` .8→2.5).
+- The file's VJW_BIND binds `flash ← onset` (0→1), like tunnel-mesh's file. Only the built-in row binds `snare`. The tally test is unchanged: the snare binding moved, and `glow` is no longer counted.
+- Trace (`scratchpad/td/s4.2/`, DnB 17.1–37.1 s): `flash` r(snare) .886, n 0…1; 14 allowed, ≤3 per 1 s. `glow` held at 1.0 in every frame. `height ← kick`: 11/11 jumps on kicks, r .85. The grid shows in the rest shot.
 
 **CP4 close (lead):** reaction check over the 9 formerly "on a kick" scenes (fact 8) on both fixtures; the same 60 s autopilot run again (20+ scenes changed bindings): 0 late, 1.00×; commit; STATE queue → 2b editor.
 

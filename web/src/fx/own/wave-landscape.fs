@@ -1,20 +1,21 @@
 // VeeJay Wizard, 2026
 /*{
     "CREDIT": "VeeJay Wizard",
-    "DESCRIPTION": "A neon grid landscape: ridged mountains either side of a valley, rolling waves, a striped sun. Height lifts the mountains.",
+    "DESCRIPTION": "A neon grid landscape: ridged mountains either side of a valley, rolling waves, a striped sun. Height lifts the mountains; Flash lights up the grid.",
     "ISFVSN": "2",
     "CATEGORIES": ["Geometry"],
     "INPUTS": [
         { "NAME": "height", "LABEL": "Height", "TYPE": "float", "DEFAULT": 1, "MIN": 0, "MAX": 2.5 },
         { "NAME": "glow", "LABEL": "Glow", "TYPE": "float", "DEFAULT": 1, "MIN": 0, "MAX": 3 },
+        { "NAME": "flash", "LABEL": "Flash", "TYPE": "float", "DEFAULT": 0, "MIN": 0, "MAX": 1 },
         { "NAME": "speed", "LABEL": "Speed", "TYPE": "float", "DEFAULT": 1, "MIN": 0, "MAX": 3 },
         { "NAME": "hue", "LABEL": "Hue", "TYPE": "float", "DEFAULT": 0, "MIN": 0, "MAX": 1 }
     ],
     "VJW_BIND": {
         "height": { "source": "bass", "amount": 1, "attack": 0.03, "release": 0.3, "min": 0.5, "max": 1.8 },
-        "glow": { "source": "onset", "amount": 1, "attack": 0, "release": 0.2, "min": 0, "max": 2.5 }
+        "flash": { "source": "onset", "amount": 1, "attack": 0, "release": 0.2, "min": 0, "max": 1 }
     },
-    "VJW_FLASH": ["glow"]
+    "VJW_FLASH": ["flash"]
 }*/
 
 // Knobs: march steps (the GPU cost; bench budget p95 ≤ 5 ms at 1728×1118), the least step (a fraction of the
@@ -105,7 +106,7 @@ void main() {
         float line = max(smoothstep(w, 0.0, g.x), smoothstep(w, 0.0, g.y));
         vec3 lc = mix(cyan, pink, smoothstep(0.0, 4.0 * height + 0.1, p.y));
         vec3 ground = vec3(0.02, 0.0, 0.05) + lc * 0.05;
-        col = mix(mix(ground, lc * 1.6 * glow, line), pink * 0.5, smoothstep(0.25 * FAR, FAR, t));
+        col = mix(mix(ground, lc * 1.6 * (glow + 1.5 * flash), line), pink * 0.5, smoothstep(0.25 * FAR, FAR, t));
     }
     col = 1.0 - exp(-1.5 * col);
     gl_FragColor = vec4(pow(col, vec3(0.85)), 1.0);
