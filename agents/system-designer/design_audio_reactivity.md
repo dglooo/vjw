@@ -704,3 +704,73 @@ Everything else is a `(default)` that the user can veto without answering:
 - **E1:** kick↔snare crosstalk checks ±1 hop (the kick ruling item 4, now evidenced: the kick's 3 kHz click posts a snare one hop before the kick fires under the wobble) → .83.
 - **E2:** a vetoed hop does not become the flux reference, so the real snare right after a saw-edge spike is not masked → .84.
 - E1 + E2 → 1.00 in the probe. Wobble beds stay 0; patterns and kick unchanged.
+
+## Ruling: real-track tuning (2026-11-05)
+**Inputs:** `agents/research/_adhoc/real_tracks_2026-11-05.md` (all); `scratchpad/real/probe.log` (floor sweeps) and `ref.log`; the kick ruling (L612–656) and the snare ruling + amendment (L658–706) above; `plan_audio_reactivity.md` L150; code read 2026-11-05: `web/src/audio/{drums,onset,bands,analysis,arrange,presets,style,tempo,settings}.ts`, `app.ts` L180–294.
+
+**Code facts the items rest on:**
+- `sens` is a main-thread envelope gain (`features.ts` L26, L110), never sent to the worklet; `FLOORS` is a `drums.ts` constant.
+- **Under Auto the worklet never learns the genre:** `sendConfig` sends `workletBands(settings.get(), null)` (`app.ts` L186), plan L150's placeholder ("no detected genre until S4.3"), never swapped. Dubstep's reese band (70–350) has never applied under Auto either.
+- The crosstalk weighs a snare in units of `FLOORS.snare` (`drums.ts` L79): halving the floor doubles every snare's weight against the kick.
+- `TRANSIENT` (`bands.ts` L14, L76) also gates every band's `held`, i.e. the bass sources and arrange `low`.
+- The classifier's `floor` .35 sits above S on masters (S ≤ T ≈ .2–.4; Kanine dnb ≤ .27): it can't decide there, whatever the pattern.
+
+**(a) Detector floors per genre: a preset field.** `Preset.floors?: { snare: number; hats: number }`; only Dubstep sets it (80/100, today's). `drums.ts` `FLOORS` (= Default, undecided, DnB, Techno) → **40/50**.
+- Plumbing: the worklet config gains `floors`; `workletBands` returns the active preset's and `bandKey` includes them; `sendConfig` follows the frame's `active` and runs when it changes (this closes the S4.3 leftover: Dubstep's reese band then applies under Auto, as C4 intended); `analysis.configure` sets floors in place (drum Hz are equal across presets, so there is no restart), so the detector's `floor` gets a setter.
+- The crosstalk keeps its tuned units as constants (snare odf / 80, kick ratio / 1.5), not the live floor.
+- Undecided = 40/50: DnB decides late or never (24–133 s; Kanine never), and Rumble decides dubstep at 24 s. Ceiling: a dubstep track over-fires until it is classified (Rumble ≈ 7/bar for 24 s; the WCAG cap still holds flashes to 3/s). ⚠️ Techno shares 40/50, with no real techno track measured.
+- Fixture tests run at the floors their genre gets once classified (Dubstep `pattern`/`arr` via a config at 80/100). If a DnB fixture F1 dips under its bar at 40, widen the crosstalk to ±2 hops (E1's knob) before touching the floor.
+- Rejected:
+  - `sens` as a floor scale: it is a main-thread envelope gain and never re-sent, so one field would mean two things.
+  - A global 40: Rumble fires 7.3/bar.
+  - An undecided 60: there is no sweep point for it, and it is worse for both genres.
+  - A level-relative floor: the adaptive term (16-hop mean × 1.5) already runs, and Rumble's higher mean (p50 26 vs 17–19) doesn't hold it back.
+  - A floor in the Sources panel: YAGNI.
+
+**(b) Drop path.** `sparse` **.5** (Kanine's 77–88 s break then reads under it for ≈ 9 s), `refractory` **20 s** (drops 23.1 and 27.4 s apart), `GRACE` **8 s** (⚠️ Rumble 48.4, from the profile, not traced). `arm` 6 s and `warmup` 20 s are unchanged.
+- **Bass-less intro: a rule.** Until the first drop or the first sparse frame, the music so far is test (a)'s breakdown.
+  - `dur`/`sum` accumulate, and `dur ≥ arm` arms (a) only. It does not set `armed`, so (b), the kick-only test, stays off for a teaser kick.
+  - It changes neither `out.sparse` (the classifier keeps judging) nor `build`. A track that opens on its groove never fires, because (a) needs `low ≥ ret` (4) × that mean.
+  - Ceiling: a full-level bass tease with a kick fires early, and its refractory can swallow the real drop.
+- **Short bass cut (Andy C: 1.4 s, drums running): defer.** On `low` alone it looks like an in-groove fill. A weak drop still moves the drop-bound reset/spawn/explode by its conf, and it eats the refractory.
+  - Named knob: `CUT` (`low < CUT·G` for ≥ 1 bar arms (a)).
+  - Research gap: trace Andy C's 3 cuts and its fills with `arr.mjs`. Is there a riser before? How deep is the cut?
+- Rejected: `arm` ≈ 1 s (fills fire and eat the refractory); a G reset at the first drop (Kanine's .35–.39 was already measured against today's intro-diluted G).
+
+**(c) Kick: a kick-only threshold.** `KICK` **1.35** in `drums.ts`, on the trigger only. `TRANSIENT` 1.5 stays for `held` and as the crosstalk unit. It also covers the kick ruling's 16th double-kick ceiling (the 2nd kick reads ≈ 1.39).
+- **Bass stabs: no new guard; precision is an acceptance bar.**
+  - `SHARE` can't separate them: a stab's power sits in the kick's own bin (bin 1 alone at 44.1 kHz).
+  - A decay check costs ≥ 50 ms of look-ahead, against the ±30 ms bar.
+  - Lever if precision falls: `CLICK`. A hop at 1.35–1.5 then also needs `tempo.ratio(1)` (1–5 kHz, already computed) ≥ ≈ 1.2 ⚠️ in this hop or the previous one.
+- Rejected: a global `TRANSIENT` 1.35 (it moves `held`, i.e. the bass sources and the arrangement); raising `SHARE`; a decay check.
+
+**(d) Tempo: `PRIOR_BPM` 150** (σ 1 octave; the fold is unchanged).
+- Weights: 174 .977 vs 116 .934 (today .907 vs .990); 140 .995.
+- ⚠️ Techno's 4/3 (170.7) now weighs .983 against 128's .974, so only the ACF holds 128 (it is weak at ¾ beat in a straight 4/4). This is checked on the fixture only.
+- Accepted: the late lock in beat-light intros, and Andy C's and Rumble's 1–3 % fit drift (not the prior's job).
+- **Families: no ⅔/½ fold.** DnB's ⅔ window (≈ 97–136) would hold a 128 techno track too, so T could no longer tell them apart. The pattern features do that (kicks/beat .5 vs 1), and S1–S2 repair their inputs.
+- If the classifier is still late, never decides, or flips after S1–S4, the next ruling is the classifier scale (`floor`/`margin` relative to max T) plus a 3:2 check in `families`. Input to that ruling: techno's ½ window holds DnB's 2.5-beat kick interval (69.6) and Rumble's half-time (70).
+- Rejected: harmonic-sum salience (the reference's Σ₈). It is robust, but it is size M and needs a longer window and more CPU. Revisit if 150 leaves ⅔ runs.
+
+**(e) Rumble's growls: defer.** Dubstep keeps 80/100, so Rumble stays at today's 2.4/bar, with no regression.
+- Named knob: a Dubstep `floors.tilt` (a per-preset `TILT`).
+- Research gap: run `probe.py`'s veto replica on Rumble's off-backbeat snare hops against its backbeat tilt (p10/p50 .06/.33).
+- Rejected now: a higher floor (backbeat odf p90 is 93); a Dubstep `minGap` (it cuts build rolls); a decay check (look-ahead).
+
+**(f) Steps, in order** (one `frontend-coder` step each).
+- Every step keeps all Vitest fixtures green and adds fixture tests and mutants for its own rule. Real tracks stay out of git.
+- The lead keeps today's `scratchpad/real/*.json` as the baseline. After each step it runs `run-all.sh` + `an.py` and compares with the audit table.
+- **S1 (M) floors per preset:** `drums.ts`, `onset.ts` (floor setter), `analysis.ts`, `onset.worklet.ts` (`WorkletIn`), `presets.ts`, `settings.ts` + test, `app.ts`.
+  - Tests: a floors-only config restarts no drum; Default sends 40/50, Dubstep 80/100.
+  - Harness, DnB (drop + body), every track: snare ≥ .8/bar, hats ≥ 3/bar, on-grid ≥ .93 (probe .94–1.00); more app snares in the 4 bars before each drop.
+  - Harness, Rumble: still dubstep by ≈ 30 s; after that, snare/hats within ±10 % of 2.4/8.3, bass-class n p50 within ±.05, drops ≥ 1/4.
+- **S2 (S) `KICK` 1.35:** `drums.ts` + tests.
+  - Tests: the reese/wobble beds stay at 0 kicks and the storm/⅛-IOI checks hold; a hop at ratio 1.4 with its share posts, and one at 1.30 doesn't.
+  - Harness: DnB kicks/bar up ≥ 40 % on every track, with on-grid (±.3 16th) no more than .05 under the baseline (Bicep .17, Kanine .4); Rumble has no kick gap under an ⅛ note.
+- **S3 (S) `PRIOR_BPM` 150:** `tempo.ts`, plus the `presets.ts` comment.
+  - Tests: all tempo and §4.2–§4.3 fixtures stay green, techno at 128 (no 4/3).
+  - Harness: Kanine's ⅔ share ≤ 5 % (was 27 %); no new 4/3 or ⅔ run ≥ 2 s on any track; Rumble at 140.
+- **S4 (S) arrangement:** `arrange.ts` (3 knobs + the intro rule) + tests.
+  - Tests: §4.5 5/5 on both arr fixtures. On `ArrangeIn` sequences, a bass-less 30 s intro with kicks and a teaser kick, then the groove, fires once at conf ≥ .6, and a groove from the start fires 0 in 60 s.
+  - Harness: every fire lands within −0.5…+4 s of an audit drop; DnB ≥ 4/11, Kanine 88.4 among them; the intro rule fires on every track whose intro `low` is ≥ 12 dB under its first drop (`prof.py`); Rumble keeps 75.8 (48.4 and 21.0 logged).
+- Then the lead re-runs the full audit (classifier, zoom/burst) and rules on the (d) classifier lever and the (b)/(e) gaps.

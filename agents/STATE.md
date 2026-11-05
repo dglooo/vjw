@@ -78,7 +78,13 @@
         - The classifier is late or never decides; Bicep flips to techno.
         - Rumble snare fires on growls.
         - The bass class works.
-      - **Running:** `system-designer` real-track tuning ruling: per-genre floors, drop path, kick threshold, tempo prior / ⅔ fold, growls, step split. Next: lead pick → coders step by step (each re-runs `scratchpad/real/run-all.sh`) → 2b S1.3.
+      - **Tuning ruling** (`design_audio_reactivity.md` § Ruling L708–776), lead pick (all items):
+        - Bug found: under Auto the worklet never got the detected genre (`app.ts` `workletBands(…, null)` placeholder since 2c S4.3).
+        - Floors 40/50 by default (Dubstep keeps 80/100); the worklet follows the active preset.
+        - `sparse` .5, `refractory` 20, `GRACE` 8, plus a bass-less-intro rule; `KICK` 1.35 (kick-only); `PRIOR_BPM` 150.
+        - Deferred, with named knobs: `CUT` (bass cuts), `floors.tilt` (growls), and a classifier floor/margin + 3:2 ruling after a re-measure.
+        - Baseline JSONs copied to `scratchpad/real/baseline/`.
+      - **Audio tuning steps:** T1 floors + worklet preset (M) → T2 KICK (S) → T3 prior (S) → T4 arrangement (S). Each re-runs `scratchpad/real/run-all.sh` + `an.py` against the audit table. They run interleaved with the 2b steps, one coder at a time.
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
