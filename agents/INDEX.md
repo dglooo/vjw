@@ -43,3 +43,4 @@
 - `thoughts/spec_td_wave2.md` — Stage 2e spec (lead, 2026-11-06): TD wave 2 = research_td_wave2 top-10 + quick wins + blends/stereo wave/plexus; `(default)` answers.
 
 - `system-designer/design_td_wave2.md` — Stage 2e design (2026-11-06, 224 lines, verified on disk). Variant A picked by the lead: 5 donor ISF copies + 15 own ISF (≤2 passes) + scope (LINE_STRIP, stereo) / plexus (CPU grid-hash) natives + scatter-dots + blend max/difference/dodge + waveLR; julia gated S1.2; donor Emboss/Sharpen rejected (`varying`).
+- `planner/plan_td_wave2.md` — Stage 2e plan (2026-11-06, Variant A, 222 lines): CP0 engine (blends, waveLR) → CP1 top-10 own (julia gate S1.2) → CP2 natives (scope/plexus-fallback S2.3/dots) → CP3 donors + quick wins → CP4 lead close; 15 built-ins.
