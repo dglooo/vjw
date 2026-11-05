@@ -654,3 +654,48 @@ Everything else is a `(default)` that the user can veto without answering:
 - Mutants (C10): the kick threshold, `SHARE` and `minGap` each fail ≥ 1 test when broken alone.
 
 **Size: M**, one `frontend-coder` step: `drums.ts` (the kick path; C9's `detect` gains `kickRatio`), `analysis.ts` (passes `tempo.ratio(0)`), both test harnesses plus the tests above, and comment fixes at `drums.ts` L13 and `arrange.ts` L3–4. `WorkletMsg` and `Hit` are unchanged.
+
+## Ruling: snare vs wobble / modulated bass harmonics (2026-11-05)
+**Inputs:** lead brief 2026-11-05, after the kick fix: snare F1 .09 on `dubstep140-arr`; the 4.67 / 11.6 Hz wobble beds fire 12 / 17 snares in 4 s; snare-bound flashes every ≈ 0.42 s in the app. Also the kick ruling above; `research_audio_features.md` §1 (L18: spectral shape per band; L23: Meyda flatness/slope); code read 2026-11-05: `web/src/audio/{drums,onset,bands,analysis,synth}.ts`, `drums.test.ts` L1–129, `bands.test.ts` L40–52 and L131–137, `acceptance.test.ts` L134–194.
+
+**Root cause (code + derived).** The snare's ODF is the log flux over 43 bins (1–5 kHz, `drums.ts` L12–14), and it is level-independent above ≈ 1e-3 (`onset.ts` L15–17).
+- `wobble()` is a naive 55 Hz saw through two one-poles swept 150 Hz–1.5 kHz (`synth.ts` L183–196). Its 18.2 ms period is longer than the 10.7 ms window, so each saw edge enters the window as a broadband click, about every 3.4 hops.
+- Once the filter is open (fc ≳ 1 kHz), a click lifts the bins ≈ 1–4.5 log units over the −51 dBFS room floor: ≈ 100 summed, over the floor of 80. Spikes fire on the opening flank, while the 16-hop mean is still low.
+- In linear power the spike sits ≈ 8 dB under a snare across the band, but ≈ 23 dB under it above 3 kHz. The wobble falls ≈ 18 dB/oct there (6 from the saw, 12 from the filter); the snare is flat noise.
+- The fixture puts that flank 36–65 ms before every ⅛ note (4.67 Hz is an ⅛ at 140, and `T0` = 1 s), so before every snare. A false snare posted 36–50 ms early arms the 50 ms `minGap` (`onset.ts` L49) and swallows the real one. F1 .09 is false hits plus lost hits.
+
+**Decision: keep the flux trigger; count the snare's flux only on hops whose band power leans high.** This is the kick's pattern (a trigger, confirmed by where the hop's power sits), but the IIR gate is not the trigger (see Rejected).
+1. **Tilt (`drums.ts`):** per hop, `up` = Σ mag² over the snare bins above the band's midpoint ((lo + hi)/2: 3 kHz at the default), and `band` = Σ over all its bins. Both are summed in the loop that already squares every bin for `SHARE`. Then `ok = up ≥ TILT · band`, with `TILT` a knob starting at 0.1. Derived: the fixture snare ≈ .44 (1–6 kHz noise, `synth.ts` L28–35, L52–53), and ≥ .3 at −12 dB over the arr's wobble. A wobble spike reads ≈ .01–.02 (fc 1–1.5 kHz) and room tone ≈ .5. A hat in the hop can't rescue a spike: it is ≈ −27 dB at 5 kHz (`synth.ts` L56–57).
+2. **Veto in the ODF (`onset.ts`):** `detect(mag, t, ok = true)`. When `ok` is false, the hop's ODF is 0, and its log magnitudes still become the next hop's reference. A vetoed spike then arms no `minGap`, wins no 3-hop peak window and doesn't lift the 16-hop mean; each of the three would cost an arr snare. The full-band onset detector (`analysis.ts` L83) and hats pass nothing, so they are unchanged.
+3. The kick path and the kick/snare crosstalk rule (`drums.ts` L58–62) are unchanged.
+
+**Rejected:**
+- **Gate trigger `tempo.ratio(1) ≥ TRANSIENT`.** The 1–5 kHz gate already runs in the tempo bank (`analysis.ts` L17), so no band would be added. But the sweep is a real level transient there: ≈ 25 dB over room tone, against ≈ 9 dB in the 150–1500 Hz band `bands.test.ts` L131 covers. Each click steps `gf` up by as much as ≈ 2× on the rise, so the 4.67 Hz bed reads ≈ 1.3–1.8 (derived). A slower or square LFO clears 1.5. The DnB roll's 86 ms 16ths read ≈ 1.4 (the kick ruling's 16th ceiling).
+- **Snare-band share of the hop (`SHARE`'s twin):** the bass under the snare sets it. On the arr it is ≈ .02–.09 at a snare's hop vs ≈ .015 for a spike (derived): no margin. The tilt ignores the bass.
+- **Flatness/crest over 1–8 kHz:** a hat in the hop lifts the 7–8 kHz end. Over 1–5 kHz it separates like the tilt, but it costs 43 logs a hop, swings with Rayleigh noise at a single hop, and penalises resonant snares.
+- **5–10 kHz share:** hats own 7–16 kHz, and the fixture snare is −18 to −38 dB at 7–10 kHz (8-pole LP at 6 kHz).
+- **Higher `FLOORS.snare`:** spikes (≈ 100) overlap a snare's flux over the open wobble (≈ 120, derived), so ghost notes die first.
+- **2048 snare FFT / HPSS:** a 2048 window spans the saw's period and kills the flicker, but it costs a second FFT and ≈ 21 ms of lag. HPSS has the kick ruling's look-ahead cost, and on the 512 FFT the saw's edges are vertical, i.e. percussive.
+- **Mute while `wobble`/`wobbleDepth` move:** the kick ruling's (c). It is circular and laggy, and it mutes real snares in the drop.
+
+**What it does:**
+- **DnB, Techno and Dubstep patterns, and both rolls:** unchanged (.97 / .83 / 1.00). The snare and clap are the same burst, and hats, kick clicks and the riser only raise the tilt.
+- **Dubstep arr groove and drop:** the spikes' ODF goes to 0 and snares post on the backbeat. F1 goes from .09 to ≥ .8 (⚠️ derived; test 1 pins it).
+- **Wobble beds:** 12 / 17 → 0. In the app, tunnel-mesh and spiral-mesh flash on the snare instead of every 0.42 s.
+
+**Cost:** no new multiply. The snare's bins add 2 conditional adds a hop (< 0.1 µs). It is the same hop, so latency doesn't change. No FFT, bank band or message is added, and `Hit`, `WorkletMsg` and `analysis.ts` are unchanged.
+
+**Ceilings (⚠️ real tracks, queue #4):**
+- **Dull claps:** an 808-style clap that sits ≲ 2 kHz (≥ 9 dB/oct above it) reads ≈ .03–.07 and is missed. Knobs: `TILT`, or a lower snare band per preset.
+- **Bright growls:** a distorted growl that falls ≤ 6 dB/oct across the band reads ≳ .17 and passes. One hop's shape can't tell it from a clap. The next lever is decay (a snare dies in ≈ 100 ms), which costs look-ahead.
+- **Background:** a 3–5 kHz bed (vocals, cymbals) at ≥ 10 % of a growl's 1–3 kHz power lifts the growl over `TILT`.
+
+**Acceptance (Vitest, through `createAnalysis(SR).block()` and the existing `hitsOf`):**
+- (1) Both arr fixtures (`arr()`, `acceptance.test.ts` L136): snare F1 ≥ .8 at ±30 ms, inside the §4.1 arr test. Log the value.
+- (2) `pattern()` DnB, Dubstep and Techno: snare F1 ≥ .8 (`drums.test.ts` L45–60).
+- (3) The bed rows (`drums.test.ts` L75–84) also give `snare` = [] (today: 12 and 17 on the two wobbles).
+- (4) Spectrum level (`frame`/`fire`): after quiet hops, a steep hop (bins 11–31 high, 32–53 near 0) gives no snare, and the same hop flat gives one. A vetoed steep hop 2 hops before a weaker flat one doesn't block it.
+- **Regression:** the kick arr test, the crosstalk matrix, §4.1, §4.3 and §4.5 stay green.
+- **Mutants:** `TILT` at 0 or 0.6, and the veto moved from the ODF to the post, each fail ≥ 1 test.
+
+**Size: S**, one `frontend-coder` step: `onset.ts` (one param, one line), `drums.ts` (`TILT`, two sums, `ok` to the snare's detector, header comment), `drums.test.ts`, `acceptance.test.ts`.

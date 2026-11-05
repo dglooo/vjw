@@ -55,7 +55,7 @@
     - Arr fixtures: DnB 2.00, Dubstep 1.00 kicks/bar (was 18), breakdown 0, kick F1 1.00, `kick` p50 ≤.002 (was .66–.76).
     - App: kick params jump on kicks only; drop 5/5 + 5/5 (Dubstep conf .86).
     - The classifier now reads `dubstep140-arr` as dubstep (late, ≈51 s), and Auto no longer halves the breakdown to 70 BPM. 355 tests.
-  - ⚠️ **Snare bug (same class):** on Dubstep the 1–5 kHz snare detector fires on the wobble (snare F1 .09; snare-bound flashes ≈every 0.42 s). **Running:** `system-designer` snare ruling (append to `design_audio_reactivity.md`), then a coder step before 2b CP1.
+  - ⚠️ **Snare bug (same class):** on Dubstep the 1–5 kHz snare detector fires on the wobble (snare F1 .09; snare-bound flashes ≈every 0.42 s). **Snare ruling** (`design_audio_reactivity.md` § Ruling, L658–701), lead pick: keep the 1–5 kHz flux trigger; a hop counts only if 3–5 kHz holds ≥ `TILT` .1 of the band, and the veto sits inside `onset.ts`, so a vetoed spike doesn't arm `minGap`. Coder step S queued after 2b S1.2.
   - 2b design done: `agents/system-designer/design_effect_editor.md`. **Lead pick 2026-11-05 (never-ask; all designer defaults):**
     - **Variant B:** the stage, CSS-scaled, is the preview; baked stills plus one async live tile; `NativeDef.create(gl, size?)` (tile ring 1.8 MB).
     - Undo = inverse steps in `panel`; Try = pending add, Esc undoes it; mute/solo are preview-only; editor key `L`; session-only thumbnails.
@@ -63,7 +63,7 @@
     - Includes the bool/event binding UI and the event rising-edge fix. A bound ISF event fired every frame while its source stayed >.5, a real bug.
     - **Plan done:** `agents/planner/plan_effect_editor.md`, 4 CPs / 15 steps (design S3.2 split into engine S3.2 + editor S3.3; live tile = S3.4). G1/G2/G4 → S3.3, G3 → S4.3. `L` is free; Vitest is Node-only, so logic lives in `.ts` helpers.
     - S1.1 ✅ `edit.ts` structural ops with round-tripped inverses + `undo.ts` `edits` stack (key coalescing, sliding 1 s window); 370 tests.
-    - **Waiting:** the snare ruling (system-designer); its coder step goes next, then 2b S1.2.
+    - **Running:** `frontend-coder` 2b S1.2 (Live mirrors + inverse steps). Next: the snare coder step, then S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
