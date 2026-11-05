@@ -307,7 +307,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     }],
   },
   // TD look (Stage 2d, plan_td_look.md): TD's feedback chains as own files; the bindings repeat each file's VJW_BIND.
-  // Auto-style moves only the `bass`-bound param: DnB → reese, Dubstep → wobble, Techno or off → bass.
+  // The bass class binds `reese` (design ruling 2026-11-05); Auto-style moves only it, to wobble under Dubstep.
   {
     v: 1, id: 'builtin:td-feedback', name: 'TD feedback', star: true,
     layers: [{
@@ -318,7 +318,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
           zoom: { source: 'kick', amount: 1, attack: 0, release: 0.25, min: 1.012, max: 1.035 }, // pumps on a kick
           hueStep: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 5, max: 15 }, // a snare sweeps the colours
           edge: { source: 'hats', amount: 1, attack: 0, release: 0.1, min: 0.25, max: 0.6 },
-          displace: { source: 'bass', amount: 1, attack: 0.05, release: 0.4, min: 0.006, max: 0.025 }, // Auto-style's one
+          displace: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.006, max: 0.025 }, // Auto-style's one
           fade: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.95, max: 0.98 }, // a build lengthens the trails
           reset: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 1 }, // the drop wipes them
         },
@@ -336,7 +336,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
           scale: { source: 'kick', amount: 1, attack: 0, release: 0.3, min: 1.002, max: 1.012 }, // a kick pushes the rings out
           hueStep: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: -1, max: -8 }, // a snare steps their colour
           gain: { source: 'sub', amount: 1, attack: 0.1, release: 0.6, min: 1.03, max: 1.08 }, // the sub swells them
-          edge: { source: 'bass', amount: 1, attack: 0.05, release: 0.3, min: 0.15, max: 0.4 }, // Auto-style's one
+          edge: { source: 'reese', amount: 1, attack: 0.05, release: 0.3, min: 0.15, max: 0.4 }, // Auto-style's one
           reset: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 1 }, // the drop wipes them
         },
       }],
@@ -344,7 +344,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     }],
   },
   {
-    v: 1, id: 'builtin:bloom-glitch', name: 'Bloom glitch', star: true, // no `bass` binding, so Auto-style changes nothing
+    v: 1, id: 'builtin:bloom-glitch', name: 'Bloom glitch', star: true, // no bass-class binding, so Auto-style changes nothing
     layers: [{ gen: { ref: 'native/glitch' }, fx: [{ ref: 'own/bloom', bind: BLOOM }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
@@ -355,7 +355,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
         ref: 'own/light-tunnel',
         bind: {
           radius: { source: 'sub', amount: 1, attack: 0.05, release: 0.4, min: 0.3, max: 0.6 }, // the sub opens the mouth
-          twirl: { source: 'bass', amount: 1, attack: 0.05, release: 0.4, min: 0, max: 4 }, // Auto-style's one
+          twirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0, max: 4 }, // Auto-style's one
           centerX: { source: 'bar', shape: 'sine', amount: 1, attack: 0, release: 0, min: 0.45, max: 0.55 }, // sways once a bar
         },
       }, {
@@ -375,7 +375,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [{
         ref: 'own/flow-smear',
         bind: {
-          force: { source: 'bass', amount: 1, attack: 0.05, release: 0.3, min: 0.5, max: 3 }, // Auto-style's one: the streaks stretch
+          force: { source: 'reese', amount: 1, attack: 0.05, release: 0.3, min: 0.5, max: 3 }, // Auto-style's one: the streaks stretch
           decay: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.92, max: 0.97 }, // a build lengthens them
           tint: { source: 'hats', amount: 1, attack: 0, release: 0.12, min: 0, max: 0.35 }, // hats turn their colour
         },
@@ -390,10 +390,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [{
         ref: 'own/reaction-diffusion',
         bind: {
-          // The sub feeds the growth. A steady sub reads ≈.42–.56 (relative: 1 ≈ average → .5), so the plan's 0→.6 is
-          // spread over that swing (S1.9: the plan's range moved seed .29–.33 only); below .42 it rests at 0 in-shader.
-          seed: { source: 'sub', amount: 1, attack: 0.02, release: 0.25, min: -1.8, max: 2.486 },
-          kill: { source: 'bass', amount: 1, attack: 0.1, release: 0.6, min: 0.062, max: 0.064 }, // Auto-style's one: mazes ↔ spots
+          seed: { source: 'sub', amount: 1, attack: 0.02, release: 0.25, min: 0, max: 0.6 }, // the sub feeds the growth
+          kill: { source: 'reese', amount: 1, attack: 0.1, release: 0.6, min: 0.062, max: 0.064 }, // Auto-style's one: mazes ↔ spots
           feed: { source: 'build', amount: 1, attack: 2, release: 2, min: 0.0545, max: 0.04 }, // a build starves it
           palette: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0, max: 0.15 }, // a snare turns the colours
           reset: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 1 }, // the drop wipes it to a splash

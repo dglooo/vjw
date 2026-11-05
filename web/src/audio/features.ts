@@ -64,8 +64,9 @@ export function createFeatures() {
     if (trip && !gated) until = t + HOLD
     gated = trip
     if (t >= until) [raw.sub, raw.reese, g] = [x[i + 1], x[i + 3], x[i + 5]]
-    v.sub = rel.sub(raw.sub, k) / 2 // 1 ≈ average → 0.5 (the bass/mid/treb convention)
-    v.reese = rel.reese(raw.reese, k) / 2
+    // The rise above the running average, as wobble: a steady bed reads 0, twice its average 1 (design ruling 2026-11-05)
+    v.sub = Math.max(0, rel.sub(raw.sub, k) - 1)
+    v.reese = Math.max(0, rel.reese(raw.reese, k) - 1)
     const r = rel.wobble(g, k)
     const d = r > 0 ? r - 1 : 0 // (g − ḡ)/ḡ of the gated wobble band; silence reads 0, not −1
     v.wobble = Math.max(0, d)

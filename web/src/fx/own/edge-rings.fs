@@ -21,7 +21,7 @@
         "scale": { "source": "kick", "amount": 1, "attack": 0, "release": 0.3, "min": 1.002, "max": 1.012 },
         "hueStep": { "source": "snare", "amount": 1, "attack": 0, "release": 0.3, "min": -1, "max": -8 },
         "gain": { "source": "sub", "amount": 1, "attack": 0.1, "release": 0.6, "min": 1.03, "max": 1.08 },
-        "edge": { "source": "bass", "amount": 1, "attack": 0.05, "release": 0.3, "min": 0.15, "max": 0.4 },
+        "edge": { "source": "reese", "amount": 1, "attack": 0.05, "release": 0.3, "min": 0.15, "max": 0.4 },
         "reset": { "source": "drop", "amount": 1, "attack": 0, "release": 1.5, "min": 0, "max": 1 }
     }
 }*/

@@ -14,7 +14,7 @@
     ],
     "VJW_BIND": {
         "radius": { "source": "sub", "amount": 1, "attack": 0.05, "release": 0.4, "min": 0.3, "max": 0.6 },
-        "twirl": { "source": "bass", "amount": 1, "attack": 0.05, "release": 0.4, "min": 0, "max": 4 },
+        "twirl": { "source": "reese", "amount": 1, "attack": 0.05, "release": 0.4, "min": 0, "max": 4 },
         "centerX": { "source": "bar", "shape": "sine", "amount": 1, "attack": 0, "release": 0, "min": 0.45, "max": 0.55 }
     }
 }*/

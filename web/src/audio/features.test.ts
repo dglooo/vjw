@@ -127,14 +127,14 @@ describe('sustained sources (design C1)', () => {
     }
   })
 
-  test('held ÷ its running average ÷ 2: a steady level reads 0.5 at any gain; a ×2 step reads 1, then settles in AVG ≈ 4 s', () => {
+  test('held ÷ its running average − 1, at least 0: a steady level reads 0 at any gain; a ×2 step reads 1, then settles in AVG ≈ 4 s', () => {
     const lv = (g: number) => (t: number) => [g * (t < 10 ? 1 : 2), g * 0.3, g * 0.7]
     const [loud, quiet] = [play(feats(16, lv(1))), play(feats(16, lv(0.25)))]
     loud.forEach(([, v], i) => SUSTAINED.forEach((id) => expect(quiet[i][1][id]).toBeCloseTo(v[id], 6)))
     const before = near(loud, 9.9)
-    expect([before.sub, before.reese, before.wobble, before.wobbleDepth]).toEqual([0.5, 0.5, 0, 0])
-    expect(near(loud, 10.01).sub).toBeCloseTo(1, 2)
-    expect(near(loud, 14).sub).toBeCloseTo(1 / (2 - Math.exp(-1)), 2) // ×2 / (2 − e^(−t/AVG)) / 2 at t = AVG
+    expect([before.sub, before.reese, before.wobble, before.wobbleDepth]).toEqual([0, 0, 0, 0])
+    expect(near(loud, 10.01).sub).toBeCloseTo(1, 1)
+    expect(near(loud, 14).sub).toBeCloseTo(Math.exp(-1) / (2 - Math.exp(-1)), 2) // ×2 / (2 − e^(−t/AVG)) − 1 at t = AVG
     expect(near(loud, 14).rawSub).toBeCloseTo(2, 6) // raw: the linear level, not normalised
   })
 
@@ -151,20 +151,32 @@ describe('sustained sources (design C1)', () => {
   test("a trip of the reese band's gate (a kick) holds sub, reese and wobble 0.2 s from its first hop", () => {
     // all three bands jump ×3 for 0.3 s from 10 s, the reese band's gate on for the first 250 ms
     const rows = play(feats(11, (t) => Array(3).fill(t >= 10 && t < 10.3 ? 3 : 1), (t) => t >= 10 && t < 10.25))
-    for (const t of [10.02, 10.1, 10.19]) expect(near(rows, t), `${t}`).toMatchObject({ sub: 0.5, reese: 0.5, wobble: 0 })
+    for (const t of [10.02, 10.1, 10.19]) expect(near(rows, t), `${t}`).toMatchObject({ sub: 0, reese: 0, wobble: 0 })
     const after = near(rows, 10.22)
     expect(after.rawSub).toBe(3)
     expect(after.rawReese).toBe(3)
     expect(after.wobble).toBe(1) // (3 − ḡ)/ḡ ≈ 2, capped
   })
 
+  test('a bed back after a gap reads ≥ 0.9, then decays as its average catches up (design ruling 2026-11-05)', () => {
+    // 8 s at 1% (room tone: digital silence would restart the average) between two stretches at 1
+    const rows = play(feats(22, (t) => Array(3).fill(t >= 6 && t < 14 ? 0.01 : 1)))
+    for (const id of ['sub', 'reese']) {
+      expect(near(rows, 13.9)[id], id).toBe(0) // the gap reads 0, as a steady bed does
+      expect(near(rows, 14.05)[id], id).toBeGreaterThan(0.9)
+      expect(near(rows, 17)[id], id).toBeLessThan(near(rows, 15)[id])
+      expect(near(rows, 21.9)[id], id).toBeLessThan(0.2)
+    }
+  })
+
   test("sens: the user's × the preset's factor per id (missing = 1), capped at 1", () => {
-    const at = (s: AudioSettings, p = preset()) => near(play(feats(12, (t) => [1, 1, t < 10 ? 1 : (t * 10) % 2 < 1 ? 1.5 : 0.5]), s, p), 11.95)
+    const step = (t: number) => (t < 10 ? 1 : 2) // sub and reese read ≈ .44 at 11.95 s
+    const at = (s: AudioSettings, p = preset()) => near(play(feats(12, (t) => [step(t), step(t), t < 10 ? 1 : (t * 10) % 2 < 1 ? 1.5 : 0.5]), s, p), 11.95)
     const ref = at(settings())
     const v = at(settings({ sub: 0, reese: 2, wobbleDepth: 1.5 }), preset({ wobbleDepth: 0.5, wobble: 0.5 }))
-    expect([v.sub, v.reese, v.wobble]).toEqual([0, 1, ref.wobble * 0.5])
+    expect([v.sub, v.reese, v.wobble]).toEqual([0, 2 * ref.reese, ref.wobble * 0.5])
     expect(v.wobbleDepth).toBeCloseTo(ref.wobbleDepth * 0.75, 12)
-    expect(at(settings({ reese: 3 })).reese).toBe(1) // 1.5 caps at 1
+    expect(at(settings({ reese: 3 })).reese).toBe(1) // ≈ 1.3 caps at 1
   })
 
   test('at(t) reads the hops up to the heard time t; later ones wait in the queue', () => {
@@ -283,16 +295,17 @@ const col = (rows: Sources[], id: string) => rows.map((r) => r[id])
 const maxDiff = (a: Sources[], b: Sources[], id: string) => Math.max(...a.map((r, i) => Math.abs(r[id] - b[i][id])))
 
 describe('sustained sources through analysis.ts (fixtures)', () => {
-  test('a sustained sub + reese bed reads ≈0.5 at 0 and −12 dB; kicks over it barely move sub and reese', () => {
+  test('a sustained sub + reese bed rests ≈0 at 0 and −12 dB; kicks over it barely move sub and reese', () => {
     const track = pattern('techno', 8) // four on the floor: 32 kicks
     const bed = listen(mix(track, ['sub', 'reese', 'room']))
     const kicks = mix(track, ['sub', 'reese', 'room', 'kick'])
     const [loud, quiet] = [listen(kicks), listen(kicks.map((v) => v / 4))]
     for (const id of ['sub', 'reese']) {
-      for (const v of col(bed, id)) expect(v).toBeGreaterThan(0.4)
-      for (const v of col(bed, id)) expect(v).toBeLessThan(0.6)
-      expect(maxDiff(loud, bed, id), id).toBeLessThan(0.08) // ungated: ≈0.4 (sub) and ≈0.45 (reese)
-      expect(maxDiff(quiet, loud, id), id).toBeLessThan(0.025) // ±5%
+      const v = col(bed, id).sort((a, b) => a - b)
+      expect(v[v.length >> 1], id).toBeLessThan(0.1) // p50
+      expect(v[v.length - 1], id).toBeLessThan(0.2)
+      expect(maxDiff(loud, bed, id), id).toBeLessThan(0.16) // the ratio within 16% (the old .08 at ÷ 2)
+      expect(maxDiff(quiet, loud, id), id).toBeLessThan(0.05) // ±5%
     }
   })
 
