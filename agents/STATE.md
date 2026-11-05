@@ -108,6 +108,12 @@
 0. **Order (user, 2026-11-04 22:2x):** 2d TD look → **rebind pass**: retune ALL existing built-ins to the 2c sources (reese/sub/wobble, kick/snare/hats, build/drop). The binding policy goes in the same design (`design_td_look.md` § Binding policy, asked of the running designer) → 2b effect editor (spec + research ready; system-designer next) → Stage 3 camera.
 0b. **Order (user, 2026-11-05 15:0x):** finish audio tuning T1–T4 + 2b editor → **Stage 3 camera** (the big closing epic) → **TD wave 2**. Wave 2: a researcher triages the rest of the dump (160 OPSnippets GLSL, the remaining ImageFilters such as twirl/dent/polar/pointillize/solarize, julia/mandelbrot/superFormula, the 50 noise variants, GaussianSplats) → top-10 → design/plan/coders, each on the 2c bindings.
 0c. **Parallel prep (user, 15:1x):** two researchers running alongside the coder:
+    - **Camera research ✅** `agents/research/research_camera.md`.
+      - A1: MediaPipe 1.2.2 (Apache-2.0; tiny; can share our GL context; no temporal state; tuned for a person <2 m).
+      - A2: RVM (GPL-3.0, recurrent, dormant since 2023, WebGPU only).
+      - B: Apple Vision via a Swift helper (≈22 fps reported on M1/M2; transport via WebSocket, WebRTC or a virtual camera).
+      - C: macOS effects reach Chrome as processed pixels only; no mask API.
+      - Gap: no Apple Silicon fps and no low-light/strobe data, so the first design step is an M4 probe. **Running:** `system-designer` → `design_camera.md`.
     - **TD wave 2 research ✅** `agents/research/research_td_wave2.md`:
       - Top-10: julia trap filter, superformula, polar wrap, phaser wipe, gradient map, XY scope (native), pointillize (scatter ext), difference feedback (VJW_FLASH), dilate melt, stars/polka noise.
       - Plus 12 quick wins (several already exist as MIT donor ISF).
