@@ -342,6 +342,11 @@ Depends on: S2.2. **Files:** `history.ts`, `catalog.ts`, `builtin.ts`.
 - **Time-machine seam (lead fix, the S2.3 finding).** `swirl·|θ|/π` replaces `swirl·θ/2π`: no cut at any swirl, and a mirrored pinch replaces the one-arm spiral. Before/after on the DnB drop: `tm-seam-before-after.png`. GPU unchanged (p95 1.73 → 1.72).
 
 **CP2 close (lead):** contact sheet `cp2-sheet.png` of the 3 ring scenes; reaction check; a fade rgba-delay ↔ time-machine (forced cut or `?bench`): 0 late frames, GPU memory ≤ ≈160 MB peak with ≤2 rings live (Chrome task manager, G6); if over, drop the ring cap to 48 MiB (depth stays 32); commit.
+**CP2 Done (lead, 2026-11-05 07:5x):**
+- `scratchpad/td/cp2-close.mjs` on `dnb174-arr.wav` (with build/drop), Auto-style DnB. 64 s autopilot over the 3 ring scenes, 16 switches: 3841 frames, **0 late**, p99 18.6 ms, governor drops 0, scale 1.00, jsMs 0.6, no errors. That includes ring ↔ ring fades with 2 rings live (prepare-ahead).
+- Ring memory per coders: 61.8 MB each, fully freed. 2 live rings = 124 MB ≤ 160.
+- The +3 ms that the GPU timer reads for spectrum → ring filter did not show up as frame time. The S2.2 first-ring frame drop fell in warm-up, outside the measured window.
+- Sheet `scratchpad/td/cp2-sheet.png` (groove moments); drop shots are in `scratchpad/td/s2.2–s2.4/`.
 
 ### CP3 — Track B(b): transform-feedback points
 

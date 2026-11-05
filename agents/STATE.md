@@ -39,7 +39,9 @@
   - S1.11 ✅ arrange `near` = features `HOLD` + 0.15: app drop 5/5 DnB and 5/5 Dubstep, no extras. acceptance §4.5 now runs the held path on both arr fixtures at 20 frame phases; the fire lands 0.32–0.34 s after the drop, ~6 ms inside one DnB beat. RD seed min .3: coral ≈3 s on the bed. 340 tests.
   - S2.2 ✅ history ring (`scenes/history.ts`, 32 slots at ½ stage, 61.8 MB allocated in create and fully freed) + `native/rgba-delay` (spread←reese, rotate←snare event) + `builtin:rgba-delay`: p95 2.62, own ≈.9 ms; G1/G2 hold; no ghost. Finding: the first ring scene per session drops one frame (Metal cache); check it in the CP2 run (fix: `warm()` draws once into a 1×1 array).
   - S2.3 ✅ `native/time-machine` + `builtin:time-machine` (Truchet, tSize←kick; stride 2 with half-slot lag; new `tint` input; p95 1.72, own ≈.84; beat-locked r 1.000; depth .30→.77 on the build; swirl r .97 reese / .82 wobble). The θ seam at fractional swirl is visible in the drop shots. Lead pick: the seamless mirrored `|θ|/π`, folded into S2.4 (same file).
-  - **Running:** `frontend-coder` S2.4 (`native/slit-scan` + the time-machine seam fix).
+  - S2.4 ✅ `native/slit-scan` (axis y/x/radius) + `builtin:slit-scan-ring` (p95 3.77, own ≈.68; span r .99 sub, wave r .97 reese / .84 wobble). Time-machine seam fixed (`|θ|/π`).
+  - **CP2 ✅ closed (lead):** 64 s over the 3 ring scenes on `dnb174-arr`, 0/3841 late, 1.00×. 2 live rings = 124 MB. The timer's +3 ms is not real frame time.
+  - **Running:** `frontend-coder` S3.1 (`scenes/points.ts`: `native/swarm`).
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
