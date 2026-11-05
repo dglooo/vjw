@@ -133,6 +133,7 @@
         - Model-specific code sits behind the worker messages `[R0]`. HEAVY = `builtin:td-feedback`.
         - USER steps: U0.0 optional selfie; U0.1 the booth clip (**asked now**); U0.2–U0.4 on the Windows PC after S0.5 (build/preview, probe, 2×75 min soak, latency); U2.1 at CP2 close.
         - Camera coding starts after 2b, per order. S1.5 (model-free) may go earlier.
+        - **User 2026-11-05: on vacation; the clip and the Windows PC runs wait until he's back in Stockholm.** The clip is optional: a live capture at the decks during the PC probe is fine. Coders can do CP0 S0.1–S0.5 on synthetic + a webcam; R0 waits for the user's runs.
     - **Camera research, cross-platform ✅** `agents/research/research_camera_xplat.md`: pure web, Chrome on Win + Mac.
       - Shortlist: MediaPipe Selfie (<2 m, only published fps), PoseLandmarker mask (full body ≤4 m), RVM on WebGPU (GPL, recurrent alpha; no Windows fps).
       - MediaPipe Windows GPU bugs: NVIDIA mask offset; long-session GL leak #6352 (open).
