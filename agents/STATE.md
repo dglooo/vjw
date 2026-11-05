@@ -4,15 +4,15 @@
 
 ## HEAD
 
-**Updated:** 2026-11-06 (session 10; wave-2 design ✅ verified on disk, variant A picked, planner running)
-**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP4: S4.3 running; wave-2 design ✅ plan ✅)**. 415 tests.
+**Updated:** 2026-11-06 (session 10; S4.3 merged, S4.4 running)
+**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP4: S4.4 running; wave-2 design ✅ plan ✅)**. 417 tests.
 **Specs:** `thoughts/spec_veejay_wizard.md` + `spec_effects`, `spec_audio_reactivity`, `spec_td_look`, `spec_effect_editor`, `spec_camera`. **Team:** planner Fable 5.1 max; others Opus 5.5 max; researcher high.
 
 ### Where we stopped
 - **2b editor** (`plan_effect_editor.md`, Variant B): CP1 code ✅ (lead close-out pending); CP2 ✅; **CP3 ✅ closed (lead, 2026-11-05)**.
   - S3.4 ✅ (merge after `c56b682`): `tiles.hover` runs the hovered tile live (≈19 stills/s); on leave its last frame stays as the still; milk waits; Save re-bakes from the stored doc (new import cycle live↔tiles, call-time only). 411 tests.
   - CP3 run: 4 late = the mount + 3 × 33 ms. A/B (bake only 3, no bake 2) says environment, on a loaded machine. Re-run quiet at the 2b close-out.
-- **CP4:** S4.1 ✅ `own/bars.fs` (merge after `901bdc6`; line/circle/mirror/wave; r glow↔kick .92, hue↔snare .84, thickness↔sub .99/.88, smoothing↔build .90; bars+flash p95 2.65 ms; donor VIDVOX lines noted for S4.4). 413 tests. S4.2 ✅ Pixellate kick bind + `own/mosaic.fs` (Voronoi sq/hex/tri/diamond, 2 passes; r cell↔kick .89, jitter↔reese .96/.91, outline↔hats .90; tri+flash p95 4.56 ms). 415 tests. **S4.3 running** (resumed via SendMessage from WIP `a5a68ed` in worktree `agent-ae013c0256252d053`: `own/led-grid.fs` + `ASCII Art.fs` port + `isf.test.ts` written; gates, GPU A/B and the browser checks still to run). G3 lead ruling: the donor names no Shadertoy licence → record CC BY-NC-SA 3.0, ⚠️ for any release; port anyway, personal use.
+- **CP4:** S4.1 ✅ `own/bars.fs` (merge after `901bdc6`; line/circle/mirror/wave; r glow↔kick .92, hue↔snare .84, thickness↔sub .99/.88, smoothing↔build .90; bars+flash p95 2.65 ms; donor VIDVOX lines noted for S4.4). 413 tests. S4.2 ✅ Pixellate kick bind + `own/mosaic.fs` (Voronoi sq/hex/tri/diamond, 2 passes; r cell↔kick .89, jitter↔reese .96/.91, outline↔hats .90; tri+flash p95 4.56 ms). 415 tests. **S4.3 ✅** (merge after `892f9d8`): `own/led-grid.fs` (dot↔sub r .99, levels↔build .89, glow 1.07/s, p95 2.30 ms w/ flash) + `ASCII Art.fs` port (G3 header line: CC BY-NC-SA 3.0 assumed; size↔kick .89, gamma↔build .9, `tint` bool toggles on kick, p95 2.27 ms). The coder caught an IMG_PIXEL px-vs-cell-index bug in the browser. 417 tests. **Running: S4.4** (3 built-ins + THIRD_PARTY + sheets + 60 s runs).
 - Then the 2b close-out: CP1 lead close-out + a quiet-machine CP3/CP4 run.
 
 ### Queue (user order 2026-11-05)
