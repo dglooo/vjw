@@ -68,7 +68,13 @@
     - S3.1 ✅ library grid: 135 blocks (42 generators, 30 effects, 63 scenes); filters/search/favourites survive a reload; click = try (Esc/Enter/swap); drop and `+` add; `edits.top()` guards Esc; `panel.setGen` takes a node; 28/28; 401 tests. 
     - S3.2 ✅ `live.tile()` + `create(gl, size?)`: rgba-delay tile +2.3 MB (ring 1.84) beside the live 61.8 MB; swarm/scatter/milk tiles recognisable; the live path is unchanged (A/B noise); 0/4564 late; 403 tests.
       - For S3.3: a tile frame costs .09–.29 ms (milk .86); sync readPixels takes 4–5 ms CPU (G1 matters); milk `copy()` shares one texture.
-      - **Next: S3.3** (bake queue + async readback + tile canvases; G1/G2/G4).
+    - S3.3 ✅ bake queue + async readback + tile canvases; 409 tests.
+      - G1 pass: async ≈.4 ms CPU per tile, fence in 1 frame; sync readPixels 2.3 ms median.
+      - G2: full library 135 tiles in 28.2 s, 31.1 MB. G4: tunnel stays the REF.
+      - 60 s run: 2 late frames in the first 125 ms after opening the library (the library mount, pre-existing, 51 ms; the first milk tile's one-off visualizer resize, 32 ms; fix candidate: a tile-sized visualizer in `milkdrop/native.ts`), then 0.
+      - Milk tiles wait while the live scene is milk; `pause()` on close.
+      - Gap: in 30 fps mode nothing bakes (`ponytail:`).
+      - **Next: S3.4** (live hovered tile + re-bake on save).
     - S2.3 ✅ native DnD reorder (drag from the row head only: Chrome dragged rows from sliders), insert line, no-op drops record nothing, S3.1 MIME hook; `stack.ts` → `layers.ts` (case footgun fixed); 393 tests.
     - S2.2 ✅ editor layer Stack:
       - layers/fx/bindings with meters, preview-only mute/solo, Cmd+Z / Shift+Cmd+Z / Delete / Alt+↑↓; 45/45 browser checks; the undo walk returns to the built-in; 391 tests.
