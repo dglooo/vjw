@@ -140,10 +140,26 @@ Depends on: S1.2 (test list). **Files:** `web/src/fx/own/light-tunnel.fs`, `isf.
   - Luma (2 Hz): .07–.24 (DnB), .10–.27 (Dubstep), 0 samples > .8.
 - **A/B** (same session, dnb174, 3 rounds × 4 s, med / p95 ms): spectrum 3.08 / 3.15 · + light-tunnel 3.33 / 3.39 · + flash 3.28 / 3.37 · + light-tunnel + flash 3.57 / 3.68. With light-tunnel billed (not last), its own cost is ≈ .29 ms.
 
-### S1.6 [ ] [S] `own/radial-blur.fs` + `builtin:light-tunnel`
+### S1.6 [x] [S] `own/radial-blur.fs` + `builtin:light-tunnel`
 Depends on: S1.5. **Files:** `web/src/fx/own/radial-blur.fs`, `builtin.ts`, `isf.test.ts`.
 **Look:** `radialBlur`. P0 `blur` at ½, RGBA8 (no FLOAT): 24 taps from uv toward the centre, step `strength`/24, averaged. P1 out at full res: `mix(src, blur, dryWet)` (default .7 ⚠️ taste). 3.9 MB.
 **Inputs:** strength ← kick 0/.18 .04→.3. **Scene:** spectrum → light-tunnel → radial-blur, starred. **Done:** gates; bench (D5 ≈2.8 for the trio); screenshot; trace (streaks on kick).
+**Changed during implementation:** harness `scratchpad/td/radial-blur.mjs` (`gen`: generator comparison; `scene`: trace, centre pair, same-session A/B); shots `scratchpad/td/light-tunnel-scene*.png` and `s1.6/`.
+- **Generator `native/tunnel`, not the spectrum** (`s1.6/v1-gen-*`, kick + rest each). Spectrum: its bars fill the mouth with busy wavy stripes and square it off (S1.5). Particles: real star streaks, but near black at rest and a noisy disc for a mouth. Tunnel: its rings keep the mouth round and bright at rest, its seams become the rays, and a kick zooms the whole portal outwards.
+- **`centerX` input added** (default .5; not in D1). The scene binds it to light-tunnel's bar sine .45→.55 (r 1.00 between the two). With the zoom at .5 under a mouth at .45, the rays smear sideways and wash out on one side (`s1.6/v3-dnb-off-centre.png` vs `-on-centre.png`). `VJW_BIND` keeps strength only (D1), so a panel add on another generator stays centred. Category Geometry, beside light-tunnel.
+- **Trace** (Auto-style on): strength↔kick r .91 (dnb174, 26 onsets) / .90 (dubstep140, 8 onsets). It reaches .30 within 50 ms of every onset and is ≈.15 300 ms later; mean .29 on a kick vs .075 / .05 off. light-tunnel as in S1.5: radius↔sub .89 / .91 (.444–.461), twirl↔reese .56 / ↔wobble .54, centerX↔bar sine 1.00. Luma (2 Hz) .06–.32 (DnB) and .09–.27 (Dubstep), 0 samples > .8.
+- **Bench / A/B** (1728×1118, scale 1, same session, med / p95 ms; dnb174 4 rounds × 4 s, dubstep140 3 × 4 s):
+
+  | Config | dnb174 | dubstep140 |
+  |---|---|---|
+  | scene (trio) | 2.90 / 3.07 | 2.86 / 3.06 |
+  | trio + flash | 3.20 / 3.44 | 3.18 / 3.40 |
+  | lt + flash | 2.18 / 2.25 | 2.18 / 2.25 |
+  | lt | 1.72 / 1.76 | 1.72 / 1.80 |
+  | tunnel alone | 1.34 / 1.39 | 1.35 / 1.40 |
+
+  radial-blur's own cost ≈ 1.0 ms (trio + flash − lt + flash). The whole trio, billed, ≈ 3.2 / 3.4.
+- **Harness trap:** restart the dev server after any source edit, not only `.fs`. After a `builtin.ts` edit the harness's `import('/src/app.ts')` became a second, silent app (likely HMR-stamped module URLs), and the first scene run traced zeros. A restart fixed it.
 
 ### S1.7 [ ] [M] `own/flow-smear.fs` + `builtin:flow-smear`
 Depends on: S1.2 (test list). **Files:** `web/src/fx/own/flow-smear.fs`, `builtin.ts`, `isf.test.ts`.

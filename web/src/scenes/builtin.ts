@@ -347,6 +347,27 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:bloom-glitch', name: 'Bloom glitch', star: true, // no `bass` binding, so Auto-style changes nothing
     layers: [{ gen: { ref: 'native/glitch' }, fx: [{ ref: 'own/bloom', bind: BLOOM }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
+  {
+    v: 1, id: 'builtin:light-tunnel', name: 'Light tunnel', star: true,
+    layers: [{
+      gen: { ref: 'native/tunnel' }, // its rings keep the mouth round (the spectrum's bars square it off: S1.6)
+      fx: [{
+        ref: 'own/light-tunnel',
+        bind: {
+          radius: { source: 'sub', amount: 1, attack: 0.05, release: 0.4, min: 0.3, max: 0.6 }, // the sub opens the mouth
+          twirl: { source: 'bass', amount: 1, attack: 0.05, release: 0.4, min: 0, max: 4 }, // Auto-style's one
+          centerX: { source: 'bar', shape: 'sine', amount: 1, attack: 0, release: 0, min: 0.45, max: 0.55 }, // sways once a bar
+        },
+      }, {
+        ref: 'own/radial-blur',
+        bind: {
+          strength: { source: 'kick', amount: 1, attack: 0, release: 0.18, min: 0.04, max: 0.3 }, // a kick jumps to light speed
+          centerX: { source: 'bar', shape: 'sine', amount: 1, attack: 0, release: 0, min: 0.45, max: 0.55 }, // the zoom follows the mouth
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
