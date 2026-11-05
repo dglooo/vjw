@@ -63,8 +63,9 @@ export function fullscreenProgram(fs: string) {
   return (uniforms: Record<string, unknown>) => draw(info, uniforms)
 }
 
-/** A texture over the bound target at any size, linear: the stage pass without a fade, and the persistent resample. */
-const copy = fullscreenProgram(`#version 300 es
+/** A texture over the bound target at any size, linear: the stage pass without a fade, the persistent resample and the
+ *  history ring's push (scenes/history.ts). */
+export const copy = fullscreenProgram(`#version 300 es
 precision highp float;
 uniform sampler2D uSrc;
 uniform vec2 uRes;
