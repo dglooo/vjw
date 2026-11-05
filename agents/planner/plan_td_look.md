@@ -371,10 +371,21 @@ Depends on: S2.1 (def `kind`/`bind`). **Files:** `web/src/scenes/points.ts`, `we
   - **Trace Dubstep** (pick dubstep): styled reese = wobble, turbulence↔wobble r .82, trail↔build .92, size↔sub .91. Spawn at 42.52 s (drop 42.1). Drop white share ≤ .105. The classifier still says techno (known).
 - ponytail: the fade is per frame, as in the feedback effects, so trails are half as long in time at 120 Hz.
 
-### S3.2 [ ] [M] `native/scatter` + `builtin:scatter`
+### S3.2 [x] [M] `native/scatter` + `builtin:scatter`
 Depends on: S3.1. **Files:** `points.ts`, `points.test.ts`, `catalog.ts` + `builtin.ts`.
 **Design (D4, TD pixelRelocator):** one point per 3×3 px stage cell, grid fixed at create from the G1-checked size (≈214k); home from `gl_VertexID`; colour `texture(src, home)` in the vertex shader; `target = home + (noise − .5)·scatter`; `vel += spring·(target − pos) + burst·dir − drag·vel`; square opaque points on black. `kind: 'filter'`. 6.9 MB.
 **Bind:** burst ← kick 0/.1 0→2 · size ← sub .05/.3 .9→1.4 · scatter ← bass .05/.35 0→.12 · spring ← build 1/2 40→12 (inverted, S1.4's G3 result) · explode ← drop. **Scene:** tunnel → scatter. **Tests:** `gridFor(w, h, cell)` count and the def check. **Done:** gates; bench (D5 1–1.5; lever cell 3 → 4 px); screenshot; trace (scatter on reese/wobble, spring on build).
+**Changed during implementation:**
+- **4 px cell from the start (lead brief).** 120960 points, 3.9 MB. Same-session A/B (`scratchpad/td/s3.2/`, worktree): scatter p95 2.65 ms (med 2.35), tunnel 1.39, rgba-delay 2.63, swarm 4.07 (S3.1: 4.13, so the shared helper costs nothing). Scatter's own cost ≈1.0 ms, ≈8 µs per 1k points: S3.1's 25 µs/1k was swarm's heavy VS plus additive half-float raster, not TF itself. 3 px measured p95 3.12 (fits), but it reads as grain over the tunnel, not as squares, so CELL stays 4 (one knob).
+- **`spring` is the spring's ω (rad/s), not the design's stiffness.** As a stiffness, 40→12 is ω 6.3→3.5: a 1–2 s period, so the squares never settled between kicks (constant speckle, no snap back). As ω, 40 snaps home in ≈.1 s (groove: crisp image, punched on kicks) and 12 glides (build: the kick roll shatters the image). Same binding 40→12, still inverted. Damping is ∝ ω (ζ .5); backward Euler keeps it stable at any spring and frame time.
+- **`scatter` follows TD's units.** `(map − .5)·weight` in uv = `snoise·scatter` in scene units (±.12 at most). A first try at 2× that, with a finer field, crumpled the body into fabric and the tunnel was lost. The field is 2 noise cells per scene unit and drifts .3/s.
+- **Bindings.** `scatter` binds `reese` (ruling 2026-11-05). `explode` is an `event` on `drop 0/.1`, rising edge, as swarm's spawn: one radial kick ∝ the radius × a per-point share (.5–1.5). `burst` is the same direction as a force. `builtin:scatter` repeats the def's bind; the test checks they are equal.
+- **Shared code (points.ts):** `HASH` (lowbias32) and `tfPoints()` (the two TF buffer sets, `run`, `dispose`) are lifted out of swarm, and both natives use them. Swarm is unchanged in behaviour (bench above). THIRD_PARTY.md now lists td-feedback's inlined `noise3D.glsl`.
+- **Measured** (`scratchpad/td/s3.2/`, worktree):
+  - **Memory:** +3.9 MB live on scatter, back to baseline exactly on dispose, twice; GPU process within ±4 MB noise.
+  - **Trace DnB** (pick dnb): burst↔kick r .96, spring↔build −.89 (40 → 21 at the build peak), size↔sub .996, scatter↔reese .97. One explode edge at 34.48 s (drop 34.1). Black share: groove .12, build .36 (shattered), body .05. White share ≤ .19 (the tunnel's comets plus the drop flash).
+  - **Trace Dubstep** (pick dubstep; styled reese = wobble): scatter↔wobble .83 (S3.1's .82 on this fixture), burst↔kick .95, spring↔build −.92, size↔sub .91. Explode at 42.52 s (drop 42.1).
+  - Late frames: only on the screenshot frames (`toDataURL`), plus one stray 26 ms frame in a 42 s run. 0 on entry in the bench.
 
 **CP3 close (lead, spec §4.4–4.5):** contact sheet `cp3-sheet.png` of swarm + scatter; reaction check; **the closing run:** 60 s autopilot with all 11 new scenes starred in the live playlist (`scratchpad/milk-cp3.mjs` pattern): 0 late frames, governor 1.00×, GPU memory within D5 (peak ≈160 MB, Chrome task manager); `__flash` ≤3/s and a luma-std trace on both fixtures over the bloom scenes; commit.
 

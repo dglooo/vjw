@@ -1,10 +1,11 @@
 // Transform-feedback point natives (plan_td_look.md CP3, design D4). Swarm: N GPU points curl through a drifting
 // simplex-noise field, gather onto its zero contour (glowing threads), burst outward on kicks and draw additively into
 // one persistent half-float trail, faded each frame by a constant blend (no texture read, no ping-pong); then the shared
-// bloom and particles.ts's tone map. The TF pattern is particles.ts's (after the twgl.js example, MIT, Gregg Tavares):
-// two buffer sets, one pass that integrates and rasterises.
-// Look: TD particlesGpu.tox + Particle/Trail POP (studied, rewritten). Credits: webgl-noise snoise (Ian McEwan, Ashima
-// Arts, MIT; its header is kept in NOISE); gl/bloom.ts.
+// bloom and particles.ts's tone map. Scatter: the layer's image as one square point per stage cell, coloured by its home
+// pixel, displaced by a drifting noise field and sprung home; kicks and the drop blast it apart. The TF pattern is
+// particles.ts's (after the twgl.js example, MIT, Gregg Tavares): two buffer sets, one pass that integrates and rasterises.
+// Look: TD particlesGpu.tox + Particle/Trail POP, pixelRelocator.tox (studied, rewritten). Credits: webgl-noise snoise
+// (Ian McEwan, Ashima Arts, MIT; its header is kept in NOISE); gl/bloom.ts.
 import {
   bindFramebufferInfo, createBufferInfoFromArrays, createProgramInfo, createTransformFeedback, createVertexArrayInfo,
   setUniforms, type ProgramInfo,
@@ -93,6 +94,9 @@ float snoise(vec3 v, out vec3 gradient) {
   gradient *= 105.0;
   return 105.0 * dot(m4, pdotx);
 }`
+const HASH = `
+uint mixu(uint x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; return x ^ (x >> 16); } // lowbias32
+float hash(uint x) { return float(mixu(x)) / 4294967296.0; } // fract(sin) has ~8 bits here: 512 points shared the origin`
 
 // Scene units: y −1..1, x scaled by the aspect. One pass integrates (written back by transform feedback) and draws.
 const VS = `#version 300 es
@@ -100,9 +104,7 @@ in vec4 state; // pos.xy, vel.xy
 out vec4 stateOut;
 out vec3 vColor;
 uniform float uDt, uTime, uAspect, uBurst, uTurb, uSize, uSparkle, uHue, uSpawn;
-${NOISE}
-uint mixu(uint x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; return x ^ (x >> 16); } // lowbias32
-float hash(uint x) { return float(mixu(x)) / 4294967296.0; } // fract(sin) has ~8 bits here: 512 points shared the origin
+${NOISE}${HASH}
 void main() {
   uint id = uint(gl_VertexID);
   float r1 = hash(id), r2 = hash(id + 0x9e3779b9u);
@@ -141,6 +143,40 @@ void main() { outColor = vec4(vColor, 1.0); }`
 
 let tfProgram: ProgramInfo | undefined // as particles.ts: compiled once and shared; the engine's cache takes no varyings
 
+/** Two buffers of n vec4 `state`s, both zeroed (a zero state is "new"), ping-ponged: each run() draws the n points of
+ *  one into the bound target and captures `stateOut` into the other. */
+function tfPoints(gl: WebGL2RenderingContext, prog: ProgramInfo, n: number) {
+  const [a, b] = [0, 1].map(() => createBufferInfoFromArrays(gl, { state: { numComponents: 4, data: swarmLayout(n).floats } }))
+  const sets = [[a, b], [b, a]].map(([src, dst]) => ({
+    vao: createVertexArrayInfo(gl, prog, src).vertexArrayObject!,
+    tf: createTransformFeedback(gl, prog, { stateOut: dst.attribs!.state }),
+  }))
+  gl.bindBuffer(gl.ARRAY_BUFFER, null) // as particles.ts: no TF buffer left on a generic binding
+  let cur = 0
+  return {
+    run(uniforms: Record<string, unknown>) {
+      const { vao, tf } = sets[cur]
+      cur ^= 1
+      gl.useProgram(prog.program)
+      gl.bindVertexArray(vao)
+      setUniforms(prog, uniforms)
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf)
+      gl.beginTransformFeedback(gl.POINTS)
+      gl.drawArrays(gl.POINTS, 0, n)
+      gl.endTransformFeedback()
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null)
+      gl.bindVertexArray(null) // fullscreen passes set their attributes on the default VAO
+    },
+    dispose() {
+      for (const s of sets) {
+        gl.deleteVertexArray(s.vao)
+        gl.deleteTransformFeedback(s.tf)
+      }
+      for (const x of [a, b]) gl.deleteBuffer(x.attribs!.state.buffer)
+    },
+  }
+}
+
 /** Bindings: D1 with the 2026-11-05 ruling (turbulence binds reese; Auto-style maps it to wobble in Dubstep). */
 export const swarm: NativeDef = {
   id: 'native/swarm', name: 'Swarm', kind: 'generator', category: 'geometry', credit: 'VeeJay Wizard', inputs: [
@@ -166,21 +202,12 @@ export const swarm: NativeDef = {
     const composite = fullscreenProgram(COMPOSITE_FS)
     const bloom = createBloom(gl)
     const trail = renderTarget(true, true) // persistent: the trails survive a governor step
-    // Both start zeroed: a zero state is "new", so the first frame scatters every point over the stage.
-    const [a, b] = [0, 1].map(() => createBufferInfoFromArrays(gl, { state: { numComponents: 4, data: swarmLayout(N).floats } }))
-    const sets = [[a, b], [b, a]].map(([src, dst]) => ({
-      vao: createVertexArrayInfo(gl, prog, src).vertexArrayObject!,
-      tf: createTransformFeedback(gl, prog, { stateOut: dst.attribs!.state }),
-    }))
-    gl.bindBuffer(gl.ARRAY_BUFFER, null) // as particles.ts: no TF buffer left on a generic binding
-    let cur = 0
+    const pts = tfPoints(gl, prog, N) // the first frame scatters every (new) point over the stage
     let held = false
     return {
       draw(f, v) {
         const spawn = !!v.spawn && !held // the rising edge: bound, it stays true while the envelope does
         held = !!v.spawn
-        const { vao, tf } = sets[cur]
-        cur ^= 1
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
         trail.fit(f.width, f.height)
         bindFramebufferInfo(gl, trail)
@@ -189,19 +216,11 @@ export const swarm: NativeDef = {
         gl.blendFunc(gl.ZERO, gl.SRC_ALPHA) // dst × trail: the engine's post-pass trick, no texture read
         tint({ uColor: [0, 0, 0, v.trail] })
         gl.blendFunc(gl.ONE, gl.ONE)
-        gl.useProgram(prog.program)
-        gl.bindVertexArray(vao)
-        setUniforms(prog, {
+        pts.run({
           uDt: Math.min(f.dt, 0.05), uTime: f.time, uAspect: f.width / f.height, uBurst: v.burst, uTurb: v.turbulence,
           uSize: v.size, uSparkle: v.sparkle, uHue: v.hueStep, uSpawn: spawn ? 1 : 0,
         })
-        gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf)
-        gl.beginTransformFeedback(gl.POINTS)
-        gl.drawArrays(gl.POINTS, 0, N)
-        gl.endTransformFeedback()
-        gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null)
         gl.disable(gl.BLEND)
-        gl.bindVertexArray(null) // fullscreen passes set their attributes on the default VAO
         const lit = bloom.apply(trail.attachments[0], f.width, f.height, GLOW)
         gl.bindFramebuffer(gl.FRAMEBUFFER, out)
         gl.viewport(0, 0, f.width, f.height)
@@ -211,12 +230,92 @@ export const swarm: NativeDef = {
         bloom.dispose()
         gl.deleteFramebuffer(trail.framebuffer)
         gl.deleteTexture(trail.attachments[0])
-        for (const s of sets) {
-          gl.deleteVertexArray(s.vao)
-          gl.deleteTransformFeedback(s.tf)
-        }
-        for (const x of [a, b]) gl.deleteBuffer(x.attribs!.state.buffer)
+        pts.dispose()
       },
+    }
+  },
+}
+
+const CELL = 4 // knob: px per point at the stage size; 3 (214k points) fits too (p95 3.12 vs 2.65 ms) but reads as grain
+/** Scatter's grid: one point per cell×cell px of a w×h stage (the last row and column may be cut). */
+export function gridFor(w: number, h: number, cell: number) {
+  const cols = Math.ceil(w / cell)
+  const rows = Math.ceil(h / cell)
+  return { cols, rows, count: cols * rows }
+}
+const S_SCALE = 2 // knob: displacement-noise cells per scene unit
+const S_DRIFT = 0.3 // knob: its drift, cells/s: the fragments wander
+const S_BURST = 40 // knob: radial push per unit of `burst`, scene units/s² at radius 1
+const EXPLODE = 12 // knob: the drop's radial kick, scene units/s at radius 1
+const DAMP = 0.5 // knob: the spring's damping ratio ζ: one small overshoot, at any `spring`
+
+// The swarm's scene units. Each point's home is its grid cell; its colour is the layer's image there.
+const SCATTER_VS = `#version 300 es
+in vec4 state; // pos.xy, vel.xy
+out vec4 stateOut;
+out vec3 vColor;
+uniform sampler2D uSrc;
+uniform int uCols;
+uniform vec2 uGrid;
+uniform float uDt, uTime, uAspect, uCell, uBurst, uSize, uScatter, uSpring, uExplode;
+${NOISE}${HASH}
+void main() {
+  vec2 uv = (vec2(gl_VertexID % uCols, gl_VertexID / uCols) + 0.5) / uGrid; // its cell's centre
+  vec2 home = (uv * 2.0 - 1.0) * vec2(uAspect, 1.0);
+  vec2 p = state == vec4(0.0) ? home : state.xy, v = state.zw; // new: at home, at rest
+  // TD's (map − .5)·weight in uv, the map a drifting two-channel simplex field (±1 = map ±.5, and a uv is 2 scene units,
+  // so snoise·scatter): neighbours drift together and the image tears where the field turns.
+  vec3 q = vec3(home * ${S_SCALE.toFixed(2)}, uTime * ${S_DRIFT.toFixed(2)}), g;
+  vec2 target = home + vec2(snoise(q, g), snoise(q + vec3(31.4, -17.2, 0.0), g)) * uScatter;
+  vec2 dir = home * (0.5 + hash(uint(gl_VertexID))); // ∝ the radius, each its own share: the centre holds, the rim shatters
+  // A damped spring of ω = spring (rad/s) plus the pushes, backward Euler: stable at any spring and frame time.
+  float k = uSpring * uSpring, c = 2.0 * ${DAMP.toFixed(2)} * uSpring;
+  v = (v + dir * uExplode * ${EXPLODE.toFixed(1)} + uDt * (k * (target - p) + dir * uBurst * ${S_BURST.toFixed(1)})) / (1.0 + uDt * c + uDt * uDt * k);
+  p += v * uDt;
+  stateOut = vec4(p, v);
+  vColor = texture(uSrc, uv).rgb; // its home pixel: the image plays on inside the squares
+  gl_PointSize = uCell * uSize;
+  gl_Position = vec4(p.x / uAspect, p.y, 0.0, 1.0);
+}`
+
+let scatterProgram: ProgramInfo | undefined
+
+/** TD pixelRelocator. Bindings: D1 with the 2026-11-05 ruling (scatter binds reese; Auto-style maps it to wobble in
+ *  Dubstep). spring's range is inverted (S1.4's G3): a build loosens it, so the squares float farther and settle
+ *  slower; once the build releases they snap back. */
+export const scatter: NativeDef = {
+  id: 'native/scatter', name: 'Scatter', kind: 'filter', category: 'geometry', credit: 'VeeJay Wizard', inputs: [
+    { name: 'burst', type: 'float', min: 0, max: 3, default: 0 }, // radial push, ∝ the radius
+    { name: 'size', type: 'float', min: 0.5, max: 2, default: 1 }, // × the cell
+    { name: 'scatter', type: 'float', min: 0, max: 0.5, default: 0 }, // TD's weight: displacement up to ±scatter/2 uv
+    { name: 'spring', type: 'float', min: 4, max: 100, default: 40 }, // the pull home, as ω (rad/s): 40 snaps, 12 glides
+    { name: 'explode', type: 'event' }, // a radial blast, sprung back
+  ],
+  bind: {
+    burst: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 0, max: 2 }, // a kick punches the squares outward
+    size: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.9, max: 1.4 }, // the sub swells them
+    scatter: { source: 'reese', amount: 1, attack: 0.05, release: 0.35, min: 0, max: 0.12 }, // the bass tears the image
+    spring: { source: 'build', amount: 1, attack: 1, release: 2, min: 40, max: 12 }, // a build loosens it (min > max inverts)
+    explode: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // short release: one edge per drop
+  },
+  create(gl) {
+    const prog = (scatterProgram ??= createProgramInfo(gl, [SCATTER_VS, FS], { transformFeedbackVaryings: ['stateOut'] }))
+    const grid = gridFor(gl.drawingBufferWidth, gl.drawingBufferHeight, CELL) // G1: the drawing buffer is the stage
+    const pts = tfPoints(gl, prog, grid.count)
+    let held = false
+    return {
+      draw(f, v, src) {
+        const explode = !!v.explode && !held // the rising edge, as the swarm's spawn
+        held = !!v.explode
+        gl.clearColor(0, 0, 0, 1) // square opaque points on black
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        pts.run({
+          uSrc: src, uCols: grid.cols, uGrid: [grid.cols, grid.rows], uDt: Math.min(f.dt, 0.05), uTime: f.time,
+          uAspect: f.width / f.height, uCell: Math.max(f.width / grid.cols, f.height / grid.rows), uBurst: v.burst,
+          uSize: v.size, uScatter: v.scatter, uSpring: v.spring, uExplode: explode ? 1 : 0,
+        })
+      },
+      dispose: pts.dispose,
     }
   },
 }
