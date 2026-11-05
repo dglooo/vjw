@@ -125,7 +125,11 @@
       - The worker is recycled every 30 min for MediaPipe leak #6352; built-ins fall back to their TD layer with no camera.
       - CP0 probe `?camprobe` (Selfie vs PoseLandmarker, CPU/GPU, worker/main/same-ctx, RVM if wired) on the M4 + the Windows PC, then a probe ruling; CP1–CP3: 6 steps (framing optional).
       - **User provides:** the DJ-booth clip (≥60 s 720p30: steady light, low light, strobe, hands on decks, fast moves, someone walking behind) and the Windows probe run (`npm run build && npm run preview` on the PC, 75-min soak).
-      - **Running:** `planner` → `plan_camera.md`.
+      - **Plan ✅** `agents/planner/plan_camera.md`: 4 CPs / 15 steps + probe ruling R0.
+        - CP0: S0.1–S0.5 `?camprobe` + harness; CP1: S1.1–S1.6 mask in the engine; CP2: S2.1–S2.3 looks + 3 `dj-*` built-ins; CP3: S3.1 framing, optional.
+        - Model-specific code sits behind the worker messages `[R0]`. HEAVY = `builtin:td-feedback`.
+        - USER steps: U0.0 optional selfie; U0.1 the booth clip (**asked now**); U0.2–U0.4 on the Windows PC after S0.5 (build/preview, probe, 2×75 min soak, latency); U2.1 at CP2 close.
+        - Camera coding starts after 2b, per order. S1.5 (model-free) may go earlier.
     - **Camera research, cross-platform ✅** `agents/research/research_camera_xplat.md`: pure web, Chrome on Win + Mac.
       - Shortlist: MediaPipe Selfie (<2 m, only published fps), PoseLandmarker mask (full body ≤4 m), RVM on WebGPU (GPL, recurrent alpha; no Windows fps).
       - MediaPipe Windows GPU bugs: NVIDIA mask offset; long-session GL leak #6352 (open).
