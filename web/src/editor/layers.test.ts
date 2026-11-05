@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { clampSel, muteMask } from './stack'
+import { clampSel, muteMask } from './layers'
 
 test('muteMask: no solo gives the own flags; a solo layer plays alone, one flag per layer', () => {
   expect(muteMask([false, true, false], null)).toEqual([false, true, false])

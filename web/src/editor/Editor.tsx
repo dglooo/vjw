@@ -3,8 +3,8 @@ import { stage } from '../gl/engine'
 import { live, panel } from '../gl/live'
 import { store } from '../store'
 import { edits } from '../undo'
-import { Stack } from './Stack.tsx' // with its extension: on a case-blind disk './Stack' finds stack.ts first
-import { clampSel, type Sel } from './stack'
+import { Stack } from './Stack'
+import { clampSel, type Sel } from './layers'
 import './editor.css'
 
 /** A text field keeps its own keys (Cmd+Z, Delete). A slider, checkbox or select has no text selection (null). */
