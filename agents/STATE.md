@@ -20,7 +20,7 @@
 2. **Stage 3 camera** (`plan_camera.md`, Variant B): pure web, Chrome on Mac + Windows, no native helpers.
    - Coders: CP0 S0.1–S0.5 on synthetic input + a webcam. S1.5 is model-free and may go earlier.
    - R0 and the USER steps wait for the user, who is on vacation until he is back in Stockholm.
-3. **TD wave 2:** `research_td_wave2.md` top-10 → design → plan → coders, on the 2c sources.
+3. **TD wave 2 (Stage 2e)**, the rest of the dump (user 2026-11-06 asked for "all remaining shaders"): lead spec `thoughts/spec_td_wave2.md` (top-10 + quick wins q1–q11 + blends/stereo wave/plexus; meshes, splats, explode deferred). **system-designer running** → `design_td_wave2.md` (in parallel with the coder) → lead pick → planner. Lead order: coders on wave 2 fill the camera wait (camera CP0 S0.1–S0.5 + S1.5 first after 2b, then wave 2 while R0 waits for the user).
 4. Deferred audio:
    - classifier lateness (Kanine dnb@162; Bicep flips to techno @199);
    - Rumble growl snares (`floors.tilt`);
