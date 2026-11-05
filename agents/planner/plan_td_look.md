@@ -234,6 +234,12 @@ Depends on: S1.8, S1.4 (G3 result). **Files:** `web/src/fx/own/reaction-diffusio
 - Once the screen is covered, the maze is near-static except where the bars keep seeding gaps; snares turn the palette. More motion needs kill to actually swing (the CP1 decision).
 
 **CP1 close (lead):** contact sheet `scratchpad/td/cp1-sheet.png` of the 6 scenes; reaction check on both fixtures (td-feedback zoom/kick, hue/snare, displace reese → wobble when the genre flips; RD seed/sub); bloom `__flash` ≤3/s; commit.
+**CP1 Done (lead, 2026-11-05 05:3x):**
+- `scratchpad/td/cp1-close.mjs` on `dnb174.wav`, Auto-style DnB. 64 s autopilot over the 6 new scenes, 16 switches: 3842 frames, **0 late**, p99 18.6 ms, governor drops 0, scale 1.00, jsMs 0.6, no page errors.
+- bloom-glitch `__flash` ≤2 stamps in any 1 s.
+- Contact sheet `scratchpad/td/cp1-sheet.png`.
+- Reaction per coder traces (S1.2–S1.9): drums r .83–.91; reese/wobble r .52–.62.
+- ⚠️ Open: relative `sub`/`bass` barely swing (ruling requested of the designer). Build/drop bindings are unexercised: no fixture has them.
 
 ### CP2 — Track B(a): native filters + the history ring
 

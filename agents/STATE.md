@@ -26,7 +26,9 @@
   - S1.6 ✅ radial-blur (≈1.0 ms own) + `builtin:light-tunnel` = tunnel → light-tunnel → radial-blur (p95 3.07 ms; strength↔kick r .91/.90; radial-blur gained `centerX`).
   - S1.7 ✅ flow-smear (spectrum res .5 → flow-smear; p95 3.4 ms, own ≈.7; force↔reese .61 / wobble .57; luma ≤.29). Finding: at res 1, any appended node measures ≈3 ms even when stripped (same anomaly as S1.4). The CP1 close-out's late-frame run is the truth check.
   - S1.8 ✅ TARGET pairs by name (`pairsByTarget`; an 8-pass file uses 4 textures instead of 18). Also a parser fix: a repeated TARGET declared its sampler twice and failed to compile (design fact 1 missed this). No GL-call change on existing scenes. td-feedback p95 reads 4.86–5.06, borderline on this timer.
-  - **Running:** `frontend-coder` S1.9 (reaction-diffusion; G5 plan-B gate).
+  - S1.9 ✅ reaction-diffusion (G5 holds 60 s in half float; 6 steps; p95 4.63; seed gated by fresh A; seed←sub via an extrapolated range).
+  - **CP1 ✅ closed (lead):** 64 s autopilot over the 6 new scenes, 0/3842 late, 1.00×, flash ≤2/s; sheet `scratchpad/td/cp1-sheet.png`. The GPU-timer oddities did not show up as real frame time.
+  - **Running:** `system-designer` ruling on relative band sources (append to `design_td_look.md`) ∥ `frontend-coder` S2.1 (`Native.draw(f, v, src?)`).
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
