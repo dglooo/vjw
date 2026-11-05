@@ -45,13 +45,17 @@
 
 ### CP1
 
-#### S1.1 [ ] `edit.ts` ops + `undo.ts` — M
+#### S1.1 [x] `edit.ts` ops + `undo.ts` — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the pure half of every builder op and the undo stack (S2 pure column, S3).
 - **Files:** `web/src/edit.ts`, `web/src/edit.test.ts`, new `web/src/undo.ts`, new `web/src/undo.test.ts`.
 - **Depends on:** none (may start now).
 - **Behaviour:** `addFx` gains `at = fx.length`; `removeFx` returns the removed `NodeDoc`; new `moveFx`, `setGen` (returns the old gen), `insertLayer` (false at 4), `moveLayer`; `removeLayer` returns the removed layer, false at 1; `addLayer(gen)` stays as sugar over `insertLayer`. Every op yields a doc `parseScene` accepts (S9). `undo.ts`: `edits.record(step)` pushes and clears redo; a step whose `key` equals the top's within 1 s (`t`) only replaces the top's `redo` (one slider drag = one step); `undo()/redo()` return false on an empty stack; `clear()`.
 - **Tests:** `edit.test.ts`: insert-at, moves (incl. from === to), `setGen` and the returned old gen, the insert/remove return values, the limits 1 and 4; every op: apply → its inverse → `toEqual` the original doc. `undo.test.ts`: undo/redo order, redo cleared by a new record, coalescing by key within 1 s (fixed `t`), not across keys, `clear()`.
 - **Done:** gates. No browser check (pure).
+- **Changed during implementation:**
+  - The coalescing window slides: a merged step also takes the new `t`, so a drag longer than 1 s stays one step, as long as each event is within 1 s of the last. A fixed window would split it every second.
+  - `record` stamps `t = performance.now()` when the step has none.
+  - Call site: `gl/live.ts` `restructure`'s `apply` is now typed `unknown` (was `boolean | void`), since `removeFx`/`removeLayer` return the node/layer. `false` still means refused.
 
 #### S1.2 [ ] `Live` mirrors + `panel` records inverse steps — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** every S2 op mirrored on the built `Live` without a restart, and `panel` as the single choke point that records inverses into `edits` (S2, S3).
