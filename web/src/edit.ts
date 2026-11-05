@@ -111,6 +111,15 @@ export const newLayer = (gen: NodeDoc): LayerDoc => ({ gen, fx: [], blend: 'norm
 /** A new top layer (insertLayer's limit). */
 export const addLayer = (doc: SceneDoc, gen: NodeDoc) => insertLayer(doc, newLayer(gen), doc.layers.length)
 
+/** The editor's New (2b S2.4): a one-layer scene under a fresh id, held in `docs` and dirty, so `live` finds it before
+ *  it is ever saved. ponytail: a draft left unsaved stays in `docs` for the session; drop it on cut-away if that weighs. */
+export function newScene(gen: NodeDoc): SceneDoc {
+  const d: SceneDoc = { v: 1, id: crypto.randomUUID(), name: 'New scene', star: false, layers: [newLayer(gen)] }
+  docs.set(d.id, d)
+  dirty.add(d.id)
+  return d
+}
+
 /** Removes a layer and returns it, unless it is the last one: false then, nothing changed. */
 export function removeLayer(doc: SceneDoc, i: number) {
   if (doc.layers.length <= 1) return false

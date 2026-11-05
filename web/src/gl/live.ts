@@ -451,13 +451,16 @@ const insertLayer = (ld: LayerDoc, at = edited().doc.layers.length) => act(() =>
 /** The panel's actions on the edited scene (design E6, contract CP5). Each records its inverse into `edits` (design S3)
  *  where it has the data: the old value, the removed node or layer. setValue and setBinding change the running scene
  *  in place and no store field: a dragged slider never re-renders React, and one drag is one step (by key). A
- *  structural one builds only what it added and frees only what it removed. Moving an fx across layers: not built.
- *  ponytail: an event's `true` is kept in the doc too, so it fires once more per build; skip it if that shows. */
+ *  structural one builds only what it added and frees only what it removed. Moving an fx across layers: not built. */
 export const panel = {
   setValue(p: edit.NodePath, input: string, v: Value) {
     const old = op.setValue(p, input, v)
     edits.record({ undo: shown(() => op.setValue(p, input, old)), redo: shown(() => op.setValue(p, input, v)), key: `${p.layer}/${p.node}/${input}` })
   },
+  /** An event's trigger: it fires on the node's next draw only (run() clears it), and never reaches the doc or undo. */
+  pulse: (p: edit.NodePath, input: string) => edited().set(p, input, true),
+  /** The editor's New (2b S2.4): an unsaved one-layer Spectrum scene. Returns its id, for the caller's cut. */
+  newScene: () => edit.newScene(fresh('native/spectrum')).id,
   setBinding(p: edit.NodePath, key: string, b: Binding | null) {
     const old = op.setBinding(p, key, b)
     edits.record({ undo: shown(() => op.setBinding(p, key, old)), redo: shown(() => op.setBinding(p, key, b)), key: `${p.layer}/${p.node}/${key} bind` })
@@ -501,7 +504,9 @@ export const panel = {
     }
   },
   /** The edited scene as a new, unstarred user scene `id`, which takes its edits: the original goes back to its stored
-   *  doc, built again when next shown. The caller cuts to `id` (director.cut), so the panel edits the new scene. */
+   *  doc, built again when next shown. The caller cuts to `id` (director.cut), so the panel edits the new scene. A New
+   *  draft has no stored doc to go back to: it stays in `docs`, since `store.edited` names it until the cut lands and a
+   *  render in between must still find it. */
   async saveAs(name: string, id: SceneId = crypto.randomUUID()) {
     const { doc } = edited()
     try {
@@ -509,7 +514,7 @@ export const panel = {
     } catch (e) {
       return (e as Error).message
     }
-    edit.docs.delete(doc.id)
+    if (library.get(doc.id)) edit.docs.delete(doc.id)
     edit.dirty.delete(doc.id)
     cache.get(doc.id)?.dispose()
     cache.delete(doc.id)
