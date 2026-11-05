@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './app' // engine + audio singletons and the rAF loop
+import { Editor } from './editor/Editor'
 import { Overlay } from './ui/Overlay'
 import { Panel } from './ui/Panel'
 
@@ -10,5 +11,6 @@ createRoot(document.getElementById('ui')!).render(
   <StrictMode>
     <Overlay />
     <Panel />
+    <Editor />
   </StrictMode>,
 )

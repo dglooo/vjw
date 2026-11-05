@@ -83,7 +83,7 @@ watchDpr()
 /** Audio-clock time of what the room hears now: a file through our speakers, line-in live at capture (as T1). */
 const heard = (t = audioNow()) => t + (store.getSnapshot().source?.kind === 'file' ? 0 : ctx.baseLatency + ctx.outputLatency)
 
-let holdBefore = false // the hold when the panel opened
+let holdBefore = false // the hold when the panel or the editor opened (never both: the editor closes the panel)
 /** The panel holds the autopilot while open, so the edited scene stays; closing restores the hold from before (E6). */
 function setPanel(open: boolean) {
   const s = store.getSnapshot()
@@ -93,13 +93,27 @@ function setPanel(open: boolean) {
   director.setHold(hold)
   store.patch({ panel: open, hold })
 }
+/** The editor screen (2b, design S1) holds the autopilot the same way and closes the panel, keeping the hold from
+ *  before the panel. Leaving restores it with no cut: the scene plays on until the autopilot's next switch. */
+export function setEditor(on: boolean) {
+  const s = store.getSnapshot()
+  if (on === s.editor) return
+  if (on && !s.panel) holdBefore = s.hold
+  const hold = on || holdBefore
+  director.setHold(hold)
+  store.patch({ editor: on, panel: false, hold })
+}
 
 // Physical keys (e.code), so they work in any layout. Modifier chords stay the browser's (Cmd+F = Find), and a focused
 // picker or text field keeps its own keys.
 addEventListener('keydown', (e) => {
   if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return
+  if (store.getSnapshot().editor && e.code !== 'KeyL') return // nothing cuts away from the edited scene (2b S1)
   switch (e.code) {
+    case 'KeyL':
+      setEditor(!store.getSnapshot().editor)
+      break
     case 'KeyE':
       setPanel(!store.getSnapshot().panel)
       break
@@ -319,7 +333,8 @@ function frame(now: number) {
     if (others.length) setTransition((transition = others[Math.floor(Math.random() * others.length)]))
   }
   fadingTo = shot.to
-  if (!shot.to) prepare([shot.from, director.peek()]) // between fades: the next scene built, the others freed (E2)
+  // Between fades: the next scene built, the others freed (E2). The editor holds, so no next scene (a ring costs 62 MB).
+  if (!shot.to) prepare(store.getSnapshot().editor ? [shot.from] : [shot.from, director.peek()])
   // S4.3: Auto-style. The built-ins' bindings are remapped through the active preset's map with a 2 s crossfade;
   // Auto off (or Default) is a fade back to {} — their own sources.
   const [rmFrom, rmTo, rmW] = remap.frame(st.auto ? PRESETS[active].map : {}, f.dt)

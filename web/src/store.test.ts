@@ -14,6 +14,18 @@ test('patch keeps the snapshot object on a no-op and replaces it on a change', (
   off()
 })
 
+test('editor defaults off; toggling it notifies once per change (app.ts setEditor patches it, 2b S2.1)', () => {
+  expect(store.getSnapshot().editor).toBe(false)
+  const calls: number[] = []
+  const off = store.subscribe(() => calls.push(1))
+  store.patch({ editor: true })
+  expect(store.getSnapshot().editor).toBe(true)
+  store.patch({ editor: false })
+  expect(store.getSnapshot().editor).toBe(false)
+  expect(calls).toHaveLength(2)
+  off()
+})
+
 test('pickSaved returns the saved device only if it is present', () => {
   const devices = [{ id: 'a', label: 'Built-in' }, { id: 'b', label: 'USB line-in' }]
   expect(pickSaved(devices, 'b')).toBe(devices[1])

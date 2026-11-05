@@ -101,13 +101,24 @@
 
 ### CP2
 
-#### S2.1 [ ] editor flag, `L` + bar button, hold/restore, key guard, `prepare` without peek, layout — L
+#### S2.1 [x] editor flag, `L` + bar button, hold/restore, key guard, `prepare` without peek, layout — L
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** enter and leave the editor with nothing reallocated and the autopilot held (S1).
 - **Files:** `web/src/store.ts` + `web/src/store.test.ts`, `web/src/app.ts`, `web/src/main.tsx`, new `web/src/editor/Editor.tsx` + `web/src/editor/editor.css`, `web/src/ui/Overlay.tsx` (bar button; null while editing), `web/src/ui/Panel.tsx` (null while editing). 7 files of a few lines each; the logic sits in `app.ts`.
 - **Depends on:** none in code; kept after CP1 per the design's order.
 - **Behaviour:** `UiSnapshot.editor` (fields only ever added; the setter's name goes in the step note and becomes the CP2 contract). `KeyL` and the bar button toggle it. Enter: close the E panel, remember the hold, `director.setHold(true)` (the `setPanel` pattern); `store.edited` stays the current scene. While on, the global keydown returns early for every key but `L`; the modifier-chord and focused-input skips stay. Leave: restore the hold, **no cut** (the scene plays until the next autopilot switch, which lands on the slot it left). `prepare()` skips `director.peek()` while editing (one condition). `Editor.tsx`: a 3-column grid (library placeholder | preview cell | builder placeholder); a ResizeObserver on the cell sets the stage canvas's `transform: translate(x,y) scale(k)` (letterboxed fit) and nothing else, so `clientWidth`, `measure()`, `setOutput`, the governor, ring sizes, Auto-style, the flash gate and `gpuMs` stay live.
 - **Tests:** `store.test.ts`: `editor` defaults false; the setter toggles it and notifies (the file's existing pattern).
 - **Done:** gates; browser: `L` → Overlay/Panel gone, the stage's rect fits the cell, `canvas.width/height` unchanged (no realloc), the scene id holds 30 s, ←/→/Space inert; `L` → hold restored, no cut, the next switch lands on the slot it left. Screenshot of the layout. 60 s late-frame run with the editor open → 0 late.
+- **Changed during implementation:**
+  - **CP2 setter = `setEditor(on: boolean)`, exported from `app.ts`** (the `setPanel` pattern; `store.ts` has no named setters, only `patch`). UI calls `setEditor(true|false)`, and reads `store.getSnapshot().editor`. It shares `holdBefore` with `setPanel`: they never overlap, since entering closes the panel and keeps the pre-panel hold. `store.test.ts` covers the store side (default false, toggle + notify); the browser covers the hold.
+  - `Panel.tsx` untouched: `panel` is false whenever `editor` is on. `setEditor` closes it, E/Esc sit behind the key guard, and nothing else calls `setPanel`, so Panel already renders null. `ui/overlay.css` +1 selector: `.bar button` shares `.bar select`'s look.
+  - The bar button (`Editor · L`) only opens the editor, because the bar renders null while editing; `L` leaves. The fit translates centre to centre with the default `transform-origin`, so the symmetric 1fr|2fr|1fr grid gives `translate(0,0) scale(.486)` at 1728×1117. `useLayoutEffect`, so the first editor frame is already scaled.
+  - Browser (`scratchpad/ed/s2.1-editor.mjs`, dnb174-arr):
+    - E then L: the panel and bar are gone and the stage rect fits the cell (840×543 in 840×1093, centred). Canvas stays 1728×1118 (no realloc), and the prepared-ahead next scene is freed (a fresh `Live` on re-read).
+    - 30 s held: one id (`builtin:tunnel`); hold true and panel false throughout, with ←/→/Space/E/T/Esc pressed at 5 s.
+    - L: hold is back to the pre-panel `false`, with no cut. The next switch lands on the slot it left (`builtin:spectrum`), and prepare-ahead is back.
+    - Space-lock → L → L keeps the lock. The bar button opens the editor. A resize to 1400×900 and back refits. The transform clears on leave; 0 page errors.
+  - 60 s late-frame run with the editor open (`s2.1-late.mjs`, held on `builtin:swarm`): 0/3600 late, max 18.7 ms, governor drops 0, scale 1, jsMs 0.6.
+  - Seen, not changed: leaving after a long edit finds the autopilot overdue, so its next switch starts at the next bar line (0.96 s in the check). Space-unlock does the same. "Plays until the next switch" holds, but the built scene gets ≤1 bar. A full shot after leaving would need the director to restart its shot clock on leave.
 
 #### S2.2 [ ] `Stack` — L
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the layer stack and params on the live mirrors, with undo keys (S2, S3, S4).

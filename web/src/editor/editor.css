@@ -1,0 +1,19 @@
+/* The editor screen (2b, design S1): library | preview | builder over the whole window. The preview cell stays empty:
+   the live stage is scaled into it from below (Editor.tsx). */
+.editor {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.editor > aside {
+  padding: 10px 12px;
+  background: #0b0b0bf0;
+  border: 1px solid #ffffff17;
+  border-radius: 10px;
+  color: #d8d8d88c; /* placeholders: the library (S3.1) and the builder (S2.2) */
+}
