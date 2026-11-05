@@ -41,7 +41,8 @@
   - S2.3 ✅ `native/time-machine` + `builtin:time-machine` (Truchet, tSize←kick; stride 2 with half-slot lag; new `tint` input; p95 1.72, own ≈.84; beat-locked r 1.000; depth .30→.77 on the build; swirl r .97 reese / .82 wobble). The θ seam at fractional swirl is visible in the drop shots. Lead pick: the seamless mirrored `|θ|/π`, folded into S2.4 (same file).
   - S2.4 ✅ `native/slit-scan` (axis y/x/radius) + `builtin:slit-scan-ring` (p95 3.77, own ≈.68; span r .99 sub, wave r .97 reese / .84 wobble). Time-machine seam fixed (`|θ|/π`).
   - **CP2 ✅ closed (lead):** 64 s over the 3 ring scenes on `dnb174-arr`, 0/3841 late, 1.00×. 2 live rings = 124 MB. The timer's +3 ms is not real frame time.
-  - **Running:** `frontend-coder` S3.1 (`scenes/points.ts`: `native/swarm`).
+  - S3.1 ✅ `native/swarm` + `builtin:swarm`: N 65536 (131k = 5.61 ms; the D5 lever), p95 4.13 ms, +22.4 MB freed; glowing filament threads; burst↔kick .96, trail↔build .89, size↔sub .996, turbulence↔reese .97 / wobble .82; spawn on drop. Finding: TF ≈25 µs per 1k points, so D5's swarm budget was ≈2× low.
+  - **Running:** `frontend-coder` S3.2 (`native/scatter`, 4 px cell from the start; + THIRD_PARTY line for td-feedback's webgl-noise).
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
