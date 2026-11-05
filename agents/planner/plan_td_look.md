@@ -258,6 +258,10 @@ Depends on: S1.8, S1.4 (G3 result). **Files:** `web/src/fx/own/reaction-diffusio
   - (1) In the app the drop fires only on a coin flip with the DnB fixture: 1 of 5 runs; Dubstep fired 2 of 2. features.ts `HOLD` (0.2 s) delays `low`'s rise past arrange.ts `near` (0.2 s). `acceptance.test.ts` feeds bands.ts `held` directly, so it passes.
   - (2) RD is black at rest. With seed 0→.6 and sub resting at 0, a steady bed grows no coral: luma 0 until the first sub swell (34 s DnB, 43 s Dubstep), and seed ≤.18 doesn't nucleate. S1.9's rest ≈.3 did. Once grown, kill .062 at rest holds with no flood (coverage .34→.61, stdB ≈.13, 0 NaN over 52 s).
 
+### S1.11 [ ] [S] Tier 1 fixes from S1.10: drop window ≥ the bass hold; RD seed floor
+**Added by the lead 2026-11-05** (lead pick on the S1.10 findings). Runs before S2.2. **Files:** `web/src/audio/arrange.ts` (the `near` window: derive it from `features.ts` `HOLD`, e.g. `HOLD + 0.15` s, instead of an independent 0.2 s; one shared constant, no duplicate number), an `arrange`/`acceptance` test that drives the drop through the **held** features path (today `acceptance.test.ts` feeds `bands.ts` levels straight in and misses the hold), `web/src/scenes/builtin.ts` + `web/src/fx/own/reaction-diffusion.fs` (`seed` min 0 → .3, max .6).
+**Done:** gates. On `dnb174-arr.wav` and `dubstep140-arr.wav` the drop fires in 5 of 5 app runs each, with no extra drop in the groove or build. RD shows coral within ≈10 s on a steady bed and grows faster on sub swells; G5 coverage holds 60 s.
+
 ### CP2 — Track B(a): native filters + the history ring
 
 ### S2.1 [x] [S] engine — `Native.draw(f, v, src?)`
