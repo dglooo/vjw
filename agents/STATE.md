@@ -12,7 +12,7 @@
 - **2b editor** (`plan_effect_editor.md`, Variant B): CP1 code ✅ (lead close-out pending); CP2 ✅; **CP3 ✅ closed (lead, 2026-11-05)**.
   - S3.4 ✅ (merge after `c56b682`): `tiles.hover` runs the hovered tile live (≈19 stills/s); on leave its last frame stays as the still; milk waits; Save re-bakes from the stored doc (new import cycle live↔tiles, call-time only). 411 tests.
   - CP3 run: 4 late = the mount + 3 × 33 ms. A/B (bake only 3, no bake 2) says environment, on a loaded machine. Re-run quiet at the 2b close-out.
-- **Exact next step: CP4 S4.1** `own/bars.fs` (then S4.2 Pixellate + mosaic, S4.3 led-grid + ASCII (G3), S4.4 3 built-ins + THIRD_PARTY + sheet + 60 s runs).
+- **Running: CP4 S4.1** `own/bars.fs` (`frontend-coder`, worktree, dispatched 2026-11-05 23:1x) (then S4.2 Pixellate + mosaic, S4.3 led-grid + ASCII (G3), S4.4 3 built-ins + THIRD_PARTY + sheet + 60 s runs).
 - Then the 2b close-out: CP1 lead close-out + a quiet-machine CP3/CP4 run.
 
 ### Queue (user order 2026-11-05)
