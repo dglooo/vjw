@@ -5,7 +5,8 @@
 // res 1 draws straight into `acc`.
 // Every layer runs its own clock (`speed`). Bindings write the nodes' uniforms and the layers' opacity/speed per frame.
 // The panel (design E6) edits the current scene through `panel`: values and bindings in place, structure by the same one
-// op on the built layers (every other node keeps running); it saves into the library (E4), where `live` finds every scene.
+// op on the built layers (every other node keeps running), each with its inverse recorded for undo (design S3); it saves
+// into the library (E4), where `live` finds every scene.
 import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { ctx } from '../audio/input'
 import { evaluate, type Binding, type BindState, type Sources } from '../bind'
@@ -17,6 +18,7 @@ import { pairsByTarget, sizeExpr } from '../fx/isf'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
 import { store } from '../store'
+import { edits } from '../undo'
 import { audioTex, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
 import { flashGate, type FlashState } from './post'
 import type { Native, NativeDef } from './scene'
@@ -25,12 +27,18 @@ export { docs, type NodePath } from '../edit'
 
 export interface Live {
   readonly doc: SceneDoc; readonly errors: readonly string[]; render(f: FrameInput, s: Sources, acc: Target): void; dispose(): void
-  /** The panel, after it edited the doc: one input's live value at `p`, in place; every binding compiled again. */
-  set(p: edit.NodePath, input: string, v: Value): void; rebind(): void
+  /** The panel, after it edited the doc: one input's live value at `p` (undefined: the default), in place; every
+   *  binding compiled again. */
+  set(p: edit.NodePath, input: string, v: Value | undefined): void; rebind(): void
   /** The panel, after edit.ts changed the doc's structure: the same one op on the built layers. Every other node and
-   *  layer keeps its state and clock. addFx/addLayer build the doc's last fx of that layer / last layer. */
-  addFx(layer: number): void; removeFx(layer: number, i: number): void
-  addLayer(): void; removeLayer(i: number): void; setBlend(layer: number, b: Blend): void
+   *  layer keeps its state and clock. addFx/addLayer build the doc's fx/layer at `at` (the last one without). */
+  addFx(layer: number, at?: number): void; removeFx(layer: number, i: number): void; moveFx(layer: number, from: number, to: number): void
+  setGen(layer: number): void; addLayer(at?: number): void; removeLayer(i: number): void; moveLayer(from: number, to: number): void
+  setBlend(layer: number, b: Blend): void
+  /** Preview only (design S2), never saved: a muted layer draws nothing. */
+  mute(layer: number, on: boolean): void
+  /** A bound input's last evaluated value (`key`: `name`, or `name.i` for one component); undefined when unbound. */
+  read(p: edit.NodePath, key: string): number | undefined
 }
 
 /** A built node: a native, or a shader program and its passes; `u` holds its values (+ the ISF uniforms). The passes
@@ -39,9 +47,10 @@ export interface Live {
  *  size the targets were fitted for. `frames`: a shader's FRAMEINDEX, its own draws so far (0 on its first). */
 interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number }
 /** A built layer: its nodes (a null one blacks the layer out), its live opacity/speed (bindable) and res, its clock,
- *  the reused FrameInput copy a native reads, and its own target once `res` < 1. */
-interface Layer { blend: Blend; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null }
-interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState; flash?: FlashState }
+ *  the reused FrameInput copy a native reads, its own target once `res` < 1, and the editor's mute (black too). */
+interface Layer { blend: Blend; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null; muted: boolean }
+/** `y`: the value it evaluated last (Live.read). */
+interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState; flash?: FlashState; y?: number }
 const LAYER_INPUTS: readonly Input[] = [{ name: 'opacity', type: 'float' }, { name: 'speed', type: 'float' }] // bindable
 /** The one flash budget: the allowed onsets' `f.time`s, oldest first, shared by every layer of every scene (both of a
  *  fade). ponytail: hidden layers and a fade's outgoing scene spend it too, and two flashes in one frame count twice;
@@ -237,7 +246,7 @@ function create(id: SceneId): Live {
 
   const buildLayer = (l: LayerDoc): Layer => ({
     blend: l.blend, nodes: [node(l.gen), ...l.fx.map(node)], v: { opacity: l.opacity, speed: l.speed, res: l.res }, t: 0, f: {} as FrameInput,
-    small: l.res < 1 ? renderTarget() : null,
+    small: l.res < 1 ? renderTarget() : null, muted: false,
   })
 
   /** The one freeing path, of a disposed scene and of a removed node or layer: a native's own dispose() (a milk/* one
@@ -267,6 +276,7 @@ function create(id: SceneId): Live {
       for (const x of bound) {
         let y = evaluate(x.b, s, x.state, f.dt)
         if (x.flash) y = flashGate(y, x.flash, flashOnsets, f.time)
+        x.y = y
         if (x.i >= 0) (x.u[x.name] as number[])[x.i] = y
         else x.u[x.name] = x.type === 'long' ? Math.round(y) : x.type === 'bool' || x.type === 'event' ? y >= 0.5 : y
       }
@@ -279,7 +289,7 @@ function create(id: SceneId): Live {
         const l = layers[i]
         const dt = f.dt * l.v.speed
         l.t += dt
-        const ok = !l.nodes.includes(null)
+        const ok = !l.muted && !l.nodes.includes(null) // not ok: black (layer 0 still clears acc)
         const last = l.nodes[l.nodes.length - 1]
         const small = l.v.res < 1 ? (l.small ??= renderTarget()) : null // the panel may lower res after the build
         // The fast path (design E1): its last pass draws straight into acc, unless that pass writes an ISF TARGET.
@@ -314,31 +324,56 @@ function create(id: SceneId): Live {
       if (p.node === 'layer') l.v[input as 'res'] = v as number
       else {
         const n = l.nodes[p.node === 'gen' ? 0 : p.node + 1]
-        if (n) n.u[input] = Array.isArray(v) ? [...v] : v // our own copy: a binding may write into it
+        if (!n) return
+        v ??= defaults(n.def)[input] // an undone first value
+        n.u[input] = Array.isArray(v) ? [...v] : v // our own copy: a binding may write into it
       }
     },
     rebind: bindAll,
-    // The structural ops, mirrored by index as edit.ts made them (nodes[0] is the gen). bindAll() drops a removed node's
-    // bindings, compiles an added one's, keeps every survivor's smoothing (matched by its `u`) and realigns the walk.
+    // The structural ops, mirrored by index as edit.ts made them (nodes[0] is the gen): only what an op adds is built,
+    // only what it removes is freed. bindAll() drops a removed node's bindings, compiles an added one's, keeps every
+    // survivor's smoothing (matched by its `u`) and realigns the walk. A move needs none of it: bindings follow `u`.
     // ponytail: errors are not pruned on remove; prune per node if it shows.
-    addFx(layer) {
-      layers[layer].nodes.push(node(doc().layers[layer].fx.at(-1)!)) // a failed one is null: blacks the layer out until removed
+    addFx(layer, at = doc().layers[layer].fx.length - 1) {
+      layers[layer].nodes.splice(at + 1, 0, node(doc().layers[layer].fx[at])) // a failed one is null: blacks the layer out until removed
       bindAll()
     },
     removeFx(layer, i) {
       freeNode(layers[layer].nodes.splice(i + 1, 1)[0])
       bindAll()
     },
-    addLayer() {
-      layers.push(buildLayer(doc().layers.at(-1)!))
+    moveFx(layer, from, to) {
+      edit.move(layers[layer].nodes, from + 1, to + 1)
+    },
+    setGen(layer) {
+      const l = layers[layer]
+      freeNode(l.nodes[0])
+      l.nodes[0] = node(doc().layers[layer].gen)
+      bindAll()
+    },
+    addLayer(at = doc().layers.length - 1) {
+      layers.splice(at, 0, buildLayer(doc().layers[at]))
       bindAll()
     },
     removeLayer(i) {
       freeLayer(layers.splice(i, 1)[0])
       bindAll()
     },
+    moveLayer(from, to) {
+      edit.move(layers, from, to)
+    },
     setBlend(layer, b) {
       layers[layer].blend = b // read per frame
+    },
+    mute(layer, on) {
+      layers[layer].muted = on // read per frame
+    },
+    read(p, key) {
+      const [name, idx] = key.split('.')
+      const i = idx === undefined ? -1 : Number(idx)
+      const l = layers[p.layer]
+      const u = p.node === 'layer' ? l.v : l.nodes[p.node === 'gen' ? 0 : p.node + 1]?.u
+      return bound.find((x) => x.u === u && x.name === name && x.i === i)?.y
     },
   }
 }
@@ -357,37 +392,92 @@ export function live(id: SceneId): Live {
 }
 
 const edited = () => live(store.getSnapshot().edited)
+const rerender = () => store.patch({ editRev: store.getSnapshot().editRev + 1 })
 /** A structural edit (design E6): the doc changes, `sync` mirrors that one op on the running scene, the panel
- *  re-renders once. False: refused, nothing synced. */
-function restructure(apply: (doc: SceneDoc) => unknown, sync: (l: Live) => void) {
+ *  re-renders once. Returns what the op returned (a removed node or layer, the old gen or blend); false: refused,
+ *  nothing synced. */
+function restructure<T>(apply: (doc: SceneDoc) => T, sync: (l: Live) => void): T | false {
   const l = edited()
-  if (apply(l.doc) === false) return false
+  const r = apply(l.doc)
+  if (r === false) return false
   sync(l)
-  store.patch({ editRev: store.getSnapshot().editRev + 1 })
-  return true
+  rerender()
+  return r
 }
 const fresh = (ref: string) => edit.newNode(ref, catalog.get(ref)?.bind) // with its VJW_BIND suggestions
 
-/** The panel's actions on the edited scene (design E6, contract CP5). setValue and setBinding change the running
- *  scene in place and no store field: a dragged slider never re-renders React. A structural one builds only what it
- *  added and frees only what it removed.
- *  ponytail: an event's `true` is kept in the doc too, so it fires once more per build; skip it if that shows. */
-export const panel = {
-  setValue(p: edit.NodePath, input: string, v: Value) {
+// The plain ops (design S2): the doc, then the same op on the running scene. `panel` records them; undo and redo run
+// them again, so they record nothing.
+const op = {
+  addFx: (layer: number, n: NodeDoc, at: number) => restructure((d) => edit.addFx(d, layer, n, at), (l) => l.addFx(layer, at)),
+  removeFx: (layer: number, i: number) => restructure((d) => edit.removeFx(d, layer, i), (l) => l.removeFx(layer, i)),
+  moveFx: (layer: number, from: number, to: number) => restructure((d) => edit.moveFx(d, layer, from, to), (l) => l.moveFx(layer, from, to)),
+  setGen: (layer: number, n: NodeDoc) => restructure((d) => edit.setGen(d, layer, n), (l) => l.setGen(layer)),
+  insertLayer: (ld: LayerDoc, at: number) => restructure((d) => edit.insertLayer(d, ld, at), (l) => l.addLayer(at)),
+  removeLayer: (i: number) => restructure((d) => edit.removeLayer(d, i), (l) => l.removeLayer(i)),
+  moveLayer: (from: number, to: number) => restructure((d) => edit.moveLayer(d, from, to), (l) => l.moveLayer(from, to)),
+  setBlend: (layer: number, b: Blend) => restructure((d) => edit.setBlend(d, layer, b), (l) => l.setBlend(layer, b)),
+  setValue(p: edit.NodePath, input: string, v: Value | undefined) {
     const l = edited()
-    edit.setValue(l.doc, p, input, v)
+    const old = edit.setValue(l.doc, p, input, v)
     l.set(p, input, v)
+    return old
   },
   setBinding(p: edit.NodePath, key: string, b: Binding | null) {
     const l = edited()
-    edit.setBinding(l.doc, p, key, b)
+    const old = edit.setBinding(l.doc, p, key, b)
     l.rebind()
+    return old
   },
-  addFx: (layer: number, ref: string) => restructure((d) => edit.addFx(d, layer, fresh(ref)), (l) => l.addFx(layer)),
-  removeFx: (layer: number, i: number) => restructure((d) => edit.removeFx(d, layer, i), (l) => l.removeFx(layer, i)),
-  addLayer: (genRef: string) => restructure((d) => edit.addLayer(d, fresh(genRef)), (l) => l.addLayer()),
-  removeLayer: (i: number) => restructure((d) => edit.removeLayer(d, i), (l) => l.removeLayer(i)),
-  setBlend: (layer: number, b: Blend) => restructure((d) => edit.setBlend(d, layer, b), (l) => l.setBlend(layer, b)),
+}
+
+/** Runs a structural op and records it with its inverse (design S3), made from what it returned; false: refused,
+ *  nothing recorded. */
+function act<T>(run: () => T | false, undo: (r: T) => unknown) {
+  const r = run()
+  if (r === false) return false
+  edits.record({ undo: () => undo(r), redo: run })
+  return true
+}
+/** A value or binding step: its undo and redo re-render the panel, which a drag never does. */
+const shown = (f: () => unknown) => () => {
+  f()
+  rerender()
+}
+/** A layer at `at` (the top without); false at 4 layers. Duplicate = a structuredClone of one at i + 1. */
+const insertLayer = (ld: LayerDoc, at = edited().doc.layers.length) => act(() => op.insertLayer(ld, at), () => op.removeLayer(at))
+
+/** The panel's actions on the edited scene (design E6, contract CP5). Each records its inverse into `edits` (design S3)
+ *  where it has the data: the old value, the removed node or layer. setValue and setBinding change the running scene
+ *  in place and no store field: a dragged slider never re-renders React, and one drag is one step (by key). A
+ *  structural one builds only what it added and frees only what it removed. Moving an fx across layers: not built.
+ *  ponytail: an event's `true` is kept in the doc too, so it fires once more per build; skip it if that shows. */
+export const panel = {
+  setValue(p: edit.NodePath, input: string, v: Value) {
+    const old = op.setValue(p, input, v)
+    edits.record({ undo: shown(() => op.setValue(p, input, old)), redo: shown(() => op.setValue(p, input, v)), key: `${p.layer}/${p.node}/${input}` })
+  },
+  setBinding(p: edit.NodePath, key: string, b: Binding | null) {
+    const old = op.setBinding(p, key, b)
+    edits.record({ undo: shown(() => op.setBinding(p, key, old)), redo: shown(() => op.setBinding(p, key, b)), key: `${p.layer}/${p.node}/${key} bind` })
+  },
+  addFx(layer: number, ref: string, at = edited().doc.layers[layer].fx.length) {
+    const n = fresh(ref)
+    return act(() => op.addFx(layer, n, at), () => op.removeFx(layer, at))
+  },
+  removeFx: (layer: number, i: number) => act(() => op.removeFx(layer, i), (n) => op.addFx(layer, n, i)),
+  moveFx: (layer: number, from: number, to: number) => act(() => op.moveFx(layer, from, to), () => op.moveFx(layer, to, from)),
+  setGen(layer: number, ref: string) {
+    const n = fresh(ref)
+    return act(() => op.setGen(layer, n), (old) => op.setGen(layer, old))
+  },
+  insertLayer,
+  addLayer: (genRef: string) => insertLayer(edit.newLayer(fresh(genRef))),
+  removeLayer: (i: number) => act(() => op.removeLayer(i), (ld) => op.insertLayer(ld, i)),
+  moveLayer: (from: number, to: number) => act(() => op.moveLayer(from, to), () => op.moveLayer(to, from)),
+  setBlend: (layer: number, b: Blend) => act(() => op.setBlend(layer, b), (old) => op.setBlend(layer, old)),
+  /** Preview only (design S2): never saved, never undone. */
+  mute: (layer: number, on: boolean) => edited().mute(layer, on),
   /** A pasted Shadertoy `mainImage` (spec §4.4, design E5) as a new top layer. Returns why not (too long, its compile
    *  log with the paste's line numbers, 4 layers), or null once the layer plays. */
   pasteToy(code: string, credit: string) {
@@ -395,7 +485,7 @@ export const panel = {
     const gen: NodeDoc = { ref: `toy/${crypto.randomUUID()}`, code, credit }
     const { vs, fs, prefixLines } = toyDef(gen)
     if (!program(vs, fs)) return toyLog(fs, prefixLines) // compiled into the cache, where addLayer's node() finds it
-    return restructure((d) => edit.addLayer(d, gen), (l) => l.addLayer()) ? null : 'The scene has 4 layers: remove one first'
+    return insertLayer(edit.newLayer(gen)) ? null : 'The scene has 4 layers: remove one first'
   },
   // Storage (design E4, plan S6.1). Each resolves to an error message, or null once stored.
   /** The edited scene into the library. A built-in can't be saved in place: its message says Save as. */
@@ -422,6 +512,7 @@ export const panel = {
     edit.dirty.delete(doc.id)
     cache.get(doc.id)?.dispose()
     cache.delete(doc.id)
+    edits.clear() // the steps were the old id's; app.ts clears again when the cut lands
     return null
   },
   toggleStar() {

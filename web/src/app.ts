@@ -21,6 +21,7 @@ import { library } from './library'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
 import { startRecording } from './recorder'
 import { store } from './store'
+import { edits } from './undo'
 
 const QUALITY_KEY = 'vjw.quality'
 const STALE = 1 // s: older onsets are dropped on drain (a stalled or hidden tab)
@@ -334,6 +335,7 @@ function frame(now: number) {
   const id = shot.to ?? shot.from // the incoming scene as soon as a fade starts: the name shown, the scene edited
   const { doc, errors } = live(id)
   const snap = store.getSnapshot()
+  if (id !== snap.edited) edits.clear() // undo is per edited scene (design S3): open, Save as, the autopilot
   if (doc.name !== snap.sceneName || id !== snap.edited) store.patch({ sceneName: doc.name, edited: id })
   governor.frame(now, performance.now() - start) // fed only on rendered frames
   if (now - badgeAt >= BADGE_MS) {

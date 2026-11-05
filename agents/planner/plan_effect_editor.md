@@ -57,13 +57,24 @@
   - `record` stamps `t = performance.now()` when the step has none.
   - Call site: `gl/live.ts` `restructure`'s `apply` is now typed `unknown` (was `boolean | void`), since `removeFx`/`removeLayer` return the node/layer. `false` still means refused.
 
-#### S1.2 [ ] `Live` mirrors + `panel` records inverse steps — M
+#### S1.2 [x] `Live` mirrors + `panel` records inverse steps — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** every S2 op mirrored on the built `Live` without a restart, and `panel` as the single choke point that records inverses into `edits` (S2, S3).
 - **Files:** `web/src/gl/live.ts` (`restructure` mirrors, `panel`, `mute`, `read`); `web/src/edit.ts` only if a signature needs a tweak.
 - **Depends on:** S1.1.
 - **Behaviour:** add fx at `at` builds `fx[at]` and splices into `nodes` at `at+1`; move fx / move layer splice the node or `Layer` objects, no rebuild; `setGen` frees `nodes[0]` and builds the new gen; `addLayer(at?)`/duplicate build and splice, false at 4; existing `removeFx`/`removeLayer` mirrors stay. `mute(l, on)` sets `l.muted`; `ok = !l.muted && …` so the fast path and the clear both honour it (a muted layer 0 needs nothing else); never saved. `read(p, key)` returns a bound input's last evaluated value. Each `panel` action records its inverse at the point it has the data (old value, removed node, removed layer). `edits.clear()` where `store.edited` changes (open, Save as). Moving an fx across layers: not built.
 - **Tests:** none new in Node (GL); the pure inverses are S1.1's tests.
 - **Done:** gates; browser (`live-rebuild.mjs` pattern) on `builtin:td-feedback`: add fx, remove fx, add layer, remove layer, move via a console call: the trail is intact, screenshot before/after; render-path A/B + 60 s late-frame run.
+- **Changed during implementation:**
+  - `edit.ts`: the set ops (`setValue`, `setBinding`, `setBlend`) return the old value, for the inverse. `setValue(…, undefined)` deletes the key and an emptied `values` (design S2 table), so undoing a first value gives back the exact doc. `move` and `newLayer` are exported: the Live move mirrors reuse `move`; `panel.addLayer`/`pasteToy` = `insertLayer(newLayer(gen))`. `edit.test.ts` gained 3 round-trip rows (setValue, setBinding, setBlend). The step said none new, but the tweak is pure, so its inverses are tested beside S1.1's.
+  - `panel` gains `insertLayer(layer, at = top)` (S2.1's duplicate), `moveFx`, `moveLayer`, `setGen(layer, ref)`, `mute`, and `addFx(layer, ref, at?)`. The plain ops (`op`) serve both the action and its undo/redo; `act` records the inverse from what the op returned (removed node/layer, old gen/blend).
+  - `mute` records nothing (design S2 inverse "–"): an `edits.undo()` after a mute undoes the edit before it, or returns false.
+  - Value and binding steps coalesce by key (`layer/node/input`; a binding's ends in ` bind`). Their undo/redo bump `editRev` so the panel shows the restored value; the drag itself still doesn't re-render.
+  - `edits.clear()` sits in `app.ts` beside the one `store.patch` that changes `edited` (open, Save as, the autopilot): a file outside the list. `panel.saveAs` also clears, since its steps belong to the old id until the cut lands.
+  - The move mirrors skip `bindAll()`: bindings follow their `u`.
+  - `read` returns the value after the flash gate, stored per frame on `Bound.y`, before the bool/long conversion.
+  - Browser (`scratchpad/ed/s1.2-ops.mjs`, log + 24 shots + `s1.2-sheet.png`). 23/23 steps PASS: same `Live` object throughout; td-feedback's 2 `loop` textures kept and its draws counting; only the touched natives built or freed; mute black and unmute resumes the trail. After all undos, the doc JSON equals the built-in.
+  - A/B GPU p95 (`s1.2-ab.mjs`): rgba-delay 2.66 → 2.64, swarm 4.11 → 4.16 (noise).
+  - 60 s late-frame run (`s1.2-late.mjs`, 38 scenes × 2 s on dnb174-arr): 0/4563 late, 1.00×, jsMs 0.7.
 
 #### S1.3 [ ] bool/event binding UI, event rising edge, meter — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** close the 2a gap (S4): bool and event get binding controls in the shared `Param`, a bound event fires once per hit, the bound signal shows on a meter.

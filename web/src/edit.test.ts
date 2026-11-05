@@ -119,8 +119,12 @@ test('setGen replaces a layer generator, keeps its effects, and returns the old 
   expect(cur(b)).toStrictEqual(b)
 })
 
-// Each structural op, then its inverse (the undo, design S3): every result parses (S9); the inverse gives back the doc.
+// Each op, then its inverse (the undo, design S3): every result parses (S9); the inverse gives back the doc. The set ops
+// put back a first value or binding by deleting it, record and all.
 const roundTrips: [string, (d: SceneDoc) => (c: SceneDoc) => unknown][] = [
+  ['setValue', (d) => { const old = setValue(d, { layer: 1, node: 0 }, 'sides', 8); return (c) => setValue(c, { layer: 1, node: 0 }, 'sides', old) }],
+  ['setBinding', (d) => { const old = setBinding(d, { layer: 0, node: 'gen' }, 'glow', B); return (c) => setBinding(c, { layer: 0, node: 'gen' }, 'glow', old) }],
+  ['setBlend', (d) => { const old = setBlend(d, 2, 'add'); return (c) => setBlend(c, 2, old) }],
   ['addFx at', (d) => { addFx(d, 1, { ref: 'x' }, 1); return (c) => removeFx(c, 1, 1) }],
   ['removeFx', (d) => { const n = removeFx(d, 1, 0); return (c) => addFx(c, 1, n, 0) }],
   ['moveFx', (d) => { moveFx(d, 1, 0, 2); return (c) => moveFx(c, 1, 2, 0) }],

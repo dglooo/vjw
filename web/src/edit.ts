@@ -27,26 +27,46 @@ const nodeAt = (d: SceneDoc, p: NodePath) => (p.node === 'gen' ? d.layers[p.laye
 /** A new node for an effect, with its suggested bindings (VJW_BIND, design E3) copied. */
 export const newNode = (ref: string, bind?: Readonly<Record<string, Binding>>): NodeDoc => (bind ? { ref, bind: structuredClone(bind) } : { ref })
 
-/** A node's input value, or a layer's opacity, speed or res (other layer keys are ignored). */
-export function setValue(doc: SceneDoc, p: NodePath, input: string, v: Value) {
+// The set ops return the old value, for undo (design S3). Unset (undefined, null) deletes the key, and the record with
+// its last key, so the undo of a first value or binding gives back the doc it found.
+
+/** A node's input value, or a layer's opacity, speed or res (other layer keys are ignored); undefined: the default. */
+export function setValue(doc: SceneDoc, p: NodePath, input: string, v: Value | undefined) {
   const d = editable(doc)
-  if (p.node !== 'layer') (nodeAt(d, p).values ??= {})[input] = v
-  else if (LAYER_VALUES.includes(input)) d.layers[p.layer][input as 'res'] = v as number
+  if (p.node === 'layer') {
+    const l = d.layers[p.layer]
+    const old = l[input as 'res']
+    if (LAYER_VALUES.includes(input)) l[input as 'res'] = v as number
+    return old
+  }
+  const n = nodeAt(d, p)
+  const old = n.values?.[input]
+  if (v !== undefined) (n.values ??= {})[input] = v
+  else if (n.values) {
+    delete n.values[input]
+    if (!Object.keys(n.values).length) delete n.values
+  }
+  return old
 }
 
 /** Binds a node's input (`name`, or `name.i` for one component) or a layer's opacity/speed; null unbinds it. */
 export function setBinding(doc: SceneDoc, p: NodePath, key: string, b: Binding | null) {
   const d = editable(doc)
   const o: { bind?: Record<string, Binding> } = p.node === 'layer' ? d.layers[p.layer] : nodeAt(d, p)
+  const old = o.bind?.[key] ?? null
   if (b) (o.bind ??= {})[key] = b
   else if (o.bind) {
     delete o.bind[key]
     if (!Object.keys(o.bind).length) delete o.bind
   }
+  return old
 }
 
 export function setBlend(doc: SceneDoc, layer: number, b: Blend) {
-  editable(doc).layers[layer].blend = b
+  const l = editable(doc).layers[layer]
+  const old = l.blend
+  l.blend = b
+  return old
 }
 
 // The structural ops (design S2). Each one's inverse, for undo: addFx ↔ removeFx, moveFx(from, to) ↔ moveFx(to, from),
@@ -63,8 +83,8 @@ export function removeFx(doc: SceneDoc, layer: number, i: number) {
   return editable(doc).layers[layer].fx.splice(i, 1)[0]
 }
 
-/** Moves a[from] so that it ends up at index `to`. */
-function move<T>(a: T[], from: number, to: number) {
+/** Moves a[from] so that it ends up at index `to` (gl/live.ts moves the built nodes and layers with it too). */
+export function move<T>(a: T[], from: number, to: number) {
   a.splice(to, 0, ...a.splice(from, 1))
 }
 export const moveFx = (doc: SceneDoc, layer: number, from: number, to: number) => move(editable(doc).layers[layer].fx, from, to)
@@ -85,8 +105,11 @@ export function insertLayer(doc: SceneDoc, l: LayerDoc, at: number) {
   return true
 }
 
-/** A new top layer at normal, opacity 1 (insertLayer's limit). */
-export const addLayer = (doc: SceneDoc, gen: NodeDoc) => insertLayer(doc, { gen, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }, doc.layers.length)
+/** A new layer at normal, opacity 1. */
+export const newLayer = (gen: NodeDoc): LayerDoc => ({ gen, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 })
+
+/** A new top layer (insertLayer's limit). */
+export const addLayer = (doc: SceneDoc, gen: NodeDoc) => insertLayer(doc, newLayer(gen), doc.layers.length)
 
 /** Removes a layer and returns it, unless it is the last one: false then, nothing changed. */
 export function removeLayer(doc: SceneDoc, i: number) {
