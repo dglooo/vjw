@@ -22,6 +22,7 @@ At a DJ set, the DJ on a camera becomes part of the visuals. Their silhouette gl
   - **A. In-browser ML:** MediaPipe Tasks ImageSegmenter / Selfie, ONNX Runtime Web + RVM/MODNet, etc. Works today in Chrome; local, no upload.
   - **B. Apple native:** the macOS Vision framework person segmentation (`VNGeneratePersonSegmentationRequest`, Neural Engine), plus face detection for framing. It runs in a small local native helper (Swift) that streams the mask/frames to the web app, or in an Electron native addon later.
   - **C. Apple system camera features, zero code:** macOS video effects (Portrait background blur / replacement, Studio Light, available to any app including Chrome), and Continuity Camera (iPhone as a webcam) with Center Stage (keeps the face framed). These are useful as an input path and as a quality baseline.
+- **Cross-platform is mandatory (user, 2026-11-05):** the rig will not always be a Mac. It may run on **Windows** (Chrome now, Electron later; spec §5 already targets Mac + Windows). The **default** segmentation path must work on both: path A or another unified path the research finds. Mac-only paths (B Apple Vision, C macOS effects) are optional plug-ins for experiments, and Windows-only accelerations (e.g. NVIDIA/DirectML/NPU) are allowed the same way. One small backend interface, with the default chosen per platform.
 - The mask runs ≥ 24 fps and must not cost the render loop its 60 fps `(default)`. Path A is the first build because it needs no native code; B and C are experiment steps with the user `(default)`.
 - **Framing (optional, Center Stage-like):** follow the DJ's face/body with a smooth digital crop, so a wide camera keeps them centred `(default: after the mask works)`.
 - **As blocks:**
@@ -43,7 +44,8 @@ Multi-camera, hand landmarks, depth cameras, pose skeletons, NDI/network video, 
 5. Gates green; WCAG flash cap holds.
 
 ## §5 Open questions (for research/design)
-- Which segmentation model + runtime (WebGL/WebGPU/WASM): latency, quality in low light, licence, size, main thread vs worker?
+- Which segmentation model + runtime (WebGL/WebGPU/WASM): latency, quality in low light, licence, size, main thread vs worker? It must run on Windows too, across NVIDIA, AMD and Intel/integrated GPUs.
+- Windows-native options (Windows Studio Effects/NPU, NVIDIA Maxine/Broadcast, ONNX Runtime + DirectML in Electron, OBS background-removal models) as optional accelerations.
 - The native path B: Vision person-segmentation quality levels and fps on an M4; how a Swift helper hands frames/masks to the browser (WebSocket, WebRTC, shared memory, a virtual camera); later, Electron.
 - Path C: which macOS video effects reach Chrome's `getUserMedia`, and whether we can get the mask itself or only the processed video.
 - How the mask reaches the GL engine: texture upload per frame, `VideoFrame`, and the cost?
