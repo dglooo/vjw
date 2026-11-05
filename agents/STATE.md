@@ -125,7 +125,21 @@
           - Replay + browser: DnB 1/11 → **5/11** (Kanine 44.7 / 88.8 / 155.0, Andy C 47.3, Bicep 176.9). Bicep false 167.2 is gone; Rumble 21.0 + 75.8 kept; nothing at Rumble 90–115 s or Andy C 132.7; 22/22 mutants.
           - Sub Focus 146.6 (.71) is the label case: **the user checks it by ear**; if it is the drop, 6/11.
           - Data: `scratchpad/real/da/`.
-        - **Running:** `frontend-coder` D-B (CUT + `Preset.cuts` off under Dubstep + `armed` reset at fire). Next: back to 2b (S2.2).
+        - **D-B ✅ merged:** CUT (raw low < .2 G for ≥1.5 s arms with peak 1), `Preset.cuts: false` on Dubstep, `armed` reset at fire.
+          - DnB **7/11** (Andy C 91.4 / 157.6), 0 new false, Rumble unchanged; 35/35 mutants; 389 tests.
+          - Data: `scratchpad/real/db/`.
+        - **Real-track tuning DONE (2026-11-05).** Versus the audit:
+          - DnB snare .12–.33 → 1.1–2.3 a bar; hats 3.7–5.5;
+          - kicks +44–169 %;
+          - tempo ⅔ slips gone (Kanine ref .72 → .97);
+          - drops 0/11 → 7/11 DnB (8/11 if Sub Focus 146.6 is right) and 0/4 → 2/4 Rumble; no false fires.
+        - **Open, deferred:**
+          - classifier lateness (Kanine dnb@162, Bicep techno flip @199): a classifier ruling;
+          - Rumble growl snares (`floors.tilt`);
+          - Rumble 48.4 / 117.0 flicker breaks;
+          - no-bass-dip drops (Sub Focus 44.1, Bicep 66.2);
+          - 3 kick re-triggers <60 ms (`minGap`).
+        - **Next:** back to 2b at S2.2.
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
