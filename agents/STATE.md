@@ -4,231 +4,54 @@
 
 ## HEAD
 
-**Updated:** 2026-11-05 13:5x (session 8, Telegram; hook fixed, real-track audit running)
-**Stage:** pilot ✅ → `effects` ✅ → `audio-reactivity` ✅ → `milkdrop` ✅ → **`2d TD look` ✅ (plan_td_look.md, 18 steps, CP1–CP4; 11 new scenes + rebind of 23)**; polish §3 §5 §6 §7 ✅. 349 tests.
-**Spec:** `thoughts/spec_veejay_wizard.md` + `spec_effects.md` + `spec_audio_reactivity.md`. **Team:** `planner` Fable 5.1 max; others Opus 5.5 max; `researcher` high.
+**Updated:** 2026-11-05 (session 9; resumed after the session-8 crash; STATE compacted)
+**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP3, S3.4 next)**. 409 tests.
+**Specs:** `thoughts/spec_veejay_wizard.md` + `spec_effects`, `spec_audio_reactivity`, `spec_td_look`, `spec_effect_editor`, `spec_camera`. **Team:** planner Fable 5.1 max; others Opus 5.5 max; researcher high.
 
-### Where we stopped (2026-11-04 04:2x)
-- **MilkDrop done.** 25 curated presets, one per author. Butterchurn GPU p95 2.58–3.52 ms. They are spread evenly in the autopilot and all starred.
-  - Stack: butterchurn 3.0.0-beta.5, presets from 3.0.0-beta.4, copy path (a), pool of 2 visualizers, warm at Start.
-  - CP3 close-out (lead, `scratchpad/milk-cp3.mjs`): 64 s, 16 switches over the live 52-scene playlist. 3842 frames, 0 late, jsMs 1.4, 1.00×.
-  - Worst case (ruling 5, `scratchpad/milk-worst.mjs`): 0 of 3901 frames late. Contact sheet: `scratchpad/milk-picks-sheet.png`.
-- **Polish done:** §7 keys wake the overlay (`d55f4ae`) · §6 Spectrum low-bar ramp (`20a3a03`) · §3 shared WCAG flash cap + strobe at a 60% wash (`d73e2b9`, `plan_flash_cap.md`) · §5 structural panel edits no longer restart the scene (`e23c44e`, `plan_live_rebuild.md`) · Tier 1 Vitest `testTimeout` 20 s (`c738f85`).
-- **User decision 2026-11-04 (session 7):** next epics = **Stage 2b effect editor, then Stage 3 camera** (spec §4); user checks/tracks deferred ("проверки потом").
-- **User standing instruction 2026-11-04: "always take recommendations, don't ask"**: no grill rounds; the lead also picks the design variant (logged as a lead pick). Memory updated.
-- **2b spec written** by the lead from the recommended answers: `thoughts/spec_effect_editor.md` (library + layer-stack builder, prep at home, Bars + pixel family, undo, no node graph).
-- **Stopped ~12:06 (session 7 ended mid-run; nothing running at 17:35):** `researcher` finished `agents/research/research_effect_editor.md` (11:58, uncommitted). `frontend-coder` §1 slit scan was left half-done: worktree `.claude/worktrees/agent-ad8211cb17263523a`, `web/src/fx/own/echo.fs` +10/−6, uncommitted, no commit on its branch. **Exact next step:** re-dispatch §1 fresh (read that diff first), then: §2 chrome ring (lead default: one ring per bar) → system-designer 2b → lead pick → planner.
-- **2026-11-04 18:0x: TouchDesigner dump = the effects quality reference (user).** `donor/td-reverse/touchdesigner/` (full extract, 1.2 GB; archive kept beside it). User: our own effects look dated, MilkDrop looks better. Study TD's palette shaders and rewrite our own by analogy, no licence pushback (personal use, not for release). Excluded: TD licence-mechanism findings (04, licence parts of 02/05/06). **Research done:** `agents/research/research_td_look.md`. The TD look = feedback chains of cheap TOPs (ref: `feedbackTOP.tox` ex3). Top 6 need no engine change: feedback fx, feedbackEdge, bloom pyramid, light tunnel + radial blur, optical-flow smear, reaction-diffusion ⚠️ (multi-pass check). Engine gaps: frame-history ring; instanced/point renderer + particle layer. **Lead pick (never-ask):** this epic goes before 2b editor (user's quality complaint). Track A, Tier 2: top 6 as own ISF effects + built-in scenes → planner. **Cancelled by the user 2026-11-04 18:2x ("отмени план пока"); no plan written, nothing running.** **Tier fix (lead, 2026-11-04):** this epic is Tier 3, not Tier 2. It is >5 files and has real alternatives: bloom as a per-layer fx or a global post pass; reaction-diffusion as ISF or a native generator; whether Tracks A and B share multi-pass infrastructure. **22:10 user "гоу" (take all recs, don't ask; resume crons: 02:15 (continue TD plan) + 07:20 (continue all tasks), set 00:16 11-05; session-only).** Lead wrote `thoughts/spec_td_look.md` (Stage 2d, answers marked `(default)`). **Design done:** `agents/system-designer/design_td_look.md`. **Lead pick 2026-11-04 22:5x (per user standing instruction; all designer defaults):** Variant A (7 own ISF files + `Native.draw(f, v, src?)` + 2D-array history ring + TF swarm/scatter). Ring: RGBA8, half stage, 32 slots, stride 1/2/2, ≤64 MiB, fixed at create. RD as ISF + S1.8 (pairs per TARGET name), native as plan B. Hybrid binding policy (drums/sub/build/drop direct; bass family via `bass` + Auto-style); CP4 rebind after CP3. `VJW_FLASH` replaces the hard-coded flash set. Parked slit-scan worktree removed; its diff is in `agents/_archive/slit_scan_wip_2026-11-04.patch`. **Plan done:** `agents/planner/plan_td_look.md` (4 CPs / 16 steps: CP1 S1.1–S1.9 Track A; CP2 S2.1–S2.4 native filters + ring; CP3 S3.1–S3.2 TF points; CP4 S4.1 rebind). Unverified points folded into steps (G2→S1.2/S2.2, G3→S1.4, G1→S2.2, G5→S1.9). Optional MIT donor port in S1.7. S1.1 ✅ `1590077` (`VJW_FLASH` → `EffectDef.flash`; live.ts gates by def; 328 tests; strobe ≤3/s). S1.2 ✅ `merge after e6fff7d` (td-feedback: GPU p95 3.0–4.4 ms, trace r≈.85 kick/snare/hats; ranges retuned, see plan note; harnesses copied to `scratchpad/td/`). ⚠️ Both fixtures have no build/drop, so the CP1 close-out needs a fixture with one (`web/scripts/make-fx.mjs`). S1.3 ✅ (edge-rings over tunnel: GPU p95 2.48 ms; trace r .82–.85; 60 s luma .10–.57, no white-out; effective loop gain kept <1). Finding: TD's real feedbackEdge gain is 1.03×.95≈.98, not 1.07 (research §1b L43 / design D2 rule 3 misread). S1.4 ✅ (bloom + bloom-glitch 3.66 ms p95; td-feedback+bloom 8.4→4.92 ms via 2-channel noise + layer res .5; flash ≤2/s, none refused).
-  - ⚠️ **GPU-timer finding (S1.4):** the per-scene `gpuMs` span leaves the last pass into `acc` unbilled. A single-node scene's own cost is therefore under-reported, as in S1.2's 3.0–4.4 and S1.3's 2.48, and any appended node exposes about 3 ms. Same-session A/B or end-to-end late frames are the honest check: CP close-outs use the 60 s late-frame run.
-  - Not shipped (lead: skip, measures ≈0): keep a `res`<1 layer on the `direct` path when it ends on an effect.
-  - S1.5 ✅ light-tunnel (own ≈.29 ms; twirl↔reese .57 / wobble .52).
-  - ⚠️ **`sub` finding (S1.3, S1.5):** `sub` is relative and sits ≈.42–.56 on a steady sub. `evaluate` = `min+(max−min)·clamp(amount·x)` has no offset, so sub-bound params barely move (radius .444–.461). Decide at the CP1 close-out: extrapolated min/max, an offset field, or a different source for presence-type params. It affects S1.9 and CP4.
-  - S1.6 ✅ radial-blur (≈1.0 ms own) + `builtin:light-tunnel` = tunnel → light-tunnel → radial-blur (p95 3.07 ms; strength↔kick r .91/.90; radial-blur gained `centerX`).
-  - S1.7 ✅ flow-smear (spectrum res .5 → flow-smear; p95 3.4 ms, own ≈.7; force↔reese .61 / wobble .57; luma ≤.29). Finding: at res 1, any appended node measures ≈3 ms even when stripped (same anomaly as S1.4). The CP1 close-out's late-frame run is the truth check.
-  - S1.8 ✅ TARGET pairs by name (`pairsByTarget`; an 8-pass file uses 4 textures instead of 18). Also a parser fix: a repeated TARGET declared its sampler twice and failed to compile (design fact 1 missed this). No GL-call change on existing scenes. td-feedback p95 reads 4.86–5.06, borderline on this timer.
-  - S1.9 ✅ reaction-diffusion (G5 holds 60 s in half float; 6 steps; p95 4.63; seed gated by fresh A; seed←sub via an extrapolated range).
-  - **CP1 ✅ closed (lead):** 64 s autopilot over the 6 new scenes, 0/3842 late, 1.00×, flash ≤2/s; sheet `scratchpad/td/cp1-sheet.png`. The GPU-timer oddities did not show up as real frame time.
-  - **Ruling 2026-11-05** (`design_td_look.md` § Ruling, L420–452), lead pick: fix the sources. `sub`/`reese` become `max(0,r−1)` and rest at 0 like `wobble`; the bass class binds `reese` (Dubstep map `reese→wobble`, DnB `bass` row dropped). Half the evidence was the fixtures (static bass bed, no wobble stem). New plan step **S1.10** (S): features/presets/builtin + `make-fx` arrangement fixtures with build/drop. Slotted after S2.1, before S2.2. CP4 reads `reese` where the bass class says `bass`.
-  - S2.1 ✅ `Native.draw(f, v, src?)` (one line in live; a generator gets null; the picker lists any catalog def with kind 'filter', so G2 holds by code; A/B no change). Note: worktree isolation now blocks coder writes to the main checkout, so harnesses stay in the worktree's `scratchpad/` and the lead copies them out.
-  - S1.10 ✅ sub/reese rest at 0; bass class → reese; new fixtures `scratchpad/fx_audio/dnb174-arr.wav` (build 23.1 s, drop 34.1 s) and `dubstep140-arr.wav` (build 28.4 s, drop 42.1 s, real wobble stem); all 8 bound params idle at min and swing to max on the drop; reset fires on drop.
-  - Findings from S1.10, lead pick:
-    - The drop fires only on a coin flip (DnB 1/5): the features `HOLD` 0.2 s pushes the bass return past arrange `near` 0.2 s. This is a pre-existing 2c bug, likely on real tracks too.
-    - RD is black on a steady bed with seed 0→.6.
-    - Both fixed in new step **S1.11** (Tier 1).
-    - Side note: the classifier reads `dubstep140-arr` as techno; that is a separate issue, queued for the real-track tuning.
-  - S1.11 ✅ arrange `near` = features `HOLD` + 0.15: app drop 5/5 DnB and 5/5 Dubstep, no extras. acceptance §4.5 now runs the held path on both arr fixtures at 20 frame phases; the fire lands 0.32–0.34 s after the drop, ~6 ms inside one DnB beat. RD seed min .3: coral ≈3 s on the bed. 340 tests.
-  - S2.2 ✅ history ring (`scenes/history.ts`, 32 slots at ½ stage, 61.8 MB allocated in create and fully freed) + `native/rgba-delay` (spread←reese, rotate←snare event) + `builtin:rgba-delay`: p95 2.62, own ≈.9 ms; G1/G2 hold; no ghost. Finding: the first ring scene per session drops one frame (Metal cache); check it in the CP2 run (fix: `warm()` draws once into a 1×1 array).
-  - S2.3 ✅ `native/time-machine` + `builtin:time-machine` (Truchet, tSize←kick; stride 2 with half-slot lag; new `tint` input; p95 1.72, own ≈.84; beat-locked r 1.000; depth .30→.77 on the build; swirl r .97 reese / .82 wobble). The θ seam at fractional swirl is visible in the drop shots. Lead pick: the seamless mirrored `|θ|/π`, folded into S2.4 (same file).
-  - S2.4 ✅ `native/slit-scan` (axis y/x/radius) + `builtin:slit-scan-ring` (p95 3.77, own ≈.68; span r .99 sub, wave r .97 reese / .84 wobble). Time-machine seam fixed (`|θ|/π`).
-  - **CP2 ✅ closed (lead):** 64 s over the 3 ring scenes on `dnb174-arr`, 0/3841 late, 1.00×. 2 live rings = 124 MB. The timer's +3 ms is not real frame time.
-  - S3.1 ✅ `native/swarm` + `builtin:swarm`: N 65536 (131k = 5.61 ms; the D5 lever), p95 4.13 ms, +22.4 MB freed; glowing filament threads; burst↔kick .96, trail↔build .89, size↔sub .996, turbulence↔reese .97 / wobble .82; spawn on drop. Finding: TF ≈25 µs per 1k points, so D5's swarm budget was ≈2× low.
-  - S3.2 ✅ `native/scatter` + `builtin:scatter` (4 px, 121k pts, p95 2.65 ms, +3.9 MB freed; `spring` = ω, loosens through the build: lead keeps that, musically right). THIRD_PARTY lists td-feedback's noise.
-  - **CP3 ✅ closed (lead):** 66 s over all 11 new scenes, 0/3962 late on both arr fixtures, 1.00×; WCAG luma flashes max 3/s (at the cap); `__flash` ≤2/s. Sheet `scratchpad/td/cp3-sheet.png`.
-  - S4.1 ✅ rebind of the 23 pre-TD own scenes (kick 14, snare 5, sub 6, reese 8, build 3, hats 1, beat 1, lfo 2; no bass/onset/treb) + `VJW_FLASH` on tunnel-mesh/fractal/wave-landscape + THIRD_PARTY own 23; 349 tests. DnB: kick params jump on kicks only; flashes ≤3/s.
-  - ⚠️ **Kick-detector bug (pre-2c, now reproducible):** on `dubstep140-arr` and through DnB's build, `kick` sits at p50 .66 (the detector fires ≈every 50 ms on the wobble and the riser). So every kick-bound param, TD scenes included, idles high and pulses with the wobble. Lead pick: its own item right after CP4: a system-designer ruling (kick vs sustained or modulated bass), then a coder step, before 2b. It supersedes queue #4's "false kicks on a bare reese".
-  - S4.2 ✅ wave-landscape has its own `flash` (snare) and steady `glow`: the grid stays visible.
-  - **CP4 ✅ closed (lead): Stage 2d DONE.** All 38 starred own scenes, 2 s each, 76 s per arr fixture: 0 late on both, 1.00×.
-  - **Kick ruling** (`design_audio_reactivity.md` § Ruling, L612–656), lead pick (d).
-    - Cause: the kick detector read bin-1 log flux, and a full-range bass's 55/110 Hz partials beat inside that bin. The HP'd fixture reese hid it.
-    - Fix: kick = `tempo.ratio(0) ≥ 1.5` (the existing IIR gate) + kick-bin power share ≥ 0.2; the bin-1 detector is deleted; CPU ≈ 0; ≤1 hop later.
-  - **Kick fix ✅** (ruling d): kick = 40–150 gate ratio ≥1.5 + kick-bin share >.2.
-    - Arr fixtures: DnB 2.00, Dubstep 1.00 kicks/bar (was 18), breakdown 0, kick F1 1.00, `kick` p50 ≤.002 (was .66–.76).
-    - App: kick params jump on kicks only; drop 5/5 + 5/5 (Dubstep conf .86).
-    - The classifier now reads `dubstep140-arr` as dubstep (late, ≈51 s), and Auto no longer halves the breakdown to 70 BPM. 355 tests.
-  - ⚠️ **Snare bug (same class):** on Dubstep the 1–5 kHz snare detector fires on the wobble (snare F1 .09; snare-bound flashes ≈every 0.42 s). **Snare ruling** (`design_audio_reactivity.md` § Ruling, L658–701), lead pick: keep the 1–5 kHz flux trigger; a hop counts only if 3–5 kHz holds ≥ `TILT` .1 of the band, and the veto sits inside `onset.ts`, so a vetoed spike doesn't arm `minGap`. Coder step S queued after 2b S1.2.
-  - 2b design done: `agents/system-designer/design_effect_editor.md`. **Lead pick 2026-11-05 (never-ask; all designer defaults):**
-    - **Variant B:** the stage, CSS-scaled, is the preview; baked stills plus one async live tile; `NativeDef.create(gl, size?)` (tile ring 1.8 MB).
-    - Undo = inverse steps in `panel`; Try = pending add, Esc undoes it; mute/solo are preview-only; editor key `L`; session-only thumbnails.
-    - Port the ASCII Art; CP order 1→4.
-    - Includes the bool/event binding UI and the event rising-edge fix. A bound ISF event fired every frame while its source stayed >.5, a real bug.
-    - **Plan done:** `agents/planner/plan_effect_editor.md`, 4 CPs / 15 steps (design S3.2 split into engine S3.2 + editor S3.3; live tile = S3.4). G1/G2/G4 → S3.3, G3 → S4.3. `L` is free; Vitest is Node-only, so logic lives in `.ts` helpers.
-    - S1.1 ✅ `edit.ts` structural ops with round-tripped inverses + `undo.ts` `edits` stack (key coalescing, sliding 1 s window); 370 tests.
-    - S2.4 ✅ editor header: New = an unsaved scene + a saveAs guard; open/Save/Save as/star/export/import via the shared `SceneHead`/`LibraryIo`; the event trigger is a one-frame `panel.pulse`. 394 tests.
-    - **CP2 ✅ closed (lead):** demo 16/16; live run of 38 scenes, 0/4563 late, 1.00×.
-    - S3.1 ✅ library grid: 135 blocks (42 generators, 30 effects, 63 scenes); filters/search/favourites survive a reload; click = try (Esc/Enter/swap); drop and `+` add; `edits.top()` guards Esc; `panel.setGen` takes a node; 28/28; 401 tests. 
-    - S3.2 ✅ `live.tile()` + `create(gl, size?)`: rgba-delay tile +2.3 MB (ring 1.84) beside the live 61.8 MB; swarm/scatter/milk tiles recognisable; the live path is unchanged (A/B noise); 0/4564 late; 403 tests.
-      - For S3.3: a tile frame costs .09–.29 ms (milk .86); sync readPixels takes 4–5 ms CPU (G1 matters); milk `copy()` shares one texture.
-    - S3.3 ✅ bake queue + async readback + tile canvases; 409 tests.
-      - G1 pass: async ≈.4 ms CPU per tile, fence in 1 frame; sync readPixels 2.3 ms median.
-      - G2: full library 135 tiles in 28.2 s, 31.1 MB. G4: tunnel stays the REF.
-      - 60 s run: 2 late frames in the first 125 ms after opening the library (the library mount, pre-existing, 51 ms; the first milk tile's one-off visualizer resize, 32 ms; fix candidate: a tile-sized visualizer in `milkdrop/native.ts`), then 0.
-      - Milk tiles wait while the live scene is milk; `pause()` on close.
-      - Gap: in 30 fps mode nothing bakes (`ponytail:`).
-      - **Next: S3.4** (live hovered tile + re-bake on save).
-    - S2.3 ✅ native DnD reorder (drag from the row head only: Chrome dragged rows from sliders), insert line, no-op drops record nothing, S3.1 MIME hook; `stack.ts` → `layers.ts` (case footgun fixed); 393 tests.
-    - S2.2 ✅ editor layer Stack:
-      - layers/fx/bindings with meters, preview-only mute/solo, Cmd+Z / Shift+Cmd+Z / Delete / Alt+↑↓; 45/45 browser checks; the undo walk returns to the built-in; 391 tests.
-      - Watch: td-feedback's trail textures swapped in 3/10 runs (governor rescale likely); check it in the CP2 late-frame run.
-    - S2.1 ✅ editor shell (`L` / bar button; CP2 setter `setEditor(on)` in app.ts): hold/restore with no cut, key guard, no prepare-ahead while editing, stage CSS-scaled into the preview (no realloc); 0/3600 late. Note: on leaving, an overdue autopilot switches at the next bar (shot-clock restart possible later).
-    - S1.3 ✅ bool/event binding UI + invert; a bound event fires on the rising edge only (CFM 143 true frames → 13 fires = 13 snares); live meters; 0/4562 late. **CP1 code done** (the lead close-out is pending). Tier-1 queued: the event *trigger* button stores `true` in the doc and records an undo step, so a saved scene fires that event at every build.
-    - S1.2 ✅ Live mirrors (addFx at, move, setGen, addLayer at, mute, read) + `panel` records inverses: 23/23 ops+undo keep the trail; 0/4563 late. Mute is deliberately not undoable (design S2: preview-only; Esc undoes a pending try).
-    - **Snare fix ✅ merged** (`1941b5a` via merge): 3–5 kHz tilt veto inside onset + ±1-hop crosstalk + a vetoed hop is not a reference. Dubstep arr snare F1 .11 → .89 (24/24 found), DnB .92, Techno .86, wobble beds 0, kick unchanged, drops 5/5; 374 tests.
-      - Residual: 3–4 beat-1 flashes per snare-bound param in a 23 s Dubstep window. The kick's 3 kHz click posts 1–2 hops before a weak kick, and a constant can't split it from Techno claps without a fixture-tuned margin. Lead: don't tune on the fixture; re-check on real tracks in the audit.
-      - Snare rolls 0/32 (pre-existing): left for the audit too.
-    - **Bot restart (user asked, 12:3x):** the claude-tg hook fix `8684ac0` goes live when the lead restarts the bot detached (new copy after 25 s; single.py stops the old one, which ends this Telegram session).
-      - Restart 1 (12:30) went live, but launches were still denied. The CLI strips the unoffered `run_in_background` *before* PreToolUse, so the hook saw it absent. Second fix: claude-tg `1c7350e` (absent passes; only an explicit false is denied, and logged). Restart 2 at 13:51 (avadge-web idle): **the hook passes. Agent launches work from Telegram** (verified 13:58).
-      - **Real-track audit ✅** (`agents/research/_adhoc/real_tracks_2026-11-05.md`; data in `scratchpad/real/`; reference tempos DnB 174.00, Rumble 140.00).
-        - DnB snare/hats near-silent (`FLOORS.snare` 80 above real flux).
-        - 0/11 DnB drops (`sparse`/`arm` never arm).
-        - Kick recall ≈30–60%.
-        - ⅔ tempo slips (116) while the genre is undecided.
-        - The classifier is late or never decides; Bicep flips to techno.
-        - Rumble snare fires on growls.
-        - The bass class works.
-      - **Tuning ruling** (`design_audio_reactivity.md` § Ruling L708–776), lead pick (all items):
-        - Bug found: under Auto the worklet never got the detected genre (`app.ts` `workletBands(…, null)` placeholder since 2c S4.3).
-        - Floors 40/50 by default (Dubstep keeps 80/100); the worklet follows the active preset.
-        - `sparse` .5, `refractory` 20, `GRACE` 8, plus a bass-less-intro rule; `KICK` 1.35 (kick-only); `PRIOR_BPM` 150.
-        - Deferred, with named knobs: `CUT` (bass cuts), `floors.tilt` (growls), and a classifier floor/margin + 3:2 ruling after a re-measure.
-        - Baseline JSONs copied to `scratchpad/real/baseline/`.
-      - **Audio tuning steps:** T1 floors + worklet preset (M) → T2 KICK (S) → T3 prior (S) → T4 arrangement (S). Each re-runs `scratchpad/real/run-all.sh` + `an.py` against the audit table. They run interleaved with the 2b steps, one coder at a time.
-      - **T1 ✅** floors 40/50 (Dubstep 80/100), and the worklet follows the active preset. DnB snare .12–.33 → 1.09–2.30 a bar, hats 3.7–5.5, on-grid ≥ .98; 380 tests; harness + table in `scratchpad/real/t1/`.
-        - Techno fixture snare F1 .80 (at its bar).
-        - ❌ Rumble drop 1/4 → 0/4: Dubstep's reese 70–350 is now live under Auto and fires a weak false drop (conf .43) at 70.6 s, which swallows 75.8 s. **Lead pick:** keep the band; T4 adds a drop-confidence floor (named knob) and must restore Rumble's 75.8 s.
-      - **T2 ✅** `KICK` 1.35 (plus crosstalk parity for kicks posted under TRANSIENT); 381 tests, 10/10 mutants.
-        - DnB kicks/bar d+b +44–169%, on-grid within .05, snare/hats unchanged; Andy C classified at 65 s (was 108).
-        - Off-grid new kicks = the kick band's timing vs the grid, not stabs; CLICK not built.
-        - Small: 3 re-triggers <60 ms across the tracks (a `minGap` knob, later).
-        - Data: `scratchpad/real/t2/`.
-      - **T3 ❌ not merged.** `PRIOR_BPM` 150 kept the fixtures green, but on the real tracks Kanine's ⅔ share went only .27 → .25 and Bicep got a new 18 s ⅔ run (sync relock).
-        - Cause: the raw ACF at the 116 lag is 1.2–3.6× the 174 lag there. No prior can fix that.
-        - Patch + data kept in `scratchpad/real/t3-rejected/`.
-        - **Tempo ruling** (`design_audio_reactivity.md` § Ruling L778–820), lead pick (b):
-          - A 3:2 check decided by the bar: F = fold(1.5·bpm) wins if bar(F) > `EDGE` 1.2·bar(bpm), `near`-gated.
-          - PRIOR stays 128; +4 % CPU.
-          - Step **T3′ (S)**: a probe gate first (≥90 % of the 116 windows switch, ≤2 % of the ref windows); fallback (e′) = sync ignores ⅔/4/3 readings.
-          - Queued after T4.
-        - **T4 ✅ merged** (net better):
-          - sparse .5, refractory 20, GRACE 8, bass-less-intro rule, `minConf` .56 (weak fires read .44–.53, real ones ≥.60).
-          - Real drops 0 → 3: Rumble 20.9 + 75.8, Kanine 88.4 at +3.2 s. Rumble's false 70.6 is gone.
-          - `build` now moves on DnB (max .47–1.00); Kanine is classified dnb at 162 s.
-          - Still open: Bicep false fire 167.2 (path (b), kick-only); DnB 1/11. 5 of the 11 are 1.6–2.5 s bass cuts with drums running (`CUT`); others return under `ret` 4 or have no `low` breakdown.
-          - Data: `scratchpad/real/t4/` (+ `cap/` per-frame captures, `replay/` offline replay).
-        - **T3′ bar check ❌** (probe gate GO; 116 sections fire 100 % at EDGE 1.3, false .21 %). In the browser, Kanine's silent/sparse first windows false-fire into a ~30 s wrong ¾ lock (lock 6.5 → 42.7 s); no EDGE fixes it.
-          - **Lead pick: fallback e′.** The sync ignores ⅔/4/3 readings of a confident grid. Offline: 0/31 starts worse; Kanine's ⅔ runs gone.
-          - The same coder is rebuilding T3′ as e′ now.
-        - **Drop v2 ruling** (`design_audio_reactivity.md` L822–873; hand-traced, replay not run). Lead pick, all items:
-          - delete path (b); the `ret` reference becomes min(section mean, slow); `sparse` .6;
-          - the intro survives short sparse runs; peak survives an armed re-sparse;
-          - CUT: `low` < .2·G for ≥ 1.5 s, off under Dubstep (`Preset.cuts`);
-          - deferred: no-bass-dip drops, flicker debounce.
-          - Predicted DnB 7/11, Rumble 2/4, 0 false. The Sub Focus 147.9 label is suspect (bass back at 146.5): **the user checks it by ear.**
-          - Steps: **D-A** (S, `arrange.ts`, replay-gated) → **D-B** (S, CUT + preset gate).
-        - **T3′ ✅ e′ merged:** sync ignores ⅔/4/3 readings of a locked grid (`PARTNER` 1 %).
-          - Kanine ⅔ .25 → .00, ref .72 → .97, lock 6.5 → 4.4 s; Bicep ⅔@108 gone; others unchanged; 389 tests.
-          - Limits: a two-step locked from scratch still locks 116; a mix change within 1 % of 4/3 never relocks.
-        - **D-A ✅ merged:** path (b) deleted, `ret` ref min(mean, slow), `sparse` .6, intro/peak fixes, plus return frames kept out of the run mean and `slow` music-only.
-          - Replay + browser: DnB 1/11 → **5/11** (Kanine 44.7 / 88.8 / 155.0, Andy C 47.3, Bicep 176.9). Bicep false 167.2 is gone; Rumble 21.0 + 75.8 kept; nothing at Rumble 90–115 s or Andy C 132.7; 22/22 mutants.
-          - Sub Focus 146.6 (.71) is the label case: **the user checks it by ear**; if it is the drop, 6/11.
-          - Data: `scratchpad/real/da/`.
-        - **D-B ✅ merged:** CUT (raw low < .2 G for ≥1.5 s arms with peak 1), `Preset.cuts: false` on Dubstep, `armed` reset at fire.
-          - DnB **7/11** (Andy C 91.4 / 157.6), 0 new false, Rumble unchanged; 35/35 mutants; 389 tests.
-          - Data: `scratchpad/real/db/`.
-        - **Real-track tuning DONE (2026-11-05).** Versus the audit:
-          - DnB snare .12–.33 → 1.1–2.3 a bar; hats 3.7–5.5;
-          - kicks +44–169 %;
-          - tempo ⅔ slips gone (Kanine ref .72 → .97);
-          - drops 0/11 → 7/11 DnB (8/11 if Sub Focus 146.6 is right) and 0/4 → 2/4 Rumble; no false fires.
-        - **Open, deferred:**
-          - classifier lateness (Kanine dnb@162, Bicep techno flip @199): a classifier ruling;
-          - Rumble growl snares (`floors.tilt`);
-          - Rumble 48.4 / 117.0 flicker breaks;
-          - no-bass-dip drops (Sub Focus 44.1, Bicep 66.2);
-          - 3 kick re-triggers <60 ms (`minGap`).
-        - **Next:** back to 2b at S2.2.
-    - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
-- **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
-  - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
-  - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
-  - It also states how the Auto-style overlay (`audio/presets.ts` `map`: DnB bass→reese, onset→kick; Dubstep bass→wobble, onset→snare; Techno onset→kick) applies.
-  - Acceptance: a reaction check on `dnb174.wav` and `dubstep140.wav`, plus real tracks when the user provides them.
-  - Finding: today's built-ins bind almost only to `bass` (22) and `onset` (8). One scene uses `kick` directly; none uses snare/hats/sub/reese/build/drop directly; they reach them only via the Auto-style remap.
+### Where we stopped
+- **2b editor** (`plan_effect_editor.md`, Variant B): CP1 code ✅ (lead close-out pending); CP2 ✅ (demo 16/16, 0/4563 late).
+  - CP3 S3.1–S3.3 ✅: library grid (135 blocks), `live.tile()`, bake queue + async readback (G1 .4 ms CPU per tile; G2 28.2 s, 31.1 MB; G4 tunnel REF).
+- The session-8 crash hit during the S3.4 dispatch; S3.4 never started (no worktree; master `231028b` clean).
+- **Exact next step: S3.4.** Live hovered tile at 20 fps, last frame → still, re-bake on save.
+  - Also the CP3 close-out 60 s run: live tile on `builtin:rgba-delay`, then `builtin:swarm`; sheet `ed/cp3-sheet.png`.
+  - Then the lead closes CP3.
+  - Then CP4 S4.1–S4.4: bars, Pixellate + mosaic, led-grid + ASCII (G3), 3 built-ins + THIRD_PARTY; 60 s run on both arr fixtures.
 
-### Findings for the user (decide or leave)
-- ⚠️ **WCAG gap:** MilkDrop presets flash on their own; e.g. `cope-alternative-energy` luma std goes 6→72 within 2 s. `flashGate` covers only `own/strobe` + `own/flash`. Option: a frame-luminance flash limiter in the post pass (a design item).
-- Blend `screen` on a single-layer scene renders ~half as bright as `normal`. This predates §5.
-- Bool params (the strobe) have no binding controls in the panel.
-- The panel's GPU hint reads high for MilkDrop scenes (cross-context wait; display only). A cut to an unprepared milk scene shows 1–2 black frames.
-
-### Queue (lead order)
-0. **Order (user, 2026-11-04 22:2x):** 2d TD look → **rebind pass**: retune ALL existing built-ins to the 2c sources (reese/sub/wobble, kick/snare/hats, build/drop). The binding policy goes in the same design (`design_td_look.md` § Binding policy, asked of the running designer) → 2b effect editor (spec + research ready; system-designer next) → Stage 3 camera.
-0b. **Order (user, 2026-11-05 15:0x):** finish audio tuning T1–T4 + 2b editor → **Stage 3 camera** (the big closing epic) → **TD wave 2**. Wave 2: a researcher triages the rest of the dump (160 OPSnippets GLSL, the remaining ImageFilters such as twirl/dent/polar/pointillize/solarize, julia/mandelbrot/superFormula, the 50 noise variants, GaussianSplats) → top-10 → design/plan/coders, each on the 2c bindings.
-0c. **Parallel prep (user, 15:1x):** two researchers running alongside the coder:
-    - **Camera research ✅** `agents/research/research_camera.md`.
-      - A1: MediaPipe 1.2.2 (Apache-2.0; tiny; can share our GL context; no temporal state; tuned for a person <2 m).
-      - A2: RVM (GPL-3.0, recurrent, dormant since 2023, WebGPU only).
-      - B: Apple Vision via a Swift helper (≈22 fps reported on M1/M2; transport via WebSocket, WebRTC or a virtual camera).
-      - C: macOS effects reach Chrome as processed pixels only; no mask API.
-      - Gap: no Apple Silicon fps and no low-light/strobe data, so the first design step is an M4 probe. **Running:** `system-designer` → `design_camera.md`.
-    - **Camera design ✅** `agents/system-designer/design_camera.md` (pure web, Mac + Windows). **Lead pick: B, all defaults.**
-      - Segmentation worker gets `VideoFrame`s and returns a ≤64 KB mask + area/box; mask EMA .85 plus a flood/jump gate; luma limiter for camera strobes.
-      - `LayerDoc.mask` (person/background); `native/camera` (+ `cut`), `native/outline`, `own/negative`, `presence` source.
-      - The worker is recycled every 30 min for MediaPipe leak #6352; built-ins fall back to their TD layer with no camera.
-      - CP0 probe `?camprobe` (Selfie vs PoseLandmarker, CPU/GPU, worker/main/same-ctx, RVM if wired) on the M4 + the Windows PC, then a probe ruling; CP1–CP3: 6 steps (framing optional).
-      - **User provides:** the DJ-booth clip (≥60 s 720p30: steady light, low light, strobe, hands on decks, fast moves, someone walking behind) and the Windows probe run (`npm run build && npm run preview` on the PC, 75-min soak).
-      - **Plan ✅** `agents/planner/plan_camera.md`: 4 CPs / 15 steps + probe ruling R0.
-        - CP0: S0.1–S0.5 `?camprobe` + harness; CP1: S1.1–S1.6 mask in the engine; CP2: S2.1–S2.3 looks + 3 `dj-*` built-ins; CP3: S3.1 framing, optional.
-        - Model-specific code sits behind the worker messages `[R0]`. HEAVY = `builtin:td-feedback`.
-        - USER steps: U0.0 optional selfie; U0.1 the booth clip (**asked now**); U0.2–U0.4 on the Windows PC after S0.5 (build/preview, probe, 2×75 min soak, latency); U2.1 at CP2 close.
-        - Camera coding starts after 2b, per order. S1.5 (model-free) may go earlier.
-        - **User 2026-11-05: on vacation; the clip and the Windows PC runs wait until he's back in Stockholm.** The clip is optional: a live capture at the decks during the PC probe is fine. Coders can do CP0 S0.1–S0.5 on synthetic + a webcam; R0 waits for the user's runs.
-    - **Camera research, cross-platform ✅** `agents/research/research_camera_xplat.md`: pure web, Chrome on Win + Mac.
-      - Shortlist: MediaPipe Selfie (<2 m, only published fps), PoseLandmarker mask (full body ≤4 m), RVM on WebGPU (GPL, recurrent alpha; no Windows fps).
-      - MediaPipe Windows GPU bugs: NVIDIA mask offset; long-session GL leak #6352 (open).
-      - No Intel-iGPU / M-series / strobe data, so we need an on-rig probe. **User scope: pure web, no native helpers.**
-    - **TD wave 2 research ✅** `agents/research/research_td_wave2.md`:
-      - Top-10: julia trap filter, superformula, polar wrap, phaser wipe, gradient map, XY scope (native), pointillize (scatter ext), difference feedback (VJW_FLASH), dilate melt, stars/polka noise.
-      - Plus 12 quick wins (several already exist as MIT donor ISF).
-      - Engine gaps: stereo wave, line renderer (plexus), splats, blends (difference/max/dodge).
-      - Wave 2 is queued after Stage 3, per the user; its design waits.
-    - `agents/research/research_camera.md`, from the new `thoughts/spec_camera.md` (lead-written, `(default)` answers);
-    - `agents/research/research_td_wave2.md` (dump triage → top-10 + quick wins).
-    - Designers/planners held until research lands, then judged against the usage limit.
-1. §1 slit scan, §2 chrome ring: taste, after the user's effects re-brief (lead defaults in `_adhoc/effects_polish_2026-11-03.md`).
-2. §4 "Spectrum takes ≤2 filters": a perf investigation on a quiet-GPU `?bench`. Deferred.
-3. The spec §7.5 30-min run with MilkDrop in the playlist and audio flowing (CoreAudio worked for the coders on 11-04); `?flash` lag. REC backlog: a WebCodecs recorder (low priority).
-4. Blocked on real tracks (`scratchpad/real/`): dubstep140 tempo lock, false kicks on a bare reese, preset `proto`/`sens` tuning.
+### Queue (user order 2026-11-05)
+1. Finish 2b.
+2. **Stage 3 camera** (`plan_camera.md`, Variant B): pure web, Chrome on Mac + Windows, no native helpers.
+   - Coders: CP0 S0.1–S0.5 on synthetic input + a webcam. S1.5 is model-free and may go earlier.
+   - R0 and the USER steps wait for the user, who is on vacation until he is back in Stockholm.
+3. **TD wave 2:** `research_td_wave2.md` top-10 → design → plan → coders, on the 2c sources.
+4. Deferred audio:
+   - classifier lateness (Kanine dnb@162; Bicep flips to techno @199);
+   - Rumble growl snares (`floors.tilt`);
+   - flicker breaks; no-bass-dip drops;
+   - kick re-triggers <60 ms (`minGap`).
+5. Small:
+   - milk first tile 32 ms; library mount 51 ms; no baking at 30 fps;
+   - the event trigger stores `true` in the doc (Tier 1);
+   - §1/§2 (taste); §4 Spectrum perf; spec §7.5 30-min run; REC WebCodecs (low).
 
 ### Waiting on the user
-- Look at MilkDrop: `cd web && npm run dev` → `localhost:5173`, press → until a MilkDrop scene; E → panel: 25 `builtin:milk-*` starred, unstar the ones you dislike.
-- Local CP6/CP7 check: `localhost:5173/?debug`, E opens the panel (Sources tab, meters, picker/Auto, custom band + reload, drop + LOCK).
-- The effects re-brief (what to redo, including the built-in scenes) · real tracks (`scratchpad/real/`) · §4.2: 174 vs rekordbox.
+- By ear: is Sub Focus *Elevate* at 146.6 s the drop? If yes, DnB drops are 8/11.
+- After the vacation: the Windows PC probe (build + preview, `?camprobe`, 2×75-min soak) and the optional booth clip.
+- Effects re-brief; MilkDrop unstar pass; CP6/CP7 local check.
 
-### Open notes
-- §4.7: under the drop fixture the governor stepped 1.00 → 0.72× and probed back up, so "scale 1.00" holds only without audio (detail in TAIL, session 6). Harnesses pass files as base64 (a Node Buffer arrives empty).
-- Known limits: bass note-on-kick lag ~211 ms (accepted); kick-veto branch S3.1c kept unmerged (`413275d`); `?debug&preset=` forces the frame loop only, so it doesn't drive the Auto-style hint (by design).
-- ⚠️ assumptions: `design_pilot.md` § "Spec §8 and STATE ⚠️ ledger". Fixtures: `scratchpad/fx_audio/dnb174.wav`, `dubstep140.wav` (gitignored; regenerate via `web/scripts/make-fx.mjs` through a throwaway vitest in `src/`).
+### Findings for the user (decide or leave)
+- MilkDrop presets flash on their own (no frame-luma limiter).
+- `screen` on a single layer renders half as bright.
+- The GPU hint reads high on milk.
+- A cut to an unprepared milk scene gives 1–2 black frames.
 
-**Infra:** graphify (root `.`, post-commit hook); crons are session-only; `.claude/settings.local.json` allowlist (Read/Write/Edit + common Bash incl. `npx:*`); dispatch rule CLAUDE.md #11 (one coder at a time, own worktree, the lead merges). Harness (user 2026-11-04): in this project only superpowers 7.0.0 + ponytail + graphify + context7; SEO, ui-ux-pro-max, superpowers 5.0.7, claude.ai synced skills/plugins/connectors and Artifacts are off in `settings.local.json`; memory compacted to 2 notes.
-
-### Key decisions
-- Session 2 (/grill-me): browser pilot, Chrome-first, localhost; Vite + React + TS; Electron later. Minimal auto-hiding overlay, REC via MediaRecorder, quality modes 60A / 60F / 30. After the pilot: editor → camera → clip mixer.
-- Session 3: any dependency license; line-in only (rekordbox, sometimes Pioneer USB), MIDI/Link later; Butterchurn moved to the next step; analysis = energy, onsets, tempo+phase.
-- 2026-10-28: effects Variant A; audio-reactivity Variant B (worklet IIR bank + fast/slow envelopes).
-- 2026-10-31: one coder at a time. 2026-11-01: fully autonomous runs (the lead halts only on hard blockers). 2026-11-03: team models above; MilkDrop Variant A, no detector hook, we curate ~25, spread evenly. 2026-11-04: MilkDrop probe ruling (K1/K2 timed a cross-context wait → end-to-end late frames + Butterchurn-own GPU); user "go" on the polish queue.
-
-### User preferences
-Talk in Russian. **Grill/AskUserQuestion ONLY at new-feature discovery (+ the one variant gate); never during execution** (user, 2026-10-29). **Decide minor/technical choices yourself; ask only for real gates/scope** (user, 2026-10-28). REC is low priority. No Docker. Artifacts in English. External AI reviews the user pastes are leads to verify, not facts.
+### Key facts
+- **Tuning results:** snare .12–.33 → 1.1–2.3 per bar; kicks +44–169%; no ⅔ slips; drops DnB 0/11 → 7/11, Rumble 0/4 → 2/4, 0 false.
+  - Rulings: `design_audio_reactivity.md` L612–873. Data: `scratchpad/real/`.
+- **Binding policy:** drums, sub and build/drop bind directly; the bass class binds `reese` (Dubstep Auto: reese→wobble); sub/reese rest at 0.
+- **GPU timer:** it under-bills the last pass, so the truth is the 60 s late-frame run.
+- **Coders:** fixtures `scratchpad/fx_audio/*.wav`; port 5174 (lead 5173); restart Vite after `web/src` edits; the lead copies harnesses out of the worktree.
+- **Infra:** graphify post-commit hook; session-only crons; Telegram Agent `run_in_background: true`; plugins superpowers, ponytail, graphify, context7 (read-only key; use sparingly).
+- **Prefs:** Russian; artifacts in English; never ask (take the recommended option, report the pick); REC low; no Docker; AI reviews = leads to verify.
 
 ## TAIL
 
@@ -382,4 +205,229 @@ Talk in Russian. **Grill/AskUserQuestion ONLY at new-feature discovery (+ the on
   2. Effects polish, one coder each (user 2026-11-03 "го дальше" over the list = go; the big effects re-brief still waits for the user's brief). Lead order + defaults: **§7** overlay wakes on keys → **§3** one shared flash-rate cap ≤3/s for `own/strobe` + `own/flash` (WCAG 2.3.1) and strobe default not full white → **§6** spectrum-local low-bar interpolation (no fftSize change) → **§5** per `plan_live_rebuild.md` → **§1** slit scan, **§2** chrome ring (taste, last). **§4** deferred (perf investigation, needs a quiet-GPU `?bench`).
   3. MilkDrop epic: research → system-designer → **USER GATE (hard stop)** → planner → coders. Spec: 20–30 curated Butterchurn presets in the shared playlist + both engines composited into one recorded canvas.
   4. Blocked on the user's real tracks (`scratchpad/real/`): dubstep140 tempo lock (bar 1.71 s > max lag 1.33 s), false kicks on a bare reese, preset `proto`/`sens` tuning.
+- 2026-11-04..05 — Sessions 7–8 log (demoted from HEAD 2026-11-05):
+  **Updated:** 2026-11-05 13:5x (session 8, Telegram; hook fixed, real-track audit running)
+  **Stage:** pilot ✅ → `effects` ✅ → `audio-reactivity` ✅ → `milkdrop` ✅ → **`2d TD look` ✅ (plan_td_look.md, 18 steps, CP1–CP4; 11 new scenes + rebind of 23)**; polish §3 §5 §6 §7 ✅. 349 tests.
+  **Spec:** `thoughts/spec_veejay_wizard.md` + `spec_effects.md` + `spec_audio_reactivity.md`. **Team:** `planner` Fable 5.1 max; others Opus 5.5 max; `researcher` high.
 
+  ### Where we stopped (2026-11-04 04:2x)
+  - **MilkDrop done.** 25 curated presets, one per author. Butterchurn GPU p95 2.58–3.52 ms. They are spread evenly in the autopilot and all starred.
+    - Stack: butterchurn 3.0.0-beta.5, presets from 3.0.0-beta.4, copy path (a), pool of 2 visualizers, warm at Start.
+    - CP3 close-out (lead, `scratchpad/milk-cp3.mjs`): 64 s, 16 switches over the live 52-scene playlist. 3842 frames, 0 late, jsMs 1.4, 1.00×.
+    - Worst case (ruling 5, `scratchpad/milk-worst.mjs`): 0 of 3901 frames late. Contact sheet: `scratchpad/milk-picks-sheet.png`.
+  - **Polish done:** §7 keys wake the overlay (`d55f4ae`) · §6 Spectrum low-bar ramp (`20a3a03`) · §3 shared WCAG flash cap + strobe at a 60% wash (`d73e2b9`, `plan_flash_cap.md`) · §5 structural panel edits no longer restart the scene (`e23c44e`, `plan_live_rebuild.md`) · Tier 1 Vitest `testTimeout` 20 s (`c738f85`).
+  - **User decision 2026-11-04 (session 7):** next epics = **Stage 2b effect editor, then Stage 3 camera** (spec §4); user checks/tracks deferred ("проверки потом").
+  - **User standing instruction 2026-11-04: "always take recommendations, don't ask"**: no grill rounds; the lead also picks the design variant (logged as a lead pick). Memory updated.
+  - **2b spec written** by the lead from the recommended answers: `thoughts/spec_effect_editor.md` (library + layer-stack builder, prep at home, Bars + pixel family, undo, no node graph).
+  - **Stopped ~12:06 (session 7 ended mid-run; nothing running at 17:35):** `researcher` finished `agents/research/research_effect_editor.md` (11:58, uncommitted). `frontend-coder` §1 slit scan was left half-done: worktree `.claude/worktrees/agent-ad8211cb17263523a`, `web/src/fx/own/echo.fs` +10/−6, uncommitted, no commit on its branch. **Exact next step:** re-dispatch §1 fresh (read that diff first), then: §2 chrome ring (lead default: one ring per bar) → system-designer 2b → lead pick → planner.
+  - **2026-11-04 18:0x: TouchDesigner dump = the effects quality reference (user).** `donor/td-reverse/touchdesigner/` (full extract, 1.2 GB; archive kept beside it). User: our own effects look dated, MilkDrop looks better. Study TD's palette shaders and rewrite our own by analogy, no licence pushback (personal use, not for release). Excluded: TD licence-mechanism findings (04, licence parts of 02/05/06). **Research done:** `agents/research/research_td_look.md`. The TD look = feedback chains of cheap TOPs (ref: `feedbackTOP.tox` ex3). Top 6 need no engine change: feedback fx, feedbackEdge, bloom pyramid, light tunnel + radial blur, optical-flow smear, reaction-diffusion ⚠️ (multi-pass check). Engine gaps: frame-history ring; instanced/point renderer + particle layer. **Lead pick (never-ask):** this epic goes before 2b editor (user's quality complaint). Track A, Tier 2: top 6 as own ISF effects + built-in scenes → planner. **Cancelled by the user 2026-11-04 18:2x ("отмени план пока"); no plan written, nothing running.** **Tier fix (lead, 2026-11-04):** this epic is Tier 3, not Tier 2. It is >5 files and has real alternatives: bloom as a per-layer fx or a global post pass; reaction-diffusion as ISF or a native generator; whether Tracks A and B share multi-pass infrastructure. **22:10 user "гоу" (take all recs, don't ask; resume crons: 02:15 (continue TD plan) + 07:20 (continue all tasks), set 00:16 11-05; session-only).** Lead wrote `thoughts/spec_td_look.md` (Stage 2d, answers marked `(default)`). **Design done:** `agents/system-designer/design_td_look.md`. **Lead pick 2026-11-04 22:5x (per user standing instruction; all designer defaults):** Variant A (7 own ISF files + `Native.draw(f, v, src?)` + 2D-array history ring + TF swarm/scatter). Ring: RGBA8, half stage, 32 slots, stride 1/2/2, ≤64 MiB, fixed at create. RD as ISF + S1.8 (pairs per TARGET name), native as plan B. Hybrid binding policy (drums/sub/build/drop direct; bass family via `bass` + Auto-style); CP4 rebind after CP3. `VJW_FLASH` replaces the hard-coded flash set. Parked slit-scan worktree removed; its diff is in `agents/_archive/slit_scan_wip_2026-11-04.patch`. **Plan done:** `agents/planner/plan_td_look.md` (4 CPs / 16 steps: CP1 S1.1–S1.9 Track A; CP2 S2.1–S2.4 native filters + ring; CP3 S3.1–S3.2 TF points; CP4 S4.1 rebind). Unverified points folded into steps (G2→S1.2/S2.2, G3→S1.4, G1→S2.2, G5→S1.9). Optional MIT donor port in S1.7. S1.1 ✅ `1590077` (`VJW_FLASH` → `EffectDef.flash`; live.ts gates by def; 328 tests; strobe ≤3/s). S1.2 ✅ `merge after e6fff7d` (td-feedback: GPU p95 3.0–4.4 ms, trace r≈.85 kick/snare/hats; ranges retuned, see plan note; harnesses copied to `scratchpad/td/`). ⚠️ Both fixtures have no build/drop, so the CP1 close-out needs a fixture with one (`web/scripts/make-fx.mjs`). S1.3 ✅ (edge-rings over tunnel: GPU p95 2.48 ms; trace r .82–.85; 60 s luma .10–.57, no white-out; effective loop gain kept <1). Finding: TD's real feedbackEdge gain is 1.03×.95≈.98, not 1.07 (research §1b L43 / design D2 rule 3 misread). S1.4 ✅ (bloom + bloom-glitch 3.66 ms p95; td-feedback+bloom 8.4→4.92 ms via 2-channel noise + layer res .5; flash ≤2/s, none refused).
+    - ⚠️ **GPU-timer finding (S1.4):** the per-scene `gpuMs` span leaves the last pass into `acc` unbilled. A single-node scene's own cost is therefore under-reported, as in S1.2's 3.0–4.4 and S1.3's 2.48, and any appended node exposes about 3 ms. Same-session A/B or end-to-end late frames are the honest check: CP close-outs use the 60 s late-frame run.
+    - Not shipped (lead: skip, measures ≈0): keep a `res`<1 layer on the `direct` path when it ends on an effect.
+    - S1.5 ✅ light-tunnel (own ≈.29 ms; twirl↔reese .57 / wobble .52).
+    - ⚠️ **`sub` finding (S1.3, S1.5):** `sub` is relative and sits ≈.42–.56 on a steady sub. `evaluate` = `min+(max−min)·clamp(amount·x)` has no offset, so sub-bound params barely move (radius .444–.461). Decide at the CP1 close-out: extrapolated min/max, an offset field, or a different source for presence-type params. It affects S1.9 and CP4.
+    - S1.6 ✅ radial-blur (≈1.0 ms own) + `builtin:light-tunnel` = tunnel → light-tunnel → radial-blur (p95 3.07 ms; strength↔kick r .91/.90; radial-blur gained `centerX`).
+    - S1.7 ✅ flow-smear (spectrum res .5 → flow-smear; p95 3.4 ms, own ≈.7; force↔reese .61 / wobble .57; luma ≤.29). Finding: at res 1, any appended node measures ≈3 ms even when stripped (same anomaly as S1.4). The CP1 close-out's late-frame run is the truth check.
+    - S1.8 ✅ TARGET pairs by name (`pairsByTarget`; an 8-pass file uses 4 textures instead of 18). Also a parser fix: a repeated TARGET declared its sampler twice and failed to compile (design fact 1 missed this). No GL-call change on existing scenes. td-feedback p95 reads 4.86–5.06, borderline on this timer.
+    - S1.9 ✅ reaction-diffusion (G5 holds 60 s in half float; 6 steps; p95 4.63; seed gated by fresh A; seed←sub via an extrapolated range).
+    - **CP1 ✅ closed (lead):** 64 s autopilot over the 6 new scenes, 0/3842 late, 1.00×, flash ≤2/s; sheet `scratchpad/td/cp1-sheet.png`. The GPU-timer oddities did not show up as real frame time.
+    - **Ruling 2026-11-05** (`design_td_look.md` § Ruling, L420–452), lead pick: fix the sources. `sub`/`reese` become `max(0,r−1)` and rest at 0 like `wobble`; the bass class binds `reese` (Dubstep map `reese→wobble`, DnB `bass` row dropped). Half the evidence was the fixtures (static bass bed, no wobble stem). New plan step **S1.10** (S): features/presets/builtin + `make-fx` arrangement fixtures with build/drop. Slotted after S2.1, before S2.2. CP4 reads `reese` where the bass class says `bass`.
+    - S2.1 ✅ `Native.draw(f, v, src?)` (one line in live; a generator gets null; the picker lists any catalog def with kind 'filter', so G2 holds by code; A/B no change). Note: worktree isolation now blocks coder writes to the main checkout, so harnesses stay in the worktree's `scratchpad/` and the lead copies them out.
+    - S1.10 ✅ sub/reese rest at 0; bass class → reese; new fixtures `scratchpad/fx_audio/dnb174-arr.wav` (build 23.1 s, drop 34.1 s) and `dubstep140-arr.wav` (build 28.4 s, drop 42.1 s, real wobble stem); all 8 bound params idle at min and swing to max on the drop; reset fires on drop.
+    - Findings from S1.10, lead pick:
+      - The drop fires only on a coin flip (DnB 1/5): the features `HOLD` 0.2 s pushes the bass return past arrange `near` 0.2 s. This is a pre-existing 2c bug, likely on real tracks too.
+      - RD is black on a steady bed with seed 0→.6.
+      - Both fixed in new step **S1.11** (Tier 1).
+      - Side note: the classifier reads `dubstep140-arr` as techno; that is a separate issue, queued for the real-track tuning.
+    - S1.11 ✅ arrange `near` = features `HOLD` + 0.15: app drop 5/5 DnB and 5/5 Dubstep, no extras. acceptance §4.5 now runs the held path on both arr fixtures at 20 frame phases; the fire lands 0.32–0.34 s after the drop, ~6 ms inside one DnB beat. RD seed min .3: coral ≈3 s on the bed. 340 tests.
+    - S2.2 ✅ history ring (`scenes/history.ts`, 32 slots at ½ stage, 61.8 MB allocated in create and fully freed) + `native/rgba-delay` (spread←reese, rotate←snare event) + `builtin:rgba-delay`: p95 2.62, own ≈.9 ms; G1/G2 hold; no ghost. Finding: the first ring scene per session drops one frame (Metal cache); check it in the CP2 run (fix: `warm()` draws once into a 1×1 array).
+    - S2.3 ✅ `native/time-machine` + `builtin:time-machine` (Truchet, tSize←kick; stride 2 with half-slot lag; new `tint` input; p95 1.72, own ≈.84; beat-locked r 1.000; depth .30→.77 on the build; swirl r .97 reese / .82 wobble). The θ seam at fractional swirl is visible in the drop shots. Lead pick: the seamless mirrored `|θ|/π`, folded into S2.4 (same file).
+    - S2.4 ✅ `native/slit-scan` (axis y/x/radius) + `builtin:slit-scan-ring` (p95 3.77, own ≈.68; span r .99 sub, wave r .97 reese / .84 wobble). Time-machine seam fixed (`|θ|/π`).
+    - **CP2 ✅ closed (lead):** 64 s over the 3 ring scenes on `dnb174-arr`, 0/3841 late, 1.00×. 2 live rings = 124 MB. The timer's +3 ms is not real frame time.
+    - S3.1 ✅ `native/swarm` + `builtin:swarm`: N 65536 (131k = 5.61 ms; the D5 lever), p95 4.13 ms, +22.4 MB freed; glowing filament threads; burst↔kick .96, trail↔build .89, size↔sub .996, turbulence↔reese .97 / wobble .82; spawn on drop. Finding: TF ≈25 µs per 1k points, so D5's swarm budget was ≈2× low.
+    - S3.2 ✅ `native/scatter` + `builtin:scatter` (4 px, 121k pts, p95 2.65 ms, +3.9 MB freed; `spring` = ω, loosens through the build: lead keeps that, musically right). THIRD_PARTY lists td-feedback's noise.
+    - **CP3 ✅ closed (lead):** 66 s over all 11 new scenes, 0/3962 late on both arr fixtures, 1.00×; WCAG luma flashes max 3/s (at the cap); `__flash` ≤2/s. Sheet `scratchpad/td/cp3-sheet.png`.
+    - S4.1 ✅ rebind of the 23 pre-TD own scenes (kick 14, snare 5, sub 6, reese 8, build 3, hats 1, beat 1, lfo 2; no bass/onset/treb) + `VJW_FLASH` on tunnel-mesh/fractal/wave-landscape + THIRD_PARTY own 23; 349 tests. DnB: kick params jump on kicks only; flashes ≤3/s.
+    - ⚠️ **Kick-detector bug (pre-2c, now reproducible):** on `dubstep140-arr` and through DnB's build, `kick` sits at p50 .66 (the detector fires ≈every 50 ms on the wobble and the riser). So every kick-bound param, TD scenes included, idles high and pulses with the wobble. Lead pick: its own item right after CP4: a system-designer ruling (kick vs sustained or modulated bass), then a coder step, before 2b. It supersedes queue #4's "false kicks on a bare reese".
+    - S4.2 ✅ wave-landscape has its own `flash` (snare) and steady `glow`: the grid stays visible.
+    - **CP4 ✅ closed (lead): Stage 2d DONE.** All 38 starred own scenes, 2 s each, 76 s per arr fixture: 0 late on both, 1.00×.
+    - **Kick ruling** (`design_audio_reactivity.md` § Ruling, L612–656), lead pick (d).
+      - Cause: the kick detector read bin-1 log flux, and a full-range bass's 55/110 Hz partials beat inside that bin. The HP'd fixture reese hid it.
+      - Fix: kick = `tempo.ratio(0) ≥ 1.5` (the existing IIR gate) + kick-bin power share ≥ 0.2; the bin-1 detector is deleted; CPU ≈ 0; ≤1 hop later.
+    - **Kick fix ✅** (ruling d): kick = 40–150 gate ratio ≥1.5 + kick-bin share >.2.
+      - Arr fixtures: DnB 2.00, Dubstep 1.00 kicks/bar (was 18), breakdown 0, kick F1 1.00, `kick` p50 ≤.002 (was .66–.76).
+      - App: kick params jump on kicks only; drop 5/5 + 5/5 (Dubstep conf .86).
+      - The classifier now reads `dubstep140-arr` as dubstep (late, ≈51 s), and Auto no longer halves the breakdown to 70 BPM. 355 tests.
+    - ⚠️ **Snare bug (same class):** on Dubstep the 1–5 kHz snare detector fires on the wobble (snare F1 .09; snare-bound flashes ≈every 0.42 s). **Snare ruling** (`design_audio_reactivity.md` § Ruling, L658–701), lead pick: keep the 1–5 kHz flux trigger; a hop counts only if 3–5 kHz holds ≥ `TILT` .1 of the band, and the veto sits inside `onset.ts`, so a vetoed spike doesn't arm `minGap`. Coder step S queued after 2b S1.2.
+    - 2b design done: `agents/system-designer/design_effect_editor.md`. **Lead pick 2026-11-05 (never-ask; all designer defaults):**
+      - **Variant B:** the stage, CSS-scaled, is the preview; baked stills plus one async live tile; `NativeDef.create(gl, size?)` (tile ring 1.8 MB).
+      - Undo = inverse steps in `panel`; Try = pending add, Esc undoes it; mute/solo are preview-only; editor key `L`; session-only thumbnails.
+      - Port the ASCII Art; CP order 1→4.
+      - Includes the bool/event binding UI and the event rising-edge fix. A bound ISF event fired every frame while its source stayed >.5, a real bug.
+      - **Plan done:** `agents/planner/plan_effect_editor.md`, 4 CPs / 15 steps (design S3.2 split into engine S3.2 + editor S3.3; live tile = S3.4). G1/G2/G4 → S3.3, G3 → S4.3. `L` is free; Vitest is Node-only, so logic lives in `.ts` helpers.
+      - S1.1 ✅ `edit.ts` structural ops with round-tripped inverses + `undo.ts` `edits` stack (key coalescing, sliding 1 s window); 370 tests.
+      - S2.4 ✅ editor header: New = an unsaved scene + a saveAs guard; open/Save/Save as/star/export/import via the shared `SceneHead`/`LibraryIo`; the event trigger is a one-frame `panel.pulse`. 394 tests.
+      - **CP2 ✅ closed (lead):** demo 16/16; live run of 38 scenes, 0/4563 late, 1.00×.
+      - S3.1 ✅ library grid: 135 blocks (42 generators, 30 effects, 63 scenes); filters/search/favourites survive a reload; click = try (Esc/Enter/swap); drop and `+` add; `edits.top()` guards Esc; `panel.setGen` takes a node; 28/28; 401 tests. 
+      - S3.2 ✅ `live.tile()` + `create(gl, size?)`: rgba-delay tile +2.3 MB (ring 1.84) beside the live 61.8 MB; swarm/scatter/milk tiles recognisable; the live path is unchanged (A/B noise); 0/4564 late; 403 tests.
+        - For S3.3: a tile frame costs .09–.29 ms (milk .86); sync readPixels takes 4–5 ms CPU (G1 matters); milk `copy()` shares one texture.
+      - S3.3 ✅ bake queue + async readback + tile canvases; 409 tests.
+        - G1 pass: async ≈.4 ms CPU per tile, fence in 1 frame; sync readPixels 2.3 ms median.
+        - G2: full library 135 tiles in 28.2 s, 31.1 MB. G4: tunnel stays the REF.
+        - 60 s run: 2 late frames in the first 125 ms after opening the library (the library mount, pre-existing, 51 ms; the first milk tile's one-off visualizer resize, 32 ms; fix candidate: a tile-sized visualizer in `milkdrop/native.ts`), then 0.
+        - Milk tiles wait while the live scene is milk; `pause()` on close.
+        - Gap: in 30 fps mode nothing bakes (`ponytail:`).
+        - **Next: S3.4** (live hovered tile + re-bake on save).
+      - S2.3 ✅ native DnD reorder (drag from the row head only: Chrome dragged rows from sliders), insert line, no-op drops record nothing, S3.1 MIME hook; `stack.ts` → `layers.ts` (case footgun fixed); 393 tests.
+      - S2.2 ✅ editor layer Stack:
+        - layers/fx/bindings with meters, preview-only mute/solo, Cmd+Z / Shift+Cmd+Z / Delete / Alt+↑↓; 45/45 browser checks; the undo walk returns to the built-in; 391 tests.
+        - Watch: td-feedback's trail textures swapped in 3/10 runs (governor rescale likely); check it in the CP2 late-frame run.
+      - S2.1 ✅ editor shell (`L` / bar button; CP2 setter `setEditor(on)` in app.ts): hold/restore with no cut, key guard, no prepare-ahead while editing, stage CSS-scaled into the preview (no realloc); 0/3600 late. Note: on leaving, an overdue autopilot switches at the next bar (shot-clock restart possible later).
+      - S1.3 ✅ bool/event binding UI + invert; a bound event fires on the rising edge only (CFM 143 true frames → 13 fires = 13 snares); live meters; 0/4562 late. **CP1 code done** (the lead close-out is pending). Tier-1 queued: the event *trigger* button stores `true` in the doc and records an undo step, so a saved scene fires that event at every build.
+      - S1.2 ✅ Live mirrors (addFx at, move, setGen, addLayer at, mute, read) + `panel` records inverses: 23/23 ops+undo keep the trail; 0/4563 late. Mute is deliberately not undoable (design S2: preview-only; Esc undoes a pending try).
+      - **Snare fix ✅ merged** (`1941b5a` via merge): 3–5 kHz tilt veto inside onset + ±1-hop crosstalk + a vetoed hop is not a reference. Dubstep arr snare F1 .11 → .89 (24/24 found), DnB .92, Techno .86, wobble beds 0, kick unchanged, drops 5/5; 374 tests.
+        - Residual: 3–4 beat-1 flashes per snare-bound param in a 23 s Dubstep window. The kick's 3 kHz click posts 1–2 hops before a weak kick, and a constant can't split it from Techno claps without a fixture-tuned margin. Lead: don't tune on the fixture; re-check on real tracks in the audit.
+        - Snare rolls 0/32 (pre-existing): left for the audit too.
+      - **Bot restart (user asked, 12:3x):** the claude-tg hook fix `8684ac0` goes live when the lead restarts the bot detached (new copy after 25 s; single.py stops the old one, which ends this Telegram session).
+        - Restart 1 (12:30) went live, but launches were still denied. The CLI strips the unoffered `run_in_background` *before* PreToolUse, so the hook saw it absent. Second fix: claude-tg `1c7350e` (absent passes; only an explicit false is denied, and logged). Restart 2 at 13:51 (avadge-web idle): **the hook passes. Agent launches work from Telegram** (verified 13:58).
+        - **Real-track audit ✅** (`agents/research/_adhoc/real_tracks_2026-11-05.md`; data in `scratchpad/real/`; reference tempos DnB 174.00, Rumble 140.00).
+          - DnB snare/hats near-silent (`FLOORS.snare` 80 above real flux).
+          - 0/11 DnB drops (`sparse`/`arm` never arm).
+          - Kick recall ≈30–60%.
+          - ⅔ tempo slips (116) while the genre is undecided.
+          - The classifier is late or never decides; Bicep flips to techno.
+          - Rumble snare fires on growls.
+          - The bass class works.
+        - **Tuning ruling** (`design_audio_reactivity.md` § Ruling L708–776), lead pick (all items):
+          - Bug found: under Auto the worklet never got the detected genre (`app.ts` `workletBands(…, null)` placeholder since 2c S4.3).
+          - Floors 40/50 by default (Dubstep keeps 80/100); the worklet follows the active preset.
+          - `sparse` .5, `refractory` 20, `GRACE` 8, plus a bass-less-intro rule; `KICK` 1.35 (kick-only); `PRIOR_BPM` 150.
+          - Deferred, with named knobs: `CUT` (bass cuts), `floors.tilt` (growls), and a classifier floor/margin + 3:2 ruling after a re-measure.
+          - Baseline JSONs copied to `scratchpad/real/baseline/`.
+        - **Audio tuning steps:** T1 floors + worklet preset (M) → T2 KICK (S) → T3 prior (S) → T4 arrangement (S). Each re-runs `scratchpad/real/run-all.sh` + `an.py` against the audit table. They run interleaved with the 2b steps, one coder at a time.
+        - **T1 ✅** floors 40/50 (Dubstep 80/100), and the worklet follows the active preset. DnB snare .12–.33 → 1.09–2.30 a bar, hats 3.7–5.5, on-grid ≥ .98; 380 tests; harness + table in `scratchpad/real/t1/`.
+          - Techno fixture snare F1 .80 (at its bar).
+          - ❌ Rumble drop 1/4 → 0/4: Dubstep's reese 70–350 is now live under Auto and fires a weak false drop (conf .43) at 70.6 s, which swallows 75.8 s. **Lead pick:** keep the band; T4 adds a drop-confidence floor (named knob) and must restore Rumble's 75.8 s.
+        - **T2 ✅** `KICK` 1.35 (plus crosstalk parity for kicks posted under TRANSIENT); 381 tests, 10/10 mutants.
+          - DnB kicks/bar d+b +44–169%, on-grid within .05, snare/hats unchanged; Andy C classified at 65 s (was 108).
+          - Off-grid new kicks = the kick band's timing vs the grid, not stabs; CLICK not built.
+          - Small: 3 re-triggers <60 ms across the tracks (a `minGap` knob, later).
+          - Data: `scratchpad/real/t2/`.
+        - **T3 ❌ not merged.** `PRIOR_BPM` 150 kept the fixtures green, but on the real tracks Kanine's ⅔ share went only .27 → .25 and Bicep got a new 18 s ⅔ run (sync relock).
+          - Cause: the raw ACF at the 116 lag is 1.2–3.6× the 174 lag there. No prior can fix that.
+          - Patch + data kept in `scratchpad/real/t3-rejected/`.
+          - **Tempo ruling** (`design_audio_reactivity.md` § Ruling L778–820), lead pick (b):
+            - A 3:2 check decided by the bar: F = fold(1.5·bpm) wins if bar(F) > `EDGE` 1.2·bar(bpm), `near`-gated.
+            - PRIOR stays 128; +4 % CPU.
+            - Step **T3′ (S)**: a probe gate first (≥90 % of the 116 windows switch, ≤2 % of the ref windows); fallback (e′) = sync ignores ⅔/4/3 readings.
+            - Queued after T4.
+          - **T4 ✅ merged** (net better):
+            - sparse .5, refractory 20, GRACE 8, bass-less-intro rule, `minConf` .56 (weak fires read .44–.53, real ones ≥.60).
+            - Real drops 0 → 3: Rumble 20.9 + 75.8, Kanine 88.4 at +3.2 s. Rumble's false 70.6 is gone.
+            - `build` now moves on DnB (max .47–1.00); Kanine is classified dnb at 162 s.
+            - Still open: Bicep false fire 167.2 (path (b), kick-only); DnB 1/11. 5 of the 11 are 1.6–2.5 s bass cuts with drums running (`CUT`); others return under `ret` 4 or have no `low` breakdown.
+            - Data: `scratchpad/real/t4/` (+ `cap/` per-frame captures, `replay/` offline replay).
+          - **T3′ bar check ❌** (probe gate GO; 116 sections fire 100 % at EDGE 1.3, false .21 %). In the browser, Kanine's silent/sparse first windows false-fire into a ~30 s wrong ¾ lock (lock 6.5 → 42.7 s); no EDGE fixes it.
+            - **Lead pick: fallback e′.** The sync ignores ⅔/4/3 readings of a confident grid. Offline: 0/31 starts worse; Kanine's ⅔ runs gone.
+            - The same coder is rebuilding T3′ as e′ now.
+          - **Drop v2 ruling** (`design_audio_reactivity.md` L822–873; hand-traced, replay not run). Lead pick, all items:
+            - delete path (b); the `ret` reference becomes min(section mean, slow); `sparse` .6;
+            - the intro survives short sparse runs; peak survives an armed re-sparse;
+            - CUT: `low` < .2·G for ≥ 1.5 s, off under Dubstep (`Preset.cuts`);
+            - deferred: no-bass-dip drops, flicker debounce.
+            - Predicted DnB 7/11, Rumble 2/4, 0 false. The Sub Focus 147.9 label is suspect (bass back at 146.5): **the user checks it by ear.**
+            - Steps: **D-A** (S, `arrange.ts`, replay-gated) → **D-B** (S, CUT + preset gate).
+          - **T3′ ✅ e′ merged:** sync ignores ⅔/4/3 readings of a locked grid (`PARTNER` 1 %).
+            - Kanine ⅔ .25 → .00, ref .72 → .97, lock 6.5 → 4.4 s; Bicep ⅔@108 gone; others unchanged; 389 tests.
+            - Limits: a two-step locked from scratch still locks 116; a mix change within 1 % of 4/3 never relocks.
+          - **D-A ✅ merged:** path (b) deleted, `ret` ref min(mean, slow), `sparse` .6, intro/peak fixes, plus return frames kept out of the run mean and `slow` music-only.
+            - Replay + browser: DnB 1/11 → **5/11** (Kanine 44.7 / 88.8 / 155.0, Andy C 47.3, Bicep 176.9). Bicep false 167.2 is gone; Rumble 21.0 + 75.8 kept; nothing at Rumble 90–115 s or Andy C 132.7; 22/22 mutants.
+            - Sub Focus 146.6 (.71) is the label case: **the user checks it by ear**; if it is the drop, 6/11.
+            - Data: `scratchpad/real/da/`.
+          - **D-B ✅ merged:** CUT (raw low < .2 G for ≥1.5 s arms with peak 1), `Preset.cuts: false` on Dubstep, `armed` reset at fire.
+            - DnB **7/11** (Andy C 91.4 / 157.6), 0 new false, Rumble unchanged; 35/35 mutants; 389 tests.
+            - Data: `scratchpad/real/db/`.
+          - **Real-track tuning DONE (2026-11-05).** Versus the audit:
+            - DnB snare .12–.33 → 1.1–2.3 a bar; hats 3.7–5.5;
+            - kicks +44–169 %;
+            - tempo ⅔ slips gone (Kanine ref .72 → .97);
+            - drops 0/11 → 7/11 DnB (8/11 if Sub Focus 146.6 is right) and 0/4 → 2/4 Rumble; no false fires.
+          - **Open, deferred:**
+            - classifier lateness (Kanine dnb@162, Bicep techno flip @199): a classifier ruling;
+            - Rumble growl snares (`floors.tilt`);
+            - Rumble 48.4 / 117.0 flicker breaks;
+            - no-bass-dip drops (Sub Focus 44.1, Bicep 66.2);
+            - 3 kick re-triggers <60 ms (`minGap`).
+          - **Next:** back to 2b at S2.2.
+      - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
+  - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
+    - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
+    - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
+    - It also states how the Auto-style overlay (`audio/presets.ts` `map`: DnB bass→reese, onset→kick; Dubstep bass→wobble, onset→snare; Techno onset→kick) applies.
+    - Acceptance: a reaction check on `dnb174.wav` and `dubstep140.wav`, plus real tracks when the user provides them.
+    - Finding: today's built-ins bind almost only to `bass` (22) and `onset` (8). One scene uses `kick` directly; none uses snare/hats/sub/reese/build/drop directly; they reach them only via the Auto-style remap.
+
+  ### Findings for the user (decide or leave)
+  - ⚠️ **WCAG gap:** MilkDrop presets flash on their own; e.g. `cope-alternative-energy` luma std goes 6→72 within 2 s. `flashGate` covers only `own/strobe` + `own/flash`. Option: a frame-luminance flash limiter in the post pass (a design item).
+  - Blend `screen` on a single-layer scene renders ~half as bright as `normal`. This predates §5.
+  - Bool params (the strobe) have no binding controls in the panel.
+  - The panel's GPU hint reads high for MilkDrop scenes (cross-context wait; display only). A cut to an unprepared milk scene shows 1–2 black frames.
+
+  ### Queue (lead order)
+  0. **Order (user, 2026-11-04 22:2x):** 2d TD look → **rebind pass**: retune ALL existing built-ins to the 2c sources (reese/sub/wobble, kick/snare/hats, build/drop). The binding policy goes in the same design (`design_td_look.md` § Binding policy, asked of the running designer) → 2b effect editor (spec + research ready; system-designer next) → Stage 3 camera.
+  0b. **Order (user, 2026-11-05 15:0x):** finish audio tuning T1–T4 + 2b editor → **Stage 3 camera** (the big closing epic) → **TD wave 2**. Wave 2: a researcher triages the rest of the dump (160 OPSnippets GLSL, the remaining ImageFilters such as twirl/dent/polar/pointillize/solarize, julia/mandelbrot/superFormula, the 50 noise variants, GaussianSplats) → top-10 → design/plan/coders, each on the 2c bindings.
+  0c. **Parallel prep (user, 15:1x):** two researchers running alongside the coder:
+      - **Camera research ✅** `agents/research/research_camera.md`.
+        - A1: MediaPipe 1.2.2 (Apache-2.0; tiny; can share our GL context; no temporal state; tuned for a person <2 m).
+        - A2: RVM (GPL-3.0, recurrent, dormant since 2023, WebGPU only).
+        - B: Apple Vision via a Swift helper (≈22 fps reported on M1/M2; transport via WebSocket, WebRTC or a virtual camera).
+        - C: macOS effects reach Chrome as processed pixels only; no mask API.
+        - Gap: no Apple Silicon fps and no low-light/strobe data, so the first design step is an M4 probe. **Running:** `system-designer` → `design_camera.md`.
+      - **Camera design ✅** `agents/system-designer/design_camera.md` (pure web, Mac + Windows). **Lead pick: B, all defaults.**
+        - Segmentation worker gets `VideoFrame`s and returns a ≤64 KB mask + area/box; mask EMA .85 plus a flood/jump gate; luma limiter for camera strobes.
+        - `LayerDoc.mask` (person/background); `native/camera` (+ `cut`), `native/outline`, `own/negative`, `presence` source.
+        - The worker is recycled every 30 min for MediaPipe leak #6352; built-ins fall back to their TD layer with no camera.
+        - CP0 probe `?camprobe` (Selfie vs PoseLandmarker, CPU/GPU, worker/main/same-ctx, RVM if wired) on the M4 + the Windows PC, then a probe ruling; CP1–CP3: 6 steps (framing optional).
+        - **User provides:** the DJ-booth clip (≥60 s 720p30: steady light, low light, strobe, hands on decks, fast moves, someone walking behind) and the Windows probe run (`npm run build && npm run preview` on the PC, 75-min soak).
+        - **Plan ✅** `agents/planner/plan_camera.md`: 4 CPs / 15 steps + probe ruling R0.
+          - CP0: S0.1–S0.5 `?camprobe` + harness; CP1: S1.1–S1.6 mask in the engine; CP2: S2.1–S2.3 looks + 3 `dj-*` built-ins; CP3: S3.1 framing, optional.
+          - Model-specific code sits behind the worker messages `[R0]`. HEAVY = `builtin:td-feedback`.
+          - USER steps: U0.0 optional selfie; U0.1 the booth clip (**asked now**); U0.2–U0.4 on the Windows PC after S0.5 (build/preview, probe, 2×75 min soak, latency); U2.1 at CP2 close.
+          - Camera coding starts after 2b, per order. S1.5 (model-free) may go earlier.
+          - **User 2026-11-05: on vacation; the clip and the Windows PC runs wait until he's back in Stockholm.** The clip is optional: a live capture at the decks during the PC probe is fine. Coders can do CP0 S0.1–S0.5 on synthetic + a webcam; R0 waits for the user's runs.
+      - **Camera research, cross-platform ✅** `agents/research/research_camera_xplat.md`: pure web, Chrome on Win + Mac.
+        - Shortlist: MediaPipe Selfie (<2 m, only published fps), PoseLandmarker mask (full body ≤4 m), RVM on WebGPU (GPL, recurrent alpha; no Windows fps).
+        - MediaPipe Windows GPU bugs: NVIDIA mask offset; long-session GL leak #6352 (open).
+        - No Intel-iGPU / M-series / strobe data, so we need an on-rig probe. **User scope: pure web, no native helpers.**
+      - **TD wave 2 research ✅** `agents/research/research_td_wave2.md`:
+        - Top-10: julia trap filter, superformula, polar wrap, phaser wipe, gradient map, XY scope (native), pointillize (scatter ext), difference feedback (VJW_FLASH), dilate melt, stars/polka noise.
+        - Plus 12 quick wins (several already exist as MIT donor ISF).
+        - Engine gaps: stereo wave, line renderer (plexus), splats, blends (difference/max/dodge).
+        - Wave 2 is queued after Stage 3, per the user; its design waits.
+      - `agents/research/research_camera.md`, from the new `thoughts/spec_camera.md` (lead-written, `(default)` answers);
+      - `agents/research/research_td_wave2.md` (dump triage → top-10 + quick wins).
+      - Designers/planners held until research lands, then judged against the usage limit.
+  1. §1 slit scan, §2 chrome ring: taste, after the user's effects re-brief (lead defaults in `_adhoc/effects_polish_2026-11-03.md`).
+  2. §4 "Spectrum takes ≤2 filters": a perf investigation on a quiet-GPU `?bench`. Deferred.
+  3. The spec §7.5 30-min run with MilkDrop in the playlist and audio flowing (CoreAudio worked for the coders on 11-04); `?flash` lag. REC backlog: a WebCodecs recorder (low priority).
+  4. Blocked on real tracks (`scratchpad/real/`): dubstep140 tempo lock, false kicks on a bare reese, preset `proto`/`sens` tuning.
+
+  ### Waiting on the user
+  - Look at MilkDrop: `cd web && npm run dev` → `localhost:5173`, press → until a MilkDrop scene; E → panel: 25 `builtin:milk-*` starred, unstar the ones you dislike.
+  - Local CP6/CP7 check: `localhost:5173/?debug`, E opens the panel (Sources tab, meters, picker/Auto, custom band + reload, drop + LOCK).
+  - The effects re-brief (what to redo, including the built-in scenes) · real tracks (`scratchpad/real/`) · §4.2: 174 vs rekordbox.
+
+  ### Open notes
+  - §4.7: under the drop fixture the governor stepped 1.00 → 0.72× and probed back up, so "scale 1.00" holds only without audio (detail in TAIL, session 6). Harnesses pass files as base64 (a Node Buffer arrives empty).
+  - Known limits: bass note-on-kick lag ~211 ms (accepted); kick-veto branch S3.1c kept unmerged (`413275d`); `?debug&preset=` forces the frame loop only, so it doesn't drive the Auto-style hint (by design).
+  - ⚠️ assumptions: `design_pilot.md` § "Spec §8 and STATE ⚠️ ledger". Fixtures: `scratchpad/fx_audio/dnb174.wav`, `dubstep140.wav` (gitignored; regenerate via `web/scripts/make-fx.mjs` through a throwaway vitest in `src/`).
+
+  **Infra:** graphify (root `.`, post-commit hook); crons are session-only; `.claude/settings.local.json` allowlist (Read/Write/Edit + common Bash incl. `npx:*`); dispatch rule CLAUDE.md #11 (one coder at a time, own worktree, the lead merges). Harness (user 2026-11-04): in this project only superpowers 7.0.0 + ponytail + graphify + context7; SEO, ui-ux-pro-max, superpowers 5.0.7, claude.ai synced skills/plugins/connectors and Artifacts are off in `settings.local.json`; memory compacted to 2 notes.
+
+  ### Key decisions
+  - Session 2 (/grill-me): browser pilot, Chrome-first, localhost; Vite + React + TS; Electron later. Minimal auto-hiding overlay, REC via MediaRecorder, quality modes 60A / 60F / 30. After the pilot: editor → camera → clip mixer.
+  - Session 3: any dependency license; line-in only (rekordbox, sometimes Pioneer USB), MIDI/Link later; Butterchurn moved to the next step; analysis = energy, onsets, tempo+phase.
+  - 2026-10-28: effects Variant A; audio-reactivity Variant B (worklet IIR bank + fast/slow envelopes).
+  - 2026-10-31: one coder at a time. 2026-11-01: fully autonomous runs (the lead halts only on hard blockers). 2026-11-03: team models above; MilkDrop Variant A, no detector hook, we curate ~25, spread evenly. 2026-11-04: MilkDrop probe ruling (K1/K2 timed a cross-context wait → end-to-end late frames + Butterchurn-own GPU); user "go" on the polish queue.
+
+  ### User preferences
+  Talk in Russian. **Grill/AskUserQuestion ONLY at new-feature discovery (+ the one variant gate); never during execution** (user, 2026-10-29). **Decide minor/technical choices yourself; ask only for real gates/scope** (user, 2026-10-28). REC is low priority. No Docker. Artifacts in English. External AI reviews the user pastes are leads to verify, not facts.
