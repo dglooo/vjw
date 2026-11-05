@@ -63,7 +63,8 @@
     - Includes the bool/event binding UI and the event rising-edge fix. A bound ISF event fired every frame while its source stayed >.5, a real bug.
     - **Plan done:** `agents/planner/plan_effect_editor.md`, 4 CPs / 15 steps (design S3.2 split into engine S3.2 + editor S3.3; live tile = S3.4). G1/G2/G4 → S3.3, G3 → S4.3. `L` is free; Vitest is Node-only, so logic lives in `.ts` helpers.
     - S1.1 ✅ `edit.ts` structural ops with round-tripped inverses + `undo.ts` `edits` stack (key coalescing, sliding 1 s window); 370 tests.
-    - **Running:** `frontend-coder` 2b S1.2 (Live mirrors + inverse steps). Next: the snare coder step, then S1.3.
+    - S1.2 ✅ Live mirrors (addFx at, move, setGen, addLayer at, mute, read) + `panel` records inverses: 23/23 ops+undo keep the trail; 0/4563 late. Mute is deliberately not undoable (design S2: preview-only; Esc undoes a pending try).
+    - **Running:** `frontend-coder` snare fix (S). Next: 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
