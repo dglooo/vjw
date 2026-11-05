@@ -63,6 +63,7 @@
     - Includes the bool/event binding UI and the event rising-edge fix. A bound ISF event fired every frame while its source stayed >.5, a real bug.
     - **Plan done:** `agents/planner/plan_effect_editor.md`, 4 CPs / 15 steps (design S3.2 split into engine S3.2 + editor S3.3; live tile = S3.4). G1/G2/G4 → S3.3, G3 → S4.3. `L` is free; Vitest is Node-only, so logic lives in `.ts` helpers.
     - S1.1 ✅ `edit.ts` structural ops with round-tripped inverses + `undo.ts` `edits` stack (key coalescing, sliding 1 s window); 370 tests.
+    - S2.1 ✅ editor shell (`L` / bar button; CP2 setter `setEditor(on)` in app.ts): hold/restore with no cut, key guard, no prepare-ahead while editing, stage CSS-scaled into the preview (no realloc); 0/3600 late. Note: on leaving, an overdue autopilot switches at the next bar (shot-clock restart possible later).
     - S1.3 ✅ bool/event binding UI + invert; a bound event fires on the rising edge only (CFM 143 true frames → 13 fires = 13 snares); live meters; 0/4562 late. **CP1 code done** (the lead close-out is pending). Tier-1 queued: the event *trigger* button stores `true` in the doc and records an undo step, so a saved scene fires that event at every build.
     - S1.2 ✅ Live mirrors (addFx at, move, setGen, addLayer at, mute, read) + `panel` records inverses: 23/23 ops+undo keep the trail; 0/4563 late. Mute is deliberately not undoable (design S2: preview-only; Esc undoes a pending try).
     - **Snare fix ✅ merged** (`1941b5a` via merge): 3–5 kHz tilt veto inside onset + ±1-hop crosstalk + a vetoed hop is not a reference. Dubstep arr snare F1 .11 → .89 (24/24 found), DnB .92, Techno .86, wobble beds 0, kick unchanged, drops 5/5; 374 tests.
@@ -84,7 +85,7 @@
         - `sparse` .5, `refractory` 20, `GRACE` 8, plus a bass-less-intro rule; `KICK` 1.35 (kick-only); `PRIOR_BPM` 150.
         - Deferred, with named knobs: `CUT` (bass cuts), `floors.tilt` (growls), and a classifier floor/margin + 3:2 ruling after a re-measure.
         - Baseline JSONs copied to `scratchpad/real/baseline/`.
-      - **Audio tuning steps:** T1 floors + worklet preset (M) → T2 KICK (S) → T3 prior (S) → T4 arrangement (S). Each re-runs `scratchpad/real/run-all.sh` + `an.py` against the audit table. They run interleaved with the 2b steps, one coder at a time.
+      - **Audio tuning steps:** T1 floors + worklet preset (M) → T2 KICK (S) → T3 prior (S) → T4 arrangement (S). Each re-runs `scratchpad/real/run-all.sh` + `an.py` against the audit table. They run interleaved with the 2b steps, one coder at a time. **Running: T1.**
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
