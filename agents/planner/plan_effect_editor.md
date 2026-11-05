@@ -473,13 +473,34 @@
     - On the hats the outline flicks 3.2–3.4 times a second: dark lines over up to ≈19% of the area at max. The plan says no flash, so it is not gated.
     - If the GPU gets tight, the triangle's window could drop to 5 seed rows (15 seeds).
 
-#### S4.3 [ ] `own/led-grid.fs` + the `ASCII Art` port; G3 — M
+#### S4.3 [x] `own/led-grid.fs` + the `ASCII Art` port; G3 — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the last two pixel effects (S7); the ASCII licence line settled.
 - **Files:** new `web/src/fx/own/led-grid.fs`, new `web/src/fx/isf/ASCII Art.fs`, `web/src/fx/isf.test.ts`; `web/src/fx/isf.ts` as a 4th file only for a ≤10-line parser gap (else report).
 - **Depends on:** none.
 - **Behaviour:** led-grid: filter, 1 pass; `cell`, `dot`, `gap`, `levels`, `off` (unlit floor), `glow`, `round`; `VJW_BIND`: dot←sub .05/.4 · glow←kick 0/.15 · levels←build 1/2; `VJW_FLASH`: glow; CATEGORIES `"Pixel"`; refs RGB/CMYK Halftone (zoidberg), studied only, nothing copied. ASCII, **donor authorisation:** copy `donor/ISF-Files/ISF/ASCII Art.fs` → `web/src/fx/isf/ASCII Art.fs`, keep the VIDVOX MIT header and the Shadertoy `lssGDj` origin line; add `VJW_BIND`: size←kick 0/.2 · gamma←build 1/2; `tint` (bool) left unbound on purpose (the user's bool test); CATEGORIES `"Pixel"`. **G3:** the header must name the Shadertoy source's licence; if the donor header lacks it, stop and report (fallback: an own glyph shader, decision 7).
 - **Tests:** `isf.test.ts`: `NEW_OWN` += led-grid; ASCII Art parses with its binding.
 - **Done:** gates; browser on `dnb174-arr`: the LED dots swell on the drop (sub), glow ≤3/s on kicks; the ASCII cells jump on kicks, gamma rises on the build; bind `tint` to `kick` in the panel (S1.3 UI) and it toggles; screenshots.
+- **Changed during implementation:**
+  - **G3 licence (lead ruling 2026-11-06, overrides the plan's stop-and-report):** the donor credits VIDVOX's port of Shadertoy `lssGDj` and names no licence. Ported anyway, with one header line added: `Shadertoy lssGDj: no licence stated; Shadertoy's default CC BY-NC-SA 3.0 assumed (personal use; ⚠️ check before any release)`. The Shadertoy author is named neither by the donor nor the VIDVOX repo → the S4.4 THIRD_PARTY row should write **author per the Shadertoy page**. The VIDVOX MIT credit and the `lssGDj` origin line stay in `CREDIT`.
+  - **`tint` is a bool in the port, not the donor's float 0..1** (the plan's `tint` (bool); the user's S1.3 bool test). The body uses `float t = tint ? 1.0 : 0.0;` (GLSL ES 1.00 has no bool arithmetic) at the two `1.0−tint` sites. On = `tintColor` (terminal green by default), off = the cell's own colour.
+  - **led-grid is a halftone over `inputImage`, 1 pass:** a 2×2 box per cell, the light quantised to `levels` steps, a dot SDF from square (`round` 0) to circle (`round` 1), the dim `off` floor on the unlit LEDs, and a `glow` halo (kick, flash-gated) on top. CATEGORIES `"Pixel"`. The RGB/CMYK Halftone (zoidberg) donor was studied (per-channel rotated dot grids); nothing copied.
+  - **Root-cause fix found in the browser:** the first draft passed the cell *index* to `IMG_PIXEL`, so every LED sampled the same 38×27 px patch of the image's top-left corner — the wall read as one flat colour and looked "low contrast" (two false contrast edits were made chasing that). `IMG_PIXEL` takes px: `(g + ¼) * cs`. With correct per-cell sampling the wall reads instantly (the sun/grid/valley of a bright generator are legible in the steps).
+  - Bind ranges (the plan gives attack/release; min/max set here):
+    - led-grid: dot 0.5→1.0 (rest dots swell to the gap's margin on the sub); levels 4→12 (the build refines the steps); glow 0→1.
+    - ASCII: size 0.10→0.25 (an 11.6→17 px cell jump on the kick); gamma 1.0→2.0.
+  - **Harnesses in `scratchpad/ed/`:**
+    - `led-grid.mjs` (from S4.2's `mosaic.mjs`): native/tunnel → own/led-grid with its `VJW_BIND`, a whole-fixture trace, one shot on the drop, and an A/B with `own/flash` appended.
+    - `ascii.mjs`: native/tunnel → isf/ASCII Art, a whole-fixture trace, one shot on the drop, the `tint`→kick bool check through the panel (8 s on the drop: rising edges + one shot per side), and an A/B with `own/flash` appended.
+    - `led-look.mjs` (from `mosaic-look.mjs`): no-audio look shots; the no-audio tunnel is near-black, so the look pass runs on `own/wave-landscape` (bright, time-driven) to judge the steps/dots/round.
+    - Out: `led-grid-dnb174-arr.out.json`, `ascii-dnb174-arr.out.json`; shots `led-grid.png`, `ascii.png`, `ascii-tint-{on,off}.png`, `led-look-*.png`.
+  - **Numbers** (1728×1118, r = param↔source), dnb174-arr:
+    - led-grid: dot↔sub .99 (intro .500…0.528, drop .500…1.000 mean .735); levels↔build .89 (intro 4 flat, build 4…10 mean 6.6); glow↔kick .92, 49 flashes in 45.6 s (1.07/s, max 2 in any 1 s).
+    - ASCII: size↔kick .89 (.100…0.250, 1.07 jumps/s; intro 33, drop 16); gamma↔build .9 (intro 1.000 flat, build 1.000…1.686 mean 1.33, drop relaxes to mean 1.12); tint→kick bool: 12 rising edges in 8 s (on 192 frames / off 289).
+  - **GPU** (same-session A/B at 1728×1118, med / p95 ms):
+    - led-grid: 1.80 / 1.86; + `own/flash`: 2.24 / 2.30. Whole-trace p95 1.85.
+    - ASCII: 1.78 / 1.82; + `own/flash`: 2.22 / 2.27. Whole-trace p95 1.82.
+    - Budget ≤5 ✓ — the cheapest CP4 passes so far.
+  - Seen, not fixed: one `ascii.mjs` bool-loop run hit a transient `"push" is not a function` (harness-side only — no pageerror; the identical logic passed on re-run and in isolation, probes 2/3).
 
 #### S4.4 [ ] 3 built-ins, THIRD_PARTY, reaction check, contact sheet — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the new blocks in the autopilot at the quality bar, credited (S7, spec §2.4).
