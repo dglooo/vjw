@@ -298,9 +298,29 @@ Depends on: S2.1. **Files:** `web/src/scenes/history.ts`, `web/src/scenes/histor
   - Trace: DnB spread r .97 with reese, 1→12 on the drop, rotate 48 edges / 51 snares. Dubstep (pick dubstep): styled reese = wobble, spread swings with it (body p50 4.9 / p90 9.6), rotate 103 / 119.
 - **Finding:** the session's first ring scene costs one frame, once: 51.6 → 29.7 → 25.3 ms over three runs, shrinking as the Metal shader cache warms; later fresh rings cost nothing. If the CP2 autopilot run shows it, `warm()` can draw once into a 1×1 array texture.
 
-### S2.3 [ ] [M] `native/time-machine` + `builtin:time-machine`
+### S2.3 [x] [M] `native/time-machine` + `builtin:time-machine`
 Depends on: S2.2. **Files:** `history.ts`, `catalog.ts`, `builtin.ts`.
 **Look:** TD time machine (circular ramp). Stride 2 (64 frames). `age = uDepth·depth·fract(rings·|uv − c| + swirl·θ/2π − phase)`, rings 2 ⚠️ taste, `c` the centre; shares `ring()` and `past()`. **Bind:** swirl ← bass .05/.3 0→1 · depth ← build 1/1 .3→1 · phase ← beat saw 0→1. **Scene:** truchet → time-machine. **Tests:** none new (GLSL only; `slot()` covers the ring). **Done:** gates; bench; screenshot; trace (the sweep locks to the beat, depth grows on a build).
+**Changed during implementation:**
+- **Code shape.** `past()` and its uniforms became a shared GLSL prefix (`PAST`); rgba-delay and time-machine each append their own `main()`. Stride 2 lives in the native: it pushes every 2nd draw, so `Ring` and `push` are unchanged and S2.4 can do the same. Between pushes the head is a frame old, so ages shift back half a slot (`uLag`), and content time stays continuous instead of stepping at 30 Hz. Age = `depth·(uDepth − 1)·ramp` (design L286), not `uDepth·depth`, so no flat band is clamped at 31. Radius is aspect-corrected (round rings); `rings` is an input (0–8, default 2: kept, it reads well).
+- **Bindings.** `swirl` binds `reese` (ruling 2026-11-05), not `bass`. `phase` binds beat saw: the wrap is the beat crossing, and the confidence gate scales it.
+- **New input `tint`** (0–1, default 0 = a pure time machine), hue turned with age. On a maze, a tear in time just looks like more maze, so with no colour the rings did not read (taste runs `scratchpad/td/s2.3/taste/`). TD's own example (`timemachineTOP.tox` ex1, research §1b L49) cycles hue 330°/32 frames before the cache. `tint` does the same at read time, and the present keeps its colours. The scene sets 0.9.
+- **Scene gen.** Truchet is static on its own (no TIME), so `tSize ← kick .02/.3 .06→.1` gives the rings a past to show.
+- **Tests.** One entry: `history.test.ts` checks time-machine's bind sources too.
+- **Measured** (`scratchpad/td/s2.3/`, worktree):
+  - GPU: showcase p95 1.72 ms. Same-session A/B with an `own/flash` tail: Truchet → flash 1.26 vs Truchet → time-machine → flash 2.10 p95, so the effect costs ≈ .84 ms itself.
+  - Memory: ring 61.8 MB. The GPU process goes up 66 MB and returns exactly to baseline on dispose (checked twice).
+  - Cuts: a fresh ring at depth 1 has its channel means within .99 of the Truchet over frames 1–70, so no ghost. No late frames on the cut, nor on rgba-delay → time-machine. Two rings are live after that cut: the prepared `peek()` scene holds one (`app.ts` `prepare`, E2).
+  - G2: picker group 'feedback', and the def's bind arrives with the node.
+  - Trace: phase = saw × confidence of the frame drawn (r 1.000, mean error .000; `__src` is read a frame later). Wraps = beat crossings, 115/115 on DnB. DnB kicks fall at beat phase 0 and .5 (1 and the "and" of 2); the on-beat ones land within 35 ms of a wrap (median −16 ms).
+  - Depth: .30 → .35 → .69 → .77 through the DnB build, back to .30 after the drop; Dubstep .30 → .77. It never reaches 1, because `build` peaks at ≈.68 on these fixtures.
+  - Swirl: r .97 with reese on DnB. On Dubstep (pick dubstep), styled reese = wobble; r .82 (release .3 smooths the LFO), body p50 .37 / p90 .80.
+- **Findings:**
+  - **θ seam.** `swirl·θ/2π` only wraps cleanly at whole-number swirl. For swirl in (0, 1) it draws a straight cut from the centre to the left edge (θ = ±π): faint in the groove (swirl ≈ .07–.15), strong in the drop body (≈ .3–.8). This is the formula's own property; TD's example has no angular term. Options:
+    - `|θ|/π`: seamless, a mirrored pinch rather than a spiral.
+    - Crossfade the images of the 0- and 1-arm ramps: 2 more taps, ghosting in between.
+    - Keep it as a graphic cut.
+  - The session's first ring scene drops one frame (S2.2's Metal-cache finding, again at r0).
 
 ### S2.4 [ ] [M] `native/slit-scan` + `builtin:slit-scan-ring`
 Depends on: S2.2. **Files:** `history.ts`, `catalog.ts`, `builtin.ts`.
