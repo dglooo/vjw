@@ -89,7 +89,12 @@
       - **T1 ✅** floors 40/50 (Dubstep 80/100), and the worklet follows the active preset. DnB snare .12–.33 → 1.09–2.30 a bar, hats 3.7–5.5, on-grid ≥ .98; 380 tests; harness + table in `scratchpad/real/t1/`.
         - Techno fixture snare F1 .80 (at its bar).
         - ❌ Rumble drop 1/4 → 0/4: Dubstep's reese 70–350 is now live under Auto and fires a weak false drop (conf .43) at 70.6 s, which swallows 75.8 s. **Lead pick:** keep the band; T4 adds a drop-confidence floor (named knob) and must restore Rumble's 75.8 s.
-      - **Running:** T2 (`KICK` 1.35).
+      - **T2 ✅** `KICK` 1.35 (plus crosstalk parity for kicks posted under TRANSIENT); 381 tests, 10/10 mutants.
+        - DnB kicks/bar d+b +44–169%, on-grid within .05, snare/hats unchanged; Andy C classified at 65 s (was 108).
+        - Off-grid new kicks = the kick band's timing vs the grid, not stabs; CLICK not built.
+        - Small: 3 re-triggers <60 ms across the tracks (a `minGap` knob, later).
+        - Data: `scratchpad/real/t2/`.
+      - **Running:** T3 (`PRIOR_BPM` 150).
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
