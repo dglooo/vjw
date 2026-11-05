@@ -2,6 +2,10 @@
 // breakdown (`sparse`); its return is the drop. app.ts feeds update() once per frame (plan S5.3).
 // Kicks are weak evidence here: a teaser kick or a stray low hit in a breakdown reads as a kick (drums.ts no longer reads
 // the riser, room tone or snare roll as one: ruling 2026-11-05), so a drop always needs the low end back, never kicks alone.
+// Real tracks (ruling 2026-11-05 (b)): until the first drop or the first sparse frame, the music so far is (a)'s breakdown,
+// since G is learned in a bass-less intro, so the intro never reads sparse. A track that opens on its groove never fires,
+// since (a) needs `ret` × that mean. Ceiling: a full-level bass tease with a kick fires early, and its refractory can
+// swallow the real drop.
 import { HOLD } from './features'
 
 export interface ArrangeIn {
@@ -29,16 +33,23 @@ export interface ArrangeOpts {
   near: number // …this long of a kick (s: app.ts's `low` holds features.ts's HOLD past each kick, ≈ 0.203 s hop-rounded)
   beats: number // or, for kick-only drops: two kicks at most this many beats apart, each lifting `low` through back × G
   refractory: number // s between drops
+  minConf: number // a drop under this confidence is ignored: no fire, no refractory (re-checked each frame of its return)
   warmup: number // s of music before G is trusted
   silence: number // `total` at or below = no music (−60 dBFS RMS): a stopped deck is not a breakdown
 }
-// near: the hold plus 0.15 s for the frame clock and audioNow's jitter (S1.11: at exactly HOLD the drop was a coin flip)
+// near: the hold plus 0.15 s for the frame clock and audioNow's jitter (S1.11: at exactly HOLD the drop was a coin flip).
+// sparse .5 (was .35): real breaks keep `low` ≈ .4 G (Kanine 77–88 s). refractory 20 (was 30): drops 23.1 s apart (Sub Focus).
+// minConf .56: on real tracks the weak fires read .44–.53 (Rumble's build growls, path b; Bicep's bass entry after its
+// intro), and every real one that clears them ≥ .60
 const DEFAULTS: ArrangeOpts = {
-  groove: 20, sparse: 0.35, arm: 6, ret: 4, back: 0.6, sustain: 0.1, near: HOLD + 0.15, beats: 1.2, refractory: 30, warmup: 20, silence: 1e-3,
+  groove: 20, sparse: 0.5, arm: 6, ret: 4, back: 0.6, sustain: 0.1, near: HOLD + 0.15, beats: 1.2, refractory: 20, minConf: 0.56, warmup: 20, silence: 1e-3,
 }
 // knobs (C6 defaults), s unless noted
 const SLOW = 1 // τ of the sparse detector's EMA of `low`
-const GRACE = 1 // an armed breakdown stays armed this long after sparse ends: a loud drop ends it before `sustain`
+// an armed breakdown stays armed this long after sparse ends: a loud drop ends it before `sustain`, and a bass-carrying
+// build can sit between the break and its drop (ruling: ≈ 7 s, from Rumble's profile; was 1). Ceiling: a drop that the
+// refractory blocks fires as it ends if still in GRACE, up to 8 s late
+const GRACE = 8
 const RISER = [0.5, 4] as const // riser = log2 of the ratio of these EMAs of `high`
 const FULL = 16 // sparse this long gives build's and confidence's full time share
 const RELEASE = 1 // τ of build after sparse, and of the `drop` source
@@ -60,7 +71,8 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
   let g = 0 // G
   let slow = 0
   let [hiFast, hiSlow] = [0, 0]
-  let [dur, sum, peak] = [0, 0, 0] // the sparse section: length, ∫low dt (sum / dur = its mean), build's peak
+  let [dur, sum, peak] = [0, 0, 0] // the sparse section (or the intro): length, ∫low dt (sum / dur = its mean), build's peak
+  let intro = true // until the first drop or the first sparse frame
   let armed = -Infinity // armed until this time
   let [kickAt, kickBeat] = [-Infinity, null as number | null]
   let [rise, riseKick] = [NaN, false] // (a) when the current return started (NaN = none), and whether near a kick
@@ -81,24 +93,27 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
       hiFast += (x.high - hiFast) * ema(dt, RISER[0])
       hiSlow += (x.high - hiSlow) * ema(dt, RISER[1])
       if (sparse) {
-        if (!out.sparse) [dur, sum, peak] = [0, 0, 0]
+        if (!out.sparse) [dur, sum, peak, intro] = [0, 0, 0, false]
         dur += dt
         sum += x.low * dt
         if (dur >= o.arm) armed = x.now + GRACE
         const riser = hiSlow > 0 ? Math.log2(hiFast / hiSlow) : 0
         out.build = clamp(0.4 * Math.min(1, dur / FULL) + 0.6 * riser)
         peak = Math.max(peak, out.build)
-      } else out.build -= out.build * ema(dt, RELEASE)
+      } else {
+        out.build -= out.build * ema(dt, RELEASE)
+        if (intro && isMusic) [dur, sum] = [dur + dt, sum + x.low * dt] // (a)'s breakdown; `sparse`, build, `armed` untouched
+      }
 
       if (x.kick) [kickAt, kickBeat] = [x.now, x.beat]
-      const live = x.now <= armed && x.now - firedAt >= o.refractory
+      const live = x.now <= armed && x.now - firedAt >= o.refractory // (b), and (a) after a breakdown
       const mean = dur > 0 ? sum / dur : 0
       const above = x.low >= o.back * g
       // (a) the low end back at ≥ ret × its sparse mean and ≥ back × G, for `sustain`, starting near a kick
       if (!above || x.low < o.ret * mean) rise = NaN
       else if (Number.isNaN(rise)) [rise, riseKick] = [x.now, x.now - kickAt <= o.near]
       else if (x.kick && x.now - rise <= o.near) riseKick = true
-      let hit = live && riseKick && x.now - rise >= o.sustain
+      let hit = (live || (intro && dur >= o.arm)) && riseKick && x.now - rise >= o.sustain // the intro arms (a) only
       // (b) kick-only drops: a second kick-backed rise of `low` through back × G within `beats` of the first
       if (above && !up && x.now - kickAt <= o.near) {
         if (live && upBeat !== null && x.beat !== null && x.beat - upBeat <= o.beats) hit = true
@@ -109,10 +124,12 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
       if (hit) {
         const align = kickBeat === null ? 0.5 : 1 - 2 * Math.abs(kickBeat - Math.round(kickBeat)) // 1 on the beat
         const ratio = mean > 0 ? x.low / mean : RATIO
-        conf = (Math.min(1, dur / FULL) + clamp(Math.log(ratio) / Math.log(RATIO)) + align + peak) / 4
-        out.fired = conf
-        ;[firedAt, heatAt, warm, out.build] = [x.now, out.heat, 0, 0] // `armed`, `rise`, `upBeat`: the refractory covers them
-        slow = Math.max(slow, g) // the drop ends the breakdown
+        const c = (Math.min(1, dur / FULL) + clamp(Math.log(ratio) / Math.log(RATIO)) + align + peak) / 4
+        if (c >= o.minConf) {
+          out.fired = conf = c
+          ;[firedAt, heatAt, warm, out.build, intro] = [x.now, out.heat, 0, 0, false] // `armed`, `rise`, `upBeat`: the refractory covers them
+          slow = Math.max(slow, g) // the drop ends the breakdown
+        }
       }
       const since = x.now - firedAt
       out.drop = conf * Math.exp(-since / RELEASE)
