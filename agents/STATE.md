@@ -97,7 +97,12 @@
       - **T3 ❌ not merged.** `PRIOR_BPM` 150 kept the fixtures green, but on the real tracks Kanine's ⅔ share went only .27 → .25 and Bicep got a new 18 s ⅔ run (sync relock).
         - Cause: the raw ACF at the 116 lag is 1.2–3.6× the 174 lag there. No prior can fix that.
         - Patch + data kept in `scratchpad/real/t3-rejected/`.
-        - **Running:** `system-designer` tempo ruling (the ruling (d) fallback: harmonic-sum salience / families 3:2) ∥ `frontend-coder` T4 (arrangement knobs + bass-less intro + a drop-confidence floor for Rumble's false 70.6 s drop).
+        - **Tempo ruling** (`design_audio_reactivity.md` § Ruling L778–820), lead pick (b):
+          - A 3:2 check decided by the bar: F = fold(1.5·bpm) wins if bar(F) > `EDGE` 1.2·bar(bpm), `near`-gated.
+          - PRIOR stays 128; +4 % CPU.
+          - Step **T3′ (S)**: a probe gate first (≥90 % of the 116 windows switch, ≤2 % of the ref windows); fallback (e′) = sync ignores ⅔/4/3 readings.
+          - Queued after T4.
+        - **Running:** `frontend-coder` T4 (arrangement knobs + bass-less intro + a drop-confidence floor).
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.

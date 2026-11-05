@@ -774,3 +774,47 @@ Everything else is a `(default)` that the user can veto without answering:
   - Tests: §4.5 5/5 on both arr fixtures. On `ArrangeIn` sequences, a bass-less 30 s intro with kicks and a teaser kick, then the groove, fires once at conf ≥ .6, and a groove from the start fires 0 in 60 s.
   - Harness: every fire lands within −0.5…+4 s of an audit drop; DnB ≥ 4/11, Kanine 88.4 among them; the intro rule fires on every track whose intro `low` is ≥ 12 dB under its first drop (`prof.py`); Rumble keeps 75.8 (48.4 and 21.0 logged).
 - Then the lead re-runs the full audit (classifier, zoom/burst) and rules on the (d) classifier lever and the (b)/(e) gaps.
+
+## Ruling: tempo ⅔ on real DnB (2026-11-05)
+**Inputs:** `scratchpad/real/t3-rejected/` (`t3-acf-probe.txt`, `t3-tempo.txt`, `acf-probe.test.ts`); the audit (`agents/research/_adhoc/real_tracks_2026-11-05.md` TL;DR, Method, items 4–6); the tuning ruling (d) above (L747–753); code read 2026-11-05: `web/src/audio/tempo.ts` (`update`, `near`, `fold`, `families`), `sync.ts` (`consider`), `analysis.ts` L15–17 and L88, `presets.ts` (`bpm`), `style.ts` (T_g), `tempo.test.ts` L174–202.
+
+**Facts the ruling rests on:**
+- The ODF is the kick band's gate excess plus the snare band's (`analysis.ts` L88). On the fixture the snares give the two-step its beat (`tempo.test.ts` L174–175). On masters the kicks dominate (derived from the 116 readings), and the two-step's kicks sit 1.5 and 2.5 beats apart (the audit's "3-and → 1").
+- In the 116 windows (Kanine 52–82 and 96–114 s, Bicep 88 and 94–110 s), ACF(116) is 1.19–3.58× ACF(174) and ACF(87) is .26–1.23× ACF(116). No per-lag weight picks 174 there: even a prior centred on 174 tolerates only 1.19 (T3).
+- The ACF span stops at 1.33 s (`hi` = 120/`minBpm`), so 174's bar (1.38 s) lies outside it. On masters the ACF mean is ≈ .25–.33 of the best peak (prominence ≈ 3–4; audit item 5: T ≈ .2–.4).
+- The sync relocks after 8 beats of a confident other reading (`sync.ts` L96–100). `families` reads `acf`, never the pick.
+
+**Decision: (b), the 3:2 check, decided by the bar.** In `update()`, after the pick and before the comb:
+- `F = fold(1.5·bpm)`. If `(!range || near(F, range)) && bar(F) > EDGE·bar(bpm)`, the reading takes `F`.
+  - `bar(b)` is the max ACF over lags `round(240/(b·hop)) ± 2`, summed on the fly from `x` (≤ 2.7 s, inside the 6 s window). `EDGE` 1.2 ⚠️ is a named knob, and the gate sets it.
+  - `prominence` (the confidence's ACF factor) and `families` keep `best`. The comb and the fit run on `F`.
+- **Why the bar:** a 4/4 bar repeats at 4 beats of the true tempo. 4 beats of its ⅔ reading make 1.5 bars, where only the half-bar content repeats (snares on 2 and 4, ⅛ hats), never the two-step's kicks. The heavier the kicks (so the worse the ⅔), the clearer the test.
+  - For a true tempo B, the partner's bar falls at 2⅔ or 5⅓ beats of B, off the 16th grid, so B stays. 4/4 is assumed, which covers all three genres.
+- It runs in one direction only, toward the faster partner, so it never moves 174 to 116. A 4/3 reading's partner is 2T, which folds back to T (a bonus, unmeasured).
+- `PRIOR_BPM` stays **128**. T3's 150 is dropped: it gained nothing on Kanine and added an 18 s run on Bicep. No sync, style or preset change.
+- **CPU:** 10 extra lags per update, ≈ 7k MACs against the span's ≈ 190k (+4 %). Window, span and update rate are unchanged.
+- The same `bar` is the classifier ruling's 3:2 lever for `families`: a window's 116 evidence goes to 174 when the bar says so. It is not in this step.
+
+**Expected per track (⚠️ the bar ACF on masters is unmeasured, hence the gate):**
+- **Kanine, Bicep:** the 116 windows read 174, so the sync gets no ⅔ reading to relock on.
+- **Sub Focus, Andy C:** 174's partner is 130.5, whose bar falls at 5⅓ beats, so nothing changes.
+- **Rumble:** the partner 105's bar (5⅓ beats) holds a ⅔-beat triplet growl. 140's bar (4 beats) holds it too, plus the kick and snare, so 140 stays. After 24 s the dubstep range rules 105 out (`near`).
+- **Techno fixture:** the partner 95.8's bar falls at 5⅓ beats, so there's no switch. The 4 goldens (L176–186) stay bit-exact, and so does every straight train.
+- **Under a range,** `near` blocks any switch the range forbids. Techno's 116 never becomes 174, so Bicep after its techno flip (≥ 199 s) is unchanged and stays the classifier's.
+
+**Rejected:**
+- **(a) Harmonic sum:** 174 gains 87, but 116 gains its own 2P, which is 3 beats at 174 (kick→snare, unmeasured). Kanine 110–114 (116 at 2.5–3.6×, 87 ≤ 1.6×) stays 116 either way, and a triplet growl lights all three of 105's octave lags. CPU ≈ 0 with octaves only; Σ₈ needs lags out to 8P, so a 4× span and a longer window (M).
+- **(b) As a ratio** `ACF(⅔L) ≥ θ·ACF(L)`: Kanine 114 needs θ ≤ .28, which is the masters' ACF mean, and a triplet growl passes it (Rumble 140 → 105). CPU 0.
+- **(c) Drum IOIs:** the two-step's kick IOIs (1.5 and 2.5 beats) are the ⅔ evidence itself. Snare IOIs (2 beats) fit DnB and techno but are noise on Rumble (14–34 % on the backbeat). It would also need a second estimator plus fusion (M).
+- **(d) Genre range:** already shipped (`near` drops 116 under DnB). Kanine never decides (dnb ≤ .27, under the .35 floor), and Bicep's techno range admits 116. This lever belongs to the classifier ruling.
+- **(e) More relock beats:** Kanine's runs are 32 s and 18 s of confident 116 readings. Relock would need ≥ 62 beats, which delays every real mix change by ≥ 21 s. CPU 0.
+
+**Fallback (e′), only if the gate fails:** `consider` ignores a reading at ⅔ or 4/3 of the grid (octave-normalised `p/period` within 1 % of .75): it neither merges nor competes. It is 2 lines and certain on this corpus (Kanine locks 174 at 4.4 s). Ceilings: the source stays wrong; a fresh lock on a two-step locks 116; and a mix change to within 1 % of 4/3 (128 → 169–172) never relocks.
+
+**Step (S), one `frontend-coder` step:** `tempo.ts` (`bar`, the switch and `EDGE`; `bpm` becomes `let`) and `tempo.test.ts`.
+- **Gate first** (scratchpad, no product code): run `acf-probe.test.ts` plus bar(F)/bar(B) on all five tracks. Go if bar(174) > EDGE·bar(116) in ≥ 90 % of the 116 windows, and the switch fires in ≤ 2 % of the windows already at ref. Set `EDGE` in the gap; if there is no gap, build (e′) instead and report.
+- **Tests:** a two-step ODF train (kicks on 1 and the and-of-3, weak snares on 2 and 4, sized so master reads 116) reads 174 ± 1. Straight 116 stays 116, 140 with ⅔-beat triplet pulses stays 140, and the two-step under techno's range stays 116.
+  - The goldens hold. Mutants: drop `near`; always switch.
+- **Acceptance:** `run-all.sh` + `t3-tempo.py` against the T2 baseline, with ¾ and 3/2 added to the run classes, which is where a wrong switch lands.
+  - Kanine ⅔ ≤ 5 %. No new off-ref run ≥ 2 s on any track (Bicep from 199 s is reported, not gated).
+  - Rumble's ref share is ≥ T2 − .02. Lock and correct-lock are within +0.5 s of T2. The techno fixture holds 118–135.
