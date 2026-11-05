@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { setEditor } from '../app'
 import { allowDevices, selectDevice, start } from '../audio/input'
 import { badge } from '../quality'
 import { store } from '../store'
@@ -31,6 +32,7 @@ export function Overlay() {
     }
   }, [])
 
+  if (s.editor) return null // the editor screen has the whole window (2b S1)
   return (
     <>
       <div className={shown ? 'bar' : 'bar hidden'}>
@@ -56,6 +58,7 @@ export function Overlay() {
         <span className="hint">{s.source?.kind === 'file' ? `▶ ${s.source.name}` : 'Drop an audio file anywhere'}</span>
         {s.compiling && <span className="hint">{s.compiling}</span>}
         <span className="scene">{s.sceneName}</span>
+        <button onClick={() => setEditor(true)}>Editor · L</button>
         {s.bpm > 0 && <span className={s.confident ? 'bpm' : 'bpm unsure'}>BPM {s.bpm.toFixed(1)}</span>}
         {s.hold && <span className="lock">Lock</span>}
         <span className="quality">{badge(s)}</span>

@@ -37,7 +37,8 @@
   cursor: none; /* the cursor hides with the bar */
 }
 
-.bar select {
+.bar select,
+.bar button {
   max-width: 40ch;
   padding: 5px 8px;
   font: inherit;
