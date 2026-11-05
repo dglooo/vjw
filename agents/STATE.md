@@ -108,7 +108,10 @@
           - `build` now moves on DnB (max .47–1.00); Kanine is classified dnb at 162 s.
           - Still open: Bicep false fire 167.2 (path (b), kick-only); DnB 1/11. 5 of the 11 are 1.6–2.5 s bass cuts with drums running (`CUT`); others return under `ret` 4 or have no `low` breakdown.
           - Data: `scratchpad/real/t4/` (+ `cap/` per-frame captures, `replay/` offline replay).
-        - **Running:** `frontend-coder` T3′ (tempo 3:2 bar check, probe gate first) ∥ `system-designer` drop-v2 ruling (gate path (b); the `CUT` short-bass-cut class; `ret` / `sparse` for real masters).
+        - **T3′ bar check ❌** (probe gate GO; 116 sections fire 100 % at EDGE 1.3, false .21 %). In the browser, Kanine's silent/sparse first windows false-fire into a ~30 s wrong ¾ lock (lock 6.5 → 42.7 s); no EDGE fixes it.
+          - **Lead pick: fallback e′.** The sync ignores ⅔/4/3 readings of a confident grid. Offline: 0/31 starts worse; Kanine's ⅔ runs gone.
+          - The same coder is rebuilding T3′ as e′ now.
+        - **Running:** `frontend-coder` T3′ = e′ ∥ `system-designer` drop-v2 ruling (gate path (b); `CUT`; `ret` / `sparse` / G drift; flicker breaks).
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
