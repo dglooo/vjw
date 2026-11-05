@@ -102,7 +102,13 @@
           - PRIOR stays 128; +4 % CPU.
           - Step **T3′ (S)**: a probe gate first (≥90 % of the 116 windows switch, ≤2 % of the ref windows); fallback (e′) = sync ignores ⅔/4/3 readings.
           - Queued after T4.
-        - **Running:** `frontend-coder` T4 (arrangement knobs + bass-less intro + a drop-confidence floor).
+        - **T4 ✅ merged** (net better):
+          - sparse .5, refractory 20, GRACE 8, bass-less-intro rule, `minConf` .56 (weak fires read .44–.53, real ones ≥.60).
+          - Real drops 0 → 3: Rumble 20.9 + 75.8, Kanine 88.4 at +3.2 s. Rumble's false 70.6 is gone.
+          - `build` now moves on DnB (max .47–1.00); Kanine is classified dnb at 162 s.
+          - Still open: Bicep false fire 167.2 (path (b), kick-only); DnB 1/11. 5 of the 11 are 1.6–2.5 s bass cuts with drums running (`CUT`); others return under `ret` 4 or have no `low` breakdown.
+          - Data: `scratchpad/real/t4/` (+ `cap/` per-frame captures, `replay/` offline replay).
+        - **Running:** `frontend-coder` T3′ (tempo 3:2 bar check, probe gate first) ∥ `system-designer` drop-v2 ruling (gate path (b); the `CUT` short-bass-cut class; `ret` / `sparse` for real masters).
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
