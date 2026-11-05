@@ -51,8 +51,8 @@ test('DnB 174 two-step mix: F1 per drum ≥ 0.70 at ±30 ms', () => {
 })
 
 test('dubstep 140 and techno 128 mixes: every drum F1 ≥ 0.70', () => {
-  // Measured 2026-11-05: dubstep kick 1.00 (bin 1: 0.80), snare 1.00, hats 1.00; techno kick 1.00 (0.89), snare 0.83
-  // (claps on kicks; 0.77), hats 1.00.
+  // Measured 2026-11-05: dubstep kick 1.00 (bin 1: 0.80), snare 1.00, hats 1.00; techno kick 1.00 (0.89), snare 0.86
+  // (claps on kicks; same-hop crosstalk 0.83, bin 1 0.77), hats 1.00.
   for (const g of ['dubstep', 'techno'] as const) {
     const f = scores(pattern(g, 8))
     for (const d of DRUMS) expect(f[d], `${g} ${d}`).toBeGreaterThanOrEqual(0.7)
@@ -88,8 +88,14 @@ test.each([
 /** One hop per spectrum: `on` bins at `level`, the rest at `rest`. */
 const frame = (on: [number, number][], level = 100, rest = 0) =>
   Float32Array.from({ length: N / 2 + 1 }, (_, k) => (on.some(([a, b]) => k >= a && k <= b) ? level : rest))
-/** Drums per hop; every hop's kick gate ratio is `ratio`. */
-const fire = (frames: Float32Array[], d = createDrums(SR, N), ratio = 2) => frames.map((m, i) => d.detect(m, i * (HOP / SR), ratio).map((h) => h.drum))
+/** Drums per hop, each hit in the hop of its own t (a snare posts a hop late), plus one silent hop that releases the
+ *  last snare. Every hop's kick gate ratio is `ratio`. */
+const fire = (frames: Float32Array[], d = createDrums(SR, N), ratio = 2) => {
+  const out = frames.map((): Drum[] => [])
+  for (const [i, m] of [...frames, frame([])].entries())
+    for (const h of d.detect(m, i * (HOP / SR), ratio)) out[Math.round((h.t * SR) / HOP)].push(h.drum)
+  return out
+}
 
 test('bands are the bins whose centre lies in the Hz range (kick 40–150, snare 1–5 kHz, hats 7–16 kHz at 93.75 Hz bins)', () => {
   const quiet = frame([])
@@ -115,7 +121,7 @@ test('configure re-maps Hz to bins, and the mapping follows the sample rate', ()
   expect(fire([quiet, frame([[2, 2]])], createDrums(44100, N))[1]).toEqual([])
 })
 
-test("crosstalk: a snare in a kick's hop is dropped unless it is as far over its floor as the kick's ratio over TRANSIENT", () => {
+test("crosstalk: a snare within a hop of a kick is dropped unless it is as far over its floor as the kick's ratio over TRANSIENT", () => {
   // From silence: 43 snare bins at 0.01 are 1.3 snare floors (a click), at 100 they are 6.2 (a clap on the kick); a kick
   // ratio of 3 is 2 TRANSIENTs. Kick bin 1 at 1000 holds ≥ 0.7 of the hop's power either way.
   const hop = (kick: number, snare: number) => Float32Array.from({ length: N / 2 + 1 }, (_, k) => (k === 1 ? kick : k >= 11 && k <= 53 ? snare : 0))
@@ -123,6 +129,10 @@ test("crosstalk: a snare in a kick's hop is dropped unless it is as far over its
   expect(fire([quiet, quiet, hop(1000, 0.01)], undefined, 3)[2]).toEqual(['kick'])
   expect(fire([quiet, quiet, hop(1000, 100)], undefined, 3)[2]).toEqual(['kick', 'snare'])
   expect(fire([quiet, quiet, hop(0, 0.01)], undefined, 3)[2]).toEqual(['snare']) // no kick, nothing to drop
+  // ±1 hop (lead amendment to the snare ruling, 2026-11-05): under a wobble the click leads the kick's gate by a hop.
+  expect(fire([quiet, quiet, hop(0, 0.01), hop(1000, 0.01)], undefined, 3).slice(2)).toEqual([[], ['kick']])
+  expect(fire([quiet, quiet, hop(1000, 0), hop(1000, 0.01)], undefined, 3).slice(2)).toEqual([['kick'], []])
+  expect(fire([quiet, quiet, hop(0, 100), hop(1000, 100)], undefined, 3).slice(2)).toEqual([['snare'], ['kick']])
 })
 
 test('a snare hop needs ≥ TILT of its band power from 3 kHz up; a vetoed hop arms no minGap (snare ruling 2026-11-05)', () => {
@@ -134,6 +144,9 @@ test('a snare hop needs ≥ TILT of its band power from 3 kHz up; a vetoed hop a
   // 43·log1p(100) ≈ 198 of flux, under the steep hop's 21·log1p(1e5) ≈ 242 and 10.7 ms after it: had the steep hop
   // posted, minGap and the peak window would each block this one.
   expect(fire([quiet, quiet, steep, quiet, flat(0.1)])[4]).toEqual(['snare'])
+  // Right after a vetoed hop, the flux is read against the hop before it: 43·log1p(20) ≈ 131 over the floor of 80; against
+  // the steep hop only the 22 bins ≥ 3 kHz would rise (≈ 67).
+  expect(fire([quiet, quiet, steep, flat(0.02)])[3]).toEqual(['snare'])
 })
 
 test('a kick needs both: the gate ratio at TRANSIENT and its bins over SHARE of the hop power, DC excluded', () => {
