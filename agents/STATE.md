@@ -51,7 +51,12 @@
   - **Kick ruling** (`design_audio_reactivity.md` § Ruling, L612–656), lead pick (d).
     - Cause: the kick detector read bin-1 log flux, and a full-range bass's 55/110 Hz partials beat inside that bin. The HP'd fixture reese hid it.
     - Fix: kick = `tempo.ratio(0) ≥ 1.5` (the existing IIR gate) + kick-bin power share ≥ 0.2; the bin-1 detector is deleted; CPU ≈ 0; ≤1 hop later.
-  - **Running (parallel: one coder + one non-coder):** `frontend-coder` kick-fix step (M) ∥ `system-designer` → `agents/system-designer/design_effect_editor.md` (2b; told about 2d's native filters, heavy ring natives in tile previews, the binding policy, and the bool/event binding-UI gap). Next: lead pick → planner → coders.
+  - **Running (parallel: one coder + one non-coder):** `frontend-coder` kick-fix step (M) ∥ 2b design done: `agents/system-designer/design_effect_editor.md`. **Lead pick 2026-11-05 (never-ask; all designer defaults):**
+    - **Variant B:** the stage, CSS-scaled, is the preview; baked stills plus one async live tile; `NativeDef.create(gl, size?)` (tile ring 1.8 MB).
+    - Undo = inverse steps in `panel`; Try = pending add, Esc undoes it; mute/solo are preview-only; editor key `L`; session-only thumbnails.
+    - Port the ASCII Art; CP order 1→4.
+    - Includes the bool/event binding UI and the event rising-edge fix. A bound ISF event fired every frame while its source stayed >.5, a real bug.
+    - **Running:** `planner` → `agents/planner/plan_effect_editor.md` (4 CPs / 14 steps).
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
