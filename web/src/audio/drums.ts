@@ -1,6 +1,7 @@
 // Hits (design C2): snare and hats are createDetector instances over Hz → bin ranges of the worklet's existing magnitudes,
 // no new FFT. The kick is a transient in the 40–150 Hz IIR gate (bands.ts) that also carries the hop's power (ruling
-// 2026-11-05). Pure: the worklet runs it per hop, Vitest runs it on synth.ts fixtures.
+// 2026-11-05). The snare's flux counts only on hops whose band power leans high (snare ruling 2026-11-05). Pure: the
+// worklet runs it per hop, Vitest runs it on synth.ts fixtures.
 import { TRANSIENT } from './bands'
 import { createDetector } from './onset'
 
@@ -16,6 +17,10 @@ const FLOORS = { snare: 80, hats: 100 }
 // gate also trips on a riser, room tone or a snare's body; those hold ≲ 0.06 of the power, a kick ≈ 0.4–0.9.
 const SHARE = 0.2
 const MIN_GAP = 0.05 // s between kicks (onset.ts's minGap)
+// knob: the snare hop's least share of its band's power above the band's midpoint (3 kHz at the default). A snare or
+// clap is flat noise there (≈ .4–.9), a wobble's saw edge falls ≈ 18 dB/oct (≈ .01–.02). A failed hop's ODF is 0 inside
+// the detector, so a vetoed spike arms no minGap and swallows no real snare after it.
+const TILT = 0.1
 
 export function createDrums(sampleRate: number, fftSize: number) {
   const hz = sampleRate / fftSize
@@ -23,6 +28,8 @@ export function createDrums(sampleRate: number, fftSize: number) {
   let kick = { lo: 1, hi: 1 }
   let bands: { drum: 'snare' | 'hats'; lo: number; hi: number; d: ReturnType<typeof createDetector> }[] = []
   let lastKick = -Infinity
+  let lastRatio = 0 // the last hop's kick ratio, 0 if it posted no kick
+  let held: { hit: Hit; s: number } | null = null // the last hop's snare and its flux over the floor (crosstalk ±1 hop)
 
   /** Bins whose centre lies in [lo, hi] Hz (at least one). Detectors restart: their flux history is per bin. */
   function configure(b: Record<Drum, readonly [lo: number, hi: number]>) {
@@ -43,23 +50,35 @@ export function createDrums(sampleRate: number, fftSize: number) {
       hits.length = 0
       let own = 0
       let all = 0
+      let up = 0 // the snare's bins above its band's midpoint
+      let band = 0 // all the snare's bins
+      const sn = bands[0]
       for (let k = 1; k < mag.length; k++) {
-        all += mag[k] * mag[k]
-        if (k >= kick.lo && k <= kick.hi) own += mag[k] * mag[k]
+        const p = mag[k] * mag[k]
+        all += p
+        if (k >= kick.lo && k <= kick.hi) own += p
+        if (k >= sn.lo && k <= sn.hi) {
+          band += p
+          if (2 * k >= sn.lo + sn.hi) up += p
+        }
       }
-      if (kickRatio >= TRANSIENT && own > SHARE * all && t - lastKick >= MIN_GAP) {
+      // Crosstalk: a kick's click reaches 1–5 kHz and can lead its 40–150 Hz gate by a hop, so a snare within a hop of a
+      // kick is dropped unless it is at least as strong. Strong = in units of each side's own threshold: the snare's flux
+      // over its floor (`strength` saturates at its cap in sparse bands, mean ≈ 0), the kick's ratio over TRANSIENT. So a
+      // snare waits one hop (+5.3 ms) and keeps its own t; it posts ahead of this hop's kick, in time order.
+      const ratio = kickRatio >= TRANSIENT && own > SHARE * all && t - lastKick >= MIN_GAP ? kickRatio : 0 // 0: no kick
+      if (held && held.s >= ratio / TRANSIENT) hits.push(held.hit)
+      held = null
+      if (ratio) {
         lastKick = t
-        hits.push({ drum: 'kick', t, strength: Math.min(4, kickRatio) })
+        hits.push({ drum: 'kick', t, strength: Math.min(4, ratio) })
       }
       for (const { drum, lo, hi, d } of bands) {
-        const o = d.detect(mag.subarray(lo, hi + 1), t)
-        if (o) hits.push({ drum, ...o })
+        const o = d.detect(mag.subarray(lo, hi + 1), t, drum !== 'snare' || up >= TILT * band)
+        if (o && drum === 'hats') hits.push({ drum, ...o })
+        else if (o && d.odf / FLOORS.snare >= Math.max(ratio, lastRatio) / TRANSIENT) held = { hit: { drum, ...o }, s: d.odf / FLOORS.snare }
       }
-      // Crosstalk: a kick's click reaches 1–5 kHz, so a snare in the same hop is dropped unless it is at least as strong.
-      // Strong = in units of each side's own threshold: the snare's flux over its floor (`strength` saturates at its cap
-      // in sparse bands, mean ≈ 0), the kick's ratio over TRANSIENT.
-      const snare = hits.findIndex((h) => h.drum === 'snare')
-      if (snare > 0 && bands[0].d.odf / FLOORS.snare < kickRatio / TRANSIENT) hits.splice(snare, 1) // > 0: a kick is hits[0]
+      lastRatio = ratio
       return hits
     },
   }
