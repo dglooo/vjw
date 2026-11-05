@@ -230,13 +230,45 @@
 ### CP3
 **Changed:** the design's S3.2 (`tile()` + size hint + bake queue + async readback, 8 files) is split at the engine/editor seam into S3.2 (engine: `tile()` + `NativeDef.create(gl, size?)`, a render-path change with its A/B) and S3.3 (editor: bake queue, async readback, tile canvases; G1/G2/G4). The design's S3.3 (live tile) becomes S3.4. Reason: one coder session and ≤ ~3 files per step; the halves carry different risks (render regression vs readback stalls). Order inside the CP is unchanged.
 
-#### S3.1 [ ] `blocks.ts`, `tags`, favourites, `Library` grid with placeholders; add by click/drag/`+`; try = pending + Esc — L
+#### S3.1 [x] `blocks.ts`, `tags`, favourites, `Library` grid with placeholders; add by click/drag/`+`; try = pending + Esc — L
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the library's data and grid, without previews yet (S5, S3).
 - **Files:** new `web/src/editor/blocks.ts` + `web/src/editor/blocks.test.ts`; `web/src/fx/types.ts` + `web/src/fx/isf.ts` (`tags`) + `web/src/fx/isf.test.ts`; `web/src/library.ts` + `web/src/library.test.ts` (favs); new `web/src/editor/Library.tsx`; `web/src/editor/Editor.tsx` (mount, Esc). 6 files; the logic is in `blocks.ts`.
 - **Depends on:** S2.3 (drop MIME, selection).
 - **Behaviour:** `blocks(catalog, scenes)` derives, never stores: every non-transition def once (`milk/*` → group `milkdrop`); toys inside scene docs → generator blocks whose `node` is what an add inserts; built-in and user scenes → kind `scene`. `Block.scene` = what a tile renders: a generator alone; an effect as `REF → effect` with `REF = native/tunnel` (G4, judged in S3.3). `filterBlocks` ANDs kind, group, tag, text (case-insensitive substring over name, credit, tags) and favs. `isf.ts` keeps the raw `CATEGORIES` as `EffectDef.tags` beside the reduced `Category`. `library.favs()/setFav()` on the `vjw.stars` pattern, key `vjw.favs`, not exported. `Library.tsx`: kind chips, group/tag chips, a search box, a fav toggle per tile, grey name placeholders until S3.3 bakes; a scene tile opens that scene (`director.cut`). Adds: click = add + *pending* mark (an effect appends to the selected layer; a generator goes on top as a new soloed layer, or at 4 layers replaces the selected layer's gen); Enter or any other edit keeps it; Esc = `edits.undo()`; another tile swaps it (undo, then add); `+` and a drag onto a stack row (S2.3's MIME) add without the mark. Transitions excluded; scenes never inserted into scenes.
 - **Tests:** `blocks.test.ts`: every non-transition def exactly once; the milk group; toys from scenes become generators with a `node`; user scenes appear as `scene`; `filterBlocks` by kind, group, tag, text, fav, and ANDed. `library.test.ts`: favs via the kv stub survive a reload; a corrupt value → an empty set. `isf.test.ts`: a parsed file keeps `tags` = its raw CATEGORIES.
 - **Done:** gates; browser: all three kinds listed; chips + search narrow; a fav survives reload; click an effect tile → appended + pending, Esc → gone; a generator tile at 4 layers replaces the selected gen; a tile dragged onto a layer row adds there. Screenshot of the grid with filters.
+- **Changed during implementation:**
+  - Files outside the list (small):
+    - `undo.ts`: `edits.top()`, the step Cmd+Z would undo. A try is pending while its add is still the top step, so Esc and a swap only ever undo the add. A bind-dot click records an edit with no `input` event and no re-render, so nothing in the UI alone could tell.
+    - `gl/live.ts`: `panel.setGen(layer, gen: string | NodeDoc)`. A toy replacing a gen at 4 layers needs its code, which a bare ref loses.
+    - `Stack.tsx` (the S2.3 drop stub, the tried solo), `dnd.ts` (`dragged`), `editor.css`.
+  - `blocks.ts`: every generator and effect block carries a `node` (`newNode(id, VJW_BIND)`, or the toy's own node), so all generator adds take one path, `insertLayer(newLayer(clone(node)))`.
+    - Toys: one block per ref, named after the first scene that holds it.
+    - Order: kind, then name.
+    - A tile scene's id is `tile:<block id>`; a scene block renders its own doc.
+  - The try lives in `Editor` as `{ id, step, sel, solo }`:
+    - Click adds and marks. Another tile undoes the try, then adds. Esc undoes it and restores the selection from before. Enter clears the mark.
+    - Any other edit keeps it: the mark checks `edits.top()`, and an `input` event outside the library clears it at once.
+    - `ponytail:` a bind-dot click leaves the mark up until the next re-render; Esc then only clears it.
+    - A tried generator's new layer reaches `Stack` as a `tried` prop. Stack adopts it into its own solo, so the solo stays once the try is kept and goes with the layer on Esc.
+    - `+` adds the same way, with no mark and no solo.
+  - Drop:
+    - A library effect lands on the layer row under the pointer, at the end of its chain; that row is outlined (`.drop`).
+    - A generator goes in as a new layer at S2.3's line. At 4 layers there is no drop (no line, the no-drop cursor).
+    - dragover sees only the types, and the line depends on the kind, so the tile's block sits in `dnd.ts dragged`. It is set at dragstart and never cleared; the target still checks the MIME first.
+    - A window `dragend` clears the line, since the tile's dragend fires outside the list.
+  - Filters and search persist in `sessionStorage['vjw.lib']`. The CP3 demo wants them to survive a reload, and no other CP3 step owns them.
+  - Favourites: a new Set per change (its own snapshot), not in the export.
+  - The library's top (search, chips, the try hint) is sticky over the grid. Each placeholder shows its kind; a tile's `title` is credit · tags.
+  - Browser (`scratchpad/ed/s3.1-library.mjs` + log, dnb174-arr, 1728×1117 @1x): **28/28 PASS, 0 console errors**, 3 runs (the last on the final code after a Vite restart). Gates: lint and typecheck clean, 401 tests.
+    - Grid: 135 tiles (42 generators, 30 effects, 63 scenes) = `blocks()`. Chip effect → 30, + feedback → 16, + "SMEAR" → flow-smear; tag Feedback + effect = the catalog's 10.
+    - A fav, the search and the chips survive a reload; ★ favourites + effect + "blur" → radial-blur.
+    - Try: bloom → swap to radial-blur → Esc: the doc equals the start's, and a second Esc does nothing. Enter keeps it, and so does a slider edit (Esc no longer undoes); Cmd+Z ×2 back.
+    - Spectrum: a soloed top layer (tunnel muted) → Esc: gone, unmuted. At 4 layers with layer 2 selected it replaces glitch → Esc restores it.
+    - Drags: a generator at 4 layers is refused. bloom onto layer 3's row lands at the end of its chain, selected, unmarked. Spectrum above layer 2 makes a new layer 2, not soloed. A drag released on the preview leaves no line.
+    - A scene tile cuts to `builtin:spectrum`.
+    - Shots: `s3.1-grid-filters.png` (+ `-library` crop), `s3.1-grid-effect-library.png`, `s3.1-try.png`, `s3.1-try-generator.png`, `s3.1-replace-at-4.png`, `s3.1-mid-drag-effect.png`, `s3.1-mid-drag-generator.png`, `s3.1-end.png`.
+  - Seen, not done: a long name runs into the tile's `+`/★ corner (S3.3 puts the still there anyway).
 
 #### S3.2 [ ] `live.tile()` + the `NativeDef.create(gl, size?)` size hint — M (render path)
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** a small, self-contained `Live` for tiles; heavy natives shrink to the tile (S6).

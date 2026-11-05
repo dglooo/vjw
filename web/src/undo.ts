@@ -39,4 +39,6 @@ export const edits = {
   clear() {
     done.length = undone.length = 0
   },
+  /** The step Cmd+Z would undo: the editor's tried block is pending while its add is still this (2b S3.1). */
+  top: () => done.at(-1),
 }

@@ -471,8 +471,9 @@ export const panel = {
   },
   removeFx: (layer: number, i: number) => act(() => op.removeFx(layer, i), (n) => op.addFx(layer, n, i)),
   moveFx: (layer: number, from: number, to: number) => act(() => op.moveFx(layer, from, to), () => op.moveFx(layer, to, from)),
-  setGen(layer: number, ref: string) {
-    const n = fresh(ref)
+  /** `gen`: a catalog ref, or a node to copy (a library toy, 2b S3.1: its code is in the node). */
+  setGen(layer: number, gen: string | NodeDoc) {
+    const n = typeof gen === 'string' ? fresh(gen) : structuredClone(gen)
     return act(() => op.setGen(layer, n), (old) => op.setGen(layer, old))
   },
   insertLayer,

@@ -1,7 +1,11 @@
-// Drag and drop in the editor (2b S2.3, design S8): native HTML5, no dependency. The pure parts.
+// Drag and drop in the editor (2b S2.3, design S8): native HTML5, no dependency. The pure parts, and the tile in flight.
+import type { Block } from './blocks'
 
 /** A library tile's drag (S3.1): `dataTransfer` carries its block id under this type. */
 export const MIME = 'application/x-vjw-block'
+/** That tile's block, set at its dragstart (dragover sees only the types, and the drop line depends on the kind) and
+ *  never cleared: a drop target checks the MIME first. */
+export const dragged: { block: Block | null } = { block: null }
 
 /** The insert index for a pointer at `y`: how many row midpoints lie above it (0 above the first row, n below the last). */
 export const insertIndex = (y: number, mids: readonly number[]) => mids.filter((m) => m < y).length

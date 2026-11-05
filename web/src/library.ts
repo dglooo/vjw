@@ -9,6 +9,7 @@ export interface Db { all(): Promise<unknown[]>; put(doc: SceneDoc): Promise<unk
 type Kv = Pick<Storage, 'getItem' | 'setItem'>
 
 const STARS = 'vjw.stars' // { [built-in id]: boolean }: the user's stars over the built-ins' own
+const FAVS = 'vjw.favs' // [block or scene id]: the editor library's favourites (2b S3.1), apart from the stars, not exported
 const PERSISTED = 'vjw.persisted' // set once navigator.storage.persist() is granted
 // Nothing starred: the built-ins starred by default, as the director needs a non-empty playlist (plan S2.1).
 const FALLBACK = BUILTIN.filter((d) => d.star).map((d) => d.id)
@@ -31,6 +32,13 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
     stars = { ...JSON.parse(kv.getItem(STARS) ?? '{}') }
   } catch {
     // no localStorage, or a corrupt value: the built-ins' own stars
+  }
+  let favs: ReadonlySet<string> = new Set()
+  try {
+    const f: unknown = JSON.parse(kv.getItem(FAVS) ?? '[]')
+    if (Array.isArray(f)) favs = new Set(f.filter((x) => typeof x === 'string'))
+  } catch {
+    // no localStorage, or a corrupt value: none
   }
   // The built-ins with the user's stars: our own shallow copies, so a star changes in place.
   const builtin = new Map<SceneId, SceneDoc>(BUILTIN.map((b) => {
@@ -84,6 +92,16 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
       }
       const d = user.get(id)
       if (d) void put({ ...d, star: on }).catch((e: unknown) => console.error('library', e))
+    },
+    /** The library's favourites: a new Set per change, so it is its own snapshot. */
+    favs: () => favs,
+    setFav(id: string, on: boolean) {
+      const f = new Set(favs)
+      if (on) f.add(id)
+      else f.delete(id)
+      favs = f
+      kv.setItem(FAVS, JSON.stringify([...f]))
+      notify()
     },
     /** The autopilot's order: the starred built-ins as BUILTIN lists them, then the starred user scenes, oldest first. */
     playlist(): SceneId[] {

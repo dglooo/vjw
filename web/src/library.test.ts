@@ -217,6 +217,30 @@ test('corrupt built-in stars in localStorage: the built-ins keep their own', asy
   }
 })
 
+test('favourites survive a reload, apart from the stars and the export; a corrupt value → none', async () => {
+  const b = browser()
+  const lib = await loaded(b)
+  expect(lib.favs().size).toBe(0)
+  const off = changed(lib)
+  lib.setFav('own/bloom', true)
+  await off
+  const before = lib.favs()
+  lib.setFav('builtin:tunnel', true)
+  lib.setFav('toy/plasma', true)
+  lib.setFav('own/bloom', false)
+  expect(before).toEqual(new Set(['own/bloom'])) // a snapshot: a change makes a new set
+  expect(lib.favs()).toEqual(new Set(['builtin:tunnel', 'toy/plasma']))
+  expect(b.open().favs()).toEqual(new Set(['builtin:tunnel', 'toy/plasma']))
+  expect(lib.playlist()).toEqual(STARRED)
+  await lib.put(scene('u-1'))
+  lib.exportLibrary()
+  expect(b.files[0].text).not.toContain('plasma')
+  for (const bad of ['{ oops', 'null', '5', '{"own/bloom":true}', '[1,null]']) {
+    b.kv.set('vjw.favs', bad)
+    expect(b.open().favs()).toEqual(new Set())
+  }
+})
+
 test("setStar stars the panel's unsaved copy along, so a later save keeps it", async () => {
   const lib = await loaded()
   docs.set('builtin:tunnel', structuredClone(BUILTIN[0]))
