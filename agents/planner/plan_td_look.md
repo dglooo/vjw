@@ -241,6 +241,10 @@ Depends on: S1.8, S1.4 (G3 result). **Files:** `web/src/fx/own/reaction-diffusio
 - Reaction per coder traces (S1.2–S1.9): drums r .83–.91; reese/wobble r .52–.62.
 - ⚠️ Open: relative `sub`/`bass` barely swing (ruling requested of the designer). Build/drop bindings are unexercised: no fixture has them.
 
+### S1.10 [ ] [S] relative band sources → rest at 0 (design § Ruling 2026-11-05); arrangement fixtures
+**Added by the lead 2026-11-05** (design ruling, lead pick). Runs after S2.1 and before S2.2. Depends on: CP1. **Files:** `web/src/audio/features.ts` (`sub`, `reese` → `max(0, r − 1)` like `wobble`), `web/src/audio/presets.ts` (DnB drops `bass: 'reese'`; Dubstep `bass: 'wobble'` → `reese: 'wobble'`), `web/src/scenes/builtin.ts` (S1.2 displace, S1.3 edge, S1.5 twirl, S1.7 force, S1.9 kill `bass` → `reese`, ranges kept; S1.9 seed back to the plan's 0→.6; S1.3 gain and S1.5 radius unchanged), plus the matching `VJW_BIND` defaults in those `.fs` files, `features.test.ts`, `settings.test.ts`, `web/scripts/make-fx.mjs` (`arrangement()` fixtures with a build and a drop; Dubstep mixes in the existing `wobble()` stem).
+**Done:** gates. New fixtures written to `scratchpad/fx_audio/`. Trace on them: sub/reese/wobble rest ≈0 and swing on the bass; build/drop fire; RD seed, td-feedback displace and edge-rings gain visibly move. No-regression A/B on two scenes.
+
 ### CP2 — Track B(a): native filters + the history ring
 
 ### S2.1 [ ] [S] engine — `Native.draw(f, v, src?)`

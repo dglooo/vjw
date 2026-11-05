@@ -416,3 +416,37 @@ flowchart LR
 4. **Binding policy:** hybrid for new effects and the CP4 rebind (drums, sub and build/drop direct; the bass family through `bass` and Auto-style), with CP4 after CP3 (default). Accept?
 5. **Parked slit-scan worktree:** drop `.claude/worktrees/agent-ad8211cb17263523a`, keep `own/echo.fs` as it is, and make S2.4 the true slit scan. Accept?
 6. **Flash key:** `VJW_FLASH` replaces the hard-coded flash set (S1.1). Accept?
+
+## Ruling: relative band sources in bindings (2026-11-05)
+**Inputs:** `web/src/bind.ts` (`sources`, `restyle`, `evaluate`); `audio/features.ts` L27–38, L59–73; `audio/presets.ts` L23–50; `audio/synth.ts` L59–98, L156–194; `scenes/builtin.ts` (`sub`/`bass` bindings by grep, L384–399); `design_audio_reactivity.md` C1 L73–90, C5 L158–171; this file L51–110; the CP1 coders' evidence (lead brief).
+
+**Diagnosis.**
+- **Two conventions behind one alias.** `bass` (`clamp(att.bass/2)`), `sub` and `reese` (level ÷ its 4 s mean ÷ 2, `features.ts` L67–68) rest at .5; `wobble` (`max(0, r − 1)`, L71) rests at 0. C5 L161 ("the aliases share `bass`'s scale") holds for reese, not wobble: hence the Dubstep parking.
+- **`evaluate` is a gain from 0.** It fits sources that rest at 0 (drums, onset, drop, wobble: the ones that behave). On a .5-rest source `amount` scales the rest with the swing, so ±.05 can't grow without S1.9's extrapolation.
+- **Half the evidence is the fixture.** Its bed is a continuous 55 Hz sine plus a static detuned reese (`synth.ts` L98), and Dubstep has no wobble stem (L79). Any level-independent source is flat on it; the extrapolated range amplifies kick-gate and detune jitter.
+
+**Recommendation: (c) in place, plus (d).** One convention for the sustained family: 0 at rest, one-sided.
+1. `features.ts`: `sub` and `reese` = `max(0, r − 1)`, wobble's formula. A steady bed reads 0, twice the 4 s mean reads 1: a rise swings twice as far as today. `amount` and the preset `sens` (exists, `{}` since C3) become plain gains, as for the drums. `raw.*` (classifier, arrangement) is untouched; outside bindings and meters nothing reads these ids.
+2. **The bass class binds `reese`** (kick-gated 60–250 Hz: the bassline, not the kick). Maps: DnB drops `bass: 'reese'`; Dubstep `bass: 'wobble'` → `reese: 'wobble'`; Techno unchanged. `bass` (the MilkDrop level) stays for user scenes.
+- **Rest under Auto-style:** off, Default and unsure → reese; DnB → reese; Dubstep → wobble; Techno → reese (no longer `bass`). All rest at 0, so a bass-class param rests at `min` in every state; the 2 s crossfades change only the swing. Swing parity per genre = preset `sens` (e.g. Dubstep `wobble`), tuned on real tracks (queue 4). A genre whose bass moves above 250 Hz gets `reese → wobble`: one row, no scene edits.
+- Lost: dips below the mean (a bed that drops out reads 0, like a steady one). Heat and build/drop (C6) carry the arrangement.
+- No panel or doc-format change; the "→ wobble (auto-style)" hint follows the map. ⚠️ Assumption, needs confirmation: no saved user scene binds `sub`/`reese` yet (it would now rest at `min`).
+
+**Rejected.**
+- (a) Extrapolated ranges: tuned to a rest that the map changes (Dubstep parks at the clamp); they amplify fixture jitter, and a real rhythmic bass, which already swings 0↔1, bangs clamp to clamp.
+- (b) `lo`/`hi` window: the same per-genre flaw (a .42–.58 window kills wobble's 0–.3), plus a Binding field, two panel inputs, doc parse and undo. Add when a user scene asks for a from-range.
+- (c) as a presence source beside the relative one: needs a non-adapting reference (peak-hold AGC: normaliser + id + knob), and this sub class is swell ("swells", "opens", "feeds"). Add when a real track shows a steady sub needs a picture.
+- (d′) Re-centre `wobble` at .5 (`r/2`): ends the parking, but every bass-class param idles mid-range on a swing `amount` can't grow.
+- (d″) Make `bass` itself excess: rewrites the MilkDrop level that user scenes and `mid`/`treb` share, and FFT `bass` carries the kicks.
+
+**Merged bindings: yes, a follow-up.**
+- `bass` → `reese`, ranges kept (`min` is now the rest everywhere): S1.2 displace, S1.3 edge, S1.5 twirl, S1.7 force, S1.9 kill. RD kill .062 must hold 60 s as the rest in all three states (S1.9 saw .060 flood).
+- `sub` bindings keep their source. S1.3 gain (rest 1.03) and S1.5 radius are kept. S1.9 seed goes back to D1's 0→.6, dropping the −1.8/2.486 extrapolation and its comment.
+
+**CP2–CP4.** Wherever this design binds the bass class to `bass`, read `reese`: TL;DR L7, fact 7, policy L60–73, the diagram, D1's Auto column and L132, and CP4's 8 bass rows (particles swirl ×2, crt Amount, flythrough speed, fractal fold, spiral twist, fluid warp, smoke curl). The `bass → sub` rows stand. Ranges stay; `min` is the rest for sub/reese, as for kick. Net after CP4: `reese` (Auto) 8, `bass` 0, the rest as L107. Until CP4 the 22 pilot `bass` bindings read plain `bass` in every genre: consistent, accepted.
+
+**Step S1.10 (S), before the CP1 close-out, so before CP2.** CP2/CP3's D1 rows bind sub and the bass class and would otherwise repeat S1.9's workaround.
+- `features.ts`, `presets.ts`, `builtin.ts` (the 6 edits above); `features.test.ts` rest and sens expectations, plus one test that a bed returning after a gap reads ≥.9 and then decays; `settings.test.ts` L40–41.
+- `scripts/make-fx.mjs`: `arrangement()` fixtures for DnB and Dubstep (the build/drop fixture the CP1 close-out already needs). The Dubstep one mixes in the existing `wobble()` (`synth.ts` L184), silenced over the breakdown.
+- Done when: gates are green. DnB fixture: sub and reese sit at p50 <.1 in the groove, the sub reaches ≥.9 at the drop, and the 8 TD params idle near `min` with Auto off and under the DnB map. Dubstep fixture: the bass class follows the LFO. RD holds 60 s (G5).
+- Supersedes `design_audio_reactivity` C1 L79 (sub/reese ÷2) and C5 L161.
