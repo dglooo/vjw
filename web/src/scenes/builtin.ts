@@ -466,6 +466,23 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75,
     }],
   },
+  {
+    v: 1, id: 'builtin:scatter', name: 'Scatter', star: true,
+    layers: [{
+      gen: { ref: 'native/tunnel' }, // its rings and colours give every square something to carry
+      fx: [{
+        ref: 'native/scatter', // the def's bind (scenes/points.ts), repeated: built-ins stay JSON literals
+        bind: {
+          burst: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 0, max: 2 }, // a kick punches the squares outward
+          size: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.9, max: 1.4 }, // the sub swells them
+          scatter: { source: 'reese', amount: 1, attack: 0.05, release: 0.35, min: 0, max: 0.12 }, // Auto-style's one: the bass tears the image
+          spring: { source: 'build', amount: 1, attack: 1, release: 2, min: 40, max: 12 }, // a build loosens it: the squares float
+          explode: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop blasts the image apart, sprung back
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
