@@ -18,7 +18,8 @@ const AVG = 4 // knob: s, the running average the sustained sources are read aga
 const DEPTH = 1 // knob: s, wobbleDepth's EMA (C1)
 // knob: s the three levels hold after a kick trips the reese band's gate. The kick body sweeps into 30–60 Hz over
 // ≈40 ms, too slowly to trip the sub band's own gate (S2.1), and rings there and in the reese band's skirt to ≈200 ms.
-const HOLD = 0.2
+// arrange.ts widens its drop window by it: a bass that returns on a kick reads this late.
+export const HOLD = 0.2
 const SUSTAINED = ['sub', 'reese', 'wobble', 'wobbleDepth'] as const
 
 /** The user's × the preset's sens for `id` (missing = 1). */

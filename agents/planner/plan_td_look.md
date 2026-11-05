@@ -258,9 +258,21 @@ Depends on: S1.8, S1.4 (G3 result). **Files:** `web/src/fx/own/reaction-diffusio
   - (1) In the app the drop fires only on a coin flip with the DnB fixture: 1 of 5 runs; Dubstep fired 2 of 2. features.ts `HOLD` (0.2 s) delays `low`'s rise past arrange.ts `near` (0.2 s). `acceptance.test.ts` feeds bands.ts `held` directly, so it passes.
   - (2) RD is black at rest. With seed 0→.6 and sub resting at 0, a steady bed grows no coral: luma 0 until the first sub swell (34 s DnB, 43 s Dubstep), and seed ≤.18 doesn't nucleate. S1.9's rest ≈.3 did. Once grown, kill .062 at rest holds with no flood (coverage .34→.61, stdB ≈.13, 0 NaN over 52 s).
 
-### S1.11 [ ] [S] Tier 1 fixes from S1.10: drop window ≥ the bass hold; RD seed floor
+### S1.11 [x] [S] Tier 1 fixes from S1.10: drop window ≥ the bass hold; RD seed floor
 **Added by the lead 2026-11-05** (lead pick on the S1.10 findings). Runs before S2.2. **Files:** `web/src/audio/arrange.ts` (the `near` window: derive it from `features.ts` `HOLD`, e.g. `HOLD + 0.15` s, instead of an independent 0.2 s; one shared constant, no duplicate number), an `arrange`/`acceptance` test that drives the drop through the **held** features path (today `acceptance.test.ts` feeds `bands.ts` levels straight in and misses the hold), `web/src/scenes/builtin.ts` + `web/src/fx/own/reaction-diffusion.fs` (`seed` min 0 → .3, max .6).
 **Done:** gates. On `dnb174-arr.wav` and `dubstep140-arr.wav` the drop fires in 5 of 5 app runs each, with no extra drop in the groove or build. RD shows coral within ≈10 s on a steady bed and grows faster on sub swells; G5 coverage holds 60 s.
+**Changed during implementation:**
+- `features.ts` exports `HOLD`; arrange's default `near` is `HOLD + 0.15`.
+- The test replaces `acceptance.test.ts` `inputs()` with app.ts's path: analysis.ts → features.ts → arrange, 60 fps frames on the heard clock at a given phase, kicks drained when heard (T1). §4.5 now runs on both `-arr` fixtures (Dubstep with make-fx's wobble stem) at 20 frame phases. `arrange.test.ts` keeps the `bands.ts` shortcut for its rule tests.
+- Root cause, measured in that model: the hold is hop-rounded to ≈0.203 s. At 60 fps that is 12 or 13 frames, so `low` came back exactly 0.200 s or 0.217 s after the kick.
+  - At the old 0.2 s window, DnB missed at 3 of 20 phases; the app's clock jitter makes it worse (1/5).
+  - Dubstep passed only by luck: drums.ts reads the wobble onset as extra kicks at +0.14/+0.19 s, which refresh `kickAt`.
+- With the fix, 40 of 40 runs fire once each, 0.32–0.34 s after the drop: the hold plus `sustain`, still within a DnB beat (0.345 s).
+- App (5174, LOCK, whole file):
+  - DnB fired 5/5 at 34.47–34.48 s, conf .80–.82. Dubstep fired 5/5 at 42.50–42.51 s, conf .74–.75. No extra drops.
+  - RD on `dnb174-arr`: coral is visible at the first readback, ≈3 s after the scene switch on the groove bed (cov .22, then .47 by the build).
+  - The drop resets RD to cov .11; it regrows to .65. Coverage maxed at .66, stdB .08–.14, 0 NaN over 62 s.
+  - seed rests at .30 and reaches .60 on sub (r 1.00).
 
 ### CP2 — Track B(a): native filters + the history ring
 
