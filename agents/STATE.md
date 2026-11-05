@@ -23,7 +23,8 @@
   - Not shipped (lead: skip, measures ≈0): keep a `res`<1 layer on the `direct` path when it ends on an effect.
   - S1.5 ✅ light-tunnel (own ≈.29 ms; twirl↔reese .57 / wobble .52).
   - ⚠️ **`sub` finding (S1.3, S1.5):** `sub` is relative and sits ≈.42–.56 on a steady sub. `evaluate` = `min+(max−min)·clamp(amount·x)` has no offset, so sub-bound params barely move (radius .444–.461). Decide at the CP1 close-out: extrapolated min/max, an offset field, or a different source for presence-type params. It affects S1.9 and CP4.
-  - **Running:** `frontend-coder` S1.6 (`own/radial-blur.fs` + `builtin:light-tunnel`).
+  - S1.6 ✅ radial-blur (≈1.0 ms own) + `builtin:light-tunnel` = tunnel → light-tunnel → radial-blur (p95 3.07 ms; strength↔kick r .91/.90; radial-blur gained `centerX`).
+  - **Running:** `frontend-coder` S1.7 (`own/flow-smear.fs` + `builtin:flow-smear`).
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
