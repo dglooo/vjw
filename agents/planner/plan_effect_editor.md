@@ -388,13 +388,35 @@
 
 ### CP4 (no code dependency on CP1–3; S4.1–S4.3 are independent of each other)
 
-#### S4.1 [ ] `own/bars.fs` — L
+#### S4.1 [x] `own/bars.fs` — L
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the Bars generator, 4 shapes, bound per the policy (S7, spec §2.4).
 - **Files:** new `web/src/fx/own/bars.fs`, `web/src/fx/isf.test.ts` (`NEW_OWN`), `web/src/fx/catalog.ts` only if own files are not glob-loaded.
 - **Depends on:** none.
 - **Behaviour:** generator, 2 passes: pass 1 `levels` (PERSISTENT FLOAT 128×1): log bands from `audioFFT`, release = `smoothing`; pass 2 draws `shape` ∈ {line, circle, mirror, wave}, wave reading the `audio` waveform texture. Inputs: `shape` (long), `bands` 8–128, `gap`, `thickness`, `gain`, `colorA`, `colorB`, `hue`, `glow`, `smoothing`, `spin`. `VJW_BIND`: glow←kick 0/.15 · hue←snare 0/.3 · thickness←sub .05/.4 · spin←bar (saw) · smoothing←build 1/2. `VJW_FLASH`: glow (0..1, min 0, added on top). Complements `native/spectrum`, never replaces it. Budget ≤5 ms p95 (two cheap passes; expect well under ⚠️ estimate). **Donor authorisation:** read and adapt the band mapping from the donor's FFT Color Lines / FFT Filled Waveform files under `donor/ISF-Files/ISF/` (VIDVOX, MIT ©2018); copied lines keep the MIT credit in the file header and in THIRD_PARTY (S4.4).
 - **Tests:** `isf.test.ts` `NEW_OWN` += bars (parses; 2 passes with `levels` persistent; sources ∈ `SOURCE_IDS`; `glow` min 0). Band edges are GLSL; if the coder lifts them into a TS table, test monotonic edges for 8 and 128 bands.
 - **Done:** gates; `?bench` p95; browser on both arr fixtures: glow↔kick with `__flash` ≤3/s; thickness idles at min on the intro and swings on the drop (sub); hue steps on snares; smoothing rises on the build; one screenshot per shape `ed/bars-<shape>.png`.
+- **Changed during implementation:** harness `scratchpad/ed/bars.mjs`: a one-layer test doc with the file's `VJW_BIND`, a trace over the whole arr fixture against `__src`, one shot per shape on the drop, and a same-session A/B with `own/flash` appended. Out: `bars-<fixture>.out.json`; shots `bars-<shape>.png` (dnb) and `bars-<shape>-dub.png`.
+  - Inputs `fftImage` (audioFFT) and `waveImage` (audio); bars is the catalog's first file with audio inputs. `bands` is a `long` select {8, 16, 32, 64, 128}, because the panel's `long` needs VALUES. The band edges stay in GLSL, so there is no TS table and no edge test.
+  - `thickness` = a bar's width within its slot after the gap (the wave: its line width). Thin needles at rest, fat on the sub. Ranges: glow 0→1, hue 0→.25, thickness .3→1, spin 0→1 turn, smoothing .15→.6 s (the fall's time constant; the rise is instant).
+  - Shapes:
+    - line: bass on the left, on a floor;
+    - circle: bass at the top, mirrored down both sides; spin turns the ring;
+    - mirror: bass in the middle, up and down from the centre line;
+    - wave: the waveform through a 4-sample box, as the distance to its local segment.
+    - On line, mirror and wave, spin sweeps the colorA↔colorB ramp, which is cyclic, so a saw wrap is seamless at confidence 1.
+  - Levels: the max of 8 taps per log band, 30 Hz–16 kHz (the row read as 48 kHz). TILT .25 over the range, FLOOR .4 (−72 dB).
+  - Look passes:
+    - The wave's slope-scaled distance smeared spikes into long streaks; the segment distance fixed that. The hats' sample-to-sample jumps still left thin streaks; the 4-sample box removed them.
+    - The nearest bar's halo left dark notches between the tops; the 3 neighbours' halos summed fixed it.
+  - **Donor lines (for S4.4 THIRD_PARTY):** VIDVOX, MIT ©2018, `FFT Filled Waveform.fs` + `FFT Color Lines.fs`. Credit in `bars.fs` L2–5 and `CREDIT`.
+    - The band lookup `IMG_NORM_PIXEL(fftImage, vec2(x, 0.5))` × gain, adapted: `.r` only (our audio textures are R8) and a log span in place of the linear range.
+    - The wave stroke `1 − smoothstep(…, |wave − y|)`, adapted as a segment SDF with smoothstep AA.
+    - The input names `fftImage` / `waveImage`.
+  - **Numbers** (1728×1118, r = param↔source):
+    - dnb174-arr: glow↔kick .92, 49 flashes in 45.6 s (1.07/s, max 2 in any 1 s); hue↔snare .84; thickness↔sub .99 (intro .30–.34, drop .30–1.00, mean .63); smoothing↔build .90 (intro .15 flat, build to .46); spin↔bar saw 1.00.
+    - dubstep140-arr: glow↔kick .93 (.44/s, max 1); hue↔snare .83; thickness↔sub .88 (intro mean .42, since this intro carries some sub, mean .07 and max .35; drop mean .66); smoothing↔build .93 (to .46); spin 1.00.
+  - **GPU** (same-session A/B, med / p95 ms): bars alone 1.56 / 1.74 (dnb) and 1.61 / 1.67 (dub); + `own/flash` 2.18 / 2.65 and 2.20 / 2.41. Budget ≤5 ✓.
+  - Seen, not fixed: the audio texture's −30 dB ceiling pins the bass bands at full height on a loud drop (both fixtures); `gain` < 1 lowers them. Once in the dnb trace the governor stepped the scale down (1616×1045 at the end), and it was back at full size for the A/B.
 
 #### S4.2 [ ] `isf/Pixellate` binding + tag, `own/mosaic.fs` — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** two of the four pixel effects (S7).
