@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest'
 import { createAnalysis } from './analysis'
-import { createDrums, type Drum } from './drums'
+import { createDrums, type Drum, type Floors } from './drums'
+import type { Genre } from './presets'
+import { parseSettings, workletBands } from './settings'
 import { mix, pattern, reese, room, SR, sub, wobble, type Stem, type Track } from './synth'
 
 const N = 512 // as the worklet: a 512-point FFT every 256 samples (the spectrum-level tests below)
@@ -9,9 +11,10 @@ const DRUMS: Drum[] = ['kick', 'snare', 'hats']
 const BED: Stem[] = ['reese', 'sub', 'room']
 
 /** Hit times per drum for a signal run through the worklet's body (analysis.ts) in render quanta, after a 0.5 s warm-up
- *  (the bed's own start). */
-function hitsOf(x: Float32Array) {
+ *  (the bed's own start); at `genre`'s config (its floors) if given, else the default floors. */
+function hitsOf(x: Float32Array, genre?: Genre) {
   const a = createAnalysis(SR)
+  if (genre) a.configure({ kind: 'config', rev: 1, ...workletBands(parseSettings(null), genre) })
   const hits: Record<Drum, number[]> = { kick: [], snare: [], hats: [] }
   for (let i = 0; i + 128 <= x.length; i += 128)
     a.block([x.subarray(i, i + 128)], i, (h) => {
@@ -37,8 +40,8 @@ function f1(truth: number[], hits: number[], tol = 0.03) {
 }
 
 const dnb = pattern('dnb', 8)
-const scores = (track: Track, x = mix(track)) => {
-  const h = hitsOf(x)
+const scores = (track: Track, genre?: Genre, x = mix(track)) => {
+  const h = hitsOf(x, genre)
   return Object.fromEntries(DRUMS.map((d) => [d, f1(track.truth[d], h[d])])) as Record<Drum, number>
 }
 
@@ -54,7 +57,7 @@ test('dubstep 140 and techno 128 mixes: every drum F1 ≥ 0.70', () => {
   // Measured 2026-11-05: dubstep kick 1.00 (bin 1: 0.80), snare 1.00, hats 1.00; techno kick 1.00 (0.89), snare 0.86
   // (claps on kicks; same-hop crosstalk 0.83, bin 1 0.77), hats 1.00.
   for (const g of ['dubstep', 'techno'] as const) {
-    const f = scores(pattern(g, 8))
+    const f = scores(pattern(g, 8), g) // at the floors the genre gets once classified (Dubstep 80/100)
     for (const d of DRUMS) expect(f[d], `${g} ${d}`).toBeGreaterThanOrEqual(0.7)
     expect(f.snare, `${g} snare`).toBeGreaterThanOrEqual(0.8) // the snare ruling's tilt keeps them (unchanged)
   }
@@ -121,9 +124,9 @@ test('configure re-maps Hz to bins, and the mapping follows the sample rate', ()
   expect(fire([quiet, frame([[2, 2]])], createDrums(44100, N))[1]).toEqual([])
 })
 
-test("crosstalk: a snare within a hop of a kick is dropped unless it is as far over its floor as the kick's ratio over TRANSIENT", () => {
-  // From silence: 43 snare bins at 0.01 are 1.3 snare floors (a click), at 100 they are 6.2 (a clap on the kick); a kick
-  // ratio of 3 is 2 TRANSIENTs. Kick bin 1 at 1000 holds ≥ 0.7 of the hop's power either way.
+test("crosstalk: a snare within a hop of a kick is dropped unless it is as far over XT_SNARE (80) as the kick's ratio over TRANSIENT", () => {
+  // From silence: 43 snare bins at 0.01 are 1.3 XT_SNAREs (a click; 2.6 live floors of 40), at 100 they are 6.2 (a clap
+  // on the kick); a kick ratio of 3 is 2 TRANSIENTs. Kick bin 1 at 1000 holds ≥ 0.7 of the hop's power either way.
   const hop = (kick: number, snare: number) => Float32Array.from({ length: N / 2 + 1 }, (_, k) => (k === 1 ? kick : k >= 11 && k <= 53 ? snare : 0))
   const quiet = hop(0, 0)
   expect(fire([quiet, quiet, hop(1000, 0.01)], undefined, 3)[2]).toEqual(['kick'])
@@ -144,9 +147,9 @@ test('a snare hop needs ≥ TILT of its band power from 3 kHz up; a vetoed hop a
   // 43·log1p(100) ≈ 198 of flux, under the steep hop's 21·log1p(1e5) ≈ 242 and 10.7 ms after it: had the steep hop
   // posted, minGap and the peak window would each block this one.
   expect(fire([quiet, quiet, steep, quiet, flat(0.1)])[4]).toEqual(['snare'])
-  // Right after a vetoed hop, the flux is read against the hop before it: 43·log1p(20) ≈ 131 over the floor of 80; against
-  // the steep hop only the 22 bins ≥ 3 kHz would rise (≈ 67).
-  expect(fire([quiet, quiet, steep, flat(0.02)])[3]).toEqual(['snare'])
+  // Right after a vetoed hop, the flux is read against the hop before it: 43·log1p(3) ≈ 60 over the floor of 40; against
+  // the steep hop only the 22 bins ≥ 3 kHz would rise (≈ 30).
+  expect(fire([quiet, quiet, steep, flat(0.003)])[3]).toEqual(['snare'])
 })
 
 test('a kick needs both: the gate ratio at TRANSIENT and its bins over SHARE of the hop power, DC excluded', () => {
@@ -156,4 +159,18 @@ test('a kick needs both: the gate ratio at TRANSIENT and its bins over SHARE of 
   expect([kick(2, share(0.21)), kick(2, share(0.19))]).toEqual([true, false])
   const dc = (d: number, b1: number) => Float32Array.from({ length: N / 2 + 1 }, (_, k) => (k === 0 ? d : k === 1 ? b1 : 0))
   expect([kick(2, dc(1000, 100)), kick(2, dc(1000, 0))]).toEqual([true, false]) // a line-in offset neither dilutes nor fakes it
+})
+
+test('floors: snare 40 / hats 50 by default, setFloors moves them (real-track ruling 2026-11-05: Dubstep sends 80/100)', () => {
+  // From silence, 43 snare bins at 0.003 rise 43·log1p(3) ≈ 60 and 96 hats bins at 0.001 rise 96·log1p(1) ≈ 67
+  const mid = Float32Array.from({ length: N / 2 + 1 }, (_, k) => (k >= 11 && k <= 53 ? 0.003 : k >= 75 && k <= 170 ? 0.001 : 0))
+  const quiet = frame([])
+  const at = (f: Floors) => {
+    const d = createDrums(SR, N)
+    d.setFloors(f)
+    return fire([quiet, quiet, mid], d)[2]
+  }
+  expect(fire([quiet, quiet, mid])[2]).toEqual(['hats', 'snare'])
+  expect(at({ snare: 80, hats: 100 })).toEqual([])
+  expect(at({ snare: 40, hats: 100 })).toEqual(['snare'])
 })

@@ -46,7 +46,8 @@ export function createAnalysis(sampleRate: number): {
 
   return {
     /** An older or repeated rev is ignored. Drums restart only when their bands change: a restart drops the flux
-     * history, so the next hop would fire every drum at full strength. */
+     * history, so the next hop would fire every drum at full strength. Floors apply in place, at once (drum Hz are equal
+     * across presets, so a preset switch restarts nothing). */
     configure(c) {
       if (c.rev <= (next?.rev ?? rev)) return
       next = c
@@ -55,6 +56,7 @@ export function createAnalysis(sampleRate: number): {
         drumKey = key
         drums.configure(c.drums)
       }
+      drums.setFloors(c.floors)
     },
     /** One render quantum; `frame` = the worklet's currentFrame. */
     block(chans, frame, post) {

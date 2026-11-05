@@ -319,7 +319,7 @@ const cfg = (pick: PresetId | null = null, custom: CustomBand[] = [], over: Part
 })
 
 test('workletBands: sub, reese, wobble first (the S2.4 order contract), the user bands after, drums = the preset kick/snare/hats', () => {
-  const b = workletBands(cfg(null, [stored(1, { lo: 40, hi: 60 })]), null)
+  const b = workletBands(cfg(null, [stored(1, { lo: 40, hi: 60 })]), 'default')
   expect(b.bands).toEqual([
     { id: 'sub', lo: 30, hi: 60 },
     { id: 'reese', lo: 60, hi: 250 },
@@ -330,16 +330,28 @@ test('workletBands: sub, reese, wobble first (the S2.4 order contract), the user
 })
 
 test('workletBands: a preset switch re-reads the built-in bands (dubstep reese 70-350) and the user bands stay last', () => {
-  const b = workletBands(cfg('dubstep', [stored(1, { lo: 40, hi: 60 })]), null)
+  const b = workletBands(cfg(null, [stored(1, { lo: 40, hi: 60 })]), 'dubstep')
   expect(b.bands[1]).toEqual({ id: 'reese', lo: 70, hi: 350 })
   expect(b.bands.at(-1)).toEqual({ id: 'u:000001', lo: 40, hi: 60 })
-  expect(bandKey(workletBands(cfg('dubstep'), null))).not.toBe(bandKey(workletBands(cfg(null), null)))
+  expect(bandKey(workletBands(cfg(), 'dubstep'))).not.toBe(bandKey(workletBands(cfg(), 'default')))
 })
 
 test('bandKey: ids and Hz only, so a rename or a sens/auto change is a no-send, and a band or preset change is a send', () => {
-  const a = workletBands(cfg(null, [stored(1, { lo: 40, hi: 60, name: 'old' })], { sens: { sub: 2 } }), null)
-  expect(bandKey(a)).toBe(bandKey(workletBands(cfg(null, [stored(1, { lo: 40, hi: 60, name: 'new' })], { auto: false }), null)))
-  expect(bandKey(a)).not.toBe(bandKey(workletBands(cfg(null, [stored(1, { lo: 40, hi: 60.1 })]), null)))
-  expect(bandKey(a)).not.toBe(bandKey(workletBands(cfg(null, []), null)))
-  expect(bandKey(a)).not.toBe(bandKey(workletBands(cfg('dubstep', [stored(1, { lo: 40, hi: 60 })]), null)))
+  const a = workletBands(cfg(null, [stored(1, { lo: 40, hi: 60, name: 'old' })], { sens: { sub: 2 } }), 'default')
+  expect(bandKey(a)).toBe(bandKey(workletBands(cfg(null, [stored(1, { lo: 40, hi: 60, name: 'new' })], { auto: false }), 'default')))
+  expect(bandKey(a)).not.toBe(bandKey(workletBands(cfg(null, [stored(1, { lo: 40, hi: 60.1 })]), 'default')))
+  expect(bandKey(a)).not.toBe(bandKey(workletBands(cfg(null, []), 'default')))
+  expect(bandKey(a)).not.toBe(bandKey(workletBands(cfg(null, [stored(1, { lo: 40, hi: 60 })]), 'dubstep')))
+})
+
+test('workletBands floors (real-track ruling 2026-11-05): Dubstep 80/100, every other preset 40/50; under Auto the detected genre, a hand pick wins', () => {
+  const [DEF, DUB] = [{ snare: 40, hats: 50 }, { snare: 80, hats: 100 }]
+  for (const id of ['default', 'dnb', 'techno'] as const) expect(workletBands(cfg(), id).floors, id).toEqual(DEF)
+  expect(workletBands(cfg(), 'dubstep').floors).toEqual(DUB)
+  // app.ts sends for activePreset(settings, detected)
+  const floors = (s: AudioSettings, detected: Genre | null) => workletBands(s, activePreset(s, detected)).floors
+  expect([floors(cfg(), null), floors(cfg(), 'dubstep'), floors(cfg(), 'dnb')]).toEqual([DEF, DUB, DEF])
+  expect([floors(cfg('dnb'), 'dubstep'), floors(cfg('dubstep'), 'dnb'), floors(cfg(null, [], { auto: false }), 'dubstep')]).toEqual([DEF, DUB, DEF])
+  const b = workletBands(cfg(), 'default')
+  expect(bandKey({ ...b, floors: DUB })).not.toBe(bandKey(b)) // a floors-only change is a send
 })
