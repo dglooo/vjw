@@ -144,7 +144,7 @@ export function parseIsf(src: string, id: string): ShaderDef {
     : extra ? `extra image input ${extra.name}` : /^\s*varying\s/m.test(body) ? 'custom vertex shader' : undefined
 
   return {
-    id, name: id.slice(id.lastIndexOf('/') + 1), kind, category: categoryOf(h.CATEGORIES ?? []), credit: String(h.CREDIT ?? ''),
+    id, name: id.slice(id.lastIndexOf('/') + 1), kind, category: categoryOf(h.CATEGORIES ?? []), tags: (h.CATEGORIES ?? []).map(String), credit: String(h.CREDIT ?? ''),
     inputs, bind: h.VJW_BIND, flash, glsl: 100, vs: ISF_VS, fs: `${PREFIX}${decls.join('\n')}\n${body}`, passes, unsupported,
   }
 }

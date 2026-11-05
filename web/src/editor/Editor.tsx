@@ -1,16 +1,23 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { director } from '../app'
-import type { SceneId } from '../doc'
+import type { LayerDoc, SceneId } from '../doc'
+import { newLayer } from '../edit'
 import { stage } from '../gl/engine'
 import { live, panel } from '../gl/live'
 import { library } from '../library'
 import { BUILTIN } from '../scenes/builtin'
 import { store } from '../store'
-import { Gpu, LibraryIo, SceneHead, type Say } from '../ui/Panel'
-import { edits } from '../undo'
+import { Gpu, LAYERS_MAX, LibraryIo, SceneHead, type Say } from '../ui/Panel'
+import { edits, type Step } from '../undo'
+import { Library } from './Library'
 import { Stack } from './Stack'
+import type { Block } from './blocks'
 import { clampSel, type Sel } from './layers'
 import './editor.css'
+
+/** A block on trial from the library (design S3, spec §2.2): `step` is its add, `sel` the selection before it, `solo` a
+ *  generator's new layer. Pending while its add is the top undo step: Enter or any other edit keeps it. */
+interface Tried { id: string; step: Step | undefined; sel: Sel; solo?: LayerDoc }
 
 /** A text field keeps its own keys (Cmd+Z, Delete). A slider, checkbox or select has no text selection (null). */
 const typing = (t: EventTarget | null) => t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && t.selectionStart !== null)
@@ -56,7 +63,36 @@ export function Editor() {
 
 function Open() {
   const id = useSyncExternalStore(store.subscribe, () => store.getSnapshot().edited)
+  useSyncExternalStore(store.subscribe, () => store.getSnapshot().editRev) // the try's mark goes with an edit or an undo
   const [sel, select] = useState<Sel>({ layer: 0, fx: null })
+  const [tried, setTried] = useState<Tried | null>(null)
+  const trying = tried && edits.top() === tried.step ? tried : null
+  /** A library block into the edited scene (design S3): an effect at the end of the selected layer's chain; a generator
+   *  on top as a new layer (soloed when tried), or, at 4 layers, in place of the selected layer's. `mark`: a tile's
+   *  click tries it, in place of the block on trial (undo, then add); `+` adds it for good. A scene tile opens it. */
+  const pick = (b: Block, mark: boolean) => {
+    if (b.kind === 'scene') return director.cut(b.id)
+    if (!id) return
+    let back = clampSel(live(id).doc.layers, sel)
+    if (mark && trying) {
+      edits.undo()
+      back = trying.sel
+    }
+    const { layers } = live(id).doc
+    const l = back.layer
+    const k = layers[l].fx.length
+    const n = layers.length
+    let to: Sel | null = null
+    let solo: LayerDoc | undefined
+    if (b.kind === 'effect') {
+      if (panel.addFx(l, b.id, k)) to = { layer: l, fx: k }
+    } else if (n < LAYERS_MAX) {
+      solo = newLayer(structuredClone(b.node!))
+      if (panel.insertLayer(solo, n)) to = { layer: n, fx: null }
+    } else if (panel.setGen(l, b.node!)) to = { layer: l, fx: null }
+    select(to ?? back)
+    setTried(mark && to ? { id: b.id, step: edits.top(), sel: back, solo } : null)
+  }
   // The header's last result. Here, not in the Stack: New, open and Save as re-key it, and the note outlives that.
   const [note, setNote] = useState<{ text: string; err: boolean }>()
   const say: Say = (err, what, done) => setNote(err ? { text: `${what}: ${err}`, err: true } : { text: done, err: false })
@@ -78,8 +114,8 @@ function Open() {
     }
   }, [])
   useEffect(() => {
-    // The editor's keys (design S1; app.ts lets only L through): undo/redo, and Delete and Alt+↑/↓ on the selection
-    // (↑ = towards the bottom layer, the first effect: up the list).
+    // The editor's keys (design S1; app.ts lets only L through): undo/redo, Delete and Alt+↑/↓ on the selection (↑ =
+    // towards the bottom layer, the first effect: up the list), and a tried block's Enter (keep) and Esc (take back).
     const keys = (e: KeyboardEvent) => {
       if (typing(e.target) || !id) return // no id before Start: no scene yet
       const { layers } = live(id).doc
@@ -97,12 +133,18 @@ function Open() {
           else panel.moveFx(s.layer, s.fx, to)
           select(s.fx === null ? { layer: to, fx: null } : { ...s, fx: to })
         }
+      } else if (tried && (e.code === 'Escape' || e.code === 'Enter')) {
+        if (e.code === 'Escape' && edits.top() === tried.step) {
+          edits.undo()
+          select(tried.sel)
+        }
+        setTried(null)
       } else return
       e.preventDefault()
     }
     addEventListener('keydown', keys)
     return () => removeEventListener('keydown', keys)
-  }, [id, sel])
+  }, [id, sel, tried])
   return (
     <div
       className="editor"
@@ -114,11 +156,13 @@ function Open() {
       onChange={(e) => {
         if (e.target instanceof HTMLSelectElement) e.target.blur() // a focused select picks by type-ahead
       }}
+      // A value edit in the builder keeps the tried block: its mark goes at once (Esc checks the undo stack anyway).
+      onInput={(e) => (e.target as Element).closest('.library') || setTried(null)}
     >
-      <aside>Library</aside>
+      <Library trying={trying?.id} pick={pick} />
       <div ref={cell} />
       {id && (
-        <Stack key={id} id={id} sel={sel} select={select}>
+        <Stack key={id} id={id} sel={sel} select={select} tried={trying?.solo}>
           <Head id={id} say={say} />
           {note && (
             <p key={note.text} className={note.err ? 'err' : 'note'} onAnimationEnd={() => setNote(undefined)}>

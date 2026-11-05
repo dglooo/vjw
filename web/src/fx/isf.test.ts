@@ -30,6 +30,13 @@ describe('parseIsf', () => {
     expect(parseIsf(isf({}), 'isf/x').credit).toBe('')
   })
 
+  test('tags: the raw CATEGORIES, beside the reduced category; none without them', () => {
+    const d = parseIsf(isf({ CATEGORIES: ['Glitch', 'Pixel', 'Stylize'] }), 'isf/x')
+    expect(d.tags).toEqual(['Glitch', 'Pixel', 'Stylize'])
+    expect(d.category).toBe('retro')
+    expect(parseIsf(isf({}), 'isf/y').tags).toEqual([])
+  })
+
   test('kind by convention: inputImage → filter, startImage + endImage + progress → transition, else generator', () => {
     expect(parseIsf(isf({ INPUTS: [image('inputImage')] }), 'f').kind).toBe('filter')
     const t = [image('startImage'), image('endImage'), { NAME: 'progress', TYPE: 'float' }]

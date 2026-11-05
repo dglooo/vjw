@@ -16,8 +16,107 @@
   background: #0b0b0bf0;
   border: 1px solid #ffffff17;
   border-radius: 10px;
-  color: #d8d8d88c; /* placeholder: the library (S3.1) */
   pointer-events: auto;
+}
+
+/* The library (S3.1): search, chips and the try hint on top, staying while the tile grid scrolls under them. */
+.editor > .library {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: 12px;
+  color: #d8d8d8;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff2e transparent;
+}
+.library button,
+.library input {
+  font: inherit;
+  color: inherit;
+  background: #161616;
+  border: 1px solid #ffffff24;
+  border-radius: 5px;
+}
+.library button {
+  cursor: pointer;
+}
+.library input {
+  padding: 4px 8px;
+}
+.library > .top {
+  position: sticky;
+  top: -10px; /* over the aside's padding */
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: -10px -12px 8px;
+  padding: 10px 12px 8px;
+  background: #0b0b0b;
+}
+.library .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.library .chips button {
+  padding: 1px 7px;
+  border-radius: 10px;
+  color: #d8d8d8a6;
+}
+.library button[aria-pressed='true'] {
+  color: #f2c14e;
+  border-color: #f2c14e66;
+}
+.library .hint {
+  margin: 0;
+  color: #f2c14e;
+}
+.library ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.library li {
+  position: relative;
+}
+/* A grey name placeholder, 16:9, until S3.3 bakes the tile's still. The tried block's tile is marked. */
+.library .pick {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  padding: 4px 6px;
+  overflow: hidden;
+  text-align: left;
+  background: #ffffff0f;
+}
+.library .pick small {
+  color: #d8d8d866;
+}
+.library li.tried .pick {
+  outline: 2px solid #f2c14e;
+  outline-offset: 1px;
+}
+.library .fav,
+.library .plus {
+  position: absolute;
+  top: 3px;
+  padding: 0 4px;
+  line-height: 16px;
+  background: #0b0b0bcc;
+}
+.library .fav {
+  right: 3px;
+}
+.library .fav[aria-pressed='false'] {
+  color: #d8d8d855;
+}
+.library .plus {
+  right: 26px;
 }
 
 /* The builder (S2.2): the panel's controls (panel.css), larger. */
@@ -77,6 +176,11 @@
 /* Drag to reorder (S2.3): the insert line, above the row a drop lands before (above the add select: the end). */
 .stack .ins {
   box-shadow: 0 -3px 0 #f2c14e;
+}
+/* A library effect dragged over a layer (S3.1): that layer takes it, at the end of its chain. */
+.stack .layer.drop {
+  outline: 2px solid #f2c14e;
+  outline-offset: -2px;
 }
 /* Mute / solo: preview only. A layer muted by its own M or by another's S dims its name. */
 .stack .head button[aria-pressed='true'] {
