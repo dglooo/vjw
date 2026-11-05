@@ -51,7 +51,12 @@
   - **Kick ruling** (`design_audio_reactivity.md` § Ruling, L612–656), lead pick (d).
     - Cause: the kick detector read bin-1 log flux, and a full-range bass's 55/110 Hz partials beat inside that bin. The HP'd fixture reese hid it.
     - Fix: kick = `tempo.ratio(0) ≥ 1.5` (the existing IIR gate) + kick-bin power share ≥ 0.2; the bin-1 detector is deleted; CPU ≈ 0; ≤1 hop later.
-  - **Running (parallel: one coder + one non-coder):** `frontend-coder` kick-fix step (M) ∥ 2b design done: `agents/system-designer/design_effect_editor.md`. **Lead pick 2026-11-05 (never-ask; all designer defaults):**
+  - **Kick fix ✅** (ruling d): kick = 40–150 gate ratio ≥1.5 + kick-bin share >.2.
+    - Arr fixtures: DnB 2.00, Dubstep 1.00 kicks/bar (was 18), breakdown 0, kick F1 1.00, `kick` p50 ≤.002 (was .66–.76).
+    - App: kick params jump on kicks only; drop 5/5 + 5/5 (Dubstep conf .86).
+    - The classifier now reads `dubstep140-arr` as dubstep (late, ≈51 s), and Auto no longer halves the breakdown to 70 BPM. 355 tests.
+  - ⚠️ **Snare bug (same class):** on Dubstep the 1–5 kHz snare detector fires on the wobble (snare F1 .09; snare-bound flashes ≈every 0.42 s). **Running:** `system-designer` snare ruling (append to `design_audio_reactivity.md`), then a coder step before 2b CP1.
+  - 2b design done: `agents/system-designer/design_effect_editor.md`. **Lead pick 2026-11-05 (never-ask; all designer defaults):**
     - **Variant B:** the stage, CSS-scaled, is the preview; baked stills plus one async live tile; `NativeDef.create(gl, size?)` (tile ring 1.8 MB).
     - Undo = inverse steps in `panel`; Try = pending add, Esc undoes it; mute/solo are preview-only; editor key `L`; session-only thumbnails.
     - Port the ASCII Art; CP order 1→4.
