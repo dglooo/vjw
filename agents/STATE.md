@@ -63,6 +63,10 @@
     - Includes the bool/event binding UI and the event rising-edge fix. A bound ISF event fired every frame while its source stayed >.5, a real bug.
     - **Plan done:** `agents/planner/plan_effect_editor.md`, 4 CPs / 15 steps (design S3.2 split into engine S3.2 + editor S3.3; live tile = S3.4). G1/G2/G4 → S3.3, G3 → S4.3. `L` is free; Vitest is Node-only, so logic lives in `.ts` helpers.
     - S1.1 ✅ `edit.ts` structural ops with round-tripped inverses + `undo.ts` `edits` stack (key coalescing, sliding 1 s window); 370 tests.
+    - S2.2 ✅ editor layer Stack:
+      - layers/fx/bindings with meters, preview-only mute/solo, Cmd+Z / Shift+Cmd+Z / Delete / Alt+↑↓; 45/45 browser checks; the undo walk returns to the built-in; 391 tests.
+      - Footgun: `editor/Stack.tsx` and `editor/stack.ts` sit side by side on case-insensitive disks (Mac + Windows). Rename `stack.ts` in S2.3.
+      - Watch: td-feedback's trail textures swapped in 3/10 runs (governor rescale likely); check it in the CP2 late-frame run.
     - S2.1 ✅ editor shell (`L` / bar button; CP2 setter `setEditor(on)` in app.ts): hold/restore with no cut, key guard, no prepare-ahead while editing, stage CSS-scaled into the preview (no realloc); 0/3600 late. Note: on leaving, an overdue autopilot switches at the next bar (shot-clock restart possible later).
     - S1.3 ✅ bool/event binding UI + invert; a bound event fires on the rising edge only (CFM 143 true frames → 13 fires = 13 snares); live meters; 0/4562 late. **CP1 code done** (the lead close-out is pending). Tier-1 queued: the event *trigger* button stores `true` in the doc and records an undo step, so a saved scene fires that event at every build.
     - S1.2 ✅ Live mirrors (addFx at, move, setGen, addLayer at, mute, read) + `panel` records inverses: 23/23 ops+undo keep the trail; 0/4563 late. Mute is deliberately not undoable (design S2: preview-only; Esc undoes a pending try).
