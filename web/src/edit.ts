@@ -2,7 +2,7 @@
 // built-in is immutable, so a scene's first edit clones it into `docs` under the same id; every edit marks it dirty
 // (unsaved: the library clears that on save, S6). Each op takes the scene's current doc, as `live` finds it.
 import type { Binding } from './bind'
-import type { Blend, NodeDoc, SceneDoc, SceneId } from './doc'
+import type { Blend, LayerDoc, NodeDoc, SceneDoc, SceneId } from './doc'
 import type { Value } from './fx/types'
 
 export type NodePath = { layer: number; node: 'gen' | 'layer' | number } // number = fx index
@@ -49,25 +49,47 @@ export function setBlend(doc: SceneDoc, layer: number, b: Blend) {
   editable(doc).layers[layer].blend = b
 }
 
-/** Appends an effect to a layer's chain. */
-export function addFx(doc: SceneDoc, layer: number, n: NodeDoc) {
-  editable(doc).layers[layer].fx.push(n)
+// The structural ops (design S2). Each one's inverse, for undo: addFx ↔ removeFx, moveFx(from, to) ↔ moveFx(to, from),
+// setGen ↔ setGen(the old gen), insertLayer ↔ removeLayer, moveLayer(from, to) ↔ moveLayer(to, from).
+
+/** Inserts an effect into a layer's chain at `at`; appends it without. */
+export function addFx(doc: SceneDoc, layer: number, n: NodeDoc, at?: number) {
+  const fx = editable(doc).layers[layer].fx
+  fx.splice(at ?? fx.length, 0, n)
 }
 
+/** Removes one effect and returns it. */
 export function removeFx(doc: SceneDoc, layer: number, i: number) {
-  editable(doc).layers[layer].fx.splice(i, 1)
+  return editable(doc).layers[layer].fx.splice(i, 1)[0]
 }
 
-/** A new top layer at normal, opacity 1, unless the scene has LAYERS_MAX already: false then, nothing changed. */
-export function addLayer(doc: SceneDoc, gen: NodeDoc) {
+/** Moves a[from] so that it ends up at index `to`. */
+function move<T>(a: T[], from: number, to: number) {
+  a.splice(to, 0, ...a.splice(from, 1))
+}
+export const moveFx = (doc: SceneDoc, layer: number, from: number, to: number) => move(editable(doc).layers[layer].fx, from, to)
+export const moveLayer = (doc: SceneDoc, from: number, to: number) => move(editable(doc).layers, from, to)
+
+/** Replaces a layer's generator and returns the old one. */
+export function setGen(doc: SceneDoc, layer: number, n: NodeDoc) {
+  const l = editable(doc).layers[layer]
+  const old = l.gen
+  l.gen = n
+  return old
+}
+
+/** Inserts a layer at `at` (0 = bottom), unless the scene has LAYERS_MAX already: false then, nothing changed. */
+export function insertLayer(doc: SceneDoc, l: LayerDoc, at: number) {
   if (doc.layers.length >= LAYERS_MAX) return false
-  editable(doc).layers.push({ gen, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 })
+  editable(doc).layers.splice(at, 0, l)
   return true
 }
 
-/** Removes a layer, unless it is the last one: false then, nothing changed. */
+/** A new top layer at normal, opacity 1 (insertLayer's limit). */
+export const addLayer = (doc: SceneDoc, gen: NodeDoc) => insertLayer(doc, { gen, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }, doc.layers.length)
+
+/** Removes a layer and returns it, unless it is the last one: false then, nothing changed. */
 export function removeLayer(doc: SceneDoc, i: number) {
   if (doc.layers.length <= 1) return false
-  editable(doc).layers.splice(i, 1)
-  return true
+  return editable(doc).layers.splice(i, 1)[0]
 }

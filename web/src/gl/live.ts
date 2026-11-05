@@ -359,7 +359,7 @@ export function live(id: SceneId): Live {
 const edited = () => live(store.getSnapshot().edited)
 /** A structural edit (design E6): the doc changes, `sync` mirrors that one op on the running scene, the panel
  *  re-renders once. False: refused, nothing synced. */
-function restructure(apply: (doc: SceneDoc) => boolean | void, sync: (l: Live) => void) {
+function restructure(apply: (doc: SceneDoc) => unknown, sync: (l: Live) => void) {
   const l = edited()
   if (apply(l.doc) === false) return false
   sync(l)
