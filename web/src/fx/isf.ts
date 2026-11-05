@@ -27,7 +27,7 @@
 // Changes (VeeJay Wizard, 2026): pure functions over our types; audio/audioFFT inputs are samplers too; the IMG_* calls
 // are preprocessor macros, with IMG_PIXEL dividing by the image's own size (ISF spec) rather than RENDERSIZE; plain
 // JSON.parse for the header (all 327 ISF-Files headers parse); our VJW_BIND and VJW_FLASH keys; `unsupported`;
-// a whitelist evaluator for PASSES WIDTH/HEIGHT.
+// a whitelist evaluator for PASSES WIDTH/HEIGHT; passes repeating a TARGET share its sampler and pair (pairsByTarget).
 import type { Binding } from '../bind'
 import type { Category, Input, InputType, Kind, PassDef, ShaderDef, Value } from './types'
 
@@ -123,7 +123,7 @@ export function parseIsf(src: string, id: string): ShaderDef {
   // Every image the body may sample gets a sampler and its size: image/audio inputs, pass targets, imports.
   const samplers = [
     ...inputs.filter((i) => UNIFORM[i.type] === 'sampler2D').map((i) => i.name),
-    ...passes.flatMap((p) => (p.target ? [p.target] : [])),
+    ...new Set(passes.flatMap((p) => (p.target ? [p.target] : []))), // passes may repeat a TARGET: one name
     ...imported,
   ]
   const decls = [
@@ -148,6 +148,11 @@ export function parseIsf(src: string, id: string): ShaderDef {
     inputs, bind: h.VJW_BIND, flash, glsl: 100, vs: ISF_VS, fs: `${PREFIX}${decls.join('\n')}\n${body}`, passes, unsupported,
   }
 }
+
+/** Pass i → the index of the first pass naming the same TARGET, whose read/write pair it shares (live.ts node()); −1
+ *  for a pass without a TARGET. */
+export const pairsByTarget = (passes: readonly { target?: string }[]): number[] =>
+  passes.map((p) => (p.target ? passes.findIndex((q) => q.target === p.target) : -1))
 
 const TOKENS = /\$\w+|floor|ceil|round|min|max|abs|sqrt|pow|[\d.\s+\-*/(),]/g
 

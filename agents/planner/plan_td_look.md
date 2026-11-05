@@ -190,10 +190,22 @@ Depends on: S1.2 (test list). **Files:** `web/src/fx/own/flow-smear.fs`, `builti
   - Neither fixture has a build, so decay stays .92 (unexercised).
 - **Luma (2 Hz, 30 s):** .052–.287, mean .17 (dnb174) and .049–.256, mean .14 (dubstep140); 0 samples > .8. Per-10 s means .19 .16 .16 / .16 .13 .12, no climb.
 
-### S1.8 [ ] [S] engine — TARGET pairs by name
+### S1.8 [x] [S] engine — TARGET pairs by name
 Depends on: none (lands right before S1.9). **Files:** `web/src/fx/isf.ts` (`pairsByTarget`, pure), `web/src/fx/isf.test.ts`, `web/src/gl/live.ts` (`node()`, `run()`, `resize()`, `freeNode()`).
 **Behaviour (design L270):** `node()` builds one read/write pair per distinct `pairsByTarget` index; the first pass naming a TARGET sets FLOAT/PERSISTENT/WIDTH/HEIGHT; after any pass draws, its pair flips and `u[TARGET]` points at the newest texture (fact 1 semantics, unchanged); `resize()` and `freeNode()` visit each pair once. Files with distinct names behave exactly as before.
 **Tests:** `pairsByTarget`: distinct names → identity; repeats → the first index; no TARGET → −1; mixed order. **Done:** gates; no-regression bench on two existing own multi-pass scenes (pick them by grepping `PASSES` in `fx/own/`) and on `builtin:flow-smear`; the panel's live rebuild (plan_live_rebuild) still keeps a loop alive across a param edit.
+
+**Changed during implementation:** `parseIsf` declared one sampler per pass TARGET, so a repeated name redeclared `uniform sampler2D <name>` and the file failed to compile. Design fact 1's "N passes on one name work today" held only for `live.ts`. `isf.ts` now dedupes the TARGET samplers (a `Set`), with a test. `run()` needed no edit: passes sharing a name hold the same pair array, so its per-pass `reverse()` is the ping-pong. `resize()` skips a pair an earlier pass already fitted; `freeNode()` frees a `Set` of the textures.
+- **Allocation** (harness `scratchpad/td/s1.8/s1.8.mjs`: panel addFx/removeFx on `builtin:tunnel`, `gl.createTexture`/`deleteTexture` counted): bloom 18/18, flow-smear 4/4, td-feedback, edge-rings, radial-blur 2/2, identical before and after.
+  - A synthetic filter with 8 PERSISTENT passes on `s` around one pass on `a` gets 4 textures (18 the per-pass way); the base code can't compile it.
+  - Its 1×1 `s` reads back newest = 8·(FRAMEINDEX+1) mod 256 and the other texture 1 less, at 3 checkpoints: after 30 frames, after a `setValue`, after an addFx/removeFx of another node. FRAMEINDEX 29 → 59 → 94: the loop stays alive, no rebuild. removeFx deletes 4.
+- **A/B** (dnb174 looping, 2 × 8 s per scene, GPU p95 / median ms, td-feedback · bloom-glitch · flow-smear · edge-rings):
+  - before 4.88/4.52 · 3.69/3.63 · 3.39/3.05 · 2.49/2.41
+  - after 5.06/4.58 · 3.68/3.61 · 3.54/3.23 · 2.49/2.30
+  - base code re-run (A/B/A) 4.86/4.53 · 3.68/3.62 · 3.34/3.04 · 2.49/2.42
+  - after re-runs: flow-smear 3.39/3.07 and 3.49/3.15; td-feedback 5.01/4.55.
+  - GL calls per method over 120 frames (`calls.mjs`) are identical before vs after for all 4 scenes, so the ±.15 ms spread is timer noise.
+- **Shots:** `scratchpad/td/s1.8/sheet.png` (reference · before · after per scene): same look.
 
 ### S1.9 [ ] [L] `own/reaction-diffusion.fs` + `builtin:reaction-diffusion`; plan-B gate
 Depends on: S1.8, S1.4 (G3 result). **Files:** `web/src/fx/own/reaction-diffusion.fs`, `builtin.ts`, `isf.test.ts`.
