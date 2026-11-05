@@ -126,7 +126,7 @@ function inputs(x: Float32Array, genre: Genre, bpm: number) {
       fft.realTransform(spec, frame)
       let high = 0
       for (let j = lo; j <= hi; j++) high += Math.hypot(spec[2 * j], spec[2 * j + 1]) / (hi - lo + 1)
-      out.push({ low: f.raw.sub + f.raw.reese, high, total: rms(x.subarray(e - SR / FPS_APP, e)), kick, beat: ((now - T0) * bpm) / 60, now })
+      out.push({ low: f.raw.sub + f.raw.reese, high, total: rms(x.subarray(e - SR / FPS_APP, e)), kick, beat: ((now - T0) * bpm) / 60, cuts: PRESETS[genre].cuts !== false, now })
     }
     return out
   }

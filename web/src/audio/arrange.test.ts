@@ -40,7 +40,7 @@ function inputs(x: Float32Array, bpm: number | null): ArrangeIn[] {
     if (e % FRAME === 0) {
       bank.read(held)
       const now = e / SR
-      out.push({ low: held[1] + held[3], high, total: rms(x.subarray(e - FRAME, e)), kick, beat: bpm && ((now - T0) * bpm) / 60, now })
+      out.push({ low: held[1] + held[3], high, total: rms(x.subarray(e - FRAME, e)), kick, beat: bpm && ((now - T0) * bpm) / 60, cuts: true, now })
       kick = false
     }
   }
@@ -106,17 +106,17 @@ test('3 min of groove: never sparse, no drop', () => {
 })
 
 /** Synthetic frames, 60 fps at 120 BPM (beat = 2·now: a confident sync). Each part lasts `s` s at a constant `low`
- *  (`bump`: lifted to 1 for 50 ms on each kick instead), `high` (× `rise` per s), `total`, a kick every `kick` beats. */
-interface Part { s: number; low?: number; high?: number; rise?: number; total?: number; kick?: number; bump?: boolean }
+ *  (`bump`: lifted to 1 for 50 ms on each kick instead), `high` (× `rise` per s), `total`, a kick every `kick` beats, `cuts`. */
+interface Part { s: number; low?: number; high?: number; rise?: number; total?: number; kick?: number; bump?: boolean; cuts?: boolean }
 function song(...parts: Part[]): ArrangeIn[] {
   const out: ArrangeIn[] = []
   let [t0, kickAt] = [0, -Infinity]
-  for (const { s, low = 1, high = 1, rise = 1, total = 0.1, kick = 0, bump = false } of parts) {
+  for (const { s, low = 1, high = 1, rise = 1, total = 0.1, kick = 0, bump = false, cuts = true } of parts) {
     for (let i = 0; i < Math.round(s * 60); i++) {
       const now = t0 + i / 60
       const k = kick > 0 && i % (30 * kick) === 0
       if (k) kickAt = now
-      out.push({ low: bump && now - kickAt < 0.05 ? 1 : low, high: high * rise ** (i / 60), total, kick: k, beat: 2 * now, now })
+      out.push({ low: bump && now - kickAt < 0.05 ? 1 : low, high: high * rise ** (i / 60), total, kick: k, beat: 2 * now, cuts, now })
     }
     t0 += s
   }
@@ -128,14 +128,23 @@ const DROP: Part = { s: 10, kick: 1 }
 const AFTER = [GROOVE, BREAK, { ...DROP, s: 25 }] // a first drop at 40.1 s ends the intro; its refractory is over by 60 s
 const fired = (...parts: Part[]) => fires(run(song(...parts))).map((f) => f.fired!)
 
-test('each drop rule blocks just past its edge (sparse, arming, grace, return ratio and its ref, G share, sustain, kick, refractory, warm-up, silence; no kick-only path; a cut keeps the peak)', () => {
+test('each drop rule blocks just past its edge (sparse, arming, grace, return ratio and its ref, G share, sustain, kick, refractory, warm-up, silence; no kick-only path; a cut keeps the peak; a deep cut arms)', () => {
   const cases: [string, Part[], number][] = [
     ['base', [GROOVE, BREAK, DROP], 1],
     ['sparse: a break at 0.4 G', [GROOVE, { ...BREAK, low: 0.4 }, { ...DROP, low: 2.4 }], 1],
     // after a first drop (in the intro a short break is no run ≥ `arm`, and the intro fires on it: 7a). At sparse .6 the
-    // run starts ~.55 s into the break and lasts ~.5 s into the return, so a 6 s break arms as the return goes on
-    ['arm: a 5.5 s break is sparse ~5.5 s', [...AFTER, { ...BREAK, s: 5.5 }, DROP], 1],
-    ['arm: 8 s', [...AFTER, { ...BREAK, s: 8 }, DROP], 2],
+    // run starts ~.55 s into the break and lasts ~.5 s into the return, so a 6 s break arms as the return goes on (cuts
+    // off: this deep a break arms as a cut, below)
+    ['arm: a 5.5 s break is sparse ~5.5 s', [...AFTER, { ...BREAK, s: 5.5, cuts: false }, DROP], 1],
+    ['arm: 8 s', [...AFTER, { ...BREAK, s: 8, cuts: false }, DROP], 2],
+    // drop v2 (2): raw low under .2 G (G drifts to ≈ .98 before the run) for ≥ 1.5 s arms mid-groove (Andy C 91.0, 157.2)
+    ['cut: 2.5 s at .03 G', [...AFTER, { ...BREAK, s: 2.5, low: 0.03 }, DROP], 2],
+    ['cut: 1.4 s', [...AFTER, { ...BREAK, s: 1.4, low: 0.03 }, DROP], 1],
+    ['cut: 1.6 s', [...AFTER, { ...BREAK, s: 1.6, low: 0.03 }, DROP], 2],
+    ['cut: at .22 G', [...AFTER, { ...BREAK, s: 2.5, low: 0.22 }, DROP], 1],
+    ['cut: at .18 G', [...AFTER, { ...BREAK, s: 2.5, low: 0.18 }, DROP], 2],
+    ['cut: off under Dubstep', [...AFTER, { ...BREAK, s: 2.5, low: 0.03, cuts: PRESETS.dubstep.cuts !== false }, DROP], 1],
+    ['cut: a stopped deck is no cut', [...AFTER, { ...BREAK, s: 2.5, low: 0, total: 0 }, DROP], 1],
     ['ret: break at 0.25, back at 0.9 (3.6×)', [GROOVE, { ...BREAK, low: 0.25 }, { ...DROP, low: 0.9 }], 0],
     ['ret: back at 1.2 (4.8×)', [GROOVE, { ...BREAK, low: 0.25 }, { ...DROP, low: 1.2 }], 1],
     // drop v2 (3): ref = the quieter of the section's mean and `slow`, so a cut quieter than the break counts
@@ -147,8 +156,9 @@ test('each drop rule blocks just past its edge (sparse, arming, grace, return ra
     // a bass-carrying build (0.7: not sparse, under ret × the break's mean) ends sparse ~0.8 s in; the drop after it
     ['grace: a 7 s bass build, then the drop', [GROOVE, { ...BREAK, low: 0.2 }, { s: 7, low: 0.7 }, { ...DROP, low: 1.5 }], 1],
     ['grace: a 10 s bass build', [GROOVE, { ...BREAK, low: 0.2 }, { s: 10, low: 0.7 }, { ...DROP, low: 1.5 }], 0],
-    // a missed drop (no kick) and then two dips: a run shorter than `arm` doesn't refresh `armed` (chained, it fires ≈ .7)
-    ['grace: groove dips after a missed drop', [GROOVE, { ...BREAK, rise: 1.3 }, { s: 5, kick: 0 }, { ...BREAK, s: 1 }, { s: 4, kick: 0 }, { ...BREAK, s: 1.5 }, DROP], 0],
+    // a missed drop (no kick) and then two dips: a run shorter than `arm` doesn't refresh `armed` (chained, it fires ≈ .7;
+    // cuts off: the 1.5 s dip sits on the cut's edge)
+    ['grace: groove dips after a missed drop', [GROOVE, { ...BREAK, rise: 1.3 }, { s: 5, kick: 0 }, { ...BREAK, s: 1 }, { s: 4, kick: 0 }, { ...BREAK, s: 1.5, cuts: false }, DROP], 0],
     // drop v2 (7b), Bicep 176.5: a riser break, a bass build, then a cut that starts while armed keeps the riser's peak
     ['peak: a 1.5 s cut after a 3 s bass build', [GROOVE, { ...BREAK, rise: 1.3 }, { s: 3, low: 0.7 }, { ...BREAK, s: 1.5 }, DROP], 1],
     // …and a 0.5 s cut, sparse ≈ .1 s before the return: the return's own frames stay out of that run's mean
@@ -164,6 +174,7 @@ test('each drop rule blocks just past its edge (sparse, arming, grace, return ra
     ['silence: a stopped deck is no breakdown', [GROOVE, { ...BREAK, total: 0 }, DROP], 0],
   ]
   for (const [name, parts, n] of cases) expect(fired(...parts), name).toHaveLength(n)
+  expect(fired(...AFTER, { ...BREAK, s: 2.5, low: 0.03 }, DROP)[1]).toBeGreaterThanOrEqual(0.6) // the cut counts as a full build: it cuts
   // These edges only show as `sparse`: on fires the intro's `ref` = `slow` fires the same deep cut either way (7a).
   // sparse .6 (drop v2 (5)): G follows the break down (τ 20 s) while `slow` falls (τ 1 s): a break at 0.55 G never reads sparse
   const sparseIn = (...parts: Part[]) => run(song(...parts)).some((f) => f.sparse)
@@ -174,7 +185,7 @@ test('each drop rule blocks just past its edge (sparse, arming, grace, return ra
   const [a, b] = fires(run(song(GROOVE, BREAK, { ...DROP, s: 8 }, BREAK, DROP)))
   expect(b.now - a.now).toBeCloseTo(20, 1)
   // a hidden tab: 60 s without frames, 3 s into that 5.5 s break, is not 60 s of breakdown
-  const gap = song(...AFTER, { ...BREAK, s: 5.5 }, DROP).map((f) => (f.now < 68 ? f : { ...f, now: f.now + 60, beat: f.beat! + 120 }))
+  const gap = song(...AFTER, { ...BREAK, s: 5.5, cuts: false }, DROP).map((f) => (f.now < 68 ? f : { ...f, now: f.now + 60, beat: f.beat! + 120 }))
   expect(fires(run(gap))).toHaveLength(1) // the first drop only
 })
 
@@ -198,15 +209,22 @@ test('shouldCut: a confident drop (≥ 0.6) cuts, weak or missing never, and a h
 })
 
 test('confidence rises with the break length, the return ratio, beat alignment and the build', () => {
-  const raw = (...parts: Part[]) => fires(run(song(...parts), { minConf: 0 })).map((f) => f.fired!) // no floor: the formula
+  // no floor: the formula; cuts off unless a part says so (a deep break would read as a full build: see below)
+  const raw = (...parts: Part[]) => fires(run(song(...parts.map((p) => ({ cuts: false, ...p }))), { minConf: 0 })).map((f) => f.fired!)
   const [c] = raw(GROOVE, BREAK, DROP)
   expect(raw(GROOVE, { ...BREAK, s: 16 }, DROP)[0]).toBeGreaterThan(c + 0.05)
   expect(raw(GROOVE, { ...BREAK, low: 0.2 }, DROP)[0]).toBeLessThan(c - 0.05) // 5×, not 50×
   expect(raw(GROOVE, { ...BREAK, s: 10.25 }, DROP)[0]).toBeCloseTo(c - 0.25, 1) // kicks on the off-beat
-  expect(fires(run(song(GROOVE, BREAK, DROP).map((f) => ({ ...f, beat: null }))))[0].fired).toBeCloseTo(c - 0.125, 2)
+  expect(fires(run(song(GROOVE, { ...BREAK, cuts: false }, DROP).map((f) => ({ ...f, beat: null }))))[0].fired).toBeCloseTo(c - 0.125, 2)
   expect(raw(GROOVE, { ...BREAK, rise: 1.3 }, DROP)[0]).toBeGreaterThan(c + 0.05) // a riser
   // …but its peak doesn't carry into a later break that starts unarmed (only a cut inside its grace keeps it: 7b)
   expect(raw(GROOVE, { ...BREAK, rise: 1.3 }, { s: 10, kick: 0 }, BREAK, DROP)[0]).toBeCloseTo(c, 1)
+  // drop v2 (2): a deep cut counts as a full build (a riser that pins build at 1)…
+  expect(raw(GROOVE, { ...BREAK, cuts: true }, DROP)[0]).toBeCloseTo(raw(GROOVE, { ...BREAK, rise: 2 }, DROP)[0], 2)
+  // …but not before `warmup` (G isn't trusted: the intro still fires on that cut through `ref`, 7a, without the build)
+  expect(raw({ ...GROOVE, s: 10 }, { ...BREAK, s: 2.5, cuts: true }, DROP)).toEqual(raw({ ...GROOVE, s: 10 }, { ...BREAK, s: 2.5 }, DROP))
+  // …and its drop ends `armed`, so that build doesn't carry into a break starting 3 s after it (it did through GRACE: 7b)
+  expect(raw(GROOVE, { ...BREAK, cuts: true }, { ...DROP, s: 3 }, { ...BREAK, s: 20 }, DROP)[1]).toBeCloseTo(raw(GROOVE, { ...BREAK, s: 20 }, DROP)[0], 2)
   // the ratio is to `ref` too (drop v2 (3)): a 3 s cut ends this 0.5 G break, and the low end comes back at only 0.7
   // (`ref` = `slow` ≈ .09 at the hit; against the run's mean, ≈ .4, it would read ≈ .52)
   expect(raw(GROOVE, { ...BREAK, low: 0.5 }, { ...BREAK, s: 3 }, { ...DROP, low: 0.7 })[0]).toBeGreaterThan(0.6)
@@ -218,7 +236,7 @@ test('confidence rises with the break length, the return ratio, beat alignment a
 test("minConf: a weak drop (0.43, as Rumble's 70.6 s growl) is ignored and starts no refractory; the real one 11 s later fires", () => {
   // the first return's kicks are off the beat; the real drop at 49 s is still armed (GRACE) when a refractory from 38.35 s
   // would open, so without the floor it is swallowed, not late
-  const parts = [GROOVE, { ...BREAK, s: 8.25 }, { ...DROP, s: 0.75 }, BREAK, DROP]
+  const parts = [GROOVE, { ...BREAK, s: 8.25, cuts: false }, { ...DROP, s: 0.75 }, BREAK, DROP] // cuts off: a full build isn't weak
   const [weak, ...rest] = fires(run(song(...parts), { minConf: 0 }))
   expect(weak.fired).toBeCloseTo(0.43, 1)
   expect(rest).toEqual([]) // without the floor its refractory swallows the real drop
