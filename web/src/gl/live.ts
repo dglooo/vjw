@@ -12,6 +12,7 @@ import { ctx } from '../audio/input'
 import { evaluate, level, type Binding, type BindState, type Sources } from '../bind'
 import { CODE_MAX, defaults, type Blend, type LayerDoc, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
 import * as edit from '../edit'
+import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { pairsByTarget, sizeExpr } from '../fx/isf'
@@ -504,11 +505,13 @@ export const panel = {
     return insertLayer(edit.newLayer(gen)) ? null : 'The scene has 4 layers: remove one first'
   },
   // Storage (design E4, plan S6.1). Each resolves to an error message, or null once stored.
-  /** The edited scene into the library. A built-in can't be saved in place: its message says Save as. */
+  /** The edited scene into the library, its tile baked again (a Save as's new id bakes as any new block). A built-in
+   *  can't be saved in place: its message says Save as. */
   async save() {
     const { doc } = edited()
     try {
       await library.put(doc)
+      tiles.invalidate(doc.id, library.get(doc.id)) // the stored copy: later edits don't reach the tile
       edit.dirty.delete(doc.id)
       return null
     } catch (e) {
