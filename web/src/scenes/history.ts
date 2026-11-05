@@ -19,9 +19,9 @@ export function ringSize(w: number, h: number, depth = 32, cap = 64 << 20): [num
 
 interface Ring { tex: WebGLTexture; depth: number; head: number; filled: number; push(src: WebGLTexture): void; dispose(): void }
 
-/** Sized from the stage (G1: the drawing buffer is the stage), not the governed internal size. */
-function ring(gl: WebGL2RenderingContext, depth = 32): Ring {
-  const [w, h] = ringSize(gl.drawingBufferWidth, gl.drawingBufferHeight, depth)
+/** Sized from the stage (G1: the drawing buffer is the stage), not the governed internal size; a tile's from its `size`. */
+function ring(gl: WebGL2RenderingContext, size?: readonly [number, number], depth = 32): Ring {
+  const [w, h] = ringSize(size?.[0] ?? gl.drawingBufferWidth, size?.[1] ?? gl.drawingBufferHeight, depth)
   const res = [w, h]
   const tex = gl.createTexture()
   gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex)
@@ -85,9 +85,9 @@ export const rgbaDelay: NativeDef = {
     rotate: { source: 'snare', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // short release: one edge per snare
   },
   warm: async () => void fullscreenProgram(FS), // compiles only: Start allocates no ring
-  create(gl) {
+  create(gl, size) {
     const out = fullscreenProgram(FS)
-    const r = ring(gl)
+    const r = ring(gl, size)
     let order = 0
     let held = false
     return {
@@ -137,9 +137,9 @@ export const timeMachine: NativeDef = {
     phase: { source: 'beat', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // one sweep per beat
   },
   warm: async () => void fullscreenProgram(TM), // compiles only: Start allocates no ring
-  create(gl) {
+  create(gl, size) {
     const out = fullscreenProgram(TM)
-    const r = ring(gl)
+    const r = ring(gl, size)
     let n = 0
     return {
       draw(f, v, src) {
@@ -181,9 +181,9 @@ export const slitScan: NativeDef = {
     wave: { source: 'reese', amount: 1, attack: 0.05, release: 0.3, min: 0, max: 0.3 }, // the bass bends the slit
   },
   warm: async () => void fullscreenProgram(SS), // compiles only: Start allocates no ring
-  create(gl) {
+  create(gl, size) {
     const out = fullscreenProgram(SS)
-    const r = ring(gl)
+    const r = ring(gl, size)
     let n = 0
     return {
       draw(f, v, src) {

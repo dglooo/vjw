@@ -110,11 +110,15 @@ void main() {
 }`)
 const cu: Record<string, unknown> = { uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0 } // reused every composite
 
-function create(id: SceneId): Live {
+/** `own`: a tile's (tile()): its doc, and the size its own temps and natives are made for. */
+function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, number] }): Live {
   const errors: string[] = []
   let layers: Layer[] = []
   let bound: Bound[] = []
-  const doc = () => find(id)! // the panel's copy (edit.ts) from the scene's first edit on
+  const doc = () => own?.doc ?? find(id)! // the panel's copy (edit.ts) from the scene's first edit on
+  const tmp = own ? [renderTarget(), renderTarget()] : temps // a tile's own ping-pong, at its size
+  if (own) for (const t of tmp) t.fit(...own.size)
+  const onsets = own ? [] : flashOnsets // a tile never spends the preview's flash budget
 
   const fail = (msg: string) => {
     if (errors.includes(msg)) return null // rebind() meets a bad binding again
@@ -129,7 +133,7 @@ function create(id: SceneId): Live {
     if (!def) return fail(`unknown ref ${n.ref}`)
     const u: Record<string, unknown> = { ...defaults(def), ...n.values }
     const events = def.inputs.filter((x) => x.type === 'event').map((x) => x.name)
-    if ('create' in def) return { def, native: (def as NativeDef).create(gl), u, events, passes: [], w: 0, h: 0, frames: 0 }
+    if ('create' in def) return { def, native: (def as NativeDef).create(gl, own?.size), u, events, passes: [], w: 0, h: 0, frames: 0 }
     const { vs, fs, passes, inputs } = def as ShaderDef
     const info = program(vs, fs) // null when it fails to compile; twgl logged why
     if (!info) return fail(`${n.ref}: ${toy ? toyLog(fs, toy.prefixLines) : 'shader failed to compile'}`)
@@ -263,6 +267,7 @@ function create(id: SceneId): Live {
   function dispose() {
     layers.forEach(freeLayer)
     layers = []
+    if (own) tmp.forEach(free)
   }
 
   layers = doc().layers.map(buildLayer)
@@ -275,7 +280,7 @@ function create(id: SceneId): Live {
     render(f, s, acc) {
       for (const x of bound) {
         let y = evaluate(x.b, s, x.state, f.dt)
-        if (x.flash) y = flashGate(y, x.flash, flashOnsets, f.time)
+        if (x.flash) y = flashGate(y, x.flash, onsets, f.time)
         x.y = y
         if (x.i >= 0) (x.u[x.name] as number[])[x.i] = y
         else if (x.type === 'bool' || x.type === 'event') [x.u[x.name], x.state.held] = level(x.type, y, x.state.held)
@@ -304,7 +309,7 @@ function create(id: SceneId): Live {
         small?.fit(Math.max(1, Math.round(acc.width * l.v.res)), Math.max(1, Math.round(acc.height * l.v.res)))
         let src: WebGLTexture | null = null
         for (let k = 0; k < l.nodes.length; k++) {
-          const dst = direct && k === l.nodes.length - 1 ? acc : k === 0 && small ? small : temps[k % 2]
+          const dst = direct && k === l.nodes.length - 1 ? acc : k === 0 && small ? small : tmp[k % 2]
           src = run(l.nodes[k]!, l, f, dt, src, dst)
         }
         if (direct) continue
@@ -391,6 +396,12 @@ export function live(id: SceneId): Live {
   }
   return l
 }
+
+/** A library tile's own instance (2b S3.2, design S6): `doc` into the caller's w×h target, outside `cache`, so
+ *  prepare() never frees it. Its own temps and flash budget; natives made for [w, h], so the heavy ones shrink (the
+ *  ring, scatter's grid, the point counts); a `res` < 1 layer scales with it through its own `small`; a milk/* layer
+ *  takes a pooled visualizer, sized to the tile at its draw. dispose() frees all of it. */
+export const tile = (doc: SceneDoc, w: number, h: number): Live => create(doc.id, { doc, size: [w, h] })
 
 const edited = () => live(store.getSnapshot().edited)
 const rerender = () => store.patch({ editRev: store.getSnapshot().editRev + 1 })

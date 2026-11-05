@@ -16,6 +16,8 @@ import type { NativeDef } from '../gl/scene'
 import { COMPOSITE_FS } from './particles'
 
 const N = 65536 // knob: point count (D5 lever: 131072 measured 5.6 ms p95 at res .75)
+/** The swarm's point count: N on the stage, 4096 for a `size` (a tile, 2b S3.2: ≈.1 ms, design S6). */
+export const swarmN = (size?: readonly [number, number]) => (size ? 4096 : N)
 /** Each of the two TF buffers: one vec4 (pos.xy, vel.xy) of float32 per point. */
 export const swarmLayout = (n: number) => ({ floats: 4 * n, bytes: 16 * n })
 const LIFE = 6 // knob: s, each point's life (staggered by id); it fades in and out
@@ -197,12 +199,12 @@ export const swarm: NativeDef = {
     trail: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.85, max: 0.97 }, // a build lengthens the trails
     spawn: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // short release: one edge per drop
   },
-  create(gl) {
+  create(gl, size) {
     const prog = (tfProgram ??= createProgramInfo(gl, [VS, FS], { transformFeedbackVaryings: ['stateOut'] }))
     const composite = fullscreenProgram(COMPOSITE_FS)
     const bloom = createBloom(gl)
     const trail = renderTarget(true, true) // persistent: the trails survive a governor step
-    const pts = tfPoints(gl, prog, N) // the first frame scatters every (new) point over the stage
+    const pts = tfPoints(gl, prog, swarmN(size)) // the first frame scatters every (new) point over the stage
     let held = false
     return {
       draw(f, v) {
@@ -298,9 +300,9 @@ export const scatter: NativeDef = {
     spring: { source: 'build', amount: 1, attack: 1, release: 2, min: 40, max: 12 }, // a build loosens it (min > max inverts)
     explode: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // short release: one edge per drop
   },
-  create(gl) {
+  create(gl, size) {
     const prog = (scatterProgram ??= createProgramInfo(gl, [SCATTER_VS, FS], { transformFeedbackVaryings: ['stateOut'] }))
-    const grid = gridFor(gl.drawingBufferWidth, gl.drawingBufferHeight, CELL) // G1: the drawing buffer is the stage
+    const grid = gridFor(size?.[0] ?? gl.drawingBufferWidth, size?.[1] ?? gl.drawingBufferHeight, CELL) // G1: the drawing buffer is the stage; a tile's size
     const pts = tfPoints(gl, prog, grid.count)
     let held = false
     return {

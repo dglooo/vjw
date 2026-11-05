@@ -94,20 +94,21 @@ let tfProgram: ProgramInfo | undefined
 export const particles: NativeDef = {
   id: 'native/particles', name: 'Particles', kind: 'generator', category: 'geometry',
   credit: 'VeeJay Wizard, after Gregg Tavares (twgl.js)', inputs,
-  create(gl) {
+  create(gl, size) {
+    const n = size ? 4096 : N // a tile's (2b S3.2, design S6): ≈.1 ms
     const prog = (tfProgram ??= createProgramInfo(gl, [VS, FS], { transformFeedbackVaryings: ['posOut', 'velOut'] }))
     const composite = fullscreenProgram(COMPOSITE_FS)
     const bloom = createBloom(gl)
     const target = renderTarget(true)
-    const start = new Float32Array(2 * N) // a random disc, at rest
-    for (let i = 0; i < N; i++) {
+    const start = new Float32Array(2 * n) // a random disc, at rest
+    for (let i = 0; i < n; i++) {
       const a = Math.random() * 2 * Math.PI
       const r = 0.06 + 0.66 * Math.sqrt(Math.random())
       start[2 * i] = r * Math.cos(a)
       start[2 * i + 1] = r * Math.sin(a)
     }
-    const a = createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: start }, vel: { numComponents: 2, data: 2 * N } })
-    const b = createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: 2 * N }, vel: { numComponents: 2, data: 2 * N } })
+    const a = createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: start }, vel: { numComponents: 2, data: 2 * n } })
+    const b = createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: 2 * n }, vel: { numComponents: 2, data: 2 * n } })
     // Ping-pong: each set reads one pair of buffers through its VAO and writes the other pair through its TF object.
     const sets = [[a, b], [b, a]].map(([src, dst]) => ({
       vao: createVertexArrayInfo(gl, prog, src).vertexArrayObject!,
@@ -141,7 +142,7 @@ export const particles: NativeDef = {
         gl.blendFunc(gl.ONE, gl.ONE)
         gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf)
         gl.beginTransformFeedback(gl.POINTS)
-        gl.drawArrays(gl.POINTS, 0, N)
+        gl.drawArrays(gl.POINTS, 0, n)
         gl.endTransformFeedback()
         gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null)
         gl.disable(gl.BLEND)
