@@ -5,14 +5,14 @@
 ## HEAD
 
 **Updated:** 2026-11-05 23:15 (session 9; the bot reader crash blocked S3.4)
-**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP4, S4.1 next)**. 411 tests.
+**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP4, S4.2 running)**. 413 tests.
 **Specs:** `thoughts/spec_veejay_wizard.md` + `spec_effects`, `spec_audio_reactivity`, `spec_td_look`, `spec_effect_editor`, `spec_camera`. **Team:** planner Fable 5.1 max; others Opus 5.5 max; researcher high.
 
 ### Where we stopped
 - **2b editor** (`plan_effect_editor.md`, Variant B): CP1 code ✅ (lead close-out pending); CP2 ✅; **CP3 ✅ closed (lead, 2026-11-05)**.
   - S3.4 ✅ (merge after `c56b682`): `tiles.hover` runs the hovered tile live (≈19 stills/s); on leave its last frame stays as the still; milk waits; Save re-bakes from the stored doc (new import cycle live↔tiles, call-time only). 411 tests.
   - CP3 run: 4 late = the mount + 3 × 33 ms. A/B (bake only 3, no bake 2) says environment, on a loaded machine. Re-run quiet at the 2b close-out.
-- **Running: CP4 S4.1** `own/bars.fs` (`frontend-coder`, worktree, dispatched 2026-11-05 23:1x) (then S4.2 Pixellate + mosaic, S4.3 led-grid + ASCII (G3), S4.4 3 built-ins + THIRD_PARTY + sheet + 60 s runs).
+- **CP4:** S4.1 ✅ `own/bars.fs` (merge after `901bdc6`; line/circle/mirror/wave; r glow↔kick .92, hue↔snare .84, thickness↔sub .99/.88, smoothing↔build .90; bars+flash p95 2.65 ms; donor VIDVOX lines noted for S4.4). 413 tests. **Running: S4.2** (then S4.2 Pixellate + mosaic, S4.3 led-grid + ASCII (G3), S4.4 3 built-ins + THIRD_PARTY + sheet + 60 s runs).
 - Then the 2b close-out: CP1 lead close-out + a quiet-machine CP3/CP4 run.
 
 ### Queue (user order 2026-11-05)
