@@ -4,7 +4,7 @@
 
 ## HEAD
 
-**Updated:** 2026-11-05 12:1x (session 8; resumed by the user at 12:08)
+**Updated:** 2026-11-05 12:3x (session 8; bot restart for the hook fix)
 **Stage:** pilot ✅ → `effects` ✅ → `audio-reactivity` ✅ → `milkdrop` ✅ → **`2d TD look` ✅ (plan_td_look.md, 18 steps, CP1–CP4; 11 new scenes + rebind of 23)**; polish §3 §5 §6 §7 ✅. 349 tests.
 **Spec:** `thoughts/spec_veejay_wizard.md` + `spec_effects.md` + `spec_audio_reactivity.md`. **Team:** `planner` Fable 5.1 max; others Opus 5.5 max; `researcher` high.
 
@@ -64,11 +64,11 @@
     - **Plan done:** `agents/planner/plan_effect_editor.md`, 4 CPs / 15 steps (design S3.2 split into engine S3.2 + editor S3.3; live tile = S3.4). G1/G2/G4 → S3.3, G3 → S4.3. `L` is free; Vitest is Node-only, so logic lives in `.ts` helpers.
     - S1.1 ✅ `edit.ts` structural ops with round-tripped inverses + `undo.ts` `edits` stack (key coalescing, sliding 1 s window); 370 tests.
     - S1.2 ✅ Live mirrors (addFx at, move, setGen, addLayer at, mute, read) + `panel` records inverses: 23/23 ops+undo keep the trail; 0/4563 late. Mute is deliberately not undoable (design S2: preview-only; Esc undoes a pending try).
-    - Snare fix as ruled: wobble beds 12/17 → 0, but Dubstep arr F1 only .71. Lead amendment E1 (±1-hop crosstalk) + E2 (a vetoed hop is not the reference) → 1.00 in the probe; the same coder is applying it now. Pre-existing: arr snare rolls 0/32 (riser masks; flux splits over 2 hops); left for the real-track audit.
-    - Paused by the user 11:xx, **resumed 12:08 (from Telegram)**. **Running:** the original snare coder, resumed via SendMessage in its own worktree, verifying E1+E2.
-      - ⚠️ **Telegram blocker:** the bot's PreToolUse hook (`claude-tg/tgbot/claude.py` `background_agent`) only allows `run_in_background is True`. This session's Agent schema has no such field, so the value arrives as the string "true" and every new Agent launch is denied. Workaround: SendMessage-resume existing agents. Fixed in claude-tg `8684ac0` (`in (True, "true")`; CLI 2.1.318 ignores the value and forces subagents into the background when the parameter isn't offered; test_bot ok). **Pending: restart the bot** (user asked) once the snare coder is merged and the `avadge-web` session is idle (idle notice subscribed). The restart kills this Telegram session: resume from STATE.
-      - Snare branch `worktree-agent-a8394d69dde7d24c0`: `35d5901` (tilt veto, gates green, 374 tests) + `8e39289` WIP (E1+E2 applied, **unverified**, the arr test still pinned at ≥.7). The worktree `.claude/worktrees/agent-a8394d69dde7d24c0` is KEPT and not merged. Its probe is parked in the worktree's `scratchpad/snare/zz_probe.test.ts.wip.txt`.
-      - **Exact next step on resume:** a fresh `frontend-coder` in its own worktree: `git merge worktree-agent-a8394d69dde7d24c0`, then verify E1+E2 (Dubstep arr groove+drop snare F1 ≥ .8, beds 0, patterns/kick unchanged, mutants E1-off/E2-off fail, app trace with no beat-1 flashes, drops 5/5). The lead then merges and removes the old worktree.
+    - **Snare fix ✅ merged** (`1941b5a` via merge): 3–5 kHz tilt veto inside onset + ±1-hop crosstalk + a vetoed hop is not a reference. Dubstep arr snare F1 .11 → .89 (24/24 found), DnB .92, Techno .86, wobble beds 0, kick unchanged, drops 5/5; 374 tests.
+      - Residual: 3–4 beat-1 flashes per snare-bound param in a 23 s Dubstep window. The kick's 3 kHz click posts 1–2 hops before a weak kick, and a constant can't split it from Techno claps without a fixture-tuned margin. Lead: don't tune on the fixture; re-check on real tracks in the audit.
+      - Snare rolls 0/32 (pre-existing): left for the audit too.
+    - **Bot restart (user asked, 12:3x):** the claude-tg hook fix `8684ac0` goes live when the lead restarts the bot detached (new copy after 25 s; single.py stops the old one, which ends this Telegram session).
+      - **Exact next step after the restart:** a tiny test Agent launch, to confirm the hook passes. Then the real-track audit (a coder step; tracks in `tracks/`), then 2b S1.3.
     - **Then: real-track audit + tuning** on the user's tracks (`tracks/`, git-ignored; 4 FLAC + 1 WAV, 44.1 kHz stereo, 2.5–3.8 min: Kanine *Feel The Vibration*, Sub Focus *Elevate (SOTA remix)*, Andy C *Who Like The What (ext)*, Skrillex *Rumble*, Bicep *Glue (Kanine bootleg)*). Covers queue #4 (tempo lock, false hits, preset `proto`/`sens`, classifier, drop). Then 2b S1.3.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
