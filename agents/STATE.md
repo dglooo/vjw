@@ -119,6 +119,13 @@
       - B: Apple Vision via a Swift helper (≈22 fps reported on M1/M2; transport via WebSocket, WebRTC or a virtual camera).
       - C: macOS effects reach Chrome as processed pixels only; no mask API.
       - Gap: no Apple Silicon fps and no low-light/strobe data, so the first design step is an M4 probe. **Running:** `system-designer` → `design_camera.md`.
+    - **Camera design ✅** `agents/system-designer/design_camera.md` (pure web, Mac + Windows). **Lead pick: B, all defaults.**
+      - Segmentation worker gets `VideoFrame`s and returns a ≤64 KB mask + area/box; mask EMA .85 plus a flood/jump gate; luma limiter for camera strobes.
+      - `LayerDoc.mask` (person/background); `native/camera` (+ `cut`), `native/outline`, `own/negative`, `presence` source.
+      - The worker is recycled every 30 min for MediaPipe leak #6352; built-ins fall back to their TD layer with no camera.
+      - CP0 probe `?camprobe` (Selfie vs PoseLandmarker, CPU/GPU, worker/main/same-ctx, RVM if wired) on the M4 + the Windows PC, then a probe ruling; CP1–CP3: 6 steps (framing optional).
+      - **User provides:** the DJ-booth clip (≥60 s 720p30: steady light, low light, strobe, hands on decks, fast moves, someone walking behind) and the Windows probe run (`npm run build && npm run preview` on the PC, 75-min soak).
+      - **Running:** `planner` → `plan_camera.md`.
     - **Camera research, cross-platform ✅** `agents/research/research_camera_xplat.md`: pure web, Chrome on Win + Mac.
       - Shortlist: MediaPipe Selfie (<2 m, only published fps), PoseLandmarker mask (full body ≤4 m), RVM on WebGPU (GPL, recurrent alpha; no Windows fps).
       - MediaPipe Windows GPU bugs: NVIDIA mask offset; long-session GL leak #6352 (open).
