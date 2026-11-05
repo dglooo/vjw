@@ -434,6 +434,20 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  {
+    v: 1, id: 'builtin:slit-scan-ring', name: 'Slit scan ring', star: true, // the history ring's; builtin:slit-scan is the echo one
+    layers: [{
+      gen: { ref: 'native/spectrum' }, // every row up the stage is an older frame: the bars smear upward through time
+      fx: [{
+        ref: 'native/slit-scan', // the def's bind (scenes/history.ts), repeated: built-ins stay JSON literals
+        bind: {
+          span: { source: 'sub', amount: 1, attack: 0.05, release: 0.5, min: 8, max: 31 }, // the sub stretches the smear back
+          wave: { source: 'reese', amount: 1, attack: 0.05, release: 0.3, min: 0, max: 0.3 }, // Auto-style's one: the slit bends
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.

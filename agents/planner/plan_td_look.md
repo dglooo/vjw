@@ -321,10 +321,25 @@ Depends on: S2.2. **Files:** `history.ts`, `catalog.ts`, `builtin.ts`.
     - Crossfade the images of the 0- and 1-arm ramps: 2 more taps, ghosting in between.
     - Keep it as a graphic cut.
   - The session's first ring scene drops one frame (S2.2's Metal-cache finding, again at r0).
+- **Seam fixed in S2.4** (lead pick, option 1): `swirl·|θ|/π` replaces `swirl·θ/2π`.
 
-### S2.4 [ ] [M] `native/slit-scan` + `builtin:slit-scan-ring`
+### S2.4 [x] [M] `native/slit-scan` + `builtin:slit-scan-ring`
 Depends on: S2.2. **Files:** `history.ts`, `catalog.ts`, `builtin.ts`.
 **Look:** TD slit scan over the ring. Stride 2. `age = span·coord + wave·sin(6.283·coord⊥ + time)`, `coord` = y, x or radius by an `axis` long input (default y). **Bind:** span ← sub .05/.5 8→31 · wave ← bass .05/.3 0→.3. **Scene:** spectrum → slit-scan, id `builtin:slit-scan-ring`: the echo-based `builtin:slit-scan` and `own/echo.fs` stay as they are (design decision 5); the parked worktree is already gone (STATE). **Done:** gates; bench; screenshot; trace (span on sub).
+**Changed during implementation:**
+- **Code shape.** As time-machine: the shared `PAST` prefix plus its own `main()`; stride 2 in the native (a push every 2nd draw, `uLag` half a slot). `axis` is a `long` (0 y, 1 x, 2 radius); the panel shows a select. Radius runs from the centre to the corners (round, in pixels), and the wave across it runs along θ, which is seamless (`sin(θ + time)`). Ages clamp at both ends: past the bottom (left edge, centre) it reads the present, past the top the oldest slot.
+- **`wave` is in slit-coordinate units:** `age = span·(coord + wave·sin(6.283·coord⊥ + time))`. Read literally (`+ wave·sin`, in slots), .3 is under one frame and invisible. Scaled by span, .3 bends the slit by 30% of the stage on the drop.
+- **Bindings.** `wave` binds `reese` (ruling 2026-11-05), not `bass`; `span ← sub` as planned. Defaults: span 16 (0–31), wave 0 (0–1). `builtin:slit-scan-ring` repeats the def's bind as a literal (S2.2's reason).
+- **Tests.** One entry: `history.test.ts` checks slit-scan's bind sources too.
+- **Measured** (`scratchpad/td/s2.4/`, worktree):
+  - GPU: showcase p95 3.77 ms (traces 3.75–3.83), ≤4 late frames per 3000. Same-session A/B with an `own/flash` tail: Truchet → flash 1.29 vs Truchet → slit-scan → flash 1.97 p95, so the effect costs ≈ .68 ms itself.
+  - **Finding:** after the spectrum, any native ring filter reads ≈ +3 ms on the timer: spectrum → flash 3.43, → slit-scan → flash 6.42, → time-machine → flash 6.69. A stripped ISF node (→ flash → flash) adds only .18, and S2.2 measured tunnel → rgba-delay at +.94. So it comes from the spectrum chain, not from the new shader: the S1.4/S1.7 timer anomaly. Late frames stay at 0–1 per 480. The CP2 late-frame run is the check.
+  - Memory: ring 61.8 MB. The GPU process goes up 66 MB over `builtin:spectrum` and returns exactly to baseline on dispose (twice). Over the tunnel it reads +103 MB: the extra is the spectrum's own float target and bloom.
+  - Cuts: a fresh ring (Truchet → slit-scan, span 31) keeps its channel means within .99 of the Truchet over frames 1–70, so no ghost. No late frames on the cut, nor on time-machine → slit-scan-ring.
+  - G2: picker group 'feedback'; the def's bind arrives with the node. Axes x and radius checked by shot.
+  - Trace, DnB: span r .993 with sub, 8 in the groove → 31 on the drop (body p50 14.8 / p90 27.1); wave r .97 with reese, 0 → .3 on the drop.
+  - Trace, Dubstep (pick dubstep): styled reese = wobble, wave r .84 (body p50 .17 / p90 .27); span r .89 with sub.
+- **Time-machine seam (lead fix, the S2.3 finding).** `swirl·|θ|/π` replaces `swirl·θ/2π`: no cut at any swirl, and a mirrored pinch replaces the one-arm spiral. Before/after on the DnB drop: `tm-seam-before-after.png`. GPU unchanged (p95 1.73 → 1.72).
 
 **CP2 close (lead):** contact sheet `cp2-sheet.png` of the 3 ring scenes; reaction check; a fade rgba-delay ↔ time-machine (forced cut or `?bench`): 0 late frames, GPU memory ≤ ≈160 MB peak with ≤2 rings live (Chrome task manager, G6); if over, drop the ring cap to 48 MiB (depth stays 32); commit.
 

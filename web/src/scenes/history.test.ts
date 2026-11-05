@@ -1,7 +1,7 @@
-// plan_td_look.md S2.2–S2.3: the history ring's pure helpers, and the native's bind defaults name real sources.
+// plan_td_look.md S2.2–S2.4: the history ring's pure helpers, and the native's bind defaults name real sources.
 import { expect, test, vi } from 'vitest'
 import { SOURCE_IDS } from '../bind'
-import { rgbaDelay, ringSize, slot, timeMachine } from './history'
+import { rgbaDelay, ringSize, slitScan, slot, timeMachine } from './history'
 
 vi.mock('../gl/engine', () => ({})) // takes the page's canvas + WebGL at import; the helpers need neither
 
@@ -20,5 +20,5 @@ test('ringSize: ½ the stage under 64 MiB, halved again when 32 slots would pass
 })
 
 test('the ring natives bind known sources', () => {
-  for (const d of [rgbaDelay, timeMachine]) for (const b of Object.values(d.bind!)) expect(SOURCE_IDS).toContain(b.source)
+  for (const d of [rgbaDelay, timeMachine, slitScan]) for (const b of Object.values(d.bind!)) expect(SOURCE_IDS).toContain(b.source)
 })
