@@ -388,6 +388,13 @@ Depends on: S3.1. **Files:** `points.ts`, `points.test.ts`, `catalog.ts` + `buil
   - Late frames: only on the screenshot frames (`toDataURL`), plus one stray 26 ms frame in a 42 s run. 0 on entry in the bench.
 
 **CP3 close (lead, spec §4.4–4.5):** contact sheet `cp3-sheet.png` of swarm + scatter; reaction check; **the closing run:** 60 s autopilot with all 11 new scenes starred in the live playlist (`scratchpad/milk-cp3.mjs` pattern): 0 late frames, governor 1.00×, GPU memory within D5 (peak ≈160 MB, Chrome task manager); `__flash` ≤3/s and a luma-std trace on both fixtures over the bloom scenes; commit.
+**CP3 Done (lead, 2026-11-05 09:xx):** `scratchpad/td/cp3-close.mjs`.
+- A, closing run: 66 s autopilot, 22 switches over all **11 new scenes** (each twice), audio flowing, Auto-style picked.
+  - `dnb174-arr`: 3962 frames, **0 late**, p99 18.5, gov drops 0, scale 1.00, jsMs 0.6.
+  - `dubstep140-arr`: 3962 frames, **0 late**, p99 18.6, 1.00×, jsMs 0.7. No errors.
+- B, WCAG on the bloom scenes (per-frame stage luma; a flash = a rise ≥ .1 within 0.25 s): **max 3 in any 1 s** (at the cap, never over) on bloom-glitch and td-feedback, both fixtures; `__flash` ≤2 per 1 s.
+- Memory per coders: rings 61.8 MB each, swarm 22.4, scatter 3.9, all freed; 2 live rings = 124 MB ≤ 160.
+- Sheet `scratchpad/td/cp3-sheet.png` (swarm + scatter, both fixtures).
 
 ### CP4 — the rebind pass
 
