@@ -1,7 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { director } from '../app'
+import type { SceneId } from '../doc'
 import { stage } from '../gl/engine'
 import { live, panel } from '../gl/live'
+import { library } from '../library'
+import { BUILTIN } from '../scenes/builtin'
 import { store } from '../store'
+import { Gpu, LibraryIo, SceneHead, type Say } from '../ui/Panel'
 import { edits } from '../undo'
 import { Stack } from './Stack'
 import { clampSel, type Sel } from './layers'
@@ -9,6 +14,37 @@ import './editor.css'
 
 /** A text field keeps its own keys (Cmd+Z, Delete). A slider, checkbox or select has no text selection (null). */
 const typing = (t: EventTarget | null) => t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && t.selectionStart !== null)
+let libRev = 0 // +1 per library change, as Panel.tsx's: the open list and Export follow a save or an import
+library.onChange(() => libRev++)
+
+/** The editor's header (S2.4), on top of the builder: New, open (any library scene, starred or not), the GPU hint; then
+ *  the scene's star, Save and Save as… (the panel's SceneHead), Export and Import. Both cut (director.cut), so
+ *  `store.edited` follows and undo starts again (S1.2). */
+function Head({ id, say }: { id: SceneId; say: Say }) {
+  useSyncExternalStore(library.onChange, () => libRev)
+  const scenes = [...BUILTIN.map((b) => library.get(b.id)!), ...library.all()]
+  if (!library.get(id)) scenes.push(live(id).doc) // New's draft, until it is saved
+  return (
+    <>
+      <header>
+        <button title="A new scene: one Spectrum layer" onClick={() => director.cut(panel.newScene())}>
+          New
+        </button>
+        <select aria-label="Open a scene" value={id} onChange={(e) => director.cut(e.target.value)}>
+          {scenes.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </select>
+        <Gpu />
+      </header>
+      <SceneHead id={id} say={say}>
+        <LibraryIo say={say} />
+      </SceneHead>
+    </>
+  )
+}
 
 /** The editor screen (2b, design S1; key L): library | preview | builder. The preview is the live stage itself,
  *  CSS-scaled into its cell. A transform leaves clientWidth alone, so measure(), the governor and the ring sizes stay
@@ -21,6 +57,9 @@ export function Editor() {
 function Open() {
   const id = useSyncExternalStore(store.subscribe, () => store.getSnapshot().edited)
   const [sel, select] = useState<Sel>({ layer: 0, fx: null })
+  // The header's last result. Here, not in the Stack: New, open and Save as re-key it, and the note outlives that.
+  const [note, setNote] = useState<{ text: string; err: boolean }>()
+  const say: Say = (err, what, done) => setNote(err ? { text: `${what}: ${err}`, err: true } : { text: done, err: false })
   const cell = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const el = cell.current!
@@ -78,7 +117,16 @@ function Open() {
     >
       <aside>Library</aside>
       <div ref={cell} />
-      {id && <Stack key={id} id={id} sel={sel} select={select} />}
+      {id && (
+        <Stack key={id} id={id} sel={sel} select={select}>
+          <Head id={id} say={say} />
+          {note && (
+            <p key={note.text} className={note.err ? 'err' : 'note'} onAnimationEnd={() => setNote(undefined)}>
+              {note.text}
+            </p>
+          )}
+        </Stack>
+      )}
     </div>
   )
 }

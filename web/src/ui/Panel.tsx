@@ -207,7 +207,7 @@ export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove
           case 'event':
             return (
               <Param key={x.name} label={label} bind={bind(x.name, 0, 1)}>
-                <button onClick={() => set(true)}>trigger</button>
+                <button onClick={() => panel.pulse(path, x.name)}>trigger</button>
               </Param>
             )
           case 'color':
@@ -323,6 +323,103 @@ export function GenOptions() {
   ))
 }
 
+/** A file op's result, for the note under the header: its error, or what it did. */
+export type Say = (err: string | null, what: string, done: string) => void
+
+/** The edited scene's file row (design E4), the panel's and the editor's: its star, Save, Save as… and `children`.
+ *  Save as… swaps the row for its name field, then cuts to the new scene. A scene not in the library yet (the editor's
+ *  New) has no star to keep until it is saved. */
+export function SceneHead({ id, say, children }: { id: SceneId; say: Say; children?: ReactNode }) {
+  useSyncExternalStore(library.onChange, () => libRev) // the star
+  const [naming, setNaming] = useState(false)
+  const { name } = live(id).doc
+  const star = !!library.get(id)?.star
+  const builtin = id.startsWith('builtin:')
+  return (
+    <header>
+      {naming ? (
+        // Not a prompt(): it blocks the main thread, so the picture froze while the name was typed. Keys stay in the
+        // field as in Paste (no hotkeys while typing; Esc closes the field only), and so does pointer-up (the panel's
+        // blur would unfocus it).
+        <form
+          onKeyDown={(e) => {
+            e.stopPropagation()
+            if (e.code === 'Escape') setNaming(false)
+          }}
+          onPointerUp={(e) => e.stopPropagation()}
+          onSubmit={async (e) => {
+            e.preventDefault()
+            const as = String(new FormData(e.currentTarget).get('as')).trim()
+            if (!as) return
+            setNaming(false)
+            const to = crypto.randomUUID()
+            const err = await panel.saveAs(as, to)
+            if (!err) director.cut(to) // on screen at once: the panel edits the new scene
+            say(err, 'Save as', `Saved as “${as}”`)
+          }}
+        >
+          <input
+            name="as"
+            aria-label="Save as"
+            defaultValue={name}
+            required
+            autoFocus
+            autoComplete="off"
+            spellCheck={false}
+            onFocus={(e) => e.currentTarget.select()} // as prompt() did: typing replaces the old name
+          />
+          <button>OK</button>
+          <button type="button" onClick={() => setNaming(false)}>
+            Cancel
+          </button>
+        </form>
+      ) : (
+        <>
+          <button
+            className={star ? 'star on' : 'star'}
+            aria-pressed={star}
+            aria-label={`Star ${name}`}
+            title={star ? 'Starred: in the autopilot' : 'Star it into the autopilot'}
+            disabled={!library.get(id)}
+            onClick={() => panel.toggleStar()}
+          >
+            {star ? '★' : '☆'}
+          </button>
+          <button disabled={builtin} title={builtin ? 'A built-in: Save as a new scene' : undefined} onClick={async () => say(await panel.save(), 'Save', 'Saved')}>
+            Save
+          </button>
+          <button onClick={() => setNaming(true)}>Save as…</button>
+          {children}
+        </>
+      )}
+    </header>
+  )
+}
+
+/** Export (every user scene, one file) and Import (a library file or one scene, through a hidden file input). */
+export function LibraryIo({ say }: { say: Say }) {
+  const file = useRef<HTMLInputElement>(null)
+  return (
+    <>
+      <button disabled={!library.all().length} onClick={() => library.exportLibrary()}>
+        Export
+      </button>
+      <button onClick={() => file.current!.click()}>Import</button>
+      <input
+        ref={file}
+        type="file"
+        accept=".json,application/json"
+        hidden
+        onChange={async (e) => {
+          const f = e.target.files?.[0]
+          e.target.value = '' // the same file can come in again
+          if (f) say(await library.importFile(f), 'Import', `Imported ${f.name}`)
+        }}
+      />
+    </>
+  )
+}
+
 /** The Shadertoy paste (spec §4.4, design E5): a single-pass `mainImage` becomes a new top layer, or its compile log
  *  shows under the code. A modal: keys stay in it (no hotkeys while typing; Esc closes the dialog only). */
 function Paste({ ref }: { ref: RefObject<HTMLDialogElement | null> }) {
@@ -382,15 +479,10 @@ function Open({ id }: { id: SceneId }) {
   const errors = useSnap('nodeErrors')
   useSyncExternalStore(library.onChange, () => libRev)
   const paste = useRef<HTMLDialogElement>(null)
-  const file = useRef<HTMLInputElement>(null)
   const [note, setNote] = useState<{ text: string; err: boolean }>()
-  const [naming, setNaming] = useState(false) // Save as… swaps the header row for its name field
   const [tab, setTab] = useState<'scene' | 'sources'>('scene') // a view concern, not a store field (S6.1)
-  const say = (err: string | null, what: string, done: string) => setNote(err ? { text: `${what}: ${err}`, err: true } : { text: done, err: false })
-  const load = async (f: File) => say(await library.importFile(f), 'Import', `Imported ${f.name}`)
-  const { layers, name } = live(id).doc // its name is the bar's, right above
-  const star = !!library.get(id)?.star
-  const builtin = id.startsWith('builtin:')
+  const say: Say = (err, what, done) => setNote(err ? { text: `${what}: ${err}`, err: true } : { text: done, err: false })
+  const { layers } = live(id).doc // its name is the bar's, right above
   return (
     <div
       className="panel"
@@ -411,7 +503,7 @@ function Open({ id }: { id: SceneId }) {
         if (!f?.name.toLowerCase().endsWith('.json')) return // audio: the document's drop plays it
         e.preventDefault()
         e.stopPropagation()
-        void load(f)
+        void library.importFile(f).then((err) => say(err, 'Import', `Imported ${f.name}`))
       }}
     >
       <div className="tabs">
@@ -421,62 +513,9 @@ function Open({ id }: { id: SceneId }) {
           </button>
         ))}
       </div>
-      <header>
-        {naming ? (
-          // Not a prompt(): it blocks the main thread, so the picture froze while the name was typed. Keys stay in the
-          // field as in Paste (no hotkeys while typing; Esc closes the field only), and so does pointer-up (the panel's
-          // blur would unfocus it).
-          <form
-            onKeyDown={(e) => {
-              e.stopPropagation()
-              if (e.code === 'Escape') setNaming(false)
-            }}
-            onPointerUp={(e) => e.stopPropagation()}
-            onSubmit={async (e) => {
-              e.preventDefault()
-              const as = String(new FormData(e.currentTarget).get('as')).trim()
-              if (!as) return
-              setNaming(false)
-              const to = crypto.randomUUID()
-              const err = await panel.saveAs(as, to)
-              if (!err) director.cut(to) // on screen at once: the panel edits the new scene
-              say(err, 'Save as', `Saved as “${as}”`)
-            }}
-          >
-            <input
-              name="as"
-              aria-label="Save as"
-              defaultValue={name}
-              required
-              autoFocus
-              autoComplete="off"
-              spellCheck={false}
-              onFocus={(e) => e.currentTarget.select()} // as prompt() did: typing replaces the old name
-            />
-            <button>OK</button>
-            <button type="button" onClick={() => setNaming(false)}>
-              Cancel
-            </button>
-          </form>
-        ) : (
-          <>
-            <button
-              className={star ? 'star on' : 'star'}
-              aria-pressed={star}
-              aria-label={`Star ${name}`}
-              title={star ? 'Starred: in the autopilot' : 'Star it into the autopilot'}
-              onClick={() => panel.toggleStar()}
-            >
-              {star ? '★' : '☆'}
-            </button>
-            <button disabled={builtin} title={builtin ? 'A built-in: Save as a new scene' : undefined} onClick={async () => say(await panel.save(), 'Save', 'Saved')}>
-              Save
-            </button>
-            <button onClick={() => setNaming(true)}>Save as…</button>
-            <Gpu />
-          </>
-        )}
-      </header>
+      <SceneHead id={id} say={say}>
+        <Gpu />
+      </SceneHead>
       {note && (
         <p key={note.text} className={note.err ? 'err' : 'note'} onAnimationEnd={() => setNote(undefined)}>
           {note.text}
@@ -485,21 +524,7 @@ function Open({ id }: { id: SceneId }) {
       <details className="lib">
         <summary>Library</summary>
         <div className="io">
-          <button disabled={!library.all().length} onClick={() => library.exportLibrary()}>
-            Export
-          </button>
-          <button onClick={() => file.current!.click()}>Import</button>
-          <input
-            ref={file}
-            type="file"
-            accept=".json,application/json"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              e.target.value = '' // the same file can come in again
-              if (f) void load(f)
-            }}
-          />
+          <LibraryIo say={say} />
         </div>
         <ul>
           {[...BUILTIN.map((b) => library.get(b.id)!), ...library.all()].map((d) => (

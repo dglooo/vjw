@@ -52,6 +52,13 @@
 .stack .head {
   min-height: 34px;
 }
+/* The header (S2.4): New · open · GPU, then star · Save · Save as… · Export · Import (panel.css lays out each row). */
+.stack header select {
+  flex: 1;
+}
+.stack header + header {
+  margin-top: 6px;
+}
 .stack .layer > .head > span {
   font-size: 12px;
 }

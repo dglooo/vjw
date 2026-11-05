@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from 'vitest'
 import type { Binding } from './bind'
 import { parseScene, type LayerDoc, type SceneDoc } from './doc'
-import { addFx, addLayer, dirty, docs, insertLayer, moveFx, moveLayer, newNode, removeFx, removeLayer, setBinding, setBlend, setGen, setValue } from './edit'
+import { addFx, addLayer, dirty, docs, insertLayer, moveFx, moveLayer, newNode, newScene, removeFx, removeLayer, setBinding, setBlend, setGen, setValue } from './edit'
 
 const B: Binding = { source: 'bass', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }
 const layer = (ref: string, over: Partial<LayerDoc> = {}): LayerDoc => ({ gen: { ref }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1, ...over })
@@ -183,4 +183,13 @@ test('setValue writes a node input (gen or fx i) or a layer value, and ignores o
     layer('a'),
     layer('b', { gen: { ref: 'b', values: { center: [0.5, 0.25] } }, fx: [{ ref: 'f0' }, { ref: 'f1', values: { sides: 8 } }], opacity: 0.5, res: 0.5 }),
   ])
+})
+
+test('newScene: one layer of its gen under a fresh id, held and dirty, and a scene parseScene accepts as it is', () => {
+  const d = newScene({ ref: 'native/spectrum' })
+  expect(parseScene(d)).toStrictEqual(d)
+  expect(d.layers).toStrictEqual([layer('native/spectrum')])
+  expect(docs.get(d.id)).toBe(d)
+  expect(dirty.has(d.id)).toBe(true)
+  expect(newScene({ ref: 'native/spectrum' }).id).not.toBe(d.id)
 })

@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent, type ReactNode } from 'react'
 import type { LayerDoc, SceneId } from '../doc'
 import { live, panel } from '../gl/live'
 import { store } from '../store'
-import { Fx, FxOptions, GenOptions, Gpu, LAYERS_MAX, LayerHead, LayerParams, Meters } from '../ui/Panel'
+import { Fx, FxOptions, GenOptions, LAYERS_MAX, LayerHead, LayerParams, Meters } from '../ui/Panel'
 import { adjustForSource, insertIndex, MIME } from './dnd'
 import { clampSel, muteMask, type Sel } from './layers'
 
@@ -15,11 +15,12 @@ const mid = (el: Element) => {
 /** The builder (2b S2.2, design S2): the edited scene's layers, bottom first, the selected one open with its opacity,
  *  speed, res, generator and effects; the selected layer or effect is what Delete and Alt+↑/↓ act on (Editor's keys).
  *  Every edit goes through `panel`, which records its undo. Mute and solo are the preview's only: never saved, never
- *  undone, reset on leave. It re-renders on a structural edit or an undo (editRev), never while a slider moves. */
-export function Stack({ id, sel, select }: { id: SceneId; sel: Sel; select: (s: Sel) => void }) {
+ *  undone, reset on leave. It re-renders on a structural edit or an undo (editRev), never while a slider moves.
+ *  `children`: the editor's header (S2.4), on top. */
+export function Stack({ id, sel, select, children }: { id: SceneId; sel: Sel; select: (s: Sel) => void; children: ReactNode }) {
   const rev = useSyncExternalStore(store.subscribe, () => store.getSnapshot().editRev)
   const errors = useSyncExternalStore(store.subscribe, () => store.getSnapshot().nodeErrors)
-  const { layers, name } = live(id).doc
+  const { layers } = live(id).doc
   const s = clampSel(layers, sel)
   // Mute/solo by layer doc, so a move, a removal and its undo take them along.
   const [m, setM] = useState({ of: layers, muted: new Set<LayerDoc>(), solo: null as LayerDoc | null })
@@ -72,10 +73,7 @@ export function Stack({ id, sel, select }: { id: SceneId; sel: Sel; select: (s: 
   }
   return (
     <aside className="stack">
-      <header>
-        <span>{name}</span>
-        <Gpu />
-      </header>
+      {children}
       <Meters id={id} />
       {errors.map((e) => (
         <pre key={e} className="err">

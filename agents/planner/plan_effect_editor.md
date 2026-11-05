@@ -190,13 +190,40 @@
     - Shots: `s2.3-mid-drag-layer.png`, `s2.3-mid-drag-fx.png` (+ `-stack` crop), `s2.3-after-moves.png`, `s2.3-end.png`.
   - Not checked by harness: at 1117 px an fx moved to the end of td-feedback's chain needs a scroll mid-drag (Chrome autoscrolls near the stack's edge). The drag image is the whole row, tall for an open layer; `setDragImage(head)` if it bothers.
 
-#### S2.4 [ ] editor header: New, open, Save / Save as / star, export/import — S
+#### S2.4 [x] editor header: New, open, Save / Save as / star, export/import — S
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the file operations in the editor on the existing library API (S1, S9).
 - **Files:** `web/src/editor/Editor.tsx`; `web/src/ui/Panel.tsx` (export the save/export/import helpers if module-private); `web/src/gl/live.ts` only if `panel` lacks an action.
 - **Depends on:** S2.1 (S2.2 for the demo).
 - **Behaviour:** open = a `<select>` of library scenes → `director.cut(id)` (off-playlist works, director L112–117; `store.edited` follows and `edits` clears via S1.2). New = a one-layer `native/spectrum` doc through the laziest existing route (`saveAs` + cut, or a dirty doc under a fresh id; the route goes in the step note). Save / Save as / star = `panel.save/saveAs/toggleStar`. Export = the Panel's export; import = a native `<input type="file">` feeding the Panel's JSON import parser (its drop zone is unmounted here). The thumbnail on save comes in S3.4.
 - **Tests:** if a `newScene()` helper lands in `edit.ts`/`doc.ts`, one test: `parseScene` accepts it. Otherwise none (wiring).
 - **Done:** gates; browser = the CP2 demo end to end: New → add fx → bind → Save as `ed-test` → star → `L` → the playlist contains it and it plays within the cycle; export, then import round-trips it. Screenshot of the header + stack.
+- **Changed during implementation:**
+  - **New route = a dirty doc under a fresh id**, not saveAs + cut (that would store a "New scene" per click, with no delete UI).
+    - `edit.newScene(gen)` holds a one-layer doc in `docs`, dirty. `edit.test.ts`: `parseScene` accepts it as is.
+    - `panel.newScene()` passes `fresh('native/spectrum')`; the header cuts to the id it returns.
+    - The draft is not stored until Save or Save as. Its star is disabled until then, since there is nowhere to keep it. The open list shows the draft while it is edited.
+  - **`panel.saveAs` guard.** It deleted the original from `edit.docs`. A draft has no stored doc, and `store.edited` names it until the cut lands, so a render in that window threw `unknown scene`. The delete is now `if (library.get(doc.id))`.
+    - `ponytail:` an abandoned draft stays in `docs` for the session.
+  - **Header placement:** in the builder column, on top of the Stack. Two files outside the list: `Stack.tsx` takes `children` in place of its name · GPU row, and `editor.css` gains 2 rules.
+    - Row 1: New · open `<select>` (built-ins, user scenes, plus the draft) · GPU.
+    - Row 2: the panel's own row plus Export · Import.
+    - The note state lives in `Editor`'s `Open`, because New, open and Save as re-key the Stack.
+  - **`Panel.tsx`:** its header row became the exported `SceneHead` (star, Save, Save as… with its name field, `children`). Export/Import became `LibraryIo`. `Say` is exported as a type. The panel uses both, with no behaviour change (checked in the harness).
+    - Export and import were already public on `library` (`exportLibrary`, `importFile`), so no helper needed exporting.
+  - **Queued Tier-1 trigger fix (S1.3 finding):** the event row's trigger now calls `panel.pulse(p, input)` = `edited().set(p, input, true)`.
+    - `run()` already clears events after each draw, so the event fires on exactly one draw. No doc value, no undo step, not dirty.
+    - The `ponytail:` note on `panel` about it is gone.
+    - There is no pure part to test (GL), so the browser covers it.
+    - Scenes saved before the fix may still hold an event `true` in `values` and fire once per build. They are not migrated.
+  - Browser (`scratchpad/ed/s2.4-header.mjs` + log, dnb174-arr, 1728×1117): **16/16 PASS, 0 console/page errors.**
+    - Build: New → strobe (its bool unbound, bound again, source → kick) + scatter (explode unbound) + the gen's glow bound.
+    - Save as `ed-test` from the draft: no page error. Open builtin:tunnel, then ed-test while it is off the playlist.
+    - Trigger: 1 draw with explode, doc unchanged, `edits.undo()` false, not dirty.
+    - Star (playlist 63/64) + Save: no explode value stored. Export: the file's ed-test equals the stored doc.
+    - `L`: hold false, no cut. ← to the slot before it, then the autopilot's own next switch plays ed-test (26 s, the 16-bar shot).
+    - → off it, delete it, then Import from the header: it is back, equal to the export, starred and listed.
+    - Reload: ed-test builds with 0 explode draws in 2 s. The E panel's header and Export/Import are unchanged.
+    - Shots: `s2.4-header-stack.png` (header + stack), `s2.4-04-starred.png` (full window), steps `s2.4-00…08`, `s2.4-export.json`.
 
 ### CP3
 **Changed:** the design's S3.2 (`tile()` + size hint + bake queue + async readback, 8 files) is split at the engine/editor seam into S3.2 (engine: `tile()` + `NativeDef.create(gl, size?)`, a render-path change with its A/B) and S3.3 (editor: bake queue, async readback, tile canvases; G1/G2/G4). The design's S3.3 (live tile) becomes S3.4. Reason: one coder session and ≤ ~3 files per step; the halves carry different risks (render regression vs readback stalls). Order inside the CP is unchanged.
