@@ -20,10 +20,11 @@ const hann = Float32Array.from({ length: N }, (_, i) => 0.5 - 0.5 * Math.cos((2 
 function inputs(x: Float32Array, bpm: number | null): ArrangeIn[] {
   const bank = createBank(SR)
   const { sub, reese } = PRESETS.dnb.bands
-  bank.configure([{ id: 'sub', lo: sub[0], hi: sub[1] }, { id: 'reese', lo: reese[0], hi: reese[1] }])
+  // + analysis.ts's kick gate band: drums.ts's kick trigger
+  bank.configure([{ id: 'sub', lo: sub[0], hi: sub[1] }, { id: 'reese', lo: reese[0], hi: reese[1] }, { id: 'kick', lo: 40, hi: 150 }])
   const drums = createDrums(SR, N)
   const fft = new FFT(N)
-  const [spec, frame, mag, held] = [new Float64Array(2 * N), new Float64Array(N), new Float32Array(N / 2 + 1), new Float32Array(4)]
+  const [spec, frame, mag, held] = [new Float64Array(2 * N), new Float64Array(N), new Float32Array(N / 2 + 1), new Float32Array(6)]
   const [lo, hi] = [Math.ceil(4000 / HZ), Math.floor(16000 / HZ)]
   const out: ArrangeIn[] = []
   let [kick, high] = [false, 0]
@@ -33,7 +34,7 @@ function inputs(x: Float32Array, bpm: number | null): ArrangeIn[] {
       for (let i = 0; i < N; i++) frame[i] = (x[e - N + i] ?? 0) * hann[i]
       fft.realTransform(spec, frame)
       for (let k = 0; k <= N / 2; k++) mag[k] = Math.hypot(spec[2 * k], spec[2 * k + 1])
-      if (drums.detect(mag, e / SR).some((h) => h.drum === 'kick')) kick = true
+      if (drums.detect(mag, e / SR, bank.ratio(2)).some((h) => h.drum === 'kick')) kick = true
       high = mag.subarray(lo, hi + 1).reduce((s, v) => s + v, 0) / (hi - lo + 1)
     }
     if (e % FRAME === 0) {

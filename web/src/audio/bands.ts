@@ -11,7 +11,7 @@ const RELEASE = 0.02 // e1; well below an 11.6 Hz LFO period (research §2)
 // The gate runs its own fast/slow pair with a long release that bridges the 18–33 ms between a bass note's
 // peaks. With RELEASE there, the ripple alone pushed a sustained reese/wobble over TRANSIENT.
 const GATE_RELEASE = 0.2
-const TRANSIENT = 1.5 // gate fast/slow above this = a transient (a kick): `held` stops following e2…
+export const TRANSIENT = 1.5 // gate fast/slow above this = a transient (a kick): `held` stops following e2…
 const HOLD = 0.1 // …and stays put this long after it ends, past the kick's in-band tail
 const STAGES = 2 // cascaded biquads per band, ≈12 dB/octave skirts
 

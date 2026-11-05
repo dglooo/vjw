@@ -82,7 +82,7 @@ export function createAnalysis(sampleRate: number): {
       const t = (frame + BLOCK) / sampleRate // end of the window: the block that completed this hop
       const onset = detector.detect(mag, t)
       if (onset) post({ kind: 'onset', ...onset })
-      for (const h of drums.detect(mag, t)) post({ kind: 'hit', ...h }) // same hop as the onset: no added latency (C2)
+      for (const h of drums.detect(mag, t, tempo.ratio(0))) post({ kind: 'hit', ...h }) // the onset's hop (C2); the kick's gate (ruling 2026-11-05)
       odf[hops % ODF_BATCH] = Math.max(0, tempo.ratio(0) - 1) + Math.max(0, tempo.ratio(1) - 1)
       if (++hops % ODF_BATCH === 0) {
         post({ kind: 'odf', t0: t - (ODF_BATCH - 1) * hop, hop, values: odf.slice() })

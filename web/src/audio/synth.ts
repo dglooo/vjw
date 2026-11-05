@@ -72,7 +72,7 @@ export function reese(n: number, amp = 0.15, hp = 0) {
 }
 
 /** Room tone, white noise at −51 dBFS RMS. A mix is never digital silence, and the log flux reads −100 dB leaks there. */
-const room = (n: number, r = rng(99)) => Float32Array.from({ length: n }, () => 0.005 * (2 * r() - 1))
+export const room = (n: number, r = rng(99)) => Float32Array.from({ length: n }, () => 0.005 * (2 * r() - 1))
 
 // 16th steps per bar. dnb: two-step, kick on 1 and 2.5, snare on 2 and 4, hats on 8ths plus 16th pickups.
 // dubstep: half-time, kick on 1, snare on 3. techno: four on the floor, clap on 2 and 4, open hats off the beat.
