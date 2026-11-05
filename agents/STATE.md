@@ -63,6 +63,8 @@
     - Includes the bool/event binding UI and the event rising-edge fix. A bound ISF event fired every frame while its source stayed >.5, a real bug.
     - **Plan done:** `agents/planner/plan_effect_editor.md`, 4 CPs / 15 steps (design S3.2 split into engine S3.2 + editor S3.3; live tile = S3.4). G1/G2/G4 → S3.3, G3 → S4.3. `L` is free; Vitest is Node-only, so logic lives in `.ts` helpers.
     - S1.1 ✅ `edit.ts` structural ops with round-tripped inverses + `undo.ts` `edits` stack (key coalescing, sliding 1 s window); 370 tests.
+    - S2.4 ✅ editor header: New = an unsaved scene + a saveAs guard; open/Save/Save as/star/export/import via the shared `SceneHead`/`LibraryIo`; the event trigger is a one-frame `panel.pulse`. 394 tests.
+    - **CP2 ✅ closed (lead):** demo 16/16; live run of 38 scenes, 0/4563 late, 1.00×. **Next: CP3 S3.1 (library).**
     - S2.3 ✅ native DnD reorder (drag from the row head only: Chrome dragged rows from sliders), insert line, no-op drops record nothing, S3.1 MIME hook; `stack.ts` → `layers.ts` (case footgun fixed); 393 tests.
     - S2.2 ✅ editor layer Stack:
       - layers/fx/bindings with meters, preview-only mute/solo, Cmd+Z / Shift+Cmd+Z / Delete / Alt+↑↓; 45/45 browser checks; the undo walk returns to the built-in; 391 tests.
