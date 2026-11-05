@@ -2,7 +2,7 @@
 // TEXTURE_2D_ARRAY at ½ the stage, read through the ES 3.00 `past(uv, age)`. Natives own their programs, so the ISF
 // 1.00 limit doesn't apply. Allocated in create() (prepare-ahead runs it mid-scene), never refit by the governor (a step
 // costs nothing and the history survives it), freed in dispose(). A mode change takes effect at the next instance.
-// Look: TD rgbaDelay.tox and Time Machine TOP (studied, rewritten). No third-party code.
+// Look: TD rgbaDelay.tox, Time Machine TOP and slit scan (studied, rewritten). No third-party code.
 import { copy, fullscreenProgram } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
 
@@ -113,7 +113,7 @@ uniform float uLag, uSwirl, uSpan, uPhase, uRings, uTint;
 void main() {
   vec2 uv = gl_FragCoord.xy / uRes;
   vec2 p = (uv - 0.5) * vec2(uRes.x / uRes.y, 1.0); // round on any aspect
-  float age = uSpan * (uDepth - 1.0) * fract(uRings * length(p) + uSwirl * atan(p.y, p.x) / 6.2831853 - uPhase);
+  float age = uSpan * (uDepth - 1.0) * fract(uRings * length(p) + uSwirl * abs(atan(p.y, p.x)) / 3.1415927 - uPhase); // |θ|: no seam at ±π
   vec3 c = past(uv, age - uLag).rgb;
   float a = 6.2831853 * uTint * age / (uDepth - 1.0);
   const vec3 k = vec3(0.57735027);
@@ -125,7 +125,7 @@ void main() {
  *  maps it to wobble in Dubstep). */
 export const timeMachine: NativeDef = {
   id: 'native/time-machine', name: 'Time machine', kind: 'filter', category: 'feedback', credit: 'VeeJay Wizard', inputs: [
-    { name: 'swirl', type: 'float', min: 0, max: 1, default: 0 }, // 0 = rings, 1 = a one-arm spiral
+    { name: 'swirl', type: 'float', min: 0, max: 1, default: 0 }, // 0 = rings, 1 = a mirrored spiral, seamless at any value
     { name: 'depth', type: 'float', min: 0, max: 1, default: 0.5 }, // how far back the ramp reaches: 1 = all 64 frames
     { name: 'phase', type: 'float', min: 0, max: 1, default: 0 }, // slides the ramp: one cycle sweeps every pixel through it
     { name: 'rings', type: 'float', min: 0, max: 8, default: 2 }, // ramp cycles per stage height of radius (taste)
@@ -149,6 +149,50 @@ export const timeMachine: NativeDef = {
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb)
         gl.viewport(0, 0, f.width, f.height)
         out({ uRing: r.tex, uSrc: src, uHead: r.head, uDepth: r.depth, uFilled: r.filled || 1, uRes: [f.width, f.height], uLag: lag / 2, uSwirl: v.swirl, uSpan: v.depth, uPhase: v.phase, uRings: v.rings, uTint: v.tint })
+      },
+      dispose: r.dispose,
+    }
+  },
+}
+
+// Look: TD slit scan (Time Machine TOP over a linear or radial ramp; studied, rewritten). `wave` is in units of the slit
+// coordinate (scaled by span), so it bends the slit rather than adding a fraction of a slot. uLag as in TM.
+const SS = `${PAST}
+uniform float uLag, uSpan, uWave, uTime, uAxis;
+void main() {
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec2 p = gl_FragCoord.xy - 0.5 * uRes;
+  // x: the slit coordinate 0..1 (y, x, or radius out to the corners); y: the one across it, which the wave runs along
+  vec2 c = uAxis < 0.5 ? uv.yx : uAxis < 1.5 ? uv : vec2(length(p) / length(0.5 * uRes), atan(p.y, p.x) / 6.2831853);
+  outColor = vec4(past(uv, uSpan * (c.x + uWave * sin(6.2831853 * c.y + uTime)) - uLag).rgb, 1.0);
+}`
+
+/** Each row (column, radius) from its own past frame: motion smeared through time across the stage. Stride 2, as
+ *  time-machine: span 31 reaches all 64 frames. Bindings: D1 with the 2026-11-05 ruling (wave binds reese; Auto-style
+ *  maps it to wobble in Dubstep). */
+export const slitScan: NativeDef = {
+  id: 'native/slit-scan', name: 'Slit scan', kind: 'filter', category: 'feedback', credit: 'VeeJay Wizard', inputs: [
+    { name: 'span', type: 'float', min: 0, max: 31, default: 16 }, // slots across the stage; the bottom (left, centre) is now
+    { name: 'wave', type: 'float', min: 0, max: 1, default: 0 }, // a sine across the slit, in slit-coordinate units
+    { name: 'axis', type: 'long', values: [0, 1, 2], labels: ['y', 'x', 'radius'], default: 0 }, // the way time runs
+  ],
+  bind: {
+    span: { source: 'sub', amount: 1, attack: 0.05, release: 0.5, min: 8, max: 31 }, // the sub stretches it further back
+    wave: { source: 'reese', amount: 1, attack: 0.05, release: 0.3, min: 0, max: 0.3 }, // the bass bends the slit
+  },
+  warm: async () => void fullscreenProgram(SS), // compiles only: Start allocates no ring
+  create(gl) {
+    const out = fullscreenProgram(SS)
+    const r = ring(gl)
+    let n = 0
+    return {
+      draw(f, v, src) {
+        const fb = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
+        const lag = n++ & 1 // stride 2, as time-machine
+        if (src && !lag) r.push(src)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb)
+        gl.viewport(0, 0, f.width, f.height)
+        out({ uRing: r.tex, uSrc: src, uHead: r.head, uDepth: r.depth, uFilled: r.filled || 1, uRes: [f.width, f.height], uLag: lag / 2, uSpan: v.span, uWave: v.wave, uTime: f.time, uAxis: v.axis })
       },
       dispose: r.dispose,
     }
