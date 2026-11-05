@@ -294,13 +294,45 @@
     - `copy()` in `milkdrop/native.ts` shares one texture: a milk tile beside a live milk scene re-allocates it twice a frame (`texImage2D` on each size change).
     - A milk tile hands its visualizer back to the pool at 320×180. The next live milk scene that takes it resizes at its first draw, as a fresh one from `make()` (16×16) does today.
 
-#### S3.3 [ ] bake queue, async readback, tile canvases; probes G1, G2, G4 — L
+#### S3.3 [x] bake queue, async readback, tile canvases; probes G1, G2, G4 — L
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** every tile gets a still in the background without a late frame (S6, Variant B readback).
 - **Files:** new `web/src/editor/tiles.ts` + `web/src/editor/tiles.test.ts`, `web/src/editor/Library.tsx` (a canvas per tile, CSS `scaleY(-1)`, IntersectionObserver), `web/src/app.ts` (`tiles.frame(f, src)` right before `render()`, editor only).
 - **Depends on:** S3.1, S3.2.
 - **Behaviour:** per tile: build `tile()`, render K frames at dt 1/60 on the live Sources and audio textures (K = 1 when no node is a native or has a persistent pass, else 90), read back, dispose. Scheduling: ≤6 tile-frames per rAF, none on the rAF after a late frame (dt > 20 ms), visible tiles first, a shader def waits for `programAsync` before its first bake. Readback = `PIXEL_PACK_BUFFER` + `fenceSync`, polled with `clientWaitSync(…, 0)`, then `getBufferSubData` (research §3). Cache `Map<id, ImageData>` for the session; `invalidate(id)` re-queues; `onChange` wakes React once per finished tile. At most 2 instances alive. **G1:** log sync `readPixels` vs async (CPU ms per call, frames until the fence signals) over ≥100 tiles; pass/fail per § Research gaps. **G2:** log the full-library bake time and the cache's bytes. **G4:** screenshot the 5 effect tiles; a bad read → another REF generator in `blocks.ts`, noted.
 - **Tests:** `tiles.test.ts` (pure scheduler): `bakeFrames(doc, catalog)` → 1 vs 90; `nextSlice(queue, dt, visible)` → ≤6 tile-frames, nothing after a late frame, visible first; `invalidate` re-queues once.
 - **Done:** gates; browser: open the library, every tile gets a still; 60 s late-frame run with the bake running → 0 late (else the sync fallback, recorded); `ed/s3.3-grid.png` + the G1/G2/G4 numbers and picks in the step note.
+- **Changed during implementation:**
+  - Files outside the list: `editor.css` (the canvas under the tile's name, `scaleY(-1)`, a text shadow).
+  - API beyond the frozen four (`hover` stays S3.4's):
+    - `tiles.want(blocks)`: Library hands its blocks over each render, so the derivation stays in one place. A new id is queued; a known one only gets its doc refreshed.
+    - `visible`: a Set that Library's IntersectionObserver writes.
+    - `tiles.pause()`: on Library's unmount, a started bake disposes its instance and starts over next time. Without it, closing the editor mid-milk-bake made a 3rd Butterchurn context once two milk scenes played live (`s3.3-pause.mjs`: 3→4 contexts; with `pause`, 3→3).
+    - Exported for the test: `bakeFrames`, `nextSlice`, `requeue` (invalidate's body), `Job`, `SLICE`, `LATE`, `W`/`H`.
+  - The late check reads the unscaled rAF interval (`f.time` deltas). `f.dt` is heat-scaled up to 1.5×, so a build would read as late. `ponytail:` the 30 fps mode renders every other rAF, so every frame there reads as late and nothing bakes.
+  - Compiles: each job's shaders go through `programAsync` when it is queued (all 135 at `want()`: 0.4 ms; no late frame came from it). A failed compile drops the job, and its placeholder stays.
+  - Milk: a job with a `milk/*` node waits while the edited scene has a milk layer; a started one finishes.
+    - Checked: on a live milk scene, an invalidated milk tile doesn't re-bake while a plain one does; back on swarm, it lands.
+  - Stills are made opaque (alpha 255), as the `alpha: false` stage shows them. The grid bakes visible tiles first, and its top is the milk presets (kind, then name), so the bake starts with them.
+  - Browser (`scratchpad/ed/s3.3-grid.mjs`, ?debug 1728×1117 @2, dnb174-arr, live held on `builtin:swarm`, the cache empty at L; GL timed by wrapping the prototype, no product hook): 0 console errors.
+    - **G1 passes for B; no sync fallback.**
+      - Async, n = 270: `readPixels` into the PBO ≤ .1 ms CPU, `fenceSync` .1 (p95 .2), `clientWaitSync` ≈ 0, `getBufferSubData` .3 (p95 .6, max 1.6). That is ≈ .4 ms per tile.
+      - Every fence signalled after exactly 1 frame (405/405 over both runs).
+      - Sync `readPixels` at the same point (Variant A, n = 135, `s3.3-sync.json`): 2.3 ms median, p95 6.3, max 8.9 CPU.
+    - **G2:** the full library (135 tiles) bakes in 28.2 s (3 runs: 28.18–28.25). The cache holds 31.1 MB (135 × 230 400 B), and the 135 tile canvases hold as much again.
+      - Under budget, so no lever pulled: slice 6, K 90.
+    - **G4:** `native/tunnel` stays (`s3.3-effects.png`). Distortion and colour effects read clearly over it (Kaleidoscope, Mirror, Pixellate, Posterize, Sine Warp Tile, RGBA delay, VHS Glitch, Scatter, Time machine).
+      - The feedback family (trails, td-feedback, feedback-zoom, Long Exposure) reads subtler, since the tunnel already zooms radially; light-tunnel comes out dark.
+      - No other generator reads better across all of them.
+    - **Late frames:** 60 s from L, with the bake running ≈56 s of it (270 tiles = 2 full passes): 2 late of 3599 frames, both in the first 125 ms; 0 after that; 0 governor drops, scale 1.
+      - 51 ms at +56 ms: the library mount. A no-bake baseline (`tiles.frame` stubbed) shows it too (48.6 ms at +58).
+      - 32.2 ms at +122 ms: the first milk tile's first ready slice took 10.6 ms (the 2nd and 3rd milk tiles' took 3.4–3.9, later slices 1.3–1.5).
+        - Most likely the pooled visualizer's first resize, 16×16 → 320×180, plus its first draws: once per session. It is not a readback cost, so the sync path wouldn't remove it.
+  - Gates: lint and typecheck clean, 409 tests (+6).
+  - Shots: `s3.3-grid.png`, `s3.3-effects.png`, `s3.3-milk.png`, `s3.3-editor.png`. Logs: `s3.3-async.json` (+ `.log`), `s3.3-sync.json`, `s3.3-nobake.json`. Harnesses: `s3.3-grid.mjs` (modes async/sync/nobake/diag), `s3.3-pause.mjs`.
+  - Seen, not done:
+    - The first-milk-tile spike above. A fix is in `milkdrop/native.ts`, e.g. a tile-sized visualizer kept apart from the live pool, which would also end S3.2's resize when a live milk scene takes a visualizer back from a tile.
+    - S3.4: `invalidate(id)` bakes the doc Library last handed over through `want()`. After a save, call it once Library has re-rendered, or pass the doc in.
+    - `s3.1-library.mjs` `names()` reads `button.pick`'s first child, which is now the canvas.
 
 #### S3.4 [ ] live tile (hover/select, 20 fps), last frame → still, re-bake on save — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the hovered or selected tile moves; a saved scene gets its thumbnail (Variant B, S6, spec §2.3).

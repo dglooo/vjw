@@ -1,9 +1,10 @@
-import { useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { catalog } from '../fx/catalog'
 import { library } from '../library'
 import { BUILTIN } from '../scenes/builtin'
 import { blocks, filterBlocks, type Block, type BlockKind } from './blocks'
 import { dragged, MIME } from './dnd'
+import { H, tiles, visible, W } from './tiles'
 
 const KINDS: readonly BlockKind[] = ['generator', 'effect', 'scene']
 const GROUPS: readonly Block['group'][] = ['feedback', 'geometry', 'liquid', 'retro', 'milkdrop', 'other']
@@ -11,6 +12,33 @@ const KEY = 'vjw.lib' // sessionStorage: the filters and the search, kept over a
 interface Q { kind?: BlockKind; group?: string; tag?: string; text?: string; fav?: boolean }
 let rev = 0 // +1 per library change (a scene, a favourite), as Panel.tsx's
 library.onChange(() => rev++)
+
+// The tiles on screen bake first (S3.3).
+const io = new IntersectionObserver((es) => {
+  for (const e of es) {
+    const id = (e.target as HTMLElement).dataset.id!
+    if (e.isIntersecting) visible.add(id)
+    else visible.delete(id)
+  }
+})
+
+/** A tile's baked still (S3.3), once it lands; transparent over the name placeholder until then. Rows come bottom-up. */
+function Still({ id }: { id: string }) {
+  const img = useSyncExternalStore(tiles.onChange, () => tiles.get(id))
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const c = ref.current!
+    io.observe(c)
+    return () => {
+      io.unobserve(c)
+      visible.delete(id)
+    }
+  }, [id])
+  useEffect(() => {
+    if (img) ref.current!.getContext('2d')!.putImageData(img, 0, 0)
+  }, [img])
+  return <canvas ref={ref} data-id={id} width={W} height={H} />
+}
 
 function stored(): Q {
   try {
@@ -22,13 +50,15 @@ function stored(): Q {
 }
 
 /** The editor's library (2b S3.1, design S5): kind, group and tag chips, the favourites and a search box, ANDed, over
- *  every block, as grey name tiles until S3.3 bakes their stills. A tile's click tries its block (`trying`: marked until
+ *  every block, each a grey name tile until its still lands (S3.3). A tile's click tries its block (`trying`: marked until
  *  Enter or another edit keeps it, or Esc takes it back), its `+` adds it for good, a drag onto the stack adds it there;
  *  a scene tile opens that scene. `pick` (Editor) does all of it. */
 export function Library({ trying, pick }: { trying?: string; pick: (b: Block, mark: boolean) => void }) {
   useSyncExternalStore(library.onChange, () => rev)
   const all = blocks(catalog, [...BUILTIN.map((b) => library.get(b.id)!), ...library.all()])
   const favs = library.favs()
+  useEffect(() => tiles.want(all)) // every block bakes, the listed or not
+  useEffect(() => tiles.pause, []) // the editor closes
   const [q, setQ] = useState(stored)
   const set = (p: Q) => {
     const n = { ...q, ...p }
@@ -66,6 +96,7 @@ export function Library({ trying, pick }: { trying?: string; pick: (b: Block, ma
             }}
           >
             <button className="pick" title={[b.credit, ...b.tags].filter(Boolean).join(' · ') || undefined} onClick={() => pick(b, true)}>
+              <Still id={b.id} />
               {b.name}
               <small>{b.kind}</small>
             </button>

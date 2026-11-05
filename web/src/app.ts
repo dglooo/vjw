@@ -12,6 +12,7 @@ import { createStyle, styleIn, type StyleOut } from './audio/style'
 import { type Hit } from './audio/drums'
 import { createRemap, restyle, sources, type Sources } from './bind'
 import { createDirector } from './director'
+import { tiles } from './editor/tiles'
 import type { FrameInput } from './frame'
 import { catalog, transitions } from './fx/catalog'
 import { gpuMs, render, scenes, setAudio, setOutput, setTransition, stage } from './gl/engine'
@@ -351,7 +352,9 @@ function frame(now: number) {
   if (shouldCut(arrangeOut.fired, store.getSnapshot().hold)) director.cut(director.peek()) // a confident drop cuts, unless LOCK/panel
   // S5.3: the live heat post pass (postFor at rest = identity: the engine skips it).
   const post = postFor(arrangeOut.heat, dropAt > 0 ? f.time - dropAt : Infinity, f.sync.beat, f.sync.bpm, f.sync.confidence)
-  render(shot, f, sources(f, src), styled, post) // sets f.width/height to the internal size
+  sources(f, src)
+  if (store.getSnapshot().editor) tiles.frame(f, src) // the library's bake (2b S3.3), its GPU work ahead of this frame's
+  render(shot, f, src, styled, post) // sets f.width/height to the internal size
   const id = shot.to ?? shot.from // the incoming scene as soon as a fade starts: the name shown, the scene edited
   const { doc, errors } = live(id)
   const snap = store.getSnapshot()
