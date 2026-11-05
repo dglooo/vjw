@@ -29,7 +29,8 @@
   - S1.9 ✅ reaction-diffusion (G5 holds 60 s in half float; 6 steps; p95 4.63; seed gated by fresh A; seed←sub via an extrapolated range).
   - **CP1 ✅ closed (lead):** 64 s autopilot over the 6 new scenes, 0/3842 late, 1.00×, flash ≤2/s; sheet `scratchpad/td/cp1-sheet.png`. The GPU-timer oddities did not show up as real frame time.
   - **Ruling 2026-11-05** (`design_td_look.md` § Ruling, L420–452), lead pick: fix the sources. `sub`/`reese` become `max(0,r−1)` and rest at 0 like `wobble`; the bass class binds `reese` (Dubstep map `reese→wobble`, DnB `bass` row dropped). Half the evidence was the fixtures (static bass bed, no wobble stem). New plan step **S1.10** (S): features/presets/builtin + `make-fx` arrangement fixtures with build/drop. Slotted after S2.1, before S2.2. CP4 reads `reese` where the bass class says `bass`.
-  - **Running:** `frontend-coder` S2.1 (`Native.draw(f, v, src?)`). Next: S1.10 → S2.2.
+  - S2.1 ✅ `Native.draw(f, v, src?)` (one line in live; a generator gets null; the picker lists any catalog def with kind 'filter', so G2 holds by code; A/B no change). Note: worktree isolation now blocks coder writes to the main checkout, so harnesses stay in the worktree's `scratchpad/` and the lead copies them out.
+  - **Running:** `frontend-coder` S1.10 (relative sources → rest 0; arrangement fixtures). Next: S2.2.
 - **TD-look requirement (user, 2026-11-04): every new effect must react to our 2c sources**, not only generic `bass`/`onset`.
   - Sources (`web/src/bind.ts` SOURCE_IDS): kick/snare/hats, sub/reese/wobble/wobbleDepth, build/drop, beat/bar, custom bands.
   - The design maps each effect param to a source (e.g. feedback zoom ← kick, hue step ← snare, displace ← reese/wobble, bloom ← build→drop, R-D seed ← sub).
