@@ -142,7 +142,7 @@ describe('parseIsf', () => {
       expect(d.unsupported, path).toBeUndefined()
       for (const k of Object.keys(d.bind ?? {})) expect(d.inputs.map((i) => i.name), `${path} ${k}`).toContain(k)
     }
-    const keyed = { strobe: ['strobe'], flash: ['flash'], 'tunnel-mesh': ['flash'], fractal: ['glow'], 'wave-landscape': ['flash'] } // the last 3: S4.1 (wave-landscape's own flash: S4.2)
+    const keyed = { strobe: ['strobe'], flash: ['flash'], 'tunnel-mesh': ['flash'], fractal: ['glow'], 'wave-landscape': ['flash'], bars: ['glow'] } // tunnel-mesh…wave-landscape: S4.1 (wave-landscape's own flash: S4.2); bars: 2b S4.1
     // A gated input binds from 0, in the files and the built-ins: a rest near the gate's 0.5 holds the flash (fact 6, S4.1).
     for (const [n, f] of Object.entries(keyed)) {
       const d = parseIsf(files[`./own/${n}.fs`] as string, n)
@@ -156,12 +156,17 @@ describe('parseIsf', () => {
   })
 
   // TD look (plan_td_look.md conventions): the own files its steps add, one entry per step.
-  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion']
+  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars'] // bars: 2b S4.1
   test.each(NEW_OWN)('own/%s parses, binds only known sources, and binds every VJW_FLASH input from 0', (stem) => {
     const files = import.meta.glob('./own/*.fs', { query: '?raw', import: 'default', eager: true })
     const d = parseIsf(files[`./own/${stem}.fs`] as string, stem) // throws on a flash name that is not an input
     for (const b of Object.values(d.bind ?? {})) expect(SOURCE_IDS, stem).toContain(b.source)
     for (const n of d.flash ?? []) expect(d.bind?.[n]?.min, `${stem} ${n}`).toBe(0)
+  })
+
+  test('own/bars: a persistent float 128×1 levels pass, then the draw (2b S4.1)', () => {
+    const src = import.meta.glob('./own/bars.fs', { query: '?raw', import: 'default', eager: true })['./own/bars.fs'] as string
+    expect(parseIsf(src, 'bars').passes).toEqual([{ target: 'levels', persistent: true, float: true, width: '128', height: '1' }, { persistent: false, float: false }])
   })
 })
 
