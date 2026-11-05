@@ -7,7 +7,8 @@ export type Shape = 'sine' | 'tri' | 'saw' | 'square' | 'random'
 export interface Binding { source: string; amount: number; attack: number; release: number; min: number; max: number; shape?: Shape; rate?: number }
 /** Open ids (lead's note): one object, refilled every frame. Later epics add keys; bindings never enumerate it. */
 export type Sources = Record<string, number>
-export interface BindState { y: number } // the smoothed 0..1 value
+/** `y`: the smoothed 0..1 value; `held`: a bound bool's or event's last level (`level`), kept across a rebind with it. */
+export interface BindState { y: number; held?: boolean }
 export const BIND_DEFAULTS = { amount: 1, attack: 0, release: 0.15 }
 
 // Knobs: the band dB window and tilt (spectrum's mapping), the onset strength range (the detector's threshold and cap)
@@ -120,4 +121,11 @@ export function evaluate(b: Binding, s: Sources, state: BindState, dt: number): 
   const tau = y > state.y ? b.attack : b.release
   state.y += (y - state.y) * (tau > 0 ? 1 - Math.exp(-dt / tau) : 1)
   return b.min + (b.max - b.min) * state.y
+}
+
+/** A bound bool's or event's value for its evaluated `y`, and the new `held` (on at .5). A bool follows the level; an
+ *  event is true on the rising edge only (the draw clears it), so one hit fires it once, not on every held frame. */
+export function level(type: 'bool' | 'event', y: number, held = false): [value: boolean, held: boolean] {
+  const on = y >= 0.5
+  return [on && (type === 'bool' || !held), on]
 }

@@ -1,4 +1,4 @@
-import { useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
 import { director, settings } from '../app'
 import { activePreset } from '../audio/settings'
 import { PRESETS } from '../audio/presets'
@@ -60,7 +60,10 @@ const slider = (lo: number, hi: number, v: number, set: (v: number) => void, ste
   <input type="range" min={lo} max={hi} step={step} defaultValue={v} onInput={(e) => set(e.currentTarget.valueAsNumber)} />
 )
 
-interface Bindable { path: NodePath; k: string; lo: number; hi: number; init?: Binding }
+/** `gate`: a bool or event, on at .5 (bind.ts `level`): its block has amount, release and invert, no attack/min/max. */
+interface Bindable { path: NodePath; k: string; lo: number; hi: number; init?: Binding; gate?: boolean }
+/** The bound rows' meters, written from `Live.read` by Open's one rAF loop: nothing re-renders per frame. */
+const meters = new Map<HTMLMeterElement, Bindable>()
 
 /** S6.3's dim hint: a built-in row whose source the active preset's map rewrites while Auto-style is on. Its own
  * component, so only a bound row's select subscribes to the settings and the classifier's 4×/s update. */
@@ -121,12 +124,30 @@ function Param({ label, bind, children }: { label: string; bind?: Bindable; chil
                 {SHAPES.map((s) => <option key={s}>{s}</option>)}
               </select>
             )}
+            <meter
+              aria-label={`${label} now`}
+              min={bind.lo}
+              max={bind.hi}
+              ref={(el) => {
+                meters.set(el!, bind)
+                return () => void meters.delete(el!)
+              }}
+            />
           </div>
           {knob('amount', 0, 4)}
-          {knob('attack', 0, 1)}
+          {!bind.gate && knob('attack', 0, 1)}
           {knob('release', 0, 1)}
-          {knob('min', bind.lo, bind.hi)}
-          {knob('max', bind.lo, bind.hi)}
+          {bind.gate ? (
+            <label>
+              <span>invert</span>
+              <input type="checkbox" defaultChecked={b.min > b.max} onChange={(e) => send({ ...now(), min: e.target.checked ? 1 : 0, max: e.target.checked ? 0 : 1 })} />
+            </label>
+          ) : (
+            <>
+              {knob('min', bind.lo, bind.hi)}
+              {knob('max', bind.lo, bind.hi)}
+            </>
+          )}
           {b.shape && knob('rate', 0.05, 4, 0.05)}
         </div>
       )}
@@ -151,7 +172,7 @@ function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove?: () =
       {def?.inputs.map((x) => {
         const label = x.label ?? x.name
         const set = (y: Value) => panel.setValue(path, x.name, y)
-        const bind = (k: string, lo: number, hi: number): Bindable => ({ path, k, lo, hi, init: n.bind?.[k] })
+        const bind = (k: string, lo: number, hi: number): Bindable => ({ path, k, lo, hi, init: n.bind?.[k], gate: x.type === 'bool' || x.type === 'event' })
         const val = v[x.name]
         switch (x.type) {
           case 'float': {
@@ -179,13 +200,13 @@ function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove?: () =
           }
           case 'bool':
             return (
-              <Param key={x.name} label={label}>
+              <Param key={x.name} label={label} bind={bind(x.name, 0, 1)}>
                 <input type="checkbox" defaultChecked={val as boolean} onChange={(e) => set(e.target.checked)} />
               </Param>
             )
           case 'event':
             return (
-              <Param key={x.name} label={label}>
+              <Param key={x.name} label={label} bind={bind(x.name, 0, 1)}>
                 <button onClick={() => set(true)}>trigger</button>
               </Param>
             )
@@ -296,6 +317,16 @@ function Open({ id }: { id: SceneId }) {
   const { layers, name } = live(id).doc // its name is the bar's, right above
   const star = !!library.get(id)?.star
   const builtin = id.startsWith('builtin:')
+  useEffect(() => {
+    let raf = 0
+    const loop = () => {
+      const l = live(id)
+      for (const [el, b] of meters) el.value = l.read(b.path, b.k) ?? 0
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [id])
   return (
     <div
       className="panel"

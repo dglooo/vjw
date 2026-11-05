@@ -4,7 +4,7 @@ import { createFeatures } from './audio/features'
 import { PRESETS } from './audio/presets'
 import { parseSettings } from './audio/settings'
 import { ZERO_SYNC } from './audio/sync'
-import { createRemap, evaluate, restyle, sourceGroups, sources, sourcesFor, SOURCE_IDS, type Binding, type Sources } from './bind'
+import { createRemap, evaluate, level, restyle, sourceGroups, sources, sourcesFor, SOURCE_IDS, type Binding, type Sources } from './bind'
 import type { FrameInput } from './frame'
 
 const frame = (over: Partial<FrameInput> = {}): FrameInput => ({
@@ -250,5 +250,25 @@ describe('evaluate', () => {
     const cycles = Array.from({ length: 8 }, (_, i) => v(i / 2 + 0.1))
     expect(new Set(cycles).size).toBeGreaterThanOrEqual(2)
     for (const x of cycles) expect(x >= 0 && x < 1).toBe(true)
+  })
+})
+
+describe('level (a bound bool or event, S1.3)', () => {
+  /** The values written over a run of frames, `held` carried as live.ts carries it. */
+  const run = (type: 'bool' | 'event', ys: number[]) => {
+    let held: boolean | undefined
+    return ys.map((y) => {
+      const [v, h] = level(type, y, held)
+      held = h
+      return v
+    })
+  }
+
+  test('bool follows y ≥ .5', () => {
+    expect(run('bool', [0, 0.49, 0.5, 0.9, 0.7, 0.3, 0.6])).toEqual([false, false, true, true, true, false, true])
+  })
+
+  test('event fires once on a rising edge, stays false while held, re-arms after y < .5', () => {
+    expect(run('event', [0, 0.6, 0.9, 0.5, 0.49, 0.8, 0.8, 0.2])).toEqual([false, true, false, false, false, true, false, false])
   })
 })

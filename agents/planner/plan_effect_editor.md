@@ -76,13 +76,28 @@
   - A/B GPU p95 (`s1.2-ab.mjs`): rgba-delay 2.66 → 2.64, swarm 4.11 → 4.16 (noise).
   - 60 s late-frame run (`s1.2-late.mjs`, 38 scenes × 2 s on dnb174-arr): 0/4563 late, 1.00×, jsMs 0.7.
 
-#### S1.3 [ ] bool/event binding UI, event rising edge, meter — M
+#### S1.3 [x] bool/event binding UI, event rising edge, meter — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** close the 2a gap (S4): bool and event get binding controls in the shared `Param`, a bound event fires once per hit, the bound signal shows on a meter.
 - **Files:** `web/src/bind.ts` + `web/src/bind.test.ts`, `web/src/gl/live.ts` (the bound-input loop in `render`), `web/src/ui/Panel.tsx` (`Param`).
 - **Depends on:** S1.2 (`read`).
 - **Behaviour:** `Param` renders `bind(x.name, 0, 1)` for `bool` and `event`; their block shows source, amount (on when the source reaches .5/amount), release and an *invert* box (min/max = 1/0); attack/min/max hidden. `bool` still writes `y ≥ .5`; `event` writes `true` only on the rising edge via a `held` flag on `Bound` and a pure `level(type, y, held)` in `bind.ts` (returns the value to write and the new held flag; coder fixes the exact shape, keeps it pure). `color` stays unbindable; `point2D` per component as today. The natives' own edge detectors stay (deletion later, YAGNI). Meter: one rAF loop in Panel writes `<meter>` values from `Live.read` through refs; no per-frame React render.
 - **Tests:** `bind.test.ts`: `level()`: bool follows y ≥ .5; event fires once on a rising edge, stays false while held, re-arms after y < .5.
 - **Done:** gates; browser on `dnb174-arr`: `own/strobe`'s bool bound to `kick` toggles on kicks; `isf/Circular Feedback Mask`'s event bound to `snare` fires about as many times as snares in 10 s (every frame before the fix); meters move; screenshot of the binding block. Render-path A/B + 60 s late-frame run.
+- **Changed during implementation:**
+  - `held` sits on `BindState` (`x.state.held`), not as its own `Bound` field. `bindInto` already carries `state` across a rebind, and every `setBinding` rebinds all inputs. So a slider drag on any binding never re-fires a held event.
+  - Shape: `level(type: 'bool' | 'event', y, held = false): [value, held]`. Only bool and event call it: the tuple allocates, so float and long keep their inline write.
+  - The meter sits at the end of the binding block's source row. `meters` is a module `Map` filled by React 19 ref callbacks (cleanup on unmount), so a bind or unbind adds or drops its meter without restarting the loop. The one loop lives in `Open` (deps `[id]`) and writes `live(id).read(path, k) ?? 0`. Range = the row's lo..hi; a gate shows its 0..1 envelope, before `level`.
+  - Invert writes min/max 1/0 and back 0/1. Toggling it replaces a non-0/1 range, e.g. own/strobe's built-in max .65.
+  - Outside the listed files, two one-liners: the `gl/post.ts` comment on `ON` now points at bind.ts `level`; in `ui/panel.css` the bind block's checkbox joins the row checkboxes' `justify-self: start` rule.
+  - Browser (`scratchpad/ed/s1.3-gate.mjs`, 10 s on `builtin:rgba-delay` + Circular Feedback Mask + strobe, audio 9.5–19.5 s; bound through `panel.setBinding`, so the same run works on the base):
+    - before: clearBuffer←snare was true on 143 frames for 13 snares, and rgba-delay `rotate` likewise on 143 (13 native steps);
+    - after: clearBuffer 13 fires for 13 snares; rotate 13 true frames = 13 native steps; strobe←kick 14 toggles for 14 kicks;
+    - meters 52–60 distinct values in 60 frames;
+    - UI: dot → `{bass, 1, 0, .15, 0, 1}`, then source kick, then invert 1/0 and back;
+    - the gate blocks show only amount, release and invert.
+  - A/B GPU p95 (`s1.3-ab.mjs`, 3 rounds): rgba-delay 2.63 → 2.60, swarm 4.18 → 4.15 (noise).
+  - 60 s late-frame run (`s1.3-late.mjs`, 38 scenes × 2 s on dnb174-arr): 0/4562 late, 1.00×, jsMs 0.6.
+  - Seen, not fixed (out of scope): an event row's `trigger` button calls `panel.setValue(…, true)`. That writes `true` into the doc's `values` and records an undo step. A saved scene then fires that event once at every build, and after an unbind.
 
 ### CP2
 
