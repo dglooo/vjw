@@ -1,16 +1,45 @@
-// ?camprobe (plan_camera S0.1): the CP0 probe skeleton. Holds HEAVY (&heavy=<id>, default
-// builtin:td-feedback) the way bench.ts holds a scene, and draws cam.tex cover-fitted over the stage in its
-// own rAF — registered after app.ts's frame(), and frame() re-registers at its own start, so rAF ordering
-// guarantees the overlay draws after the scene's render(). Also collects the env fields of the frozen camprobe
-// JSON, printed to a <pre> and held on window.__camprobe for the harness.
-import { director } from './app'
-import { allowCameras, cam, camMask, camSource, camStat, listCameras, selectCamera, startModel } from './camera/camera'
+// ?camprobe (plan_camera S0.1–S0.3): the CP0 probe. Holds HEAVY (&heavy=<id>, default
+// builtin:td-feedback) the way bench.ts holds a scene, and draws cam.tex + the EMA mask cover-fitted
+// over the stage in its own rAF — registered after app.ts's frame(), which rAF ordering guarantees.
+// S0.3: the unattended runner. 60 s per arm (&arms=, default base-0, base-cam, W-synthetic,
+// W-selfie-cpu, W-selfie-cpu-align-off); &moments=<seconds> for the sheet (moments × arms);
+// &soak=<min> logs per minute (camprobe-soak-*.json); &recycle=<min> is parsed, reserved for S0.4.
+// late = the app governor's drops (quality.ts's rule, imported — not re-derived) and scale = its
+// scale at the arm's end. The big ms clock canvas + the "Latency" button cycle raw → ALIGN on →
+// ALIGN off, 5 latency-<mode>-<n>.png each (the clock now, and the product's view of the clock seen
+// through the camera). At the end: JSON + sheet downloads, the frozen CP0 shape.
+import { director, governor } from './app'
+import {
+  allowCameras, cam, camAlign, camMask, camSource, camStat, listCameras, readCam, readMask, selectCamera, startModel, stopModel, video,
+} from './camera/camera'
 import { fullscreenProgram, gl, stage } from './gl/engine'
+import { minWindowFps, p50, p95 } from './camera/metrics'
 import type { ModelId } from './camera/segment.worker'
 import { store } from './store'
 
-const HEAVY = new URLSearchParams(location.search).get('heavy') ?? 'builtin:td-feedback'
-const MODEL = new URLSearchParams(location.search).get('model') as ModelId | null // S0.2 arms: synthetic, selfie
+const params = new URLSearchParams(location.search)
+const HEAVY = params.get('heavy') ?? 'builtin:td-feedback'
+const MODEL = params.get('model') as ModelId | null // manual overlay arm (S0.2)
+const CLIP = params.get('clip') // a same-origin URL fetched on boot (the harness serves it as /__clip)
+const ARMS = (params.get('arms') ?? 'base-0,base-cam,W-synthetic,W-selfie-cpu,W-selfie-cpu-align-off').split(',').filter(Boolean)
+const MOMENTS = (params.get('moments') ?? '12,35').split(',').map((s) => +s).filter((n) => n > 0)
+const SOAK_MIN = +(params.get('soak') ?? 0)
+const RECYCLE_MIN = +(params.get('recycle') ?? 0) // S0.4 (parse only: the runner must not implement it)
+const ARM_SECONDS = 60
+
+interface ArmSpec {
+  name: string
+  camera: boolean
+  model: ModelId | null
+  align: boolean | null
+}
+const ARM_SPECS: Record<string, ArmSpec> = {
+  'base-0': { name: 'base-0', camera: false, model: null, align: null },
+  'base-cam': { name: 'base-cam', camera: true, model: null, align: null },
+  'W-synthetic': { name: 'W-synthetic', camera: true, model: 'synthetic', align: true },
+  'W-selfie-cpu': { name: 'W-selfie-cpu', camera: true, model: 'selfie', align: true },
+  'W-selfie-cpu-align-off': { name: 'W-selfie-cpu-align-off', camera: true, model: 'selfie', align: false },
+}
 
 const env: Record<string, unknown> = {
   ua: navigator.userAgent,
@@ -64,14 +93,87 @@ void main() {
 }`)
 
 const pre = document.body.appendChild(document.createElement('pre'))
-pre.style.cssText = 'position:fixed;top:0;left:0;margin:0;padding:6px;font:12px monospace;white-space:pre-wrap;color:#8f8;background:#000b;pointer-events:none;z-index:10'
+pre.style.cssText = 'position:fixed;top:0;left:0;margin:0;padding:6px;font:12px monospace;white-space:pre-wrap;color:#8f8;background:#000b;pointer-events:none;z-index:10;max-width:60vh'
+const runPre = document.body.appendChild(document.createElement('pre'))
+runPre.style.cssText = 'position:fixed;bottom:0;left:0;margin:0;padding:6px;font:12px monospace;white-space:pre;color:#ff8;background:#000b;pointer-events:none;z-index:10;max-height:30vh;overflow:hidden'
+function log(msg: string) {
+  runPre.textContent += `${new Date().toISOString().slice(11, 19)} ${msg}\n`
+  runPre.scrollTop = runPre.scrollHeight
+  console.log(`camprobe ${msg}`)
+}
 const q = (xs: number[], p: number) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length * p)] : null)
+
+const probe: {
+  env: Record<string, unknown>
+  cam: typeof cam
+  source: typeof camSource
+  stat: typeof camStat
+  mask: typeof camMask
+  select: typeof selectCamera
+  list: typeof listCameras
+  allow: typeof allowCameras
+  canRun: boolean
+  running: boolean
+  done: boolean
+  error: string | null
+  results: { json: string; sheet: string | null; prefix: string } | null // the harness's fallback when a download is blocked
+  audioSource: { kind: 'device'; id: string } | { kind: 'file'; name: string } | null
+  run: (() => void) | null
+} = {
+  env, cam, source: camSource, stat: camStat, mask: camMask, select: selectCamera, list: listCameras, allow: allowCameras,
+  canRun: false, running: false, done: false, error: null, results: null, audioSource: store.getSnapshot().source, run: null,
+}
+Object.assign(window, { __camprobe: probe })
+
+const RECLINE = RECYCLE_MIN ? `${RECYCLE_MIN} min (S0.4)` : ''
+const os = /windows/i.test(navigator.userAgent) ? 'win' : /mac/i.test(navigator.userAgent) ? 'mac' : 'linux'
+const gpuSlug = String(env.gpu ?? 'gpu').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
+const prefix = (SOAK_MIN ? 'camprobe-soak-' : 'camprobe-') + `${os}-${gpuSlug}-${new Date().toISOString().slice(0, 10)}`
+
+// The big ms clock canvas (the U0.4 latency ground truth): 5 digits of performance.now() mod 100000,
+// and — after a "Latency" grab — the product's view of the clock seen through the camera (a readback of
+// cam.tex, which carries whatever the mode's gating delayed).
+const lat = document.createElement('canvas')
+lat.width = 960
+lat.height = 480
+lat.style.cssText = 'position:fixed;top:150px;left:50%;transform:translateX(-50%);background:#000;z-index:11'
+document.body.appendChild(lat)
+const lctx = lat.getContext('2d')!
+const grabCanvas = document.createElement('canvas')
+let grabAt: number | null = null
+function drawLat() {
+  lctx.fillStyle = '#000'
+  lctx.fillRect(0, 0, lat.width, lat.height)
+  lctx.fillStyle = '#fff'
+  lctx.font = '150px monospace'
+  lctx.textBaseline = 'middle'
+  lctx.fillText(String(Math.floor(performance.now() % 100000)).padStart(5, '0'), 20, 210)
+  lctx.font = '16px monospace'
+  lctx.fillStyle = '#8f8'
+  lctx.fillText('now (ms)', 20, 450)
+  if (grabAt !== null) {
+    lctx.drawImage(grabCanvas, 520, 90, 420, 236)
+    lctx.fillText(`product view (cam.tex), grabbed ${Math.round(performance.now() - grabAt)} ms ago`, 520, 450)
+  } else {
+    lctx.fillText('product view: press Latency (raw → ALIGN on → ALIGN off, 5 shots each)', 520, 200)
+  }
+}
+
+const runBtn = document.body.appendChild(document.createElement('button'))
+runBtn.textContent = `Run all${SOAK_MIN ? ` (soak ${SOAK_MIN} min)` : ` (${ARMS.length} arms × ${ARM_SECONDS} s)`}`
+runBtn.style.cssText = 'position:fixed;top:8px;right:8px;z-index:12;font:16px monospace;padding:8px 12px'
+const latBtn = document.body.appendChild(document.createElement('button'))
+latBtn.textContent = 'Latency'
+latBtn.style.cssText = 'position:fixed;top:56px;right:8px;z-index:12;font:16px monospace;padding:8px 12px'
 
 const deltas: number[] = [] // the overlay rAF's, a whole-frame period sample
 let lastT = 0
 let nextPrint = 0
+let rafFrames = 0
+let lastCameraId: string | null = null // camera mode: base-0 turns the source off, base-cam must re-select it
 function overlay() {
   requestAnimationFrame(overlay)
+  rafFrames++
   const now = performance.now()
   if (lastT) {
     deltas.push(now - lastT)
@@ -84,6 +186,7 @@ function overlay() {
     drawCutout({ uCam: cam.tex, uMask: camMask.tex, uRes: [stage.width, stage.height], uXf: cam.xf })
     gl.disable(gl.BLEND)
   } else if (cam.w && cam.h) drawCam({ uSrc: cam.tex, uRes: [stage.width, stage.height], uXf: cam.xf }) // raw until the first mask
+  drawLat()
   if (now >= nextPrint) {
     nextPrint = now + 2000
     env.stage = [stage.clientWidth, stage.clientHeight, stage.width, stage.height]
@@ -94,7 +197,7 @@ function overlay() {
     const up = camStat.ms.length ? `median ${q(camStat.ms, 0.5)!.toFixed(2)} p95 ${q(camStat.ms, 0.95)!.toFixed(2)} ms / frame` : 'no uploads yet'
     const mk = camMask
     const maskLine = mk.model
-      ? `mask ${mk.model} ${mk.ready ?? 'waiting for the worker…'}${mk.error ? ` ERROR: ${mk.error}` : ''} · ema ${mk.w}×${mk.h} ${mk.floatEma ? 'RG16F' : 'RGBA8'} k=${mk.floatEma ? 0.85 : 0.25}`
+      ? `mask ${mk.model} ${mk.ready ?? 'waiting for the worker…'}${mk.error ? ` ERROR: ${mk.error}` : ''} · ema ${mk.w}×${mk.h} ${mk.floatEma ? 'RG16F' : 'RGBA8'} k=${mk.floatEma ? 0.85 : 0.25} · ALIGN ${camAlign.on ? 'on' : 'off'}`
       : null
     const maskStat =
       maskLine && mk.stats
@@ -104,8 +207,11 @@ function overlay() {
       maskLine && mk.workerMs.length
         ? ` · worker ${q(mk.workerMs, 0.5)!.toFixed(1)}/${q(mk.workerMs, 0.95)!.toFixed(1)} ms p50/p95 · main ${q(mk.mainMs, 0.95)!.toFixed(2)} ms p95 · in-flight ${mk.inFlight}`
         : ''
+    probe.canRun = !!env.stage && (camSource.kind === 'clip' || camSource.kind === 'camera') && !probe.running
+    probe.audioSource = store.getSnapshot().source
+    if (camSource.kind === 'camera' && camSource.settings?.deviceId) lastCameraId = camSource.settings.deviceId
     pre.textContent = [
-      `camprobe: heavy=${HEAVY} upload=${camStat.path}`,
+      `camprobe: heavy=${HEAVY} upload=${camStat.path} arms=${ARMS.join('|')} moments=${MOMENTS.join('|')}${SOAK_MIN ? ` soak=${SOAK_MIN}min` : ''}${RECLINE ? ` recycle=${RECLINE}` : ''}`,
       `source ${camSource.kind} ${cam.w}×${cam.h} · upload ${up}`,
       ...(maskLine ? [`${maskLine}${maskStat}${maskMs}`] : []),
       JSON.stringify(env, null, 1),
@@ -116,18 +222,319 @@ function overlay() {
 }
 requestAnimationFrame(overlay)
 
-Object.assign(window, {
-  __camprobe: { env, cam, source: camSource, stat: camStat, mask: camMask, select: selectCamera, list: listCameras, allow: allowCameras },
-})
-
-/** Hold HEAVY once the app is started (bench.ts's pattern; needsStart clears on the Start click), and
- *  spawn the segmentation worker for &model= (S0.2). */
+/** Hold HEAVY once the app is started (bench.ts's pattern; needsStart clears on the Start click), then
+ *  the unattended source: &clip= is fetched and selected on boot; &model= is the S0.2 manual overlay. */
+function sleep(ms: number) {
+  return new Promise((ok) => setTimeout(ok, ms))
+}
 async function run() {
-  const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms))
   while (store.getSnapshot().needsStart) await sleep(200)
   director.setPlaylist([HEAVY])
   director.setHold(true)
   director.next()
+  if (CLIP) {
+    log(`clip: ${CLIP}`)
+    await selectClip()
+  }
   if (MODEL && (MODEL === 'synthetic' || MODEL === 'selfie')) startModel(MODEL) // S0.2 arms; the rest come in S0.4
 }
 void run()
+
+async function waitUntil(pred: () => boolean, ms: number, what: string) {
+  const t0 = performance.now()
+  while (performance.now() - t0 < ms) {
+    if (pred()) return
+    if (camMask.error) throw new Error(`${what}: worker error: ${camMask.error}`)
+    await sleep(100)
+  }
+  throw new Error(`${what}: timed out after ${ms} ms`)
+}
+
+async function selectClip() {
+  const blob = await (await fetch(CLIP!)).blob()
+  await selectCamera(new File([blob], CLIP!.split('/').pop() ?? 'clip', { type: blob.type }))
+  await waitUntil(() => cam.w > 0, 15000, 'clip first frame')
+}
+
+const r1 = (x: number | null) => (x === null ? null : Math.round(x * 10) / 10)
+const r2 = (x: number | null) => (x === null ? null : Math.round(x * 100) / 100)
+
+/** Put the arm's source + model + ALIGN in place; the 60 s window starts only at steady state. */
+async function armSetup(spec: ArmSpec): Promise<{ initMs: number; firstMaskMs: number } | null> {
+  stopModel()
+  if (spec.align !== null) camAlign.on = spec.align
+  if (!spec.camera) {
+    if (camSource.kind !== 'off') await selectCamera('off')
+  } else if (camSource.kind !== 'camera' && camSource.kind !== 'clip') {
+    if (CLIP) await selectClip()
+    else if (lastCameraId) {
+      await selectCamera(lastCameraId)
+      await waitUntil(() => cam.w > 0, 15000, 'camera first frame')
+    } else throw new Error('no source: use &clip= or select a camera before Run all')
+  }
+  if (!spec.model) return null
+  const t0 = performance.now()
+  startModel(spec.model)
+  await waitUntil(() => camMask.ready !== null, 90000, `init ${spec.model}`)
+  const initMs = performance.now() - t0
+  await waitUntil(() => camMask.ts.length > 0, 30000, `first mask ${spec.model}`)
+  return { initMs, firstMaskMs: camMask.ts[0] - (camMask.readyAt ?? t0) }
+}
+
+interface ArmResult {
+  maskFps: { min1s: number | null; med: number | null } | null
+  inferMs: { p50: number | null; p95: number | null } | null
+  mainMs: { p95: number | null } | null
+  late: number
+  frames: number
+  scale: number
+  initMs: number | null
+  firstMaskMs: number | null
+  align: boolean | null
+}
+
+/** A 60 s steady-state window: late = the governor's drops (reset at the window start), scale at the end. */
+async function runArm(spec: ArmSpec, seconds: number): Promise<ArmResult> {
+  const info = await armSetup(spec)
+  governor.reset()
+  await sleep(2000) // the reset's first reallocation settles outside the window (K3 is steady state)
+  const frames0 = rafFrames
+  const late0 = governor.drops
+  const armTs: number[] = [], armWorkerMs: number[] = [], armMainMs: number[] = [], armUploadMs: number[] = []
+  let ti = camMask.ts.length, wi = camMask.workerMs.length, mi = camMask.mainMs.length, ui = camStat.ms.length
+  const poll = setInterval(() => {
+    armTs.push(...camMask.ts.slice(ti)); ti = camMask.ts.length
+    armWorkerMs.push(...camMask.workerMs.slice(wi)); wi = camMask.workerMs.length
+    armMainMs.push(...camMask.mainMs.slice(mi)); mi = camMask.mainMs.length
+    armUploadMs.push(...camStat.ms.slice(ui)); ui = camStat.ms.length
+  }, 500)
+  log(`${spec.name}: ${seconds} s window (model ${spec.model ?? '—'} · align ${spec.align ?? '—'})`)
+  await sleep(seconds * 1000)
+  clearInterval(poll)
+  armTs.push(...camMask.ts.slice(ti))
+  armWorkerMs.push(...camMask.workerMs.slice(wi))
+  armMainMs.push(...camMask.mainMs.slice(mi))
+  armUploadMs.push(...camStat.ms.slice(ui))
+  const gaps = armTs.slice(1).map((t, i) => t - armTs[i])
+  const medGap = p50(gaps)
+  const result: ArmResult = {
+    maskFps: spec.model ? { min1s: r1(minWindowFps(armTs)), med: medGap ? r1(1000 / medGap) : null } : null,
+    inferMs: spec.model ? { p50: r1(p50(armWorkerMs)), p95: r1(p95(armWorkerMs)) } : null,
+    mainMs: { p95: r2(p95(spec.model ? armMainMs : armUploadMs)) },
+    late: governor.drops - late0,
+    frames: rafFrames - frames0,
+    scale: +governor.scale.toFixed(4),
+    initMs: info ? Math.round(info.initMs) : null,
+    firstMaskMs: info ? Math.round(info.firstMaskMs) : null,
+    align: spec.align,
+  }
+  log(`${spec.name}: done — ${JSON.stringify(result)}`)
+  return result
+}
+
+/** &soak=<min>: one arm (the first of &arms, default W-selfie-cpu) for N minutes, logged per minute.
+ *  recycle stays null — S0.4 implements it. */
+async function soakArm(spec: ArmSpec, minutes: number): Promise<{ min: number; maskFps: number | null; inferP95: number | null; late: number }[]> {
+  await armSetup(spec)
+  governor.reset()
+  await sleep(2000)
+  const t0 = performance.now()
+  const perMin: { min: number; maskFps: number | null; inferP95: number | null; late: number }[] = []
+  let lastDrops = 0
+  let bTs: number[] = [], bWm: number[] = []
+  let ti = camMask.ts.length, wi = camMask.workerMs.length
+  const flush = () => {
+    const gaps = bTs.slice(1).map((t, i) => t - bTs[i])
+    const medGap = p50(gaps)
+    perMin.push({
+      min: perMin.length + 1,
+      maskFps: medGap ? Math.round(1000 / medGap) : null,
+      inferP95: p95(bWm) === null ? null : Math.round(p95(bWm)!),
+      late: governor.drops - lastDrops,
+    })
+    lastDrops = governor.drops
+    bTs = []
+    bWm = []
+  }
+  const poll = setInterval(() => {
+    bTs.push(...camMask.ts.slice(ti)); ti = camMask.ts.length
+    bWm.push(...camMask.workerMs.slice(wi)); wi = camMask.workerMs.length
+    while (perMin.length < Math.floor((performance.now() - t0) / 60000) && perMin.length < minutes) flush()
+  }, 500)
+  log(`${spec.name}: soak ${minutes} min (recycle ${RECYCLE_MIN ? `=${RECYCLE_MIN} min` : 'off'} — S0.4)`)
+  await sleep(minutes * 60000)
+  clearInterval(poll)
+  bTs.push(...camMask.ts.slice(ti))
+  bWm.push(...camMask.workerMs.slice(wi))
+  while (perMin.length < minutes) flush()
+  log(`soak: done — ${JSON.stringify(perMin)}`)
+  return perMin
+}
+
+// The sheet: moments (clip seconds) × arms, the EMA mask (after D2 smoothing) over the frame, each cell
+// 320×180. Columns are re-armed (source + model), then the clip is seeked per row.
+function coverDraw(ctx: CanvasRenderingContext2D, img: HTMLCanvasElement, x: number, y: number, w: number, h: number) {
+  const s = Math.max(w / img.width, h / img.height)
+  const dw = img.width * s, dh = img.height * s
+  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh)
+}
+
+function texToCanvas(data: Uint8Array, w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  c.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(data), w, h), 0, 0)
+  return c
+}
+
+async function sheetPass(specs: ArmSpec[]): Promise<HTMLCanvasElement | null> {
+  const cols = specs.filter((s) => s.camera)
+  if (!cols.length || !MOMENTS.length) return null
+  const CW = 320, CH = 180, GAP = 8, LB = 22
+  const sheet = document.createElement('canvas')
+  sheet.width = cols.length * (CW + GAP) + GAP
+  sheet.height = MOMENTS.length * (CH + LB + GAP) + GAP
+  const sctx = sheet.getContext('2d')!
+  sctx.fillStyle = '#111'
+  sctx.fillRect(0, 0, sheet.width, sheet.height)
+  sctx.font = '13px monospace'
+  sctx.textBaseline = 'alphabetic'
+  for (let c = 0; c < cols.length; c++) {
+    const spec = cols[c]
+    await armSetup(spec)
+    const x0 = GAP + c * (CW + GAP)
+    for (let r = 0; r < MOMENTS.length; r++) {
+      const sec = MOMENTS[r]
+      const t = camSource.kind === 'clip' && isFinite(video.duration) && video.duration > 0 ? sec % video.duration : sec
+      if (camSource.kind === 'clip') {
+        video.currentTime = t
+        await waitUntil(() => Math.abs(video.currentTime - t) < 0.05, 5000, `seek ${sec} s`)
+      }
+      await sleep(800) // EMA settle (k = .85: ≈20 frames to 96%)
+      const y0 = GAP + r * (CH + LB + GAP)
+      sctx.fillStyle = '#000'
+      sctx.fillRect(x0, y0, CW, CH)
+      const f = readCam()
+      if (f) coverDraw(sctx, texToCanvas(f.data, f.w, f.h), x0, y0, CW, CH)
+      const m = readMask()
+      if (m) {
+        const mc = document.createElement('canvas')
+        mc.width = m.w
+        mc.height = m.h
+        const mi = mc.getContext('2d')!.createImageData(m.w, m.h)
+        for (let i = 0; i < m.data.length; i++) {
+          mi.data[i * 4] = mi.data[i * 4 + 1] = mi.data[i * 4 + 2] = 255
+          mi.data[i * 4 + 3] = m.data[i]
+        }
+        mc.getContext('2d')!.putImageData(mi, 0, 0)
+        sctx.globalAlpha = 0.55
+        coverDraw(sctx, mc, x0, y0, CW, CH)
+        sctx.globalAlpha = 1
+      }
+      sctx.fillStyle = '#8f8'
+      sctx.fillText(`${spec.name} · t=${sec}s${t !== sec ? ` (mod ${video.duration.toFixed(1)})` : ''} · area ${(camMask.stats?.area ?? 0).toFixed(3)}`, x0, y0 + CH + 15)
+    }
+    log(`sheet: column ${spec.name} done`)
+  }
+  stopModel()
+  return sheet
+}
+
+function download(name: string, blob: Blob) {
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000)
+}
+
+const shot = (mode: string, n: number) =>
+  new Promise<void>((ok) => {
+    lat.toBlob((b) => {
+      if (b) download(`latency-${mode}-${n}.png`, b)
+      ok()
+    }, 'image/png')
+  })
+
+/** The "Latency" button (U0.4): raw → ALIGN on → ALIGN off, 5 shots per mode. Each PNG: the clock now
+ *  (left) and the product's view of the clock seen through the camera (right, a cam.tex readback). */
+async function latencyRun() {
+  if (probe.running) return
+  if (camSource.kind === 'off') return log('Latency: select a source first')
+  latBtn.disabled = true
+  try {
+    const model: ModelId = (camMask.model as ModelId | null) ?? MODEL ?? 'selfie'
+    const modes: [string, boolean | null][] = [
+      ['raw', null],
+      ['align-on', true],
+      ['align-off', false],
+    ]
+    for (const [mode, align] of modes) {
+      stopModel()
+      if (align === null) log('latency raw (no model)')
+      else {
+        camAlign.on = align
+        startModel(model)
+        await waitUntil(() => camMask.ready !== null, 90000, `latency init ${model}`)
+        await waitUntil(() => camMask.ts.length > 0, 30000, `latency first mask`)
+        log(`latency ${mode}: ${model} ready`)
+      }
+      await sleep(1500)
+      for (let n = 1; n <= 5; n++) {
+        const f = readCam()
+        if (f) {
+          grabCanvas.width = f.w
+          grabCanvas.height = f.h
+          grabCanvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(f.data), f.w, f.h), 0, 0)
+          grabAt = performance.now()
+        }
+        drawLat() // fresh clock + grab in the same task, then the blob
+        await shot(mode, n)
+        await sleep(1000)
+      }
+    }
+    log('latency: 15 shots downloaded (raw, align-on, align-off × 5)')
+  } finally {
+    latBtn.disabled = false
+  }
+}
+
+/** "Run all": the arms (or the soak), the sheet, then the JSON + sheet downloads (frozen CP0 shape). */
+async function runner() {
+  if (probe.running) return
+  probe.running = true
+  runBtn.disabled = true
+  const results: Record<string, ArmResult> = {}
+  const json: Record<string, unknown> = { env, arms: results, agreement: {} }
+  const pfx = camSource.kind === 'camera' ? `${prefix}-cam` : prefix // camera and clip runs share a date-based name; keep the evidence separate
+  try {
+    for (const name of ARMS)
+      if (!ARM_SPECS[name]) throw new Error(`unknown arm '${name}' (known: ${Object.keys(ARM_SPECS).join(', ')})`)
+    let sheet: HTMLCanvasElement | null = null
+    if (SOAK_MIN > 0) {
+      const spec = ARM_SPECS[ARMS[0] ?? 'W-selfie-cpu']
+      json.soak = { recycle: null, perMin: await soakArm(spec, SOAK_MIN) }
+    } else {
+      for (const name of ARMS) results[name] = await runArm(ARM_SPECS[name], ARM_SECONDS)
+      log('sheet: moments × arms')
+      sheet = await sheetPass(ARMS.map((n) => ARM_SPECS[n]))
+      const sh = sheet
+      if (sh) await new Promise<void>((ok) => sh.toBlob((b) => b && (download(`${pfx}-sheet.png`, b), ok()), 'image/png'))
+    }
+    probe.done = true
+    probe.results = { json: JSON.stringify(json, null, 1), sheet: sheet ? sheet.toDataURL('image/png') : null, prefix: pfx }
+    download(`${pfx}.json`, new Blob([probe.results.json], { type: 'application/json' }))
+    log(`downloaded ${pfx}.json${SOAK_MIN ? ' (soak)' : ' + sheet'}`)
+  } catch (e) {
+    probe.error = String(e instanceof Error ? e.message : e)
+    log(`RUNNER FAILED: ${probe.error}`)
+  } finally {
+    probe.running = false
+    runBtn.disabled = false
+  }
+}
+runBtn.addEventListener('click', () => void runner())
+latBtn.addEventListener('click', () => void latencyRun())
+probe.run = runner

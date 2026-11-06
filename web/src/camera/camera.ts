@@ -29,6 +29,7 @@ camStat.path = new URLSearchParams(location.search).get('upload') === 'frame' ? 
 export const camMask = {
   model: null as ModelId | null,
   ready: null as string | null,
+  readyAt: null as number | null, // performance.now() of the worker's ready (the probe's initMs/firstMaskMs)
   error: null as string | null,
   tex: null as WebGLTexture | null,
   w: 0,
@@ -37,8 +38,12 @@ export const camMask = {
   stats: null as MaskStats | null,
   workerMs: [] as number[], // the model's ms (worker clock)
   mainMs: [] as number[], // upload + EMA (main clock)
+  ts: [] as number[], // mask-arrival times (main clock) — the probe's maskFps
   inFlight: 0,
 }
+/** ALIGN (design D2): on = the image waits for its mask (the clone uploaded when the mask returns);
+ *  off = the newest frame uploads at once, the mask lags one inference. The probe flips it per arm (S0.3). */
+export const camAlign = { on: true }
 
 const rawMask = { tex: gl.createTexture() }
 gl.bindTexture(gl.TEXTURE_2D, rawMask.tex)
@@ -79,15 +84,39 @@ export function startModel(model: ModelId, base = '/') {
   if (worker) return
   camMask.model = model
   camMask.ready = null
+  camMask.readyAt = null
   camMask.error = null
   worker = new SegmentWorker()
   worker.onmessage = (e: MessageEvent<FromWorker>) => {
     const m = e.data
-    if (m.type === 'ready') camMask.ready = m.info
-    else if (m.type === 'error') camMask.error = m.msg
+    if (m.type === 'ready') {
+      camMask.ready = m.info
+      camMask.readyAt = performance.now()
+    } else if (m.type === 'error') camMask.error = m.msg
     else onMask(m)
   }
   worker.postMessage({ type: 'init', model, delegate: 'CPU', base } satisfies ToWorker)
+}
+
+/** Tear the worker down and forget the mask state (the S0.3 probe runs the arms one after another). */
+export function stopModel() {
+  worker?.terminate()
+  worker = null
+  camMask.model = null
+  camMask.ready = null
+  camMask.readyAt = null
+  camMask.error = null
+  camMask.tex = null
+  camMask.stats = null
+  camMask.w = camMask.h = 0
+  camMask.inFlight = 0
+  if (pending) {
+    pending.close()
+    pending = null
+  }
+  camMask.workerMs.length = 0
+  camMask.mainMs.length = 0
+  camMask.ts.length = 0
 }
 
 function uploadMask(w: number, h: number, data: Uint8Array<ArrayBuffer>) {
@@ -128,10 +157,11 @@ function onMask(m: Extract<FromWorker, { type: 'mask' }>) {
   camMask.stats = m.stats
   camMask.workerMs.push(m.ms)
   camMask.mainMs.push(performance.now() - t0)
-  for (const xs of [camMask.workerMs, camMask.mainMs]) if (xs.length > 600) xs.shift()
+  camMask.ts.push(performance.now())
+  for (const xs of [camMask.workerMs, camMask.mainMs, camMask.ts]) if (xs.length > 600) xs.shift()
 }
 
-const video = document.createElement('video')
+export const video = document.createElement('video')
 video.muted = true
 video.playsInline = true
 video.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none' // hidden, still decoding
@@ -167,11 +197,21 @@ function upload() {
   }
   // With a model the worker needs a VideoFrame, so the &upload= A/B applies only to the base arms (S0.3).
   const vf = new VideoFrame(video)
-  if (!camMask.inFlight) {
-    pending = vf.clone() // ALIGN (D2): uploaded when this mask returns
-    camMask.inFlight = ++nextId
-    worker.postMessage({ type: 'frame', id: camMask.inFlight, frame: vf }, [vf]) // transferred; the worker closes it
-  } else vf.close() // one frame in flight: the image runs at the mask rate
+  if (camAlign.on) {
+    if (!camMask.inFlight) {
+      pending = vf.clone() // ALIGN (D2): uploaded when this mask returns
+      camMask.inFlight = ++nextId
+      worker.postMessage({ type: 'frame', id: camMask.inFlight, frame: vf }, [vf]) // transferred; the worker closes it
+    } else vf.close() // one frame in flight: the image runs at the mask rate
+  } else {
+    uploadTex(vf, vf.displayWidth, vf.displayHeight) // ALIGN off (D2): the newest frame shows at once
+    if (!camMask.inFlight) {
+      const c = vf.clone() // the mask lags one inference
+      camMask.inFlight = ++nextId
+      worker.postMessage({ type: 'frame', id: camMask.inFlight, frame: c }, [c])
+    }
+    vf.close()
+  }
   camStat.ms.push(performance.now() - t0)
   if (camStat.ms.length > 600) camStat.ms.shift()
 }
@@ -216,13 +256,20 @@ export async function allowCameras() {
 export async function selectCamera(sel: string | 'off' | File) {
   video.pause()
   video.srcObject = null
-  if (clipUrl) URL.revokeObjectURL(clipUrl)
-  clipUrl = null
+  if (clipUrl) {
+    URL.revokeObjectURL(clipUrl)
+    clipUrl = null
+    video.removeAttribute('src')
+    video.load() // drop the element's reference to the just-revoked blob (a pending load of it logs ERR_FILE_NOT_FOUND)
+  }
   mirror = false
   camSource.kind = 'off'
   camSource.settings = null
   camSource.caps = null
-  if (sel === 'off') return
+  if (sel === 'off') {
+    cam.w = cam.h = 0 // base-0: nothing camera-shaped is drawn (the probe's 'HEAVY alone' arm)
+    return
+  }
   if (sel instanceof File) {
     camSource.kind = 'clip'
     clipUrl = URL.createObjectURL(sel)
@@ -243,4 +290,41 @@ export async function selectCamera(sel: string | 'off' | File) {
   }
   await video.play()
   arm()
+}
+
+/** S0.3 probe readbacks (sheet + latency clock): top-first RGBA8 of the uploaded camera image,
+ *  or null when there is none. Called between tasks (never inside the app's rAF), so the FBO dance
+ *  cannot race the engine. */
+let camFbo: WebGLFramebuffer | null = null
+export function readCam(): { data: Uint8Array; w: number; h: number } | null {
+  if (!cam.w || !cam.h) return null
+  if (!camFbo) {
+    camFbo = gl.createFramebuffer()
+    gl.bindFramebuffer(gl.FRAMEBUFFER, camFbo)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, cam.tex, 0)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+  const { w, h } = cam
+  const data = new Uint8Array(w * h * 4)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, camFbo)
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, data)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  return { data, w, h }
+}
+
+/** The EMA mask (after D2 smoothing), top-first u8, or null. */
+export function readMask(): { data: Uint8Array; w: number; h: number } | null {
+  if (!camMask.tex || !camMask.w || !camMask.h) return null
+  const w = camMask.w, h = camMask.h
+  const info = camMask.tex === emaA.attachments[0] ? emaA : emaB
+  const f32 = camMask.floatEma
+  // RG16F must be read back as (RG, HALF_FLOAT) — (RGBA, HALF_FLOAT) on an RG texture is
+  // INVALID_OPERATION and readPixels silently returns nothing (the sheet's invisible-mask bug)
+  const raw = f32 ? new Uint16Array(w * h * 2) : new Uint8Array(w * h * 4)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, info.framebuffer)
+  gl.readPixels(0, 0, w, h, f32 ? gl.RG : gl.RGBA, f32 ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE, raw)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  const data = new Uint8Array(w * h)
+  for (let i = 0; i < data.length; i++) data[i] = f32 ? Math.round((raw[i * 2] / 65535) * 255) : raw[i * 4]
+  return { data, w, h }
 }
