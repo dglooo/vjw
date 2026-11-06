@@ -496,6 +496,66 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // CP4 (2b S4.4): the S4.1–S4.3 pixel effects as scenes. The binds repeat each file's VJW_BIND (built-ins stay JSON
+  // literals); the ⚡ ones (bars' and led-grid's glow) are the file's VJW_FLASH, gated to ≤3 onsets/s. The bass class
+  // rides `reese` (mosaic's jitter): Auto-style moves it to wobble under Dubstep.
+  {
+    v: 1, id: 'builtin:bars', name: 'Bars', star: true,
+    layers: [{
+      gen: {
+        ref: 'own/bars',
+        values: { shape: 2, gain: 0.7 }, // mirror; gain < 1 keeps the bass bands off the audio texture's −30 dB ceiling on a loud drop (S4.1)
+        bind: {
+          glow: { source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }, // ⚡
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0, max: 0.25 },
+          thickness: { source: 'sub', amount: 1, attack: 0.05, release: 0.4, min: 0.3, max: 1 },
+          spin: { source: 'bar', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 1 },
+          smoothing: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.15, max: 0.6 },
+        },
+      },
+      fx: [{ ref: 'own/bloom', bind: BLOOM }], // the TD/MilkDrop bar's soft glow (S1.4's pair)
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:led-grid', name: 'LED grid', star: true,
+    layers: [{
+      gen: { ref: 'native/tunnel' }, // the moving gen under both pixels
+      fx: [
+        {
+          ref: 'own/mosaic', // square cells: the shards the wall shows
+          bind: {
+            cell: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0.03, max: 0.05 },
+            jitter: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0, max: 0.8 }, // Auto-style's one (wobble under Dubstep)
+            outline: { source: 'hats', amount: 1, attack: 0, release: 0.08, min: 0, max: 0.1 },
+          },
+        },
+        {
+          ref: 'own/led-grid',
+          bind: {
+            dot: { source: 'sub', amount: 1, attack: 0.05, release: 0.4, min: 0.5, max: 1 },
+            glow: { source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }, // ⚡
+            levels: { source: 'build', amount: 1, attack: 1, release: 2, min: 4, max: 12 },
+          },
+        },
+      ],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:ascii', name: 'ASCII', star: true, // no bass-class binding, so Auto-style changes nothing
+    layers: [{
+      gen: { ref: 'native/tunnel' }, // its rings give the glyphs something to chase
+      fx: [{
+        ref: 'isf/ASCII Art',
+        bind: {
+          size: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0.1, max: 0.25 },
+          gamma: { source: 'build', amount: 1, attack: 1, release: 2, min: 1, max: 2 },
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.

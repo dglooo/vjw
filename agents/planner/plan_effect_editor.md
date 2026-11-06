@@ -502,13 +502,29 @@
     - Budget ≤5 ✓ — the cheapest CP4 passes so far.
   - Seen, not fixed: one `ascii.mjs` bool-loop run hit a transient `"push" is not a function` (harness-side only — no pageerror; the identical logic passed on re-run and in isolation, probes 2/3).
 
-#### S4.4 [ ] 3 built-ins, THIRD_PARTY, reaction check, contact sheet — M
+#### S4.4 [x] 3 built-ins, THIRD_PARTY, reaction check, contact sheet — M
 - Invoke the `ponytail` skill (full) before writing code. **Goal:** the new blocks in the autopilot at the quality bar, credited (S7, spec §2.4).
 - **Files:** `web/src/scenes/builtin.ts`, `web/THIRD_PARTY.md`, the existing test that parses every built-in (add the 3 ids if one lists them).
 - **Depends on:** S4.1–S4.3.
 - **Behaviour:** `builtin:bars` (bars + one post fx by look), `builtin:led-grid` (a moving gen → mosaic → led-grid), `builtin:ascii` (a moving gen → ASCII); each starred, ≤5 ms GPU p95 at 1728×1117 (E2), bound per the policy, the Auto-style note in the scene comment, composed by look against the TD/MilkDrop bar. THIRD_PARTY: ASCII Art (VIDVOX MIT + Shadertoy `lssGDj` + its licence), Pixellate if missing, any copied donor lines in bars/mosaic.
 - **Tests:** the built-in parse test covers the new ids.
 - **Done:** gates; `?bench` p95 per scene; reaction check on both arr fixtures (every bound param moves on its source; `__flash` ≤3/s); contact sheet `ed/cp4-sheet.png` (`cp3-close.mjs` pattern); 60 s autopilot run over the 3 new built-ins on both fixtures → 0 late, 1.00× (`cp4-close.mjs` pattern).
+
+**Changed during implementation:**
+- Harnesses live in the worktree, not product code: `scratchpad/ed/cp4-builtin.mjs` (reaction + billed A/B), `cp4-60s.mjs` (autopilot), `cp4-sheet.mjs` (contact sheet). Test docs = `structuredClone` of the `BUILTIN` scene registered as `test:<id>` / `test:<id>+flash` (appends an `own/flash` pass) — built-ins stay JSON literals, no test files added.
+- The confident-drop cut (`app.ts:352`) checks the STORE's hold, not the director's → harnesses do both `store.patch({ hold: true })` and `director.setHold(true)`.
+- Engine eval quirk (harness-side only): a chained `(await import('…')).x.y(…)` statement inside `page.evaluate` deterministically (5/5) threw a bogus TypeError naming a *previous* statement's callee; hoisting all dynamic imports to the top of the evaluate body → 5/5 pass. Same failure family as the S4.3 "push is not a function" transient. Imports are hoisted in all CP4 harnesses.
+- The stage canvas is WebGL with `preserveDrawingBuffer: false` (`gl/engine.ts:16`) → in-page `toDataURL()` is always black; all shots are Node-side `page.locator('#stage').screenshot()`.
+- Look choices (by eye, TD/MilkDrop bar): `bars` = own/bars shape 2 (mirror) + one post fx own/bloom; the sanctioned `gain: 0.7` keeps bass bands off the audio texture's −30 dB ceiling on a loud drop. `led-grid` = native/tunnel → own/mosaic → own/led-grid. `ascii` = native/tunnel → isf/ASCII Art. 6 dnb shots + 3 dub drop shots viewed; no re-tuning needed.
+- dubstep: the auto remap is active (settings `auto` defaults true) so led-grid's jitter (bound to reese) follows the wobble band; correlation vs the written source still ≥0.88, and bars/ascii have no bass-class bindings so Auto-style changes nothing there.
+
+**Results** (1728×1118 unless noted; r = Pearson param↔source over the settle→drop loop):
+- Reaction, dnb174-arr (build 23.1 s / drop 34.1 s): bars r = glow↔kick .91, hue↔snare .84, thickness↔sub .99, spin↔bar-saw 1.00, smoothing↔build .90, bloom.threshold↔build −.95, bloom.glow↔kick .63, bloom.level↔drop .91, bloom.rampShift↔bar-saw 1.00; flash 1.05/s, max 2 in 1 s. led-grid r = cell↔kick .89, jitter↔reese .96, outline↔hats .90, dot↔sub .99, glow↔kick .92, levels↔build .89; flash 1.05/s, max 2 in 1 s. ascii r = size↔kick .89, gamma↔build .90; flash 0.
+- Reaction, dubstep140-arr (build 28.4 s / drop 42.1 s): bars r = .93/.83/.88/1.00/.93/−.96/.89/.91/1.00; flash 0.44/s, max 2 in 1 s. led-grid r = .89/.91/.91/.88/.93/.92; flash 0.43/s, max 1 in 1 s. ascii r = .89/.93; flash 0. All `__flash` ≤3/s ✓.
+- Billed GPU A/B (med / p95 ms, `ALL` at full res): dnb — bars 2.38/3.45, led-grid 4.03/4.14, ascii 1.67/1.68. dubstep — bars 3.43/3.47, led-grid 3.41/3.41, ascii 1.67/2.29. All +flash p95s ≤5 ms ✓; governor low 0 everywhere (no scale-down); whole-trace p95 dnb: bars 3.11, led-grid 3.61, ascii 1.48.
+- 60 s autopilot (`cp4-60s.mjs`, drop auto-cuts active, `next()` every 20 s): A baseline (tunnel/swarm/scatter) and B new (bars/led-grid/ascii) on both fixtures — every phase 0 late, refreshMed 16.7 ms (1.00×), fps 59.9, scale 1, govDrops 0, no page errors.
+- Contact sheet `scratchpad/ed/cp4-sheet.png`: 3 held drop shots (editor closed) + library pane after the bake's first full pass (30 s, 142 tiles; ascii/bars/led-grid all baked). THIRD_PARTY.md: `isf/ASCII Art.fs` row (VIDVOX, MIT ISF-Files; Shadertoy `lssGDj` — no licence stated, CC BY-NC-SA 3.0 assumed, ⚠️ check before release), Pixellate already present, donor lines for bars/mosaic carried over.
+- Gates green from `web/`: `eslint .` clean, `tsc -b` clean, `vitest run` 35 files / 417 tests passed (parse test iterates BUILTIN — no test changes).
 
 ## Acceptance mapping (`spec_effect_editor.md` §4; `spec_veejay_wizard.md` §7.5)
 | § | Criterion | Proven by |
