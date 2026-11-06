@@ -4,17 +4,12 @@
 
 ## HEAD
 
-**Updated:** 2026-11-06 (session 10; S4.4 merged — all 15 2b steps done; lead close-out running)
-**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ▶ (CP4 done; lead close-out running; wave-2 design ✅ plan ✅)**. 417 tests.
+**Updated:** 2026-11-06 (session 10; **2b CLOSED**; camera S0.1 next)
+**Stage:** pilot ✅ → effects ✅ → audio-reactivity ✅ → milkdrop ✅ → 2d TD look ✅ → real-track tuning ✅ → **2b effect editor ✅ CLOSED (lead, 2026-11-06)**. 417 tests. Wave-2 design ✅ plan ✅ (coders queue after camera CP0).
 **Specs:** `thoughts/spec_veejay_wizard.md` + `spec_effects`, `spec_audio_reactivity`, `spec_td_look`, `spec_effect_editor`, `spec_camera`. **Team:** planner Fable 5.1 max; others Opus 5.5 max; researcher high.
 
 ### Where we stopped
-- **2b editor** (`plan_effect_editor.md`, Variant B): CP1 code ✅ (lead close-out pending); CP2 ✅; **CP3 ✅ closed (lead, 2026-11-05)**.
-  - S3.4 ✅ (merge after `c56b682`): `tiles.hover` runs the hovered tile live (≈19 stills/s); on leave its last frame stays as the still; milk waits; Save re-bakes from the stored doc (new import cycle live↔tiles, call-time only). 411 tests.
-  - CP3 run: 4 late = the mount + 3 × 33 ms. A/B (bake only 3, no bake 2) says environment, on a loaded machine. Re-run quiet at the 2b close-out.
-- **CP4:** S4.1 ✅ `own/bars.fs` (merge after `901bdc6`; line/circle/mirror/wave; r glow↔kick .92, hue↔snare .84, thickness↔sub .99/.88, smoothing↔build .90; bars+flash p95 2.65 ms; donor VIDVOX lines noted for S4.4). 413 tests. S4.2 ✅ Pixellate kick bind + `own/mosaic.fs` (Voronoi sq/hex/tri/diamond, 2 passes; r cell↔kick .89, jitter↔reese .96/.91, outline↔hats .90; tri+flash p95 4.56 ms). 415 tests. **S4.3 ✅** (merge after `892f9d8`): `own/led-grid.fs` (dot↔sub r .99, levels↔build .89, glow 1.07/s, p95 2.30 ms w/ flash) + `ASCII Art.fs` port (G3 header line: CC BY-NC-SA 3.0 assumed; size↔kick .89, gamma↔build .9, `tint` bool toggles on kick, p95 2.27 ms). The coder caught an IMG_PIXEL px-vs-cell-index bug in the browser. 417 tests. **S4.4 ✅** (merge `adf4efb`): `builtin:bars`/`led-grid`/`ascii` starred (billed p95 3.45/4.14/1.68 ms), THIRD_PARTY rows (ASCII: CC BY-NC-SA 3.0 assumed, author per the Shadertoy page; bars/mosaic: VIDVOX lines), the license-audit script `web/scripts/shaders.mjs` gained the two VIDVOX detectors. 60 s A/B runs 0 late both fixtures. **⚠️ its worktree `agent-aaf6b5f45785c2ca1` + Vite 5174 are KEPT: the user denied the coder's cleanup (browser check in progress) — remove when the user is done.**
-- **Now: 2b close-out (lead):** CP1 close-out (bool-binding block stills + a structural panel edit on `builtin:td-feedback` keeps the trail); then the quiet-machine CP3 re-run (4-late A/B). Last step of the epic.
-
+- **2b effect editor ✅ CLOSED (lead, 2026-11-06)** — CP1–CP4, 15/15 steps, 417 tests. Close-out: CP1 bool-binding stills + meter (`s1.3-cp1-*`), 13 structural ops on `builtin:td-feedback` keep the trail (one harness false-positive fixed: mute's 2 in-flight draws); CP3 quiet re-run 2 late = the known mount + one 35 ms blip in the first bake pass (S3.4 clean); CP4 60 s runs 0 late both fixtures (S4.4). **⚠️ the S4.4 worktree `agent-aaf6b5f45785c2ca1` + Vite 5174 are KEPT (the user denied the cleanup; browser check) — remove when the user is done.** Lead server on 5173 runs the merged tree.
 ### Queue (user order 2026-11-05)
 1. Finish 2b.
 2. **Stage 3 camera** (`plan_camera.md`, Variant B): pure web, Chrome on Mac + Windows, no native helpers.
@@ -52,6 +47,13 @@
 - **Prefs:** Russian; artifacts in English; never ask (take the recommended option, report the pick); REC low; no Docker; AI reviews = leads to verify.
 
 ## TAIL
+
+### 2b effect editor (2026-11-05 → 2026-11-06, CLOSED)
+- **2b editor** (`plan_effect_editor.md`, Variant B): CP1 code ✅ (lead close-out pending); CP2 ✅; **CP3 ✅ closed (lead, 2026-11-05)**.
+  - S3.4 ✅ (merge after `c56b682`): `tiles.hover` runs the hovered tile live (≈19 stills/s); on leave its last frame stays as the still; milk waits; Save re-bakes from the stored doc (new import cycle live↔tiles, call-time only). 411 tests.
+  - CP3 run: 4 late = the mount + 3 × 33 ms. A/B (bake only 3, no bake 2) says environment, on a loaded machine. Re-run quiet at the 2b close-out.
+- **CP4:** S4.1 ✅ `own/bars.fs` (merge after `901bdc6`; line/circle/mirror/wave; r glow↔kick .92, hue↔snare .84, thickness↔sub .99/.88, smoothing↔build .90; bars+flash p95 2.65 ms; donor VIDVOX lines noted for S4.4). 413 tests. S4.2 ✅ Pixellate kick bind + `own/mosaic.fs` (Voronoi sq/hex/tri/diamond, 2 passes; r cell↔kick .89, jitter↔reese .96/.91, outline↔hats .90; tri+flash p95 4.56 ms). 415 tests. **S4.3 ✅** (merge after `892f9d8`): `own/led-grid.fs` (dot↔sub r .99, levels↔build .89, glow 1.07/s, p95 2.30 ms w/ flash) + `ASCII Art.fs` port (G3 header line: CC BY-NC-SA 3.0 assumed; size↔kick .89, gamma↔build .9, `tint` bool toggles on kick, p95 2.27 ms). The coder caught an IMG_PIXEL px-vs-cell-index bug in the browser. 417 tests. **S4.4 ✅** (merge `adf4efb`): `builtin:bars`/`led-grid`/`ascii` starred (billed p95 3.45/4.14/1.68 ms), THIRD_PARTY rows (ASCII: CC BY-NC-SA 3.0 assumed, author per the Shadertoy page; bars/mosaic: VIDVOX lines), the license-audit script `web/scripts/shaders.mjs` gained the two VIDVOX detectors. 60 s A/B runs 0 late both fixtures. **⚠️ its worktree `agent-aaf6b5f45785c2ca1` + Vite 5174 are KEPT: the user denied the coder's cleanup (browser check in progress) — remove when the user is done.**
+- **Now: 2b close-out (lead):** CP1 close-out (bool-binding block stills + a structural panel edit on `builtin:td-feedback` keeps the trail); then the quiet-machine CP3 re-run (4-late A/B). Last step of the epic.
 
 - 2026-10-27 — Session 1: project setup. CLAUDE.md written for VeeJay Wizard; ponytail, graphify and grill-me skills installed.
 - 2026-10-27 — Session 2:
