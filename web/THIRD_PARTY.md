@@ -58,10 +58,11 @@ The three tables come from `node scripts/shaders.mjs`, which reads each file's h
 - `own/`: ours, MIT (the project's license, spec §6). Library code inlined in a file keeps its original header there, and the row names it.
 - `transitions/`: [gl-transitions](https://github.com/gl-transitions/gl-transitions) 2.0.0, the `glsl3/` sources. Author and license are the file's own `// Author:` and `// License:` lines (all 12 are MIT, as is the repo's LICENSE); the source is the upstream file its header names. `crossfade.glsl` is ours.
 
-### isf (14)
+### isf (15)
 
 | path | author | source | license |
 |---|---|---|---|
+| `isf/ASCII Art.fs` | VIDVOX (Ported from https://www.shadertoy.com/view/lssGDj) | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Chromatic Aberration.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Circular Feedback Mask.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Comet Tails.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
@@ -77,10 +78,11 @@ The three tables come from `node scripts/shaders.mjs`, which reads each file's h
 | `isf/Worley Cells.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/v002-CRT-Displacement.fs` | vade | https://github.com/Vidvox/ISF-Files | MIT |
 
-### own (23)
+### own (26)
 
 | path | author | source | license |
 |---|---|---|---|
+| `own/bars.fs` | VeeJay Wizard (own) + FFT Color Lines and FFT Filled Waveform (VIDVOX) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
 | `own/bloom.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/domain-warp.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/echo.fs` | VeeJay Wizard (own) | - | MIT (own) |
@@ -91,9 +93,11 @@ The three tables come from `node scripts/shaders.mjs`, which reads each file's h
 | `own/flythrough.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/fractal.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/ink.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
+| `own/led-grid.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/light-tunnel.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/liquid-chrome.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/metaballs.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/mosaic.fs` | VeeJay Wizard (own) + Triangle Mosaic (VIDVOX) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
 | `own/radial-blur.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/reaction-diffusion.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/scanlines.fs` | VeeJay Wizard (own) | - | MIT (own) |
@@ -147,6 +151,7 @@ Upstream work that a file names in a comment. The files state no license for it:
 - `isf/v002-CRT-Displacement.fs`: by vade; no upstream URL in the file.
 - `isf/Comet Tails.fs`: the effect is described at https://bavc.github.io/avaa/artifacts/image_lag.html. `isf/Worley Cells.fs`: the common "iq" sin-based hash.
 - `transitions/BurnThrough.glsl` and `transitions/PerlinDissolve.glsl`: value noise based on Morgan McGuire (`@morgan3d`), https://www.shadertoy.com/view/4dS3Wd. The files give it no license; Shadertoy's default is CC BY-NC-SA 3.0, which spec §6 allows.
+- `isf/ASCII Art.fs`: VIDVOX's port of Shadertoy `lssGDj`, https://www.shadertoy.com/view/lssGDj. No licence stated; CC BY-NC-SA 3.0 assumed (personal use; ⚠️ check before release); author per the Shadertoy page (neither the donor nor the VIDVOX repo names it).
 - `transitions/PerlinDissolve.glsl`: the `random` one-liner from http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/.
 - `transitions/GlitchMemories.glsl`: based on work from natewave. `transitions/Hexagonalize.glsl`: hex math from http://www.redblobgames.com/grids/hexagons/. `transitions/Swirl.glsl`: ported by gre from https://gist.github.com/corporateshark/cacfedb8cca0f5ce3f7c.
 - `own/domain-warp.fs`: the technique is after Inigo Quilez, https://iquilezles.org/articles/warp/ (named in its description).
