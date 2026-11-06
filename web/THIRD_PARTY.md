@@ -9,11 +9,14 @@ Bundled into the app.
 
 | name | version | license |
 |---|---|---|
+| @mediapipe/tasks-vision | 1.2.2 | Apache-2.0 |
 | butterchurn | 3.0.0-beta.5 | MIT |
 | fft.js | 4.0.4 | MIT |
 | react | 19.3.1 | MIT |
 | react-dom | 19.3.1 | MIT |
 | twgl.js | 7.0.0 | MIT |
+
+@mediapipe/tasks-vision: **probe-only** until the R0 ruling ships an arm (plan_camera S0.2, design D8). The page self-hosts it: `postinstall` (`scripts/models.mjs`) copies the package's `wasm/` to the git-ignored `public/mediapipe/` and downloads the probe models (Apache-2.0, `selfie_segmenter_landscape.tflite` 250,177 B, the URL and size from research_camera.md §1) to the git-ignored `public/models/`, so the browser touches localhost only (D7). The models themselves are the probe-only part; the runtime ships only once an arm is ruled.
 
 fft.js: MIT per npm metadata (and its README); the GitHub repo (https://github.com/indutny/fft.js, Fedor Indutny) has no LICENSE file.
 

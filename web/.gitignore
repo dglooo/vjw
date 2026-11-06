@@ -25,3 +25,7 @@ dist-ssr
 
 # ?bench&sweep input, copied from donor/ by scripts/isf-sweep.mjs (plan S2.2)
 public/isf-sweep/
+
+# MediaPipe self-host (plan_camera S0.2, design D7: localhost only): the postinstall wasm copy and probe models
+public/mediapipe/
+public/models/
