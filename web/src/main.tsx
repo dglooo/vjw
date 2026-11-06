@@ -6,6 +6,7 @@ import { Overlay } from './ui/Overlay'
 import { Panel } from './ui/Panel'
 
 if (location.search.includes('bench')) void import('./bench') // ?bench: the measurement page (plan S2.2)
+if (location.search.includes('camprobe')) void import('./camprobe') // ?camprobe: the camera probe page (plan_camera S0.1)
 
 createRoot(document.getElementById('ui')!).render(
   <StrictMode>
