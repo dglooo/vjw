@@ -6,8 +6,9 @@ import type { EffectDef, Input, InputType, Value } from './fx/types'
 
 export type SceneId = string // 'builtin:<slug>' | crypto.randomUUID()
 export type Blend = 'normal' | 'add' | 'screen' | 'multiply'
+export type MaskMode = 'person' | 'background' // camera CP1: cut out the person, or keep the background
 export interface NodeDoc { ref: string; code?: string; credit?: string; values?: Record<string, Value>; bind?: Record<string, Binding> }
-export interface LayerDoc { gen: NodeDoc; fx: NodeDoc[]; blend: Blend; opacity: number; speed: number; res: number; bind?: Partial<Record<'opacity' | 'speed', Binding>> }
+export interface LayerDoc { gen: NodeDoc; fx: NodeDoc[]; blend: Blend; opacity: number; speed: number; res: number; mask?: MaskMode; bind?: Partial<Record<'opacity' | 'speed', Binding>> }
 // layers: 1..4, bottom first; created: ms since 1970, a user scene's (its place in the autopilot after the built-ins)
 export interface SceneDoc { v: 1; id: SceneId; name: string; star: boolean; created?: number; layers: LayerDoc[] }
 export interface LibraryFile { v: 1; scenes: SceneDoc[] }
@@ -15,6 +16,7 @@ export interface LibraryFile { v: 1; scenes: SceneDoc[] }
 export const CODE_MAX = 65536 // knob: chars of inline shader code per node
 const LAYERS_MAX = 4
 const BLENDS: readonly string[] = ['normal', 'add', 'screen', 'multiply'] satisfies Blend[]
+const MASKS: readonly string[] = ['person', 'background'] satisfies MaskMode[]
 const SHAPES: readonly string[] = ['sine', 'tri', 'saw', 'square', 'random'] satisfies Shape[]
 
 type Obj = Record<string, unknown>
@@ -82,6 +84,7 @@ function layer(x: unknown, at: string): LayerDoc {
     speed: clamp(num(o.speed, `${at}.speed`), 0, 4),
     res: clamp(num(o.res, `${at}.res`), 0.25, 1),
   }
+  if (o.mask !== undefined) l.mask = oneOf(o.mask, MASKS, `${at}.mask`) as MaskMode
   if (o.bind !== undefined) {
     const b = obj(o.bind, `${at}.bind`)
     l.bind = {}
