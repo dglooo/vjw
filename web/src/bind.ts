@@ -23,7 +23,7 @@ const GATED = ['beat', 'bar'] // phase sources × confidence (pilot S8); lfo is 
 
 const BANDS = Array.from({ length: BAND_COUNT }, (_, i) => `band${i}`)
 /** The keys `sources()` and features.ts's `fill()` fill, for the panel's list. */
-export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'sub', 'reese', 'wobble', 'wobbleDepth', 'beat', 'bar', 'lfo', 'confidence', 'build', 'drop'] // build/drop: the arrangement (S5.3); S6.3 lists them in a group
+export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'sub', 'reese', 'wobble', 'wobbleDepth', 'beat', 'bar', 'lfo', 'confidence', 'build', 'drop', 'presence'] // build/drop: the arrangement (S5.3); presence: the camera (S1.1) — S6.3 lists them in a group
 
 export interface SourceGroup { label: string; ids: readonly string[] }
 /** The Scene tab's source-select optgroups (S6.3), mirroring the Sources tab's meter groups: the fixed ones, the
@@ -35,6 +35,7 @@ export const sourceGroups = (custom: readonly { id: string; name: string }[] = [
     { label: 'bass', ids: ['sub', 'reese', 'wobble', 'wobbleDepth'] },
     { label: 'arrangement', ids: ['build', 'drop'] },
     { label: 'timing', ids: ['onset', 'beat', 'bar', 'lfo', 'confidence'] },
+    { label: 'camera', ids: ['presence'] }, // S1.1: the camera's presence (never in an Auto-style map, D3)
   ]
   if (custom.length) g.push({ label: 'custom', ids: custom.map((c) => c.id) })
   g.push({ label: 'band', ids: [...BANDS] })

@@ -11,8 +11,8 @@
 import { bindFramebufferInfo, createFramebufferInfo, createTexture, resizeFramebufferInfo } from 'twgl.js'
 import { fullscreenProgram, gl, stage } from '../gl/engine'
 import { coverFit } from './xf'
-import { KEEP } from './smooth'
-import type { MaskStats } from './smooth'
+import { gate } from './smooth'
+import type { Gate, MaskStats } from './smooth'
 import SegmentWorker from './segment.worker.ts?worker' // classic (G1): see vite.config's worker.format
 import { dispatch, setHostCanvas, setPreInfer } from './segment.worker' // the same module, main-thread host (S0.4)
 import type { FromWorker, ModelId, Post, ToWorker } from './segment.worker'
@@ -162,7 +162,7 @@ function onMask(role: 'slot' | 'next', s: Slot, m: Extract<FromWorker, { type: '
     pending = null
   }
   uploadMask(m.w, m.h, m.data)
-  tickEma()
+  tickEma(m.stats.area)
   camMask.stats = m.stats
   camMask.workerMs.push(m.ms)
   camMask.mainMs.push(performance.now() - t0)
@@ -345,8 +345,11 @@ function uploadMask(w: number, h: number, data: Uint8Array<ArrayBuffer>) {
   }
 }
 
-function tickEma() {
-  const k = camMask.floatEma ? KEEP : Math.max(KEEP, 0.25) // an 8-bit EMA stalls below .25 (D2)
+export const camGate: Gate = { area: 0, held: 0 } // S1.1: the gate's state — the EMA's k (D2), not a fixed KEEP; presence reads its area (D3)
+
+function tickEma(area: number) {
+  const gk = gate(camGate, area)
+  const k = gk === 0 ? 0 : camMask.floatEma ? gk : Math.max(gk, 0.25) // an 8-bit EMA stalls below .25 (D2); k 0 (a freeze) is exact even in 8-bit
   const src = ema
   ema = ema === emaA ? emaB : emaA
   bindFramebufferInfo(gl, ema)
