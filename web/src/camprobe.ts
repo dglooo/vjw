@@ -1,19 +1,25 @@
-// ?camprobe (plan_camera S0.1–S0.3): the CP0 probe. Holds HEAVY (&heavy=<id>, default
+// ?camprobe (plan_camera S0.1–S0.4): the CP0 probe. Holds HEAVY (&heavy=<id>, default
 // builtin:td-feedback) the way bench.ts holds a scene, and draws cam.tex + the EMA mask cover-fitted
 // over the stage in its own rAF — registered after app.ts's frame(), which rAF ordering guarantees.
-// S0.3: the unattended runner. 60 s per arm (&arms=, default base-0, base-cam, W-synthetic,
-// W-selfie-cpu, W-selfie-cpu-align-off); &moments=<seconds> for the sheet (moments × arms);
-// &soak=<min> logs per minute (camprobe-soak-*.json); &recycle=<min> is parsed, reserved for S0.4.
+// The unattended runner: 60 s per arm (&arms=, default the ten measured arms — base-0, base-cam,
+// W-synthetic, W-selfie-cpu[-align-off], W-selfie-gpu, W-pose-cpu/-gpu (PoseLandmarker lite), M-cpu
+// (the module on the MAIN thread), M-same (Selfie GPU on our `stage` context + the K5 GL diff)); the
+// sheet-only models (selfie-square, multiclass, deeplab, pose-full) run for the sheet's columns only.
+// K7 agreement = GPU vs CPU of the same clip frames per model: each W-*-cpu/-gpu arm samples its EMA
+// mask at 500 ms clip-time buckets, the pass joins the two arms' buckets and averages iou / centroid Δ.
+// &moments=<seconds> for the sheet (moments × arms); &soak=<min> logs per minute (camprobe-soak-*.json);
+// &recycle=<min> = D2 make-before-break (a new worker inits beside the old, the swap at its first mask,
+// the old terminated) — the soak JSON's `recycle` counts the swaps.
 // late = the app governor's drops (quality.ts's rule, imported — not re-derived) and scale = its
 // scale at the arm's end. The big ms clock canvas + the "Latency" button cycle raw → ALIGN on →
 // ALIGN off, 5 latency-<mode>-<n>.png each (the clock now, and the product's view of the clock seen
 // through the camera). At the end: JSON + sheet downloads, the frozen CP0 shape.
 import { director, governor } from './app'
 import {
-  allowCameras, cam, camAlign, camMask, camSource, camStat, listCameras, readCam, readMask, selectCamera, startModel, stopModel, video,
+  allowCameras, cam, camAlign, camMask, camSource, camStat, forceRecycle, listCameras, readCam, readMask, recycle, selectCamera, startModel, stopModel, video,
 } from './camera/camera'
 import { fullscreenProgram, gl, stage } from './gl/engine'
-import { minWindowFps, p50, p95 } from './camera/metrics'
+import { centroidDelta, iou, minWindowFps, p50, p95 } from './camera/metrics'
 import type { ModelId } from './camera/segment.worker'
 import { store } from './store'
 
@@ -21,10 +27,10 @@ const params = new URLSearchParams(location.search)
 const HEAVY = params.get('heavy') ?? 'builtin:td-feedback'
 const MODEL = params.get('model') as ModelId | null // manual overlay arm (S0.2)
 const CLIP = params.get('clip') // a same-origin URL fetched on boot (the harness serves it as /__clip)
-const ARMS = (params.get('arms') ?? 'base-0,base-cam,W-synthetic,W-selfie-cpu,W-selfie-cpu-align-off').split(',').filter(Boolean)
+const ARMS = (params.get('arms') ?? 'base-0,base-cam,W-synthetic,W-selfie-cpu,W-selfie-cpu-align-off,W-selfie-gpu,W-pose-cpu,W-pose-gpu,M-cpu,M-same').split(',').filter(Boolean)
 const MOMENTS = (params.get('moments') ?? '12,35').split(',').map((s) => +s).filter((n) => n > 0)
 const SOAK_MIN = +(params.get('soak') ?? 0)
-const RECYCLE_MIN = +(params.get('recycle') ?? 0) // S0.4 (parse only: the runner must not implement it)
+const RECYCLE_MIN = +(params.get('recycle') ?? 0) // D2 make-before-break cadence during the soak (S0.4)
 const ARM_SECONDS = 60
 
 interface ArmSpec {
@@ -32,6 +38,9 @@ interface ArmSpec {
   camera: boolean
   model: ModelId | null
   align: boolean | null
+  delegate?: 'CPU' | 'GPU' // default CPU
+  host?: 'main' | 'worker' // default worker
+  sheetOnly?: boolean // a sheet column, no 60 s arm (design: "sheet frames")
 }
 const ARM_SPECS: Record<string, ArmSpec> = {
   'base-0': { name: 'base-0', camera: false, model: null, align: null },
@@ -39,7 +48,18 @@ const ARM_SPECS: Record<string, ArmSpec> = {
   'W-synthetic': { name: 'W-synthetic', camera: true, model: 'synthetic', align: true },
   'W-selfie-cpu': { name: 'W-selfie-cpu', camera: true, model: 'selfie', align: true },
   'W-selfie-cpu-align-off': { name: 'W-selfie-cpu-align-off', camera: true, model: 'selfie', align: false },
+  'W-selfie-gpu': { name: 'W-selfie-gpu', camera: true, model: 'selfie', align: true, delegate: 'GPU' },
+  'W-pose-cpu': { name: 'W-pose-cpu', camera: true, model: 'pose-lite', align: true },
+  'W-pose-gpu': { name: 'W-pose-gpu', camera: true, model: 'pose-lite', align: true, delegate: 'GPU' },
+  'M-cpu': { name: 'M-cpu', camera: true, model: 'selfie', align: true, host: 'main' },
+  'M-same': { name: 'M-same', camera: true, model: 'selfie', align: true, host: 'main', delegate: 'GPU' },
+  'selfie-square': { name: 'selfie-square', camera: true, model: 'selfie-square', align: true, sheetOnly: true },
+  'multiclass': { name: 'multiclass', camera: true, model: 'multiclass', align: true, sheetOnly: true },
+  'deeplab': { name: 'deeplab', camera: true, model: 'deeplab', align: true, sheetOnly: true },
+  'pose-full': { name: 'pose-full', camera: true, model: 'pose-full', align: true, sheetOnly: true },
 }
+// K7: the arms whose EMA masks are sampled for the GPU-vs-CPU agreement (clip frames only).
+const AGREE_ARMS = new Set(['W-selfie-cpu', 'W-selfie-gpu', 'W-pose-cpu', 'W-pose-gpu'])
 
 const env: Record<string, unknown> = {
   ua: navigator.userAgent,
@@ -125,7 +145,7 @@ const probe: {
 }
 Object.assign(window, { __camprobe: probe })
 
-const RECLINE = RECYCLE_MIN ? `${RECYCLE_MIN} min (S0.4)` : ''
+const RECLINE = RECYCLE_MIN ? `${RECYCLE_MIN} min` : ''
 const os = /windows/i.test(navigator.userAgent) ? 'win' : /mac/i.test(navigator.userAgent) ? 'mac' : 'linux'
 const gpuSlug = String(env.gpu ?? 'gpu').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
 const prefix = (SOAK_MIN ? 'camprobe-soak-' : 'camprobe-') + `${os}-${gpuSlug}-${new Date().toISOString().slice(0, 10)}`
@@ -236,7 +256,7 @@ async function run() {
     log(`clip: ${CLIP}`)
     await selectClip()
   }
-  if (MODEL && (MODEL === 'synthetic' || MODEL === 'selfie')) startModel(MODEL) // S0.2 arms; the rest come in S0.4
+  if (MODEL) startModel(MODEL) // any model, manual overlay (S0.4)
 }
 void run()
 
@@ -262,6 +282,8 @@ const r2 = (x: number | null) => (x === null ? null : Math.round(x * 100) / 100)
 /** Put the arm's source + model + ALIGN in place; the 60 s window starts only at steady state. */
 async function armSetup(spec: ArmSpec): Promise<{ initMs: number; firstMaskMs: number } | null> {
   stopModel()
+  camMask.recycleCount = 0 // the swap count belongs to this arm/soak window (not to stopModel: a forced
+  // re-init mid-soak would otherwise zero the soak's evidence)
   if (spec.align !== null) camAlign.on = spec.align
   if (!spec.camera) {
     if (camSource.kind !== 'off') await selectCamera('off')
@@ -274,7 +296,7 @@ async function armSetup(spec: ArmSpec): Promise<{ initMs: number; firstMaskMs: n
   }
   if (!spec.model) return null
   const t0 = performance.now()
-  startModel(spec.model)
+  startModel(spec.model, { delegate: spec.delegate, host: spec.host }) // S0.4: M-* = main host; main+GPU is M-same (our stage context)
   await waitUntil(() => camMask.ready !== null, 90000, `init ${spec.model}`)
   const initMs = performance.now() - t0
   await waitUntil(() => camMask.ts.length > 0, 30000, `first mask ${spec.model}`)
@@ -285,12 +307,18 @@ interface ArmResult {
   maskFps: { min1s: number | null; med: number | null } | null
   inferMs: { p50: number | null; p95: number | null } | null
   mainMs: { p95: number | null } | null
+  mainTotalP95: number | null // M-* arms: inference + upload + EMA, all on the main thread (K2 main ≤ 2 ms)
   late: number
   frames: number
   scale: number
+  masks: number // armTs.length — the denominator: < window × rate means the ts cap truncated the window
   initMs: number | null
   firstMaskMs: number | null
   align: boolean | null
+  glDiff?: Record<string, string> // M-same K5: the distinct GL state changes MediaPipe left in our context
+  glDiffSamples?: number // K5's denominator: the inferences the diff bracketed ({} over 0 samples proves nothing)
+  sheetOnly?: boolean // design: "sheet frames" — no 60 s arm, K1–K3 n/a
+  error?: string // the arm failed (init error): the run continues, the evidence is the error
 }
 
 /** A 60 s steady-state window: late = the governor's drops (reset at the window start), scale at the end. */
@@ -307,8 +335,9 @@ async function runArm(spec: ArmSpec, seconds: number): Promise<ArmResult> {
     armWorkerMs.push(...camMask.workerMs.slice(wi)); wi = camMask.workerMs.length
     armMainMs.push(...camMask.mainMs.slice(mi)); mi = camMask.mainMs.length
     armUploadMs.push(...camStat.ms.slice(ui)); ui = camStat.ms.length
+    if (AGREE_ARMS.has(spec.name)) agreeSample(spec) // K7: the EMA mask at this clip moment (the 500 ms poll's cadence)
   }, 500)
-  log(`${spec.name}: ${seconds} s window (model ${spec.model ?? '—'} · align ${spec.align ?? '—'})`)
+  log(`${spec.name}: ${seconds} s window (model ${spec.model ?? '—'} · ${spec.host ?? 'worker'} · ${spec.delegate ?? 'CPU'} · align ${spec.align ?? '—'})`)
   await sleep(seconds * 1000)
   clearInterval(poll)
   armTs.push(...camMask.ts.slice(ti))
@@ -321,25 +350,64 @@ async function runArm(spec: ArmSpec, seconds: number): Promise<ArmResult> {
     maskFps: spec.model ? { min1s: r1(minWindowFps(armTs)), med: medGap ? r1(1000 / medGap) : null } : null,
     inferMs: spec.model ? { p50: r1(p50(armWorkerMs)), p95: r1(p95(armWorkerMs)) } : null,
     mainMs: { p95: r2(p95(spec.model ? armMainMs : armUploadMs)) },
+    // M-* arms: the inference runs on the main thread — K2 (main ≤ 2 ms) grades the total per mask
+    mainTotalP95: spec.host === 'main' && armWorkerMs.length ? r2(p95(armWorkerMs.map((x, i) => x + armMainMs[i]))) : null,
     late: governor.drops - late0,
     frames: rafFrames - frames0,
     scale: +governor.scale.toFixed(4),
+    masks: armTs.length,
     initMs: info ? Math.round(info.initMs) : null,
     firstMaskMs: info ? Math.round(info.firstMaskMs) : null,
     align: spec.align,
+  }
+  if (spec.host === 'main' && spec.delegate === 'GPU' && camMask.glDiff) {
+    result.glDiff = { ...camMask.glDiff } // K5: the distinct GL state changes MediaPipe left in our context
+    result.glDiffSamples = camMask.glDiffSamples
+    log(`${spec.name}: K5 GL diff (${result.glDiffSamples} inference samples, ${Object.keys(result.glDiff).length} distinct states): ${JSON.stringify(result.glDiff)}`)
   }
   log(`${spec.name}: done — ${JSON.stringify(result)}`)
   return result
 }
 
+// K7 agreement samples: the EMA mask (readMask, after D2 smoothing) bucketed by 500 ms of CLIP time —
+// the CPU and GPU arms of the same model sample the same deterministic loop, so the buckets join.
+interface AgreeSample {
+  model: ModelId
+  delegate: 'CPU' | 'GPU'
+  key: number
+  w: number
+  h: number
+  data: Uint8Array
+  area: number
+}
+const agreeBuf: AgreeSample[] = []
+function agreeSample(spec: ArmSpec) {
+  const d = video.duration
+  if (!isFinite(d) || d <= 0) return // camera source: no deterministic clip time — the pass yields no pairs
+  const mk = readMask()
+  if (!mk) return
+  agreeBuf.push({
+    model: spec.model!,
+    delegate: spec.delegate ?? 'CPU',
+    key: Math.round((video.currentTime % d) * 2),
+    w: mk.w,
+    h: mk.h,
+    data: mk.data,
+    area: camMask.stats?.area ?? 0,
+  })
+}
+
 /** &soak=<min>: one arm (the first of &arms, default W-selfie-cpu) for N minutes, logged per minute.
- *  recycle stays null — S0.4 implements it. */
-async function soakArm(spec: ArmSpec, minutes: number): Promise<{ min: number; maskFps: number | null; inferP95: number | null; late: number }[]> {
+ *  &recycle=<min> (S0.4, D2 make-before-break): a new worker inits beside the old at each cadence, the
+ *  swap at its first mask, the old terminated — `recycle` in the JSON counts the swaps actually made. */
+async function soakArm(spec: ArmSpec, minutes: number): Promise<{ recycle: number | null; perMin: { min: number; maskFps: number | null; inferP95: number | null; late: number }[] }> {
   await armSetup(spec)
   governor.reset()
   await sleep(2000)
   const t0 = performance.now()
   const perMin: { min: number; maskFps: number | null; inferP95: number | null; late: number }[] = []
+  const recycleCap = RECYCLE_MIN ? Math.floor((minutes * 60000 - 1) / (RECYCLE_MIN * 60000)) : 0
+  let recycleAt = -1e9 // a failed recycle retries after 5 s (the old host keeps serving meanwhile)
   let lastDrops = 0
   let bTs: number[] = [], bWm: number[] = []
   let ti = camMask.ts.length, wi = camMask.workerMs.length
@@ -356,19 +424,90 @@ async function soakArm(spec: ArmSpec, minutes: number): Promise<{ min: number; m
     bTs = []
     bWm = []
   }
+  let stuckId = 0, stuckAt = 0
   const poll = setInterval(() => {
     bTs.push(...camMask.ts.slice(ti)); ti = camMask.ts.length
     bWm.push(...camMask.workerMs.slice(wi)); wi = camMask.workerMs.length
+    // a frame stuck in flight is a host that hung or died (inference never returns): 3 s is 250× the
+    // worst round trip — force a re-init so the feed (and the soak evidence) survives
+    if (camMask.inFlight) {
+      if (camMask.inFlight !== stuckId) {
+        stuckId = camMask.inFlight
+        stuckAt = performance.now()
+      } else if (performance.now() - stuckAt > 3000) {
+        console.error(`soak: frame ${stuckId} stuck in flight ${Math.round(performance.now() - stuckAt)} ms — forcing a re-init`)
+        stuckId = 0
+        forceRecycle()
+      }
+    } else stuckId = 0
+    if (recycleCap) {
+      const due = Math.min(Math.floor((performance.now() - t0) / (RECYCLE_MIN * 60000)), recycleCap)
+      if (camMask.recycleCount < due && performance.now() - recycleAt > 5000) {
+        recycleAt = performance.now()
+        log(`soak: recycle ${camMask.recycleCount + 1}/${recycleCap} — a new worker inits beside the old (D2 make-before-break)`)
+        recycle()
+      }
+    }
     while (perMin.length < Math.floor((performance.now() - t0) / 60000) && perMin.length < minutes) flush()
   }, 500)
-  log(`${spec.name}: soak ${minutes} min (recycle ${RECYCLE_MIN ? `=${RECYCLE_MIN} min` : 'off'} — S0.4)`)
+  log(`${spec.name}: soak ${minutes} min (recycle ${RECYCLE_MIN ? `every ${RECYCLE_MIN} min` : 'off'})`)
   await sleep(minutes * 60000)
   clearInterval(poll)
   bTs.push(...camMask.ts.slice(ti))
   bWm.push(...camMask.workerMs.slice(wi))
   while (perMin.length < minutes) flush()
-  log(`soak: done — ${JSON.stringify(perMin)}`)
-  return perMin
+  log(`soak: done — swaps ${camMask.recycleCount}${recycleCap ? ` (due ${recycleCap})` : ''} · ${JSON.stringify(perMin)}`)
+  return { recycle: RECYCLE_MIN ? camMask.recycleCount : null, perMin }
+}
+
+// K7: GPU vs CPU of the same clip frames, per model (metrics.iou / centroidDelta, already tested).
+// The samples are the EMA readbacks (both arms run the same D2 smoothing, so they compare like for
+// like). Degenerate on a person-free clip: two empty masks score iou 1 / Δ 0 by metrics.iou's
+// definition — `meanArea` marks that in the JSON, and the log says so plainly.
+const r4 = (x: number | null) => (x === null ? null : Math.round(x * 10000) / 10000)
+function computeAgreement(): Record<string, { iou: number | null; centroidTexels: number | null; pairs: number; meanArea: number }> {
+  const out: Record<string, { iou: number | null; centroidTexels: number | null; pairs: number; meanArea: number }> = {}
+  const byModel = new Map<ModelId, { cpu: AgreeSample[]; gpu: AgreeSample[] }>()
+  for (const s of agreeBuf) {
+    let e = byModel.get(s.model)
+    if (!e) byModel.set(s.model, (e = { cpu: [], gpu: [] }))
+    ;(s.delegate === 'GPU' ? e.gpu : e.cpu).push(s)
+  }
+  for (const [model, { cpu, gpu }] of byModel) {
+    if (!cpu.length || !gpu.length) continue
+    const buckets = new Map<number, { c: AgreeSample[]; g: AgreeSample[] }>()
+    for (const s of cpu) {
+      const b = buckets.get(s.key) ?? { c: [], g: [] }
+      b.c.push(s)
+      buckets.set(s.key, b)
+    }
+    for (const s of gpu) {
+      const b = buckets.get(s.key) ?? { c: [], g: [] }
+      b.g.push(s)
+      buckets.set(s.key, b)
+    }
+    let pairs = 0, iouSum = 0, centSum = 0, areaSum = 0
+    for (const { c, g } of buckets.values()) {
+      const k = Math.min(c.length, g.length)
+      for (let i = 0; i < k; i++) {
+        const a = c[i], b = g[i]
+        if (a.w !== b.w || a.h !== b.h) continue // the delegates disagree on the output size: skip, not average
+        pairs++
+        iouSum += iou(a.data, b.data)
+        centSum += centroidDelta(a.data, b.data, a.w, a.h)
+        areaSum += (a.area + b.area) / 2
+      }
+    }
+    const meanArea = pairs ? areaSum / pairs : 0
+    out[model] = { iou: pairs ? r4(iouSum / pairs) : null, centroidTexels: pairs ? r2(centSum / pairs) : null, pairs, meanArea: Math.round(meanArea * 10000) / 10000 }
+    const degenerate = pairs > 0 && meanArea < 0.005
+    log(
+      `agreement ${model}: ${pairs} pairs · mean iou ${out[model].iou} · mean centroid Δ ${out[model].centroidTexels} texels · mean area ${meanArea.toFixed(4)}` +
+        (degenerate ? ' — DEGENERATE: no person in the clip; two near-empty masks score iou 1 / Δ 0 (metrics.iou: two empty masks agree → 1). Real numbers need a person in frame.' : ''),
+    )
+  }
+  if (!Object.keys(out).length) log('agreement: no model ran both a -cpu and a -gpu arm (need W-<model>-cpu and W-<model>-gpu in &arms)')
+  return out
 }
 
 // The sheet: moments (clip seconds) × arms, the EMA mask (after D2 smoothing) over the frame, each cell
@@ -387,7 +526,7 @@ function texToCanvas(data: Uint8Array, w: number, h: number): HTMLCanvasElement 
   return c
 }
 
-async function sheetPass(specs: ArmSpec[]): Promise<HTMLCanvasElement | null> {
+async function sheetPass(specs: ArmSpec[], results: Record<string, ArmResult>): Promise<HTMLCanvasElement | null> {
   const cols = specs.filter((s) => s.camera)
   if (!cols.length || !MOMENTS.length) return null
   const CW = 320, CH = 180, GAP = 8, LB = 22
@@ -401,7 +540,32 @@ async function sheetPass(specs: ArmSpec[]): Promise<HTMLCanvasElement | null> {
   sctx.textBaseline = 'alphabetic'
   for (let c = 0; c < cols.length; c++) {
     const spec = cols[c]
-    await armSetup(spec)
+    // a sheet-only init failure loses one column (the raw frame still draws) but not the run; a measured
+    // arm failing again here is a real error
+    const info = await armSetup(spec).catch((e) => {
+      const msg = String(e instanceof Error ? e.message : e)
+      log(`sheet column ${spec.name}: init failed — ${msg}`)
+      if (!spec.sheetOnly) throw e
+      return null
+    })
+    if (spec.sheetOnly && !info) {
+      results[spec.name] = {
+        maskFps: null,
+        inferMs: null,
+        mainMs: null,
+        mainTotalP95: null,
+        late: 0,
+        frames: 0,
+        scale: +governor.scale.toFixed(4),
+        masks: 0,
+        initMs: null,
+        firstMaskMs: null,
+        align: spec.align,
+        sheetOnly: true,
+        error: 'init failed (see the run log)',
+      }
+      // no continue: the column still draws the raw frame (the source keeps playing)
+    }
     const x0 = GAP + c * (CW + GAP)
     for (let r = 0; r < MOMENTS.length; r++) {
       const sec = MOMENTS[r]
@@ -434,7 +598,24 @@ async function sheetPass(specs: ArmSpec[]): Promise<HTMLCanvasElement | null> {
       sctx.fillStyle = '#8f8'
       sctx.fillText(`${spec.name} · t=${sec}s${t !== sec ? ` (mod ${video.duration.toFixed(1)})` : ''} · area ${(camMask.stats?.area ?? 0).toFixed(3)}`, x0, y0 + CH + 15)
     }
-    log(`sheet: column ${spec.name} done`)
+    if (spec.sheetOnly && info) {
+      // the sheet-only models run no 60 s arm (design: "sheet frames"): record what the column measured
+      results[spec.name] = {
+        maskFps: null,
+        inferMs: { p50: r1(p50(camMask.workerMs)), p95: r1(p95(camMask.workerMs)) },
+        mainMs: { p95: r2(p95(camMask.mainMs)) },
+        mainTotalP95: null,
+        late: 0,
+        frames: 0,
+        scale: +governor.scale.toFixed(4),
+        masks: 0,
+        initMs: Math.round(info.initMs),
+        firstMaskMs: Math.round(info.firstMaskMs),
+        align: spec.align,
+        sheetOnly: true,
+      }
+      log(`sheet-only ${spec.name}: ${JSON.stringify(results[spec.name])} (no 60 s arm — K1–K3 n/a)`)
+    }
   }
   stopModel()
   return sheet
@@ -515,11 +696,37 @@ async function runner() {
     let sheet: HTMLCanvasElement | null = null
     if (SOAK_MIN > 0) {
       const spec = ARM_SPECS[ARMS[0] ?? 'W-selfie-cpu']
-      json.soak = { recycle: null, perMin: await soakArm(spec, SOAK_MIN) }
+      json.soak = await soakArm(spec, SOAK_MIN)
     } else {
-      for (const name of ARMS) results[name] = await runArm(ARM_SPECS[name], ARM_SECONDS)
-      log('sheet: moments × arms')
-      sheet = await sheetPass(ARMS.map((n) => ARM_SPECS[n]))
+      for (const name of ARMS) {
+        const spec = ARM_SPECS[name]
+        try {
+          results[name] = await runArm(spec, ARM_SECONDS)
+        } catch (e) {
+          // one broken arm (e.g. the GPU delegate refusing a context) is the evidence, not a run-killer
+          const msg = String(e instanceof Error ? e.message : e)
+          log(`arm ${name}: FAILED — ${msg}`)
+          results[name] = {
+            maskFps: null,
+            inferMs: null,
+            mainMs: null,
+            mainTotalP95: null,
+            late: 0,
+            frames: 0,
+            scale: +governor.scale.toFixed(4),
+            masks: 0,
+            initMs: null,
+            firstMaskMs: null,
+            align: spec.align,
+            error: msg,
+          }
+        }
+      }
+      log('agreement: GPU vs CPU of the same clip frames, per model (K7)')
+      json.agreement = computeAgreement()
+      log('sheet: moments × arms (+ the sheet-only models)')
+      const sheetSpecs = [...ARMS.map((n) => ARM_SPECS[n]), ...Object.values(ARM_SPECS).filter((s) => s.sheetOnly)]
+      sheet = await sheetPass(sheetSpecs, results)
       const sh = sheet
       if (sh) await new Promise<void>((ok) => sh.toBlob((b) => b && (download(`${pfx}-sheet.png`, b), ok()), 'image/png'))
     }
