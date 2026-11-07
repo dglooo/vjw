@@ -144,7 +144,7 @@ Every step's brief opens, verbatim: "Invoke the `ponytail` skill (full) before w
 
 ### CP2 — natives
 
-#### S2.1 [M] `native/scope` (XY/Lissajous) → `builtin:xy-scope`
+#### S2.1 [x] [M] `native/scope` (XY/Lissajous) → `builtin:xy-scope`
 - **Goal:** stereo scope as a native LINE_STRIP over `waveLR` (design answer 4: an ISF pass would SDF-test 512 segments per pixel — too slow).
 - **Files (1 new):** `web/src/scenes/scope.ts`; (edit) `web/src/fx/catalog.ts`, `web/src/scenes/builtin.ts`.
 - **Depends on:** S0.2 (waveLR).
@@ -152,6 +152,16 @@ Every step's brief opens, verbatim: "Invoke the `ponytail` skill (full) before w
 - **Built-in (ride-along):** `builtin:xy-scope` (gen `native/scope`; stereo L→x, R→y).
 - **Tests:** one small unit test on the pure seam (trail-decay from `trail` / tile-shrink scaling — whichever is extracted; GL itself is covered by the browser check).
 - **Done:** gates green; billed A/B ≤ 5 ms (est 1.5–2.5); browser both fixtures: figure rotates on reese, breathes on sub, hue on snare, trail stretches on build — r reported; screenshot `xy-scope.png`.
+
+  **Changed during implementation:**
+  1. **Billed A/B (1728×1118, +own/flash, drop, 3×4 s, low 0):** xy-scope med 1.94 / p95 1.96 ms; xy-scope+flash med 2.10 / **p95 2.11 ms** — under the 5 ms budget, inside the 1.5–2.5 est.
+  2. **Reaction r (mono `dnb174-arr.wav`, one live pass, native-draw wrap as S1.3):** scale↔sub **1.00**, rotSpeed↔reese **0.95**, hue↔snare **0.84**, trail↔build **0.90**. Figure shots on the stereo build `dnb174-arr-stereo.wav` (R ×.25; a mono file degenerates to a horizontal line, S0.2 finding).
+  3. **`width` = the glow (bloom strength), static:** WebGL `lineWidth` is 1 px on every GPU here, so a 512-seg LINE_STRIP can't thicken via line width — the "width" input drives `bloom.apply`'s strength (the swarm-trick glow), min 1 / max 8 / def 4, unbound.
+  4. **Rotation is applied in the waveLR-sampling line pass** (the "rotated sample pass"): the line VS `texelFetch`es waveLR, scales, and rotates by an accumulated `rot` (`rot += rotSpeed·dt`, rad/s). The trail then spirals behind the figure; `rotSpeed` 1.0 ≈ one turn / 6 s (TD xyScope's 0.16 Hz). The final composite is the reused `COMPOSITE_FS` tone map (no rotation there).
+  5. **Hue is baked into the line at draw time** (colour stored in the half-float trail), not tinted in the composite — so the trail keeps a colour history as snare walks the base hue (a small 0.2-turn gradient across the 512 loop). This is why the composite is the plain `COMPOSITE_FS` (tone map only).
+  6. **Frame-rate-independent trail decay (the extracted pure seam, unit-tested):** `trailKeep(trail, dt) = trail**(dt·60)` — `trail` is what one 60 Hz frame keeps, so a `dt` s frame keeps `trail^(dt·60)`. (The swarm uses a bare per-frame multiply; this holds the trail length across a governor step / fps change.) No tile-shrink seam: 512 line vertices are cheap at any size, so `create(gl)` takes no `size` (as `spectrum`); the trail and bloom `fit()` to `f` at draw.
+  7. **Binding min/max (the plan gives source/a/r; ranges are taste, per the wave-1 precedent):** scale sub .02/.4 **0.65→1.35**, rotSpeed reese 0/.3 **0→1**, hue snare 0/.3 **0.35→0.65**, trail build 1/2 **0.85→0.97** (attack 1 / release 2, the S1.3 "1/1–2" resolution). Auto: reese (rotSpeed; wobble under Dubstep).
+  8. **`build`-stretch visual is muted on this fixture:** sub and build are anti-correlated in the DnB arr (sub ~0 through the build's quiet breakdown, returns at the drop), so the stretched-trail moment has a small figure — the r-trace (trail r 0.90, span 0.85→0.933) is the solid evidence; `xy-scope-build-{rest,peak}.png` document the live-pass contrast. The required `xy-scope.png` (post-drop, sub+reese active) shows the glowing rotating figure.
 
 #### S2.2 [S] scatter `dots`/`sizeVar` → `builtin:pointillize`
 - **Goal:** pointillize as a mode on `native/scatter` (design answer 6 — not a new native).
