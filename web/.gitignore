@@ -29,3 +29,6 @@ public/isf-sweep/
 # MediaPipe self-host (plan_camera S0.2, design D7: localhost only): the postinstall wasm copy and probe models
 public/mediapipe/
 public/models/
+
+# ORT-Web self-host (plan_camera S0.5, design D7): the WebGPU build's wasm (scripts/models.mjs)
+public/ort/

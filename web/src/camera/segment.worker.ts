@@ -7,12 +7,14 @@
 // `selfie-square` (256×256), `multiclass` (256×256, 6 classes: person = max over the person parts),
 // `deeplab` (257×257, generic categories: person = the 'person' class), `pose-lite` / `pose-full`
 // (PoseLandmarker, `outputSegmentationMasks`, the FULL frame — no pose in the frame yields a 1×1 empty
-// mask, so a person-free clip measures degenerate, not broken). VIDEO mode with a monotonic stamp; the
-// result is area-downsampled to ≤320×180 and quantized before posting.
+// mask, so a person-free clip measures degenerate, not broken), `rvm` (Robust Video Matting, the
+// official fp16 ONNX on ORT-Web WebGPU — rvm.ts: the recurrent states stay on the GPU). VIDEO mode
+// with a monotonic stamp; the result is area-downsampled to ≤320×180 and quantized before posting.
 // The module closes every frame it is sent (design risk 2: an unclosed VideoFrame starves the buffer pool).
 import type { ImageSegmenter, PoseLandmarker } from '@mediapipe/tasks-vision'
 import { downsample, quantize, stats } from './smooth'
 import type { MaskStats } from './smooth'
+import { createRvm, type Rvm } from './rvm'
 
 export type ModelId = 'synthetic' | 'selfie' | 'selfie-square' | 'pose-lite' | 'pose-full' | 'multiclass' | 'deeplab' | 'rvm'
 export type ToWorker = { type: 'init'; model: ModelId; delegate: 'CPU' | 'GPU'; base: string }
@@ -42,6 +44,7 @@ export function setPreInfer(fn: (() => void) | null): void {
 let model: Model | null = null
 let seg: ImageSegmenter | null = null
 let pose: PoseLandmarker | null = null
+let rvm: Rvm | null = null
 let segPersonIdx: number[] = [] // multiclass/deeplab: the person classes' mask indices (getLabels)
 let stamp = 0 // the monotonic VIDEO-mode clock (a looping clip's media time jumps back)
 let n = 0 // the synthetic's frame counter
@@ -199,6 +202,8 @@ export async function dispatch(m: ToWorker, post: Post): Promise<void> {
       seg = null
       pose?.close()
       pose = null
+      await rvm?.close()
+      rvm = null
       segPersonIdx = []
       const v = m.model
       if (v === 'synthetic') model = synthetic
@@ -217,7 +222,10 @@ export async function dispatch(m: ToWorker, post: Post): Promise<void> {
         const pv = v as keyof typeof POSE
         pose = await makePose(m.base, m.delegate, POSE[pv])
         model = poseModel()
-      } else throw new Error(`${v} is not a model (rvm is S0.5)`)
+      } else if (v === 'rvm') {
+        rvm = await createRvm(m.base) // WebGPU EP regardless of the delegate (S0.5: rvm is the WebGPU arm)
+        model = rvm.run
+      } else throw new Error(`${v} is not a model`)
       post({ type: 'ready', info: `${v} ${m.delegate}` })
     } else if (m.type === 'frame') {
       if (!model) {
@@ -241,6 +249,8 @@ export async function dispatch(m: ToWorker, post: Post): Promise<void> {
       seg = null
       pose?.close()
       pose = null
+      await rvm?.close()
+      rvm = null
       model = null
     }
   } catch (err) {

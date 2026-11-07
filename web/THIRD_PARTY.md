@@ -12,11 +12,14 @@ Bundled into the app.
 | @mediapipe/tasks-vision | 1.2.2 | Apache-2.0 |
 | butterchurn | 3.0.0-beta.5 | MIT |
 | fft.js | 4.0.4 | MIT |
+| onnxruntime-web | 1.31.1 | MIT |
 | react | 19.3.1 | MIT |
 | react-dom | 19.3.1 | MIT |
 | twgl.js | 7.0.0 | MIT |
 
 @mediapipe/tasks-vision: **probe-only** until the R0 ruling ships an arm (plan_camera S0.2, design D8). The page self-hosts it: `postinstall` (`scripts/models.mjs`) copies the package's `wasm/` to the git-ignored `public/mediapipe/` and downloads the probe models (Apache-2.0, `selfie_segmenter_landscape.tflite` 250,177 B, the URL and size from research_camera.md §1) to the git-ignored `public/models/`, so the browser touches localhost only (D7). The models themselves are the probe-only part; the runtime ships only once an arm is ruled.
+
+onnxruntime-web: **probe-only** until the R0 ruling ships an arm (plan_camera S0.5, design D8). The page self-hosts it: `postinstall` (`scripts/models.mjs`) copies the WebGPU build's wasm glue + binary (`ort-wasm-simd-threaded.asyncify.{mjs,wasm}`) to the git-ignored `public/ort/` and downloads the RVM model (`rvm_mobilenetv3_fp16.onnx` 7,503,483 B, the official release URL, size per research_camera.md §1) to the git-ignored `public/models/`, so the browser touches localhost only (D7). The RVM model is **GPL-3.0** (PeterL1n/RobustVideoMatting, re-released 2021-09-16; allowed by spec §6, the user ruling of 2026-10-27) — the probe-only part, like the MediaPipe models. `ldenoue/rvm-webgpu` was the wiring reference only: it has no licence file, so nothing was copied from it.
 
 fft.js: MIT per npm metadata (and its README); the GitHub repo (https://github.com/indutny/fft.js, Fedor Indutny) has no LICENSE file.
 

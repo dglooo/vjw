@@ -3,7 +3,8 @@
 // over the stage in its own rAF — registered after app.ts's frame(), which rAF ordering guarantees.
 // The unattended runner: 60 s per arm (&arms=, default the ten measured arms — base-0, base-cam,
 // W-synthetic, W-selfie-cpu[-align-off], W-selfie-gpu, W-pose-cpu/-gpu (PoseLandmarker lite), M-cpu
-// (the module on the MAIN thread), M-same (Selfie GPU on our `stage` context + the K5 GL diff)); the
+// (the module on the MAIN thread), M-same (Selfie GPU on our `stage` context + the K5 GL diff),
+// W-rvm (Robust Video Matting, ORT-Web WebGPU, the recurrent states on the GPU)); the
 // sheet-only models (selfie-square, multiclass, deeplab, pose-full) run for the sheet's columns only.
 // K7 agreement = GPU vs CPU of the same clip frames per model: each W-*-cpu/-gpu arm samples its EMA
 // mask at 500 ms clip-time buckets, the pass joins the two arms' buckets and averages iou / centroid Δ.
@@ -27,7 +28,7 @@ const params = new URLSearchParams(location.search)
 const HEAVY = params.get('heavy') ?? 'builtin:td-feedback'
 const MODEL = params.get('model') as ModelId | null // manual overlay arm (S0.2)
 const CLIP = params.get('clip') // a same-origin URL fetched on boot (the harness serves it as /__clip)
-const ARMS = (params.get('arms') ?? 'base-0,base-cam,W-synthetic,W-selfie-cpu,W-selfie-cpu-align-off,W-selfie-gpu,W-pose-cpu,W-pose-gpu,M-cpu,M-same').split(',').filter(Boolean)
+const ARMS = (params.get('arms') ?? 'base-0,base-cam,W-synthetic,W-selfie-cpu,W-selfie-cpu-align-off,W-selfie-gpu,W-pose-cpu,W-pose-gpu,M-cpu,M-same,W-rvm').split(',').filter(Boolean)
 const MOMENTS = (params.get('moments') ?? '12,35').split(',').map((s) => +s).filter((n) => n > 0)
 const SOAK_MIN = +(params.get('soak') ?? 0)
 const RECYCLE_MIN = +(params.get('recycle') ?? 0) // D2 make-before-break cadence during the soak (S0.4)
@@ -53,6 +54,7 @@ const ARM_SPECS: Record<string, ArmSpec> = {
   'W-pose-gpu': { name: 'W-pose-gpu', camera: true, model: 'pose-lite', align: true, delegate: 'GPU' },
   'M-cpu': { name: 'M-cpu', camera: true, model: 'selfie', align: true, host: 'main' },
   'M-same': { name: 'M-same', camera: true, model: 'selfie', align: true, host: 'main', delegate: 'GPU' },
+  'W-rvm': { name: 'W-rvm', camera: true, model: 'rvm', align: true }, // S0.5: ORT-Web WebGPU (the delegate is ignored — the EP is WebGPU)
   'selfie-square': { name: 'selfie-square', camera: true, model: 'selfie-square', align: true, sheetOnly: true },
   'multiclass': { name: 'multiclass', camera: true, model: 'multiclass', align: true, sheetOnly: true },
   'deeplab': { name: 'deeplab', camera: true, model: 'deeplab', align: true, sheetOnly: true },
