@@ -713,6 +713,23 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // TD wave 2, S3.2 (CP3): the dilate "melt" (top-10 #9) — the donor isf/Dilate (2-pass separable max-luma, the
+  // faithful cheaper analog of TD's disc-tap dilate) over the spectrum; the sub breathes the width. Lead-locked:
+  // the min counterpart isf/Erode is catalog-only (no binding, no built-in) and the drop dilate↔erode flip is a
+  // structural fx swap, NOT bindable (a 2b editor swap). The bind repeats the file's VJW_BIND; scene radius 6 is
+  // the R3 lever if over budget (the cap 15 stays user-controlled).
+  {
+    v: 1, id: 'builtin:melt', name: 'Melt', star: true,
+    layers: [{
+      gen: { ref: 'native/spectrum' },
+      fx: [{
+        ref: 'isf/Dilate',
+        values: { radius: 6 },
+        bind: { radius: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 2, max: 8 } },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.

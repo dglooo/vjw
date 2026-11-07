@@ -186,6 +186,30 @@ describe('parseIsf', () => {
     expect(src).toContain('q5/q6 verification')
   })
 
+  test('isf/Dilate: the 2-pass donor, the sub radius bind, the shim noted, the donor header kept (wave-2 S3.2)', () => {
+    const src = import.meta.glob('./isf/Dilate.fs', { query: '?raw', import: 'default', eager: true })['./isf/Dilate.fs'] as string
+    const d = parseIsf(src, 'isf/Dilate')
+    expect(d.credit).toBe('by VIDVOX')
+    expect(src.startsWith('// Source: https://github.com/Vidvox/ISF-Files · MIT')).toBe(true)
+    expect(d.passes).toHaveLength(2) // firstPass + the output
+    expect(Object.keys(d.bind ?? {})).toEqual(['radius'])
+    expect(d.bind?.radius).toEqual({ source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 2, max: 8 })
+    expect(d.inputs.find((i) => i.name === 'radius')).toMatchObject({ default: 2, min: 1, max: 15 })
+    expect(src).toContain('ES 1.00 shim (S3.2)')
+  })
+
+  test('isf/Erode: the min counterpart, catalog-only — no bind, no built-in, the flip not bindable (wave-2 S3.2)', () => {
+    const src = import.meta.glob('./isf/Erode.fs', { query: '?raw', import: 'default', eager: true })['./isf/Erode.fs'] as string
+    const d = parseIsf(src, 'isf/Erode')
+    expect(d.credit).toBe('by VIDVOX')
+    expect(src.startsWith('// Source: https://github.com/Vidvox/ISF-Files · MIT')).toBe(true)
+    expect(d.passes).toHaveLength(2)
+    expect(d.bind).toBeUndefined() // lead-locked: the drop dilate↔erode flip is a structural fx swap, a 2b editor operation
+    expect(d.inputs.find((i) => i.name === 'bleedRadius')).toMatchObject({ default: 2, min: 1, max: 15 })
+    expect(src).toContain('catalog-only')
+    expect(src).toContain('ES 1.00 shim (S3.2)')
+  })
+
   // TD look (plan_td_look.md conventions): the own files its steps add, one entry per step.
   const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient', 'julia', 'phaser', 'diff-feedback', 'stars', 'change-color'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1; julia: wave-2 S1.2; phaser, diff-feedback, stars: wave-2 S1.3; change-color: wave-2 S3.1 (the q5/q6 donor-verification contingency)
   test.each(NEW_OWN)('own/%s parses, binds only known sources, and binds every VJW_FLASH input from 0', (stem) => {
