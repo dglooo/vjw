@@ -73,13 +73,15 @@ Every step's brief opens, verbatim: "Invoke the `ponytail` skill (full) before w
 
 ### CP0 — engine
 
-#### S0.1 [M] blends: `max` / `difference` / `dodge`
+#### S0.1 [x] blends: `max` / `difference` / `dodge`
 - **Goal:** three new layer blend modes, zero legacy regression (the CP0 gate: existing scenes render bit-identical).
 - **Files (edit, 0 new):** `web/src/doc.ts`, `web/src/gl/live.ts`, `web/src/ui/Panel.tsx`, `web/src/doc.test.ts`.
 - **Depends on:** — (queue: after 2b close-out + camera CP0).
 - **Behaviour:** widen `Blend` + the `oneOf` parse list (fact: list only ever widens → no doc version bump). `BLENDS` record: the four legacy entries unchanged; `max` = pre-scale the layer src in the existing composite shader branch (`vec4(c.rgb*op, 1)`), `blendFunc(ONE, ONE)` + `blendEquation(gl.MAX)`, equation reset to `FUNC_ADD` after the pass; `difference`/`dodge` = copy acc to one module-level scratch target (shot size, RGBA8), then a two-sampler composite pass (`|acc − op·src|` / `acc / max(1e-3, 1 − op·src)`); the extra passes cost only when a layer actually uses them. `Panel.tsx` blend array += the three. **One-frame visual check of `max`** (design ⚠️ L224: confirm the WebGL2 factors apply before the equation — check, don't guess).
 - **Tests:** `doc.test.ts` — all 7 blends parse + round-trip; the legacy 4 produce byte-identical doc strings (backward compatibility).
 - **Done:** gates green; a 2-layer doc (spectrum + echo) shows lighter / inverted-overlap / bleached under max / difference / dodge respectively; wave-1 built-ins render unchanged (lead diffs against wave-1 stills); screenshots `scratchpad/ed/blend-{max,difference,dodge}.png`. No billed A/B (no new scene).
+
+  **Changed during implementation:** (1) GLSL ES 3.00 (ANGLE) has no scalar/vec3 `max` overload — the dodge branch uses `max(vec3(1e-3), 1 − op·src)`; formula otherwise as contracted. (2) The one-frame `max` check PASSED: known 2-constant-layer doc, pixel (64,102,153) = `max(op·src, acc)` — factors apply before the equation (design L224 confirmed). (3) The `BLENDS` fixed-function record holds the legacy 4 + `max` only; `difference`/`dodge` are type-excluded from it (they take no blendFunc — scratch copy + two-sampler pass), matching the contract's behaviour split. (4) Legacy pixel-diff vehicle: `builtin:spectrum` (stateless, direct path, no TIME) instead of the suggested `builtin:td-feedback` — td-feedback's trail/heat depends on per-run sync confidence (one run's post gain was ~4× the other's); the tdfb pair is kept supplementary (`blend-legacy-tdfb-*.png`). Spectrum pair diff (1280×800, debug bar excluded): mean 0.08/255, residual 2.7 % — only bar-edge jitter from the ±1 FFT-quantum (2.7 ms) freeze offset.
 
 #### S0.2 [M] stereo wave texture `waveLR`
 - **Goal:** always-on L/R analysers feeding `audioTex.waveLR` (512×2 R8) for the CP2 scope.

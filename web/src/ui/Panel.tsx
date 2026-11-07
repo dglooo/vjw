@@ -16,7 +16,7 @@ import './panel.css'
 
 const GPU_BUDGET = 5 // ms per scene (CP4's bench gate): the hint turns amber above 80 % of it, red above it
 export const LAYERS_MAX = 4 // doc.ts's limit
-const BLENDS: readonly Blend[] = ['normal', 'add', 'screen', 'multiply']
+const BLENDS: readonly Blend[] = ['normal', 'add', 'screen', 'multiply', 'max', 'difference', 'dodge']
 const SHAPES: readonly Shape[] = ['sine', 'tri', 'saw', 'square', 'random']
 const PHASES = ['beat', 'bar', 'lfo'] // counts, not levels: bound through a shape
 const PASTE = 'toy/' // the "+ layer" entry that opens the Shadertoy paste

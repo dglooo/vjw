@@ -5,7 +5,7 @@ import type { Binding, Shape } from './bind'
 import type { EffectDef, Input, InputType, Value } from './fx/types'
 
 export type SceneId = string // 'builtin:<slug>' | crypto.randomUUID()
-export type Blend = 'normal' | 'add' | 'screen' | 'multiply'
+export type Blend = 'normal' | 'add' | 'screen' | 'multiply' | 'max' | 'difference' | 'dodge'
 export type MaskMode = 'person' | 'background' // camera CP1: cut out the person, or keep the background
 export interface NodeDoc { ref: string; code?: string; credit?: string; values?: Record<string, Value>; bind?: Record<string, Binding> }
 export interface LayerDoc { gen: NodeDoc; fx: NodeDoc[]; blend: Blend; opacity: number; speed: number; res: number; mask?: MaskMode; bind?: Partial<Record<'opacity' | 'speed', Binding>> }
@@ -15,7 +15,7 @@ export interface LibraryFile { v: 1; scenes: SceneDoc[] }
 
 export const CODE_MAX = 65536 // knob: chars of inline shader code per node
 const LAYERS_MAX = 4
-const BLENDS: readonly string[] = ['normal', 'add', 'screen', 'multiply'] satisfies Blend[]
+const BLENDS: readonly string[] = ['normal', 'add', 'screen', 'multiply', 'max', 'difference', 'dodge'] satisfies Blend[]
 const MASKS: readonly string[] = ['person', 'background'] satisfies MaskMode[]
 const SHAPES: readonly string[] = ['sine', 'tri', 'saw', 'square', 'random'] satisfies Shape[]
 

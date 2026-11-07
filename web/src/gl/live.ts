@@ -20,7 +20,7 @@ import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../
 import { library } from '../library'
 import { store } from '../store'
 import { edits } from '../undo'
-import { audioTex, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
+import { audioTex, copy, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
 import { flashGate, type FlashState } from './post'
 import type { Native, NativeDef } from './scene'
 
@@ -90,13 +90,15 @@ const free = (t: Target) => {
 }
 
 // The layer composite (design E2): the shader pre-scales the source, fixed-function blending does the rest.
-const BLENDS: Record<Blend, [mode: number, sf: GLenum, df: GLenum]> = {
+// difference/dodge are absent here: they need acc read and written at once, so they go through compositeDst.
+const BLENDS: Record<Exclude<Blend, 'difference' | 'dodge'>, [mode: number, sf: GLenum, df: GLenum]> = {
   normal: [0, gl.ONE, gl.ONE_MINUS_SRC_ALPHA], // alpha-over × opacity
   add: [1, gl.ONE, gl.ONE], // dst + op·src
   screen: [1, gl.ONE_MINUS_DST_COLOR, gl.ONE], // 1 − (1 − dst)(1 − op·src)
   multiply: [2, gl.DST_COLOR, gl.ZERO], // dst · mix(1, src, op)
+  max: [3, gl.ONE, gl.ONE], // MAX(op·src, dst): the render sets the equation to MAX, then resets it to FUNC_ADD
 }
-// Alpha 0 (add, screen) and 1 (multiply) leave acc's alpha as it was.
+// Alpha 0 (add, screen) and 1 (multiply, max) leave acc's alpha as it was.
 const composite = fullscreenProgram(`#version 300 es
 precision highp float;
 uniform sampler2D uSrc;
@@ -107,9 +109,27 @@ out vec4 outColor;
 void main() {
   vec4 c = texture(uSrc, gl_FragCoord.xy / uRes);
   float op = uOpacity;
-  outColor = uMode == 0 ? vec4(c.rgb * c.a, c.a) * op : uMode == 1 ? vec4(c.rgb * op, 0.0) : vec4(1.0 - op + op * c.rgb, 1.0);
+  outColor = uMode == 0 ? vec4(c.rgb * c.a, c.a) * op : uMode == 1 ? vec4(c.rgb * op, 0.0) : uMode == 3 ? vec4(c.rgb * op, 1.0) : vec4(1.0 - op + op * c.rgb, 1.0);
 }`)
 const cu: Record<string, unknown> = { uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0 } // reused every composite
+// difference/dodge (wave-2 S0.1): the old acc is copied into the scratch below, and this two-sampler pass computes
+// the new acc. uMode: 0 difference |acc − op·src|, 1 dodge acc / max(1e-3, 1 − op·src).
+const compositeDst = fullscreenProgram(`#version 300 es
+precision highp float;
+uniform sampler2D uAcc;
+uniform sampler2D uSrc;
+uniform vec2 uRes;
+uniform float uOpacity;
+uniform int uMode;
+out vec4 outColor;
+void main() {
+  vec4 a = texture(uAcc, gl_FragCoord.xy / uRes);
+  vec4 c = texture(uSrc, gl_FragCoord.xy / uRes);
+  float op = uOpacity;
+  outColor = uMode == 0 ? vec4(abs(a.rgb - op * c.rgb), a.a) : vec4(a.rgb / max(vec3(1e-3), 1.0 - op * c.rgb), a.a); // no scalar/vec3 max overload in ES 3.00
+}`)
+const cd: Record<string, unknown> = { uAcc: null, uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0 } // reused like cu
+const scratch = renderTarget() // module level, shared by every scene: difference/dodge's old-acc copy, fit at use
 
 /** `own`: a tile's (tile()): its doc, and the size its own temps and natives are made for. */
 function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, number] }): Live {
@@ -314,15 +334,30 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
           src = run(l.nodes[k]!, l, f, dt, src, dst)
         }
         if (direct) continue
-        const [mode, sf, df] = BLENDS[l.blend]
-        bindFramebufferInfo(gl, acc)
-        gl.enable(gl.BLEND)
-        gl.blendFunc(sf, df)
-        cu.uSrc = src
-        cu.uOpacity = l.v.opacity
-        cu.uMode = mode
-        composite(cu) // linear: a layer drawn at res < 1 is upscaled here
-        gl.disable(gl.BLEND)
+        if (l.blend === 'difference' || l.blend === 'dodge') {
+          // acc can't be read and written in one pass: copy it, then compute the new acc from the two samplers.
+          scratch.fit(acc.width, acc.height)
+          bindFramebufferInfo(gl, scratch)
+          copy({ uSrc: acc.attachments[0], uRes: SIZE })
+          cd.uAcc = scratch.attachments[0]
+          cd.uSrc = src
+          cd.uOpacity = l.v.opacity
+          cd.uMode = l.blend === 'difference' ? 0 : 1
+          bindFramebufferInfo(gl, acc)
+          compositeDst(cd) // linear like composite: a layer drawn at res < 1 is upscaled here
+        } else {
+          const [mode, sf, df] = BLENDS[l.blend]
+          bindFramebufferInfo(gl, acc)
+          gl.enable(gl.BLEND)
+          gl.blendFunc(sf, df)
+          if (l.blend === 'max') gl.blendEquation(gl.MAX) // factors first, then MAX: max(op·src, acc)
+          cu.uSrc = src
+          cu.uOpacity = l.v.opacity
+          cu.uMode = mode
+          composite(cu) // linear: a layer drawn at res < 1 is upscaled here
+          if (l.blend === 'max') gl.blendEquation(gl.FUNC_ADD) // the next frame's blending (post pass, swarm) assumes it
+          gl.disable(gl.BLEND)
+        }
       }
     },
     dispose,
