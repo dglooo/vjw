@@ -57,6 +57,18 @@ describe('parseScene', () => {
     expect(() => parseScene(doc({ created: Infinity }))).toThrow(/^created: /)
   })
 
+  test('blends (wave-2 S0.1): all 7 parse and round-trip; the legacy 4 stay byte-identical strings', () => {
+    const all = ['normal', 'add', 'screen', 'multiply', 'max', 'difference', 'dodge'] as const
+    for (const b of all) {
+      const x = withLayer({ blend: b })
+      expect(parseScene(x)).toStrictEqual(x)
+    }
+    for (const b of ['normal', 'add', 'screen', 'multiply'] as const) {
+      const x = withLayer({ blend: b })
+      expect(JSON.stringify(parseScene(x))).toBe(JSON.stringify(x)) // a stored doc serialises exactly as before
+    }
+  })
+
   test('mask is optional: absent by default, person and background round-trip', () => {
     expect(parseScene(doc()).layers[0].mask).toBeUndefined()
     expect(parseScene(withLayer({ mask: 'person' }))).toStrictEqual(withLayer({ mask: 'person' }))
