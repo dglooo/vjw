@@ -84,12 +84,13 @@ The three tables come from `node scripts/shaders.mjs`, which reads each file's h
 | `isf/Worley Cells.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/v002-CRT-Displacement.fs` | vade | https://github.com/Vidvox/ISF-Files | MIT |
 
-### own (26)
+### own (33)
 
 | path | author | source | license |
 |---|---|---|---|
 | `own/bars.fs` | VeeJay Wizard (own) + FFT Color Lines and FFT Filled Waveform (VIDVOX) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
 | `own/bloom.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/diff-feedback.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/domain-warp.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/echo.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/edge-rings.fs` | VeeJay Wizard (own) | - | MIT (own) |
@@ -98,18 +99,24 @@ The three tables come from `node scripts/shaders.mjs`, which reads each file's h
 | `own/flow-smear.fs` | VeeJay Wizard (own) + Optical Flow Generator (VIDVOX / v002 / Andrew Benson) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
 | `own/flythrough.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/fractal.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/gradient.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/ink.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
+| `own/julia.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/led-grid.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/light-tunnel.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/liquid-chrome.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/metaballs.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/mosaic.fs` | VeeJay Wizard (own) + Triangle Mosaic (VIDVOX) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
+| `own/phaser.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/polar.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/radial-blur.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/reaction-diffusion.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/scanlines.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/sdf-shapes.fs` | VeeJay Wizard (own) + hg_sdf (Mercury) | https://mercury.sexy/hg_sdf/hg_sdf.glsl | MIT (own), MIT (hg_sdf, its MIT option) |
 | `own/smoke.fs` | VeeJay Wizard (own) + webgl-noise srdnoise (Stefan Gustavson) | https://github.com/stegu/webgl-noise | MIT (own), MIT (webgl-noise) |
+| `own/stars.fs` | VeeJay Wizard (own) + Stars2D and PolkaDot2D from Brian Sharpe's Wombat | https://github.com/BrianSharpe | MIT (own), Wombat permissive ("use the code however you wish, credit"; no licence file in the in-repo TD extract; personal use) |
 | `own/strobe.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/superformula.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/td-feedback.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/trails.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/tunnel-mesh.fs` | VeeJay Wizard (own) | - | MIT (own) |
@@ -148,6 +155,7 @@ No `#include` machinery: each file carries its own copy, with the library's head
   - `snoise(vec3, out vec3 gradient)` with `mod289`, `permute` and `taylorInvSqrt` (`noise3Dgrad.glsl`, Ian McEwan, Ashima Arts) in `src/scenes/points.ts`.
   - `snoise(vec3)` with `mod289`, `permute` and `taylorInvSqrt` (`noise3D.glsl`, Ian McEwan, Ashima Arts) in `own/td-feedback.fs`, changed to return a second channel.
 - hg_sdf (Mercury, version 2021-07-28), https://mercury.sexy/hg_sdf/hg_sdf.glsl. Dual-licensed `MIT OR CC-BY-NC-4.0`, used under MIT ("Copyright (c) 2011-2021 Mercury Demogroup"). In `own/sdf-shapes.fs`, adapted to GLSL ES 1.00 (float literals; `fDodecahedron` is `fGDF` unrolled).
+- Wombat (Brian Sharpe), the GPU noise library, http://briansharpe.wordpress.com, https://github.com/BrianSharpe. The author's permissive header: "I'm not one for copyrights. Use the code however you wish. All I ask is that credit be given back to the blog or myself" (no licence file in the in-repo TD extract; personal use). In `own/stars.fs`: `Stars2D` and `PolkaDot2D` verbatim, with only the helpers they call (`FAST32_hash_2D_Cell`, `Falloff_Xsq_C1`/`Falloff_Xsq_C2`).
 
 ### Credits in the files' comments
 

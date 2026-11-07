@@ -142,7 +142,7 @@ describe('parseIsf', () => {
       expect(d.unsupported, path).toBeUndefined()
       for (const k of Object.keys(d.bind ?? {})) expect(d.inputs.map((i) => i.name), `${path} ${k}`).toContain(k)
     }
-    const keyed = { strobe: ['strobe'], flash: ['flash'], 'tunnel-mesh': ['flash'], fractal: ['glow'], 'wave-landscape': ['flash'], bars: ['glow'], 'led-grid': ['glow'] } // tunnel-mesh…wave-landscape: S4.1 (wave-landscape's own flash: S4.2); bars: 2b S4.1; led-grid: 2b S4.3
+    const keyed = { strobe: ['strobe'], flash: ['flash'], 'tunnel-mesh': ['flash'], fractal: ['glow'], 'wave-landscape': ['flash'], bars: ['glow'], 'led-grid': ['glow'], 'diff-feedback': ['glow'] } // tunnel-mesh…wave-landscape: S4.1 (wave-landscape's own flash: S4.2); bars: 2b S4.1; led-grid: 2b S4.3; diff-feedback: wave-2 S1.3
     // A gated input binds from 0, in the files and the built-ins: a rest near the gate's 0.5 holds the flash (fact 6, S4.1).
     for (const [n, f] of Object.entries(keyed)) {
       const d = parseIsf(files[`./own/${n}.fs`] as string, n)
@@ -156,7 +156,7 @@ describe('parseIsf', () => {
   })
 
   // TD look (plan_td_look.md conventions): the own files its steps add, one entry per step.
-  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient', 'julia'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1; julia: wave-2 S1.2
+  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient', 'julia', 'phaser', 'diff-feedback', 'stars'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1; julia: wave-2 S1.2; phaser, diff-feedback, stars: wave-2 S1.3
   test.each(NEW_OWN)('own/%s parses, binds only known sources, and binds every VJW_FLASH input from 0', (stem) => {
     const files = import.meta.glob('./own/*.fs', { query: '?raw', import: 'default', eager: true })
     const d = parseIsf(files[`./own/${stem}.fs`] as string, stem) // throws on a flash name that is not an input
@@ -186,6 +186,13 @@ describe('parseIsf', () => {
     expect(d.bind?.size.source).toBe('kick')
     expect(d.bind?.gamma.source).toBe('build')
     expect(d.inputs.find((i) => i.name === 'tint')?.type).toBe('bool')
+  })
+
+  test('own/stars: the header carries the lead-locked Wombat credit (wave-2 S1.3)', () => {
+    const src = import.meta.glob('./own/stars.fs', { query: '?raw', import: 'default', eager: true })['./own/stars.fs'] as string
+    expect(src).toContain('Brian Sharpe')
+    expect(src).toContain('Wombat')
+    expect(src).toContain('Use the code however you wish')
   })
 })
 

@@ -607,6 +607,54 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   // TD wave 2, S1.2: the plan's two fractal built-ins (julia trap + mandelbrot over the spectrum) were dropped at
   // the gate (billed p95 18.5/6.2 ms at the locked Iter 32/res .25, over the 5 ms budget for starred scenes; lead
   // ruling 2026-11-07) — own/julia stays in the catalog as an L-class effect.
+  // TD wave 2, S1.3: the last three CP1 looks. The binds repeat each file's VJW_BIND; the bass class rides `reese`
+  // (Auto-style: wobble under Dubstep) where a scene has one.
+  {
+    v: 1, id: 'builtin:phaser', name: 'Phaser', star: true, // no bass-class binding, so Auto-style changes nothing
+    layers: [{
+      gen: { ref: 'native/spectrum' }, // the moving gen the wipe reads
+      fx: [{
+        ref: 'own/phaser',
+        values: { treat: 1 }, // the treated copy B: hue +180 (the plan's scene value)
+        bind: {
+          t: { source: 'build', amount: 1, attack: 1, release: 2, min: 0, max: 1 }, // the wipe sweeps through the build
+          map: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 2 }, // the drop flicks snake → grid → diamond
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:diff-feedback', name: 'Diff feedback', star: true, // no bass-class binding, so Auto-style changes nothing
+    layers: [{
+      gen: { ref: 'native/spectrum' }, // its moving bars are what the ghost keeps up with
+      fx: [{
+        ref: 'own/diff-feedback',
+        bind: {
+          k: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.85, max: 0.97 }, // a build holds the ghost longer
+          zoom: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 0.004, max: 0.02 }, // a kick punches the tunnel
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0, max: 0.3 }, // a snare turns the rings
+          glow: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 0.5 }, // ⚡ a kick flashes the field, gated ≤ 3/s
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:stars', name: 'Stars', star: true, // Auto: reese (scroll; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'own/stars',
+        bind: {
+          prob: { source: 'hats', amount: 1, attack: 0, release: 0.1, min: 0.06, max: 0.35 }, // hats pop the stars
+          radius: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 0.06, max: 0.3 }, // a kick swells the dots
+          scroll: { source: 'reese', amount: 1, attack: 0, release: 0.3, min: 0, max: 0.3 }, // the bass scrolls the field (Auto-style's one)
+          mode: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 1 }, // the drop re-rolls stars ↔ polka
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
