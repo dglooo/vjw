@@ -156,7 +156,7 @@ describe('parseIsf', () => {
   })
 
   // TD look (plan_td_look.md conventions): the own files its steps add, one entry per step.
-  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid'] // bars, mosaic, led-grid: 2b S4.1, S4.2, S4.3
+  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1
   test.each(NEW_OWN)('own/%s parses, binds only known sources, and binds every VJW_FLASH input from 0', (stem) => {
     const files = import.meta.glob('./own/*.fs', { query: '?raw', import: 'default', eager: true })
     const d = parseIsf(files[`./own/${stem}.fs`] as string, stem) // throws on a flash name that is not an input

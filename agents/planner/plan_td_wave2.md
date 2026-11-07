@@ -95,7 +95,7 @@ Every step's brief opens, verbatim: "Invoke the `ponytail` skill (full) before w
 
 ### CP1 — top-10 own ISF
 
-#### S1.1 [M] superformula + polar + gradient → 3 built-ins
+#### S1.1 [x] [M] superformula + polar + gradient → 3 built-ins
 - **Goal:** the three S-cost top-10 own ISF (1 generator, 2 filters) + their built-ins.
 - **Files (3 new):** `web/src/fx/own/superformula.fs`, `polar.fs`, `gradient.fs`; (edit) `web/src/scenes/builtin.ts`, `web/src/fx/isf.test.ts`.
 - **Depends on:** CP0.
@@ -103,6 +103,8 @@ Every step's brief opens, verbatim: "Invoke the `ponytail` skill (full) before w
 - **Built-ins (ride-along):** `builtin:superformula` (gen `own/superformula`, no fx), `builtin:tiny-planet` (spectrum + `polar`), `builtin:grad-map` (spectrum + `gradient`).
 - **Tests:** 3 `isf.test.ts` NEW_OWN entries.
 - **Done:** gates green; billed A/B ≤ 5 ms (est 2–3 / 2.5–3.5 / 2–3); browser both fixtures: outline steps on snare + morphs on reese, wrap pumps on kick, ramp shifts on snare — r reported; screenshots `superformula.png`, `tiny-planet.png`, `grad-map.png`.
+
+  **Changed during implementation:** (1) `preset ← drop (event)`: the generator is stateless (one pass, no engine surface — the CP1 contract), so it cannot hold an event between frames; `preset` is a long (VALUES 0–3 = (n2, n3) pairs: 0 = the doc values through the n2/n3 inputs, 1 = 1/3, 2 = 3/1, 3 = .25/.25) bound to drop attack 0 / release 1.5 / 0→3 (the wave-1 drop precedent) — each drop sweeps the presets 3→2→1 and decays back to the doc shape. (2) `rotation ← lfo (saw 0→1)` at rate 0.05 (one turn per 20 s; the plan names no rate — the kaleido-maze precedent); rotation is in turns, so the saw's wrap is a full turn and never jumps. (3) polar's v = 2r: the disc rim (r .5, the inscribed circle) samples the input's bottom row, the research §2 equirect→fisheye (fov 360) full-height mapping; the image's seam is parked under the planet (+0.25 turn). (4) gradient's 3 stops are fixed #defines (indigo → cyan → warm white), cosine-eased blend in the style of own/bloom's procedural ramp; no colour inputs (the plan names none). (5) Harness (worktree scratchpad, not product code): the lfo-bound reference is traced from `__src.lfo` (the app's audio clock), not the media's `currentTime` — the load delay offsets them by a scene-constant 6–180 s, so a media-time reference put the saw a half-phase off (spurious r −0.44; correct r 1.0); grad-map's shot parks on the build peak (dryWet ← build, so arr[0]+0.5 would be dry).
 
 #### S1.2 [L] julia (trap + mandelbrot) → 2 built-ins + the cost gate
 - **Goal:** the only L item, measured and gated before anything bakes on it.

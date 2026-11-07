@@ -556,6 +556,54 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // TD wave 2 (plan_td_wave2.md S1.1): the top-10 S-cost trio. The binds repeat each file's VJW_BIND; the bass class
+  // rides `reese` (Auto-style: wobble under Dubstep).
+  {
+    v: 1, id: 'builtin:superformula', name: 'Superformula', star: true, // Auto: reese (n1)
+    layers: [{
+      gen: {
+        ref: 'own/superformula',
+        bind: {
+          m: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 10, max: 14 }, // a snare steps the lobe count
+          n1: { source: 'reese', amount: 1, attack: 0.05, release: 0.3, min: 1, max: 3 }, // Auto-style's one: the bass rounds the lobes
+          scale: { source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0.7, max: 1 }, // the kick pumps the size
+          glow: { source: 'sub', amount: 1, attack: 0.02, release: 0.4, min: 0, max: 1 }, // the sub lights the halo
+          preset: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 3 }, // the drop sweeps the (n2, n3) presets
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:tiny-planet', name: 'Tiny planet', star: true, // Auto: reese (twist)
+    layers: [{
+      gen: { ref: 'native/spectrum' }, // its bars give the wrap something to turn
+      fx: [{
+        ref: 'own/polar',
+        bind: {
+          rotation: { source: 'lfo', shape: 'saw', rate: 0.05, amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // one turn per 20 s; the saw's wrap is a full turn, so it never jumps
+          offset: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 0, max: 0.12 }, // the kick pumps the wrap
+          twist: { source: 'reese', amount: 1, attack: 0, release: 0.3, min: 0, max: 1.5 }, // Auto-style's one: the bass spirals the rows
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:grad-map', name: 'Grad map', star: true, // no bass-class binding, so Auto-style changes nothing
+    layers: [{
+      gen: { ref: 'native/spectrum' }, // its luma is the ramp's input
+      fx: [{
+        ref: 'own/gradient',
+        bind: {
+          rampShift: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0, max: 1 }, // a snare steps the ramp
+          bias: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0, max: 1 }, // the sub lifts the operating point
+          dryWet: { source: 'build', amount: 1, attack: 1, release: 2, min: 0, max: 1 }, // a build takes over the colours
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
