@@ -43,7 +43,8 @@
   - Rulings: `design_audio_reactivity.md` L612–873. Data: `scratchpad/real/`.
 - **Binding policy:** drums, sub and build/drop bind directly; the bass class binds `reese` (Dubstep Auto: reese→wobble); sub/reese rest at 0.
 - **GPU timer:** it under-bills the last pass, so the truth is the 60 s late-frame run.
-- **Coders:** fixtures `scratchpad/fx_audio/*.wav`; port 5174 (lead 5173); restart Vite after `web/src` edits; the lead copies harnesses out of the worktree.
+- **Coders:** fixtures `scratchpad/fx_audio/*.wav`; port 5175 (5174 freed); restart Vite after `web/src` edits; the lead copies harnesses out of the worktree.
+- **Servers (user rule 2026-11-07): after EVERY merge the lead audits `lsof -iTCP:5173-5176` + `ps` for vite — no idle dev servers. The lead's own server is started on demand for a check and killed after; worktrees are removed at the merge (the user was tired of port/PID sprawl).
 - **Infra:** graphify post-commit hook; session-only crons; Telegram Agent `run_in_background: true`; plugins superpowers, ponytail, graphify, context7 (read-only key; use sparingly).
 - **Prefs:** Russian; artifacts in English; never ask (take the recommended option, report the pick); REC low; no Docker; AI reviews = leads to verify.
 
