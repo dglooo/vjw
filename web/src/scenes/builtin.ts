@@ -655,6 +655,24 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // TD wave 2, S2.1 (CP2): the stereo XY scope — L→x, R→y Lissajous over waveLR (a mono file degenerates to a line,
+  // so the figure shots use the stereo build, S0.2). The binds repeat the def (scenes/scope.ts); the bass class rides
+  // `reese` (rotSpeed): Auto-style moves it to wobble under Dubstep.
+  {
+    v: 1, id: 'builtin:xy-scope', name: 'XY scope', star: true, // Auto: reese (rotSpeed; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'native/scope', // the def's bind (scenes/scope.ts), repeated: built-ins stay JSON literals
+        bind: {
+          scale: { source: 'sub', amount: 1, attack: 0.02, release: 0.4, min: 0.65, max: 1.35 }, // the sub breathes the figure
+          rotSpeed: { source: 'reese', amount: 1, attack: 0, release: 0.3, min: 0, max: 1 }, // Auto-style's one: the bass spins the trail
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.35, max: 0.65 }, // a snare walks the colour
+          trail: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.85, max: 0.97 }, // a build stretches the trail
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
