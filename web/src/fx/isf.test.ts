@@ -211,7 +211,7 @@ describe('parseIsf', () => {
   })
 
   // TD look (plan_td_look.md conventions): the own files its steps add, one entry per step.
-  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient', 'julia', 'phaser', 'diff-feedback', 'stars', 'change-color', 'rgb-contrast', 'color-threshold', 'dent', 'emboss', 'sharpen', 'checker'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1; julia: wave-2 S1.2; phaser, diff-feedback, stars: wave-2 S1.3; change-color: wave-2 S3.1 (the q5/q6 donor-verification contingency); rgb-contrast, color-threshold, dent: wave-2 S3.3 (q2, q3, q7); emboss, sharpen, checker: wave-2 S3.4 (q9, q8, q10)
+  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient', 'julia', 'phaser', 'diff-feedback', 'stars', 'change-color', 'rgb-contrast', 'color-threshold', 'dent', 'emboss', 'sharpen', 'checker', 'hsv-blur', 'rgba-blur'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1; julia: wave-2 S1.2; phaser, diff-feedback, stars: wave-2 S1.3; change-color: wave-2 S3.1 (the q5/q6 donor-verification contingency); rgb-contrast, color-threshold, dent: wave-2 S3.3 (q2, q3, q7); emboss, sharpen, checker: wave-2 S3.4 (q9, q8, q10); hsv-blur, rgba-blur: wave-2 S3.5 (q11, the pair)
   test.each(NEW_OWN)('own/%s parses, binds only known sources, and binds every VJW_FLASH input from 0', (stem) => {
     const files = import.meta.glob('./own/*.fs', { query: '?raw', import: 'default', eager: true })
     const d = parseIsf(files[`./own/${stem}.fs`] as string, stem) // throws on a flash name that is not an input
@@ -245,6 +245,16 @@ describe('parseIsf', () => {
     expect(c.flash).toEqual(['divisions'])
     expect(c.bind?.divisions).toEqual({ source: 'kick', amount: 1, attack: 0, release: 0.1, min: 0, max: 9 }) // the flash rule forces the min to 0 (the plan's 4→9 rest would sit above the gate's ON line)
     expect(c.kind).toBe('generator') // q10: a generator, no inputImage
+  })
+
+  test('own/hsv-blur + rgba-blur: the S3.5 binds (size ← reese .05/.4 on both; the ⅛-res TARGET — the plan\'s lever; the doc default is the rest)', () => {
+    const files = import.meta.glob('./own/*.fs', { query: '?raw', import: 'default', eager: true })
+    for (const stem of ['hsv-blur', 'rgba-blur']) {
+      const d = parseIsf(files[`./own/${stem}.fs`] as string, stem)
+      expect(d.passes).toEqual([{ target: 'blur', persistent: false, float: true, width: '$WIDTH/8', height: '$HEIGHT/8' }, { persistent: false, float: false }])
+      expect(d.bind?.size).toEqual({ source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.9, max: 2.0 })
+      expect(d.inputs.find((i) => i.name === 'size')).toMatchObject({ default: 0.9, min: 0.9, max: 2.0 }) // the doc default is the bind's rest (S3.3 lesson); rest 0.9 = the single surviving tap (≈ the input)
+    }
   })
 
   test('own/bars: a persistent float 128×1 levels pass, then the draw (2b S4.1)', () => {

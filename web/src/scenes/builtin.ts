@@ -755,6 +755,22 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // TD wave 2, S3.5 (CP3): quick-win group 3 — the spectrum's red channel bleeds at ¼ res (own/rgba-blur: the
+  // coloured halos of the q11 pair), then the red band's hue is swapped to a target that walks on a saw
+  // (own/change-color in q6 mode — the S3.1 verification froze it: the donor Color Replacement has no
+  // hue-offset input, its band centre and target are unbindable vec4s). Two fx over the spectrum (R6); the
+  // binds repeat each file's VJW_BIND; the bass class rides `reese` (Auto-style: wobble under Dubstep).
+  {
+    v: 1, id: 'builtin:halo', name: 'Halo', star: true, // Auto: reese (size; wobble under Dubstep)
+    layers: [{
+      gen: { ref: 'native/spectrum' },
+      fx: [
+        { ref: 'own/rgba-blur', bind: { size: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.9, max: 2.0 } } }, // the red halo blooms on bass
+        { ref: 'own/change-color', values: { mode: 1, hue: 0 }, bind: { target: { source: 'lfo', shape: 'saw', rate: 0.05, amount: 1, attack: 0, release: 0, min: 0, max: 1 } } }, // q6: the red band retints as the saw walks
+      ],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
