@@ -7,7 +7,7 @@
 /*{
     "CATEGORIES": ["Geometry"],
     "CREDIT": "VeeJay Wizard",
-    "DESCRIPTION": "Julia orbit trap: the incoming layer tiled into fractal lace. An lfo turns the crawl's angle, the bass (Auto-style: reese, wobble under Dubstep) opens its radius, kicks zoom 1→1.25, snares step the ramp's hue, and a drop re-rolls C. Mode 1 is the mandelbrot sibling: the static basin under the same crawl.",
+    "DESCRIPTION": "Julia orbit trap: the incoming layer tiled into fractal lace. An lfo turns the crawl's angle, the bass (Auto-style: reese, wobble under Dubstep) opens its radius, kicks zoom 1→1.25, snares step the ramp's hue, and a drop re-rolls C. Mode 1 is the mandelbrot sibling: the static basin under the same crawl. L-class: ~18.5 ms billed p95 at 1728×1118 with own/flash (Iter 32 / res .25, the S1.2 gate's frozen values) — the p = −2 orbits are bounded and never escape, so most pixels run the full serial chain; use it at layer res .25 in the editor, and expect the governor to scale the show down if it plays long.",
     "ISFVSN": "2",
     "INPUTS": [
         { "NAME": "inputImage", "TYPE": "image" },

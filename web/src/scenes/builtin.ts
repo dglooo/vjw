@@ -16,15 +16,6 @@ const PARTICLES: Record<string, Binding> = {
   glow: { source: 'build', amount: 1, attack: 1, release: 2, min: 2, max: 4 }, // a build heats the bloom
 }
 
-// own/julia's VJW_BIND (plan_td_wave2.md S1.2), shared by the trap and the mandelbrot sibling.
-const JULIA: Record<string, Binding> = {
-  cAngle: { source: 'lfo', shape: 'sine', rate: 0.05, amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the crawl turns once a 20 s lfo
-  cMag: { source: 'reese', amount: 1, attack: 0.05, release: 0.3, min: 0, max: 0.8 }, // Auto-style's one: the bass opens the crawl
-  scale: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 1, max: 1.25 }, // the kick zooms (fp32: never a deep zoom)
-  rampHue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0, max: 0.3 }, // a snare steps the ramp's hue
-  reseed: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 3 }, // the drop re-rolls C
-}
-
 // Built-in scenes (design E4): JSON-compatible literals, so tsc checks them and doc.test.ts round-trips them. Immutable:
 // edits go to a copy. The order is the autopilot's: the natives, then the combinations, with the MilkDrop scenes
 // spread evenly among them (BUILTIN, at the end).
@@ -613,26 +604,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
-  // TD wave 2, S1.2: the julia orbit trap and its mandelbrot sibling over the spectrum. The layer's res .25 and the
-  // doc Iter 32 are the S1.2 cost-gate's frozen values (Iter 48 / res .5 billed 20.4 ms p95 at 1728×1117, over the
-  // 5 ms budget — the locked fallback). `builtin:julia` takes the id the plan names `builtin:fractal` — that id is
-  // the wave-1 Menger scene's (kept).
-  {
-    v: 1, id: 'builtin:julia', name: 'Julia', star: true, // Auto: reese→wobble (Dubstep) — the cMag crawl
-    layers: [{
-      gen: { ref: 'native/spectrum' }, // its bars are the lace's print
-      fx: [{ ref: 'own/julia', bind: JULIA }],
-      blend: 'normal', opacity: 1, speed: 1, res: 0.25,
-    }],
-  },
-  {
-    v: 1, id: 'builtin:mandelbrot', name: 'Mandelbrot', star: true, // Auto: reese→wobble (Dubstep) — the cMag crawl
-    layers: [{
-      gen: { ref: 'native/spectrum' },
-      fx: [{ ref: 'own/julia', values: { mode: 1 }, bind: JULIA }], // the static-basin sibling
-      blend: 'normal', opacity: 1, speed: 1, res: 0.25,
-    }],
-  },
+  // TD wave 2, S1.2: the plan's two fractal built-ins (julia trap + mandelbrot over the spectrum) were dropped at
+  // the gate (billed p95 18.5/6.2 ms at the locked Iter 32/res .25, over the 5 ms budget for starred scenes; lead
+  // ruling 2026-11-07) — own/julia stays in the catalog as an L-class effect.
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
