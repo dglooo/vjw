@@ -168,6 +168,16 @@ test('a kick needs both: the gate ratio at KICK (1.35, not TRANSIENT) and its bi
   expect([kick(2, dc(1000, 100)), kick(2, dc(1000, 0))]).toEqual([true, false]) // a line-in offset neither dilutes nor fakes it
 })
 
+test('a double kick 53 ms apart fires once, 64 ms apart twice (the <60 ms re-triggers, real tracks 2026-11-05)', () => {
+  // 10 hops = 53.3 ms: the 3 real-track re-triggers sit at 52 ms (2nd ratio 1.35–1.39), the shortest legitimate pair at
+  // 75.5 ms, so MIN_GAP 0.06 drops the re-trigger only. 12 hops = 64 ms pins the other side: a wider gap would eat it.
+  const quiet = frame([])
+  const k = frame([[1, 1]])
+  const kicks = (gap: number) =>
+    fire([quiet, k, ...Array(gap - 1).fill(quiet), k], undefined, [1, 2, ...Array(gap - 1).fill(1), 2]).flat().filter((d) => d === 'kick').length
+  expect([kicks(10), kicks(12)]).toEqual([1, 2])
+})
+
 test('floors: snare 40 / hats 50 by default, setFloors moves them (real-track ruling 2026-11-05: Dubstep sends 80/100)', () => {
   // From silence, 43 snare bins at 0.003 rise 43·log1p(3) ≈ 60 and 96 hats bins at 0.001 rise 96·log1p(1) ≈ 67
   const mid = Float32Array.from({ length: N / 2 + 1 }, (_, k) => (k >= 11 && k <= 53 ? 0.003 : k >= 75 && k <= 170 ? 0.001 : 0))

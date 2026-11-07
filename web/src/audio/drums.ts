@@ -26,7 +26,9 @@ const SHARE = 0.2
 // 2nd (≈ 1.39) peak under TRANSIENT, a steady or beating bass stays ≤ 1.30. TRANSIENT 1.5 still gates bands.ts's
 // `held` (the bass sources, arrange `low`) and stays the crosstalk's kick unit.
 const KICK = 1.35
-const MIN_GAP = 0.05 // s between kicks (onset.ts's minGap)
+// knob: s between kicks (onset.ts's snare/hats minGap stays 0.05). 60 ms, not 50: the gate's release tail re-crosses at
+// 52 ms on 3 real-track kicks (2nd ratio 1.35–1.39, just over KICK); the shortest legitimate pair is 75.5 ms (T2 data).
+const MIN_GAP = 0.06
 // knob: the snare hop's least share of its band's power above the band's midpoint (3 kHz at the default). A snare or
 // clap is flat noise there (≈ .4–.9), a wobble's saw edge falls ≈ 18 dB/oct (≈ .01–.02). A failed hop's ODF is 0 inside
 // the detector, so a vetoed spike arms no minGap and swallows no real snare after it.
