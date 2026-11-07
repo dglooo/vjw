@@ -36,6 +36,7 @@ describe('parseScene', () => {
     expect(() => parseScene(doc({ layers: [] }))).toThrow(/^layers: /)
     expect(() => parseScene(doc({ layers: Array(5).fill(LAYER) }))).toThrow(/^layers: /)
     expect(() => parseScene(withLayer({ blend: 'xor' }))).toThrow(/^layers\[0\]\.blend: /)
+    expect(() => parseScene(withLayer({ mask: 'face' }))).toThrow(/^layers\[0\]\.mask: /)
     expect(() => parseScene(withLayer({ opacity: NaN }))).toThrow(/^layers\[0\]\.opacity: /)
     expect(() => parseScene(withLayer({ gen: { ref: 'a', code: 'x'.repeat(65537) } }))).toThrow(/^layers\[0\]\.gen\.code: /)
     expect(() => parseScene(5)).toThrow(/^scene: not an object/)
@@ -54,6 +55,12 @@ describe('parseScene', () => {
     expect(parseScene(doc())).not.toHaveProperty('created')
     expect(() => parseScene(doc({ created: '2026-10-28' }))).toThrow(/^created: /)
     expect(() => parseScene(doc({ created: Infinity }))).toThrow(/^created: /)
+  })
+
+  test('mask is optional: absent by default, person and background round-trip', () => {
+    expect(parseScene(doc()).layers[0].mask).toBeUndefined()
+    expect(parseScene(withLayer({ mask: 'person' }))).toStrictEqual(withLayer({ mask: 'person' }))
+    expect(parseScene(withLayer({ mask: 'background' }))).toStrictEqual(withLayer({ mask: 'background' }))
   })
 
   test('code may be exactly CODE_MAX chars; opacity, speed and res clamp', () => {

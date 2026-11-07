@@ -158,7 +158,7 @@ export function frameXf(f: Frame, cover: [sx, sy, ox, oy]): [sx, sy, ox, oy]   /
 - Tests: none (browser-only, D10).
 - Done: gates; browser with `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream`: the fake camera lists and plays; without the flags: deny → the message; allow → the FaceTime camera; a second device switches live; reload → the saved camera reopens at Start; `s1.4-picker.png`. Depends on: S1.3.
 
-**S1.5 [ ] (S) `LayerDoc.mask`: parse, `setMask`, inverse.** Invoke the `ponytail` skill (full) before writing code. Model-free: may run before R0.
+**S1.5 [x] (S) `LayerDoc.mask`: parse, `setMask`, inverse.** Invoke the `ponytail` skill (full) before writing code. Model-free: may run before R0.
 - Goal: `mask?: MaskMode` on `LayerDoc` (absent = none, so old scenes parse unchanged); `parseScene` accepts `'person' | 'background'` and rejects junk at `${at}.mask`; `edit.ts` `setMask(doc, layer, m)` returns the old value, the `setBlend` shape.
 - Files: `web/src/doc.ts`, `web/src/edit.ts`, `web/src/doc.test.ts` + `web/src/edit.test.ts` (a `setMask` row in the inverse table beside `setBlend`).
 - Tests: absent → `undefined`; both modes round-trip; `'face'` throws with the path; `setMask` then its inverse restores the doc (the table test).
