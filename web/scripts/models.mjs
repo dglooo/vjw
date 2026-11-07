@@ -1,7 +1,7 @@
 // postinstall (plan_camera S0.2, design D7): self-host MediaPipe so the page touches localhost only.
 // The WASM comes from the installed @mediapipe/tasks-vision (fs.cpSync); the model files come from
-// MediaPipe's storage, the URLs the official docs list (their sizes were verified in research_camera.md §1).
-// Both copies land in git-ignored dirs; S0.4's arms add their models to MODELS.
+// MediaPipe's storage, the URLs the official docs list (the segmenter sizes were verified in
+// research_camera.md §1; the pose URLs/sizes on the pose-landmarker docs page). New probe models go in MODELS.
 import { cpSync, existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,6 +13,26 @@ const MODELS = [
   [
     'selfie_segmenter_landscape.tflite',
     'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
+  ],
+  [
+    'selfie_segmenter.tflite',
+    'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite',
+  ],
+  [
+    'selfie_multiclass_256x256.tflite',
+    'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite',
+  ],
+  [
+    'deeplab_v3.tflite',
+    'https://storage.googleapis.com/mediapipe-models/image_segmenter/deeplab_v3/float32/latest/deeplab_v3.tflite',
+  ],
+  [
+    'pose_landmarker_lite.task',
+    'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
+  ],
+  [
+    'pose_landmarker_full.task',
+    'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task',
   ],
 ]
 
