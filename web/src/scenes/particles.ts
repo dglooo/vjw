@@ -129,6 +129,7 @@ export const particles: NativeDef = {
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
         target.fit(f.width, f.height)
         bindFramebufferInfo(gl, target)
+        gl.viewport(0, 0, f.width, f.height) // the points at the target's px: the viewport is what the last pass left (the canvas' by default)
         gl.clearColor(0, 0, 0, 1)
         gl.clear(gl.COLOR_BUFFER_BIT)
         gl.useProgram(prog.program)

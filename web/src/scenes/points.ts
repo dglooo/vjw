@@ -219,6 +219,7 @@ export const swarm: NativeDef = {
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
         trail.fit(f.width, f.height)
         bindFramebufferInfo(gl, trail)
+        gl.viewport(0, 0, f.width, f.height) // the points at the trail's px: the viewport is what the last pass left (the canvas' by default)
         gl.enable(gl.BLEND)
         // ponytail: a per-frame fade (as the feedback effects): trails are half as long in time at 120 Hz
         gl.blendFunc(gl.ZERO, gl.SRC_ALPHA) // dst × trail: the engine's post-pass trick, no texture read
