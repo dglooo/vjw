@@ -64,7 +64,7 @@ The three tables come from `node scripts/shaders.mjs`, which reads each file's h
 - `own/`: ours, MIT (the project's license, spec §6). Library code inlined in a file keeps its original header there, and the row names it.
 - `transitions/`: [gl-transitions](https://github.com/gl-transitions/gl-transitions) 2.0.0, the `glsl3/` sources. Author and license are the file's own `// Author:` and `// License:` lines (all 12 are MIT, as is the repo's LICENSE); the source is the upstream file its header names. `crossfade.glsl` is ours.
 
-### isf (18)
+### isf (20)
 
 | path | author | source | license |
 |---|---|---|---|
@@ -74,6 +74,8 @@ The three tables come from `node scripts/shaders.mjs`, which reads each file's h
 | `isf/Color Monochrome.fs` | zoidberg | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Color Replacement.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Comet Tails.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
+| `isf/Dilate.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
+| `isf/Erode.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Kaleidoscope Tile.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Kaleidoscope.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Long Exposure.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
