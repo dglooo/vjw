@@ -694,6 +694,25 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // TD wave 2, S2.3 (CP2): the plexus web — the CPU nodes drift on slow orbits and connect within `dist`, the closer
+  // the pair, the brighter the line; the sub widens the web, the lfo breathes the drift (a lead-assumed binding set,
+  // confirm at the CP2 demo). The binds repeat the def (scenes/plexus.ts); no bass-class binding, so Auto-style
+  // changes nothing.
+  {
+    v: 1, id: 'builtin:plexus', name: 'Plexus', star: true,
+    layers: [{
+      gen: {
+        ref: 'native/plexus', // the def's bind (scenes/plexus.ts), repeated: built-ins stay JSON literals
+        bind: {
+          drift: { source: 'lfo', shape: 'sine', rate: 0.05, amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // a 20 s breath of drift
+          dist: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.18, max: 0.45 }, // the sub widens the web
+          size: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 2, max: 5 }, // a kick swells the nodes
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.35, max: 0.65 }, // a snare walks the colour
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.

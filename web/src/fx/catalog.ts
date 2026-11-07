@@ -4,6 +4,7 @@ import { milkdrop } from '../milkdrop/native'
 import { glitch } from '../scenes/glitch'
 import { rgbaDelay, slitScan, timeMachine } from '../scenes/history'
 import { particles } from '../scenes/particles'
+import { plexus } from '../scenes/plexus'
 import { scatter, swarm } from '../scenes/points'
 import { scope } from '../scenes/scope'
 import { spectrum } from '../scenes/spectrum'
@@ -15,7 +16,7 @@ import type { EffectDef, ShaderDef } from './types'
 
 const files = import.meta.glob(['./isf/*.fs', './own/*.fs'], { query: '?raw', import: 'default', eager: true })
 
-export const catalog = new Map<string, EffectDef>([tunnel, spectrum, particles, glitch, rgbaDelay, timeMachine, slitScan, swarm, scatter, scope, ...milkdrop].map((d) => [d.id, d] as const))
+export const catalog = new Map<string, EffectDef>([tunnel, spectrum, particles, glitch, rgbaDelay, timeMachine, slitScan, swarm, scatter, scope, plexus, ...milkdrop].map((d) => [d.id, d] as const))
 for (const [path, src] of Object.entries(files)) {
   const id = path.slice('./'.length, -'.fs'.length) // isf/<stem> or own/<stem>
   try {
