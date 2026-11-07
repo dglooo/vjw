@@ -256,24 +256,4 @@ Every step's brief opens, verbatim: "Invoke the `ponytail` skill (full) before w
 
 ### CP4 — close (lead, no coder dispatch)
 - 60 s autopilot over **all 12 new built-ins** (11 if both fallbacks fired) on both arr fixtures → 0 late, 1.00× (spec §4.4).
-- Reaction r reported for every bound param of every built-in on both fixtures (spec §4.2); `__flash` ≤ 3/s on the ⚡ scenes (diff-feedback.glow, checker.divisions); WCAG luma cap holds; solarize bounded by construction.
-- Final billed-tail p95 sheet (all 12, `own/flash` appended, 1728×1117) → ≤ 5 ms (spec §4.1).
-- Contact sheet `scratchpad/ed/wave2-sheet.png`, reviewed by the lead against the research's TD descriptions (spec §4.3).
-- `web/THIRD_PARTY.md`: 5 donor rows + the Wombat row complete (spec §2 credits).
-- 2b library: every new block present with stills, filterable by category/tags (spec §4.5).
-
-## Acceptance mapping (spec §4)
-1. **p95 ≤ 5 ms billed tail @ 1728×1117** → per-step A/B (S1.1–S3.5); julia gate S1.2; plexus gate S2.3; final sheet CP4.
-2. **Reaction per effect on both arr fixtures (r reported); `__flash` ≤ 3/s; luma cap** → per-step browser checks S1.1–S3.5; ⚡ scenes S1.3 (diff-feedback) and S3.4 (checker); solarize bounded S3.1; consolidated at CP4.
-3. **Contact sheet per CP, lead review** → CP0 (legacy unchanged + the 3 new blends), CP1–CP3 (`scratchpad/ed/cpN-sheet.png`), CP4 (`wave2-sheet.png`).
-4. **60 s autopilot over all new built-ins, both fixtures, 0 late, 1.00×** → per-CP 60 s late runs from CP1 (timer truth) + the full CP4 run.
-5. **2b library: stills + tag filters** → every step ships its defs with category/tags (design facts 6/7, tiles bake stills); verified at CP3 close and CP4.
-
-## Research gaps (inherited from design L218–224; resolved at the named step, none blocking)
-- ⚠️ `Color Replacement.fs` full input list (q5 hue-offset coverage) → verified at S3.1 before the copy (lead-locked q5/q6 decision).
-- ⚠️ Wombat `Stars2D`/`PolkaDot2D` helper dependencies → read from the in-repo file at S1.3.
-- ⚠️ julia p95 + fp32 banding at `Scale` 0.02 → measured at S1.2 (gate) + CP1 sheet.
-- ⚠️ `?debug` meters on the shared fftSize-1024 analysers → verified at S0.2.
-- ⚠️ GLES 3.0 `max` factors-apply-before-equation → one-frame check at S0.1.
-- ⚠️ **Planner assumption (not a research fact):** plexus bindings are unspecified in the design — S2.3 assigns them per the 2d policy, confirm at the CP2 demo.
-- ⚠️ All p95 figures are pre-measurement estimates; wave-1 anchors: spectrum+2fx 3.7 ms, scatter 2.65 ms, mosaic 4.56 ms.
+**CP4 Done (lead, 2026-11-07):** 60 s autopilot over all 12 new built-ins on both arr fixtures → **0 late, 1.00×** in every phase (baseline 3 old built-ins too), jsMs 0.1, no page errors (`scratchpad/ed/wave2-cp4-*.out.json`). Per-param r and the flash checks (diff-feedback 1.05/s, checker ≤2/s, luma peaks 0.878–0.899) came from the step runs. Billed p95 sheet: the per-step numbers all ≤5 ms (the 13th, julia, is catalog L-class). Contact sheet `scratchpad/ed/wave2-sheet.png` (12 held drop shots + the library; all 12 tiles baked, 177 tiles first pass 37.5 s) — reviewed against research_td_wave2 §5: the xy-scope cell is a small dash because the sheet fixture is mono (L loud / R floor, the S0.2 platform fact; the stereo-build figure is `s2.1`'s `xy-scope.png`). THIRD_PARTY rows complete (5 donors + Wombat + the ES 1.00 shim notes). The 2b library shows every new block with stills, filterable by category/tags. **Wave 2 closed: 12 new starred built-ins, 3 catalog L-class (julia, Color Replacement, Dilate), 0 new deps beyond the probe-only ones, gates 487/487.**
