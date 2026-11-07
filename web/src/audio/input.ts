@@ -14,9 +14,15 @@ const ODF_KEEP = 64 // ≈3 s of 'odf' batches: app.ts drains them each frame, t
 export const ctx = new AudioContext({ latencyHint: 'interactive' })
 const hub = ctx.createGain() // the current source connects here
 export const analyser = new AnalyserNode(ctx, { fftSize: 1024, smoothingTimeConstant: 0 }) // (i) → (a) energy
+const split = ctx.createChannelSplitter(2) // S0.2: always on → the per-channel analysers (waveLR + the ?debug meters)
+export const analyserL = new AnalyserNode(ctx, { fftSize: 1024, smoothingTimeConstant: 0 }) // (i) channel 0
+export const analyserR = new AnalyserNode(ctx, { fftSize: 1024, smoothingTimeConstant: 0 }) // (i) channel 1
 export const recDest = ctx.createMediaStreamDestination() // (iii) REC audio track, S4.3
 const recDelay = ctx.createDelay() // (iii) a file's REC audio waits like its onsets (T1), set in setSource
 hub.connect(analyser)
+hub.connect(split)
+split.connect(analyserL, 0)
+split.connect(analyserR, 1)
 hub.connect(recDelay).connect(recDest)
 
 export const onsetQueue: Onset[] = [] // (b) drained by app.ts each frame
@@ -136,23 +142,16 @@ document.addEventListener('drop', (e) => {
   void player.play()
 })
 
-// ?debug: L/R meters for the spec §2.1 channel check. Hub → splitter → one analyser per channel, 10 Hz into the store.
+// ?debug: L/R meters for the spec §2.1 channel check: the always-on analyserL/R (S0.2), rms over the first 512
+// samples of each, 10 Hz into the store.
 if (DEBUG) {
-  const split = ctx.createChannelSplitter(2)
-  const meters = [0, 1].map((ch) => {
-    const a = new AnalyserNode(ctx, { fftSize: 256 })
-    split.connect(a, ch)
-    return a
-  })
-  hub.connect(split)
-  const buf = new Float32Array(256)
-  const level = (a: AnalyserNode) => {
-    a.getFloatTimeDomainData(buf)
-    return rms(buf)
-  }
+  const bufL = new Float32Array(analyserL.frequencyBinCount) // the first 512 of the analyser's 1024 (as app.ts's wave)
+  const bufR = new Float32Array(analyserR.frequencyBinCount)
   setInterval(() => {
+    analyserL.getFloatTimeDomainData(bufL)
+    analyserR.getFloatTimeDomainData(bufR)
     const settings = stream?.getAudioTracks()[0].getSettings() ?? null // null while a file plays
-    store.patch({ debug: { l: level(meters[0]), r: level(meters[1]), settings, underruns: underruns() } })
+    store.patch({ debug: { l: rms(bufL), r: rms(bufR), settings, underruns: underruns() } })
   }, 100)
 }
 

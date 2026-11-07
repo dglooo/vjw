@@ -3,7 +3,7 @@
 import { createArrangement, shouldCut, type ArrangeOut } from './audio/arrange'
 import { BAND_COUNT, createEnergy, rms } from './audio/energy'
 import { createFeatures } from './audio/features'
-import { analyser, audioNow, configure, ctx, featQueue, hitQueue, odfQueue, onsetQueue, recDest } from './audio/input'
+import { analyser, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, odfQueue, onsetQueue, recDest } from './audio/input'
 import { PRESETS, snapOctave, type Band, type PresetId } from './audio/presets'
 import { activePreset, bandKey, createSettings, workletBands } from './audio/settings'
 import { createSync, ZERO_SYNC } from './audio/sync'
@@ -184,6 +184,8 @@ addEventListener('keydown', (e) => {
 const energy = createEnergy(ctx.sampleRate, analyser.fftSize)
 const magDb = new Float32Array(analyser.frequencyBinCount).fill(-Infinity) // silence until the first read
 const wave = new Float32Array(analyser.frequencyBinCount) // the first 512 samples of the analyser's 1024
+const waveL = new Float32Array(analyserL.frequencyBinCount) // S0.2: the per-channel waves (first 512 of each analyser's 1024)
+const waveR = new Float32Array(analyserR.frequencyBinCount)
 const f: FrameInput = {
   energy: energy.update(magDb, 60), onsets: [], lastOnset: null, audioNow: 0, sync: ZERO_SYNC,
   time: 0, dt: 0, width: 0, height: 0,
@@ -258,7 +260,9 @@ function frame(now: number) {
   f.time = now / 1000 // the monotonic seconds clock (rAF's now): the arrangement's `now`
   analyser.getFloatFrequencyData(magDb)
   analyser.getFloatTimeDomainData(wave)
-  setAudio(magDb, wave)
+  analyserL.getFloatTimeDomainData(waveL)
+  analyserR.getFloatTimeDomainData(waveR)
+  setAudio(magDb, wave, waveL, waveR)
   f.energy = energy.update(magDb, 1 / f.dt) // first frame: dt 0 → fps ∞ → averages hold
   f.audioNow = audioNow()
   f.onsets = drain(onsetQueue)
