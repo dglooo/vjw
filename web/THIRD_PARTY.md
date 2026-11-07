@@ -64,13 +64,15 @@ The three tables come from `node scripts/shaders.mjs`, which reads each file's h
 - `own/`: ours, MIT (the project's license, spec §6). Library code inlined in a file keeps its original header there, and the row names it.
 - `transitions/`: [gl-transitions](https://github.com/gl-transitions/gl-transitions) 2.0.0, the `glsl3/` sources. Author and license are the file's own `// Author:` and `// License:` lines (all 12 are MIT, as is the repo's LICENSE); the source is the upstream file its header names. `crossfade.glsl` is ours.
 
-### isf (15)
+### isf (18)
 
 | path | author | source | license |
 |---|---|---|---|
 | `isf/ASCII Art.fs` | VIDVOX (Ported from https://www.shadertoy.com/view/lssGDj) | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Chromatic Aberration.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Circular Feedback Mask.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
+| `isf/Color Monochrome.fs` | zoidberg | https://github.com/Vidvox/ISF-Files | MIT |
+| `isf/Color Replacement.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Comet Tails.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Kaleidoscope Tile.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Kaleidoscope.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
@@ -79,17 +81,19 @@ The three tables come from `node scripts/shaders.mjs`, which reads each file's h
 | `isf/Pixellate.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Posterize.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Sine Warp Tile.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
+| `isf/Solarize.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Truchet Tile.fs` | pjkarlik | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/VHS Glitch.fs` | David Lublin, original by Staffan Widegarn Åhlvik | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Worley Cells.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/v002-CRT-Displacement.fs` | vade | https://github.com/Vidvox/ISF-Files | MIT |
 
-### own (33)
+### own (34)
 
 | path | author | source | license |
 |---|---|---|---|
 | `own/bars.fs` | VeeJay Wizard (own) + FFT Color Lines and FFT Filled Waveform (VIDVOX) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
 | `own/bloom.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/change-color.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/diff-feedback.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/domain-warp.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/echo.fs` | VeeJay Wizard (own) | - | MIT (own) |
