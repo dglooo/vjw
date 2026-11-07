@@ -155,8 +155,39 @@ describe('parseIsf', () => {
     for (const r of refs.filter((r) => !/^(native|toy|milk)\//.test(r))) expect(ids, r).toContain(r) // a toy's code is inline
   })
 
+  test('isf/Solarize: the build and drop binds, the donor header kept (wave-2 S3.1)', () => {
+    const src = import.meta.glob('./isf/Solarize.fs', { query: '?raw', import: 'default', eager: true })['./isf/Solarize.fs'] as string
+    const d = parseIsf(src, 'isf/Solarize')
+    expect(d.credit).toBe('by VIDVOX')
+    expect(src.startsWith('// Source: https://github.com/Vidvox/ISF-Files · MIT')).toBe(true)
+    expect(Object.keys(d.bind ?? {})).toEqual(['centerBrightness', 'inverse'])
+    expect(d.bind?.centerBrightness.source).toBe('build')
+    expect(d.bind?.inverse.source).toBe('drop')
+    expect(d.inputs.find((i) => i.name === 'inverse')?.type).toBe('bool') // the donor's DEFAULT 1.0 parses to a bound bool
+  })
+
+  test('isf/Color Monochrome: the drop mix bind, the static .4/.4/.2, the skipped normalise noted (wave-2 S3.1)', () => {
+    const src = import.meta.glob('./isf/Color Monochrome.fs', { query: '?raw', import: 'default', eager: true })['./isf/Color Monochrome.fs'] as string
+    const d = parseIsf(src, 'isf/Color Monochrome')
+    expect(d.credit).toBe('by zoidberg')
+    expect(Object.keys(d.bind ?? {})).toEqual(['intensity'])
+    expect(d.bind?.intensity.source).toBe('drop')
+    expect(d.inputs.find((i) => i.name === 'color')?.default).toEqual([0.4, 0.4, 0.2, 1])
+    expect(src).toContain('analyze-max') // the header notes TD's normalise is skipped (it needs a reduction pass)
+  })
+
+  test('isf/Color Replacement: the 5-pass donor, unbound — the q5/q6 verification froze own/change-color (wave-2 S3.1)', () => {
+    const src = import.meta.glob('./isf/Color Replacement.fs', { query: '?raw', import: 'default', eager: true })['./isf/Color Replacement.fs'] as string
+    const d = parseIsf(src, 'isf/Color Replacement')
+    expect(d.credit).toBe('by VIDVOX')
+    expect(d.bind).toBeUndefined() // no float hue-offset input: mask_color / target_color are vec4, unbindable in the panel
+    expect(d.passes).toHaveLength(5)
+    expect(d.inputs.filter((i) => i.type === 'color').map((i) => i.name)).toEqual(['mask_color', 'target_color'])
+    expect(src).toContain('q5/q6 verification')
+  })
+
   // TD look (plan_td_look.md conventions): the own files its steps add, one entry per step.
-  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient', 'julia', 'phaser', 'diff-feedback', 'stars'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1; julia: wave-2 S1.2; phaser, diff-feedback, stars: wave-2 S1.3
+  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient', 'julia', 'phaser', 'diff-feedback', 'stars', 'change-color'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1; julia: wave-2 S1.2; phaser, diff-feedback, stars: wave-2 S1.3; change-color: wave-2 S3.1 (the q5/q6 donor-verification contingency)
   test.each(NEW_OWN)('own/%s parses, binds only known sources, and binds every VJW_FLASH input from 0', (stem) => {
     const files = import.meta.glob('./own/*.fs', { query: '?raw', import: 'default', eager: true })
     const d = parseIsf(files[`./own/${stem}.fs`] as string, stem) // throws on a flash name that is not an input
