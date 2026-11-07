@@ -13,6 +13,7 @@ const INLINE = [
   [/github\.com\/v002\/v002-Optical-Flow/, 'Optical Flow Generator (VIDVOX / v002 / Andrew Benson)', 'https://github.com/Vidvox/ISF-Files', 'MIT (ISF-Files)'],
   [/FFT Color Lines/, 'FFT Color Lines and FFT Filled Waveform (VIDVOX)', 'https://github.com/Vidvox/ISF-Files', 'MIT (ISF-Files)'],
   [/Triangle Mosaic/, 'Triangle Mosaic (VIDVOX)', 'https://github.com/Vidvox/ISF-Files', 'MIT (ISF-Files)'],
+  [/Use the code however you wish/, "Stars2D and PolkaDot2D from Brian Sharpe's Wombat", 'https://github.com/BrianSharpe', 'Wombat permissive ("use the code however you wish, credit"; no licence file in the in-repo TD extract; personal use)'],
 ]
 
 for (const dir of ['isf', 'own', 'transitions']) {

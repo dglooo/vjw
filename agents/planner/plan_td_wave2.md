@@ -125,7 +125,7 @@ Every step's brief opens, verbatim: "Invoke the `ponytail` skill (full) before w
   6. **Banding (design ⚠️ L222):** no fp32 banding in the Scale 0.02 still (the orbit collapse is smooth at fp32); the view degenerates instead — 100% of the frame stamps the same narrow input band (the C+unit disc ∩ footprint, x 0–0.32 / y 0.45–0.89) → a near-uniform dark field with a central speck (`fractal-scale02.png`). Zoom-out is useless below ~0.5; MIN 0.02 stays as the panel floor, the kick's zoom at 1→1.25.
   7. **Reactions (all bound params, both scenes, both fixtures, r):** cAngle 1.0, cMag 0.92–0.97, scale 0.89, rampHue 0.83–0.85, reseed 0.90–0.91 (the reseed drop-span mean 0.42–0.54 vs 0.11–0.14 whole: the re-roll reads); Auto-style reese→wobble holds on the dub fixture (cMag r 0.92).
 
-#### S1.3 [M] phaser + diff-feedback + stars → 3 built-ins (Wombat credit step)
+#### S1.3 [x] [M] phaser + diff-feedback + stars → 3 built-ins (Wombat credit step)
 - **Goal:** the last three CP1 looks, incl. the flash-gated diff-feedback and the Wombat-based stars generator.
 - **Files (3 new):** `web/src/fx/own/phaser.fs`, `diff-feedback.fs`, `stars.fs`; (edit) `builtin.ts`, `isf.test.ts`, `web/THIRD_PARTY.md`.
 - **Depends on:** S1.2.
@@ -133,6 +133,14 @@ Every step's brief opens, verbatim: "Invoke the `ponytail` skill (full) before w
 - **Built-ins (ride-along):** `builtin:phaser` (spectrum + `phaser` `{treat:1}`), `builtin:diff-feedback` (spectrum + `diff-feedback`, ⚡ glow ≤ 3/s), `builtin:stars` (gen `stars` mode 0).
 - **Tests:** 3 `isf.test.ts` entries + one assertion that `stars.fs`'s header contains the Wombat credit.
 - **Done:** gates green; billed A/B ≤ 5 ms (est 2.5–3.5 / 2.5–3.5 / 2–3); browser both fixtures: diff-feedback glow ≤ 3 stamps/s with luma holding, phaser wipe on build + map step on drop, stars pop on hats — r reported; screenshots `phaser.png`, `diff-feedback.png`, `stars.png`.
+
+  **Changed during implementation:**
+  1. **ES 1.00 int/float:** phaser's `BARS`/`GRID` and stars' `SCALE` `#define`s had to be float literals (12.0/24.0) — the first compile failed ("wrong operand types") on every mixed op; the Wombat functions were already float-clean.
+  2. **The plan's "1/1–2" build releases resolved to attack 1 / release 2** (bars' smoothing precedent), for phaser's `t` and diff-feedback's `k`.
+  3. **Wombat credit (lead-locked):** a detector was added to `web/scripts/shaders.mjs` (the S4.4 VIDVOX-detector precedent) so the row survives table regeneration, and the script was rerun — the own table is now 33 rows (26→33 also un-stales the S1.1/S1.2 rows for superformula/polar/gradient/julia); the `own/stars.fs` row carries "Stars2D and PolkaDot2D from Brian Sharpe's Wombat" (permissive: "use the code however you wish, credit"; no licence file in the in-repo TD extract; personal use), plus a Wombat bullet under "Inlined libraries" (the two noise functions + only the helpers they call — `FAST32_hash_2D_Cell`, `Falloff_Xsq_C1/C2` — read from the in-repo extract before copying, design ⚠️ L221).
+  4. **Build-driven screenshots can't be seek-parked:** `build` is an online tracker (arrange.ts) that ramps only while it observes the breakdown live — a seek parks it asleep (build = 0; verified: a probe pass kept `t` = 0 across the whole [23.1, 34.1] window after a seek, while the onset-based drop survived). So `phaser.png` (mid-wipe) and `stars-drop.png` (the polka) are taken on a second full pass from the intro: phaser parks at the live `t ≥ 0.55` crossing, the polka 0.3 s after the mode onset (the mode==1 window is only ~1.04 s — the 0.5 crossing of the 1.5 s release — so a 1.5 s settle overshoots it). The drop event also fires ~0.9 s off the -arr point (dnb 34.1 → ~35.0), so all parks are traced from the uniforms, not the arr estimates.
+  5. **diff-feedback luma (acceptance 2):** a 20-shot burst over the drop, decoded in the page at ¼ scale (the screenshot is the composited frame, heat pass included): peak luma 0.878 (dnb) / 0.899 (dub), frame mean at the peak 0.368/0.397 — no blow-out; glow flash 1.05/s (max 2 in 1 s, dnb) and 0.43/s (max 1, dub) — the flashGate's 3/s cap holds. The field is bounded by construction (`|src − k·prev| ≤ 1` inductively, k ≤ 1).
+  6. **Measured (billed, `+flash`, 1728×1118):** phaser 2.53/2.52, diff-feedback 4.86/4.88, stars 0.71/0.71 ms p95 (dnb/dub). r per bound param, dnb/dub: phaser t 0.90/0.93, map 0.94/0.94; diff k 0.90/0.93, zoom 0.96/0.96, hue 0.84/0.83, glow 0.89/0.89; stars prob 0.88/0.87, radius 0.96/0.96, scroll 0.95/0.92 (Auto reese→wobble holds on dub, the S1.2 pattern), mode 0.87/0.88.
 
 ### CP2 — natives
 
