@@ -28,11 +28,24 @@ const layer = (id: string) => BUILTIN.find((d) => d.id === id)!.layers[0]
 test.each([
   ['swarm', swarm, layer('builtin:swarm').gen],
   ['scatter', scatter, layer('builtin:scatter').fx[0]],
-] as const)('%s: every input is bound to a known source, and its built-in scene repeats the def bind', (_, def, node) => {
-  expect(Object.keys(def.bind!).sort()).toEqual(def.inputs.map((i) => i.name).sort())
+  ['pointillize', scatter, layer('builtin:pointillize').fx[0]],
+] as const)('%s: every bound input names a real source, and its built-in scene repeats the def bind', (_, def, node) => {
   for (const b of Object.values(def.bind!)) expect(SOURCE_IDS).toContain(b.source)
   expect(node.ref).toBe(def.id)
   expect(node.bind).toEqual(def.bind)
+})
+
+test('swarm binds every input; scatter statics (S2.2): only dots and sizeVar', () => {
+  const staticIn = (def: typeof swarm) => def.inputs.map((i) => i.name).filter((n) => !(n in (def.bind ?? {})))
+  expect(staticIn(swarm)).toEqual([])
+  expect(staticIn(scatter)).toEqual(['dots', 'sizeVar'])
+})
+
+test('pointillize: the spectrum scattered as round additive dots, starred', () => {
+  const d = BUILTIN.find((x) => x.id === 'builtin:pointillize')!
+  expect(d.star).toBe(true)
+  expect(layer('builtin:pointillize').gen.ref).toBe('native/spectrum')
+  expect(layer('builtin:pointillize').fx[0].values).toEqual({ dots: 1, sizeVar: 0.7 })
 })
 
 test('scatter is a filter over the tunnel', () => {
