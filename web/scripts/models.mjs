@@ -34,11 +34,24 @@ const MODELS = [
     'pose_landmarker_full.task',
     'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task',
   ],
+  // RVM (plan S0.5): the official fp16 ONNX from the release page (GPL-3.0, recorded in THIRD_PARTY.md;
+  // size 7,503,483 B per research_camera.md §1).
+  [
+    'rvm_mobilenetv3_fp16.onnx',
+    'https://github.com/PeterL1n/RobustVideoMatting/releases/download/v1.0.0/rvm_mobilenetv3_fp16.onnx',
+  ],
 ]
 
 const wasm = join(root, 'node_modules/@mediapipe/tasks-vision/wasm')
 if (!existsSync(wasm)) throw new Error('models.mjs: @mediapipe/tasks-vision not installed — run npm install first')
 cpSync(wasm, join(root, 'public/mediapipe'), { recursive: true })
+
+// ORT-Web self-host (plan S0.5, D7): the WebGPU build's wasm binary (the asyncify variant) so the page
+// touches localhost only. The emscripten JS glue is inlined in the bundle — only the .wasm is fetched
+// (rvm.ts sets wasmPaths = { wasm } precisely so ORT takes that path, not the .mjs import()).
+const ortWasm = join(root, 'node_modules/onnxruntime-web/dist')
+if (!existsSync(ortWasm)) throw new Error('models.mjs: onnxruntime-web not installed — run npm install first')
+cpSync(join(ortWasm, 'ort-wasm-simd-threaded.asyncify.wasm'), join(root, 'public/ort', 'ort-wasm-simd-threaded.asyncify.wasm'))
 
 const dir = join(root, 'public/models')
 mkdirSync(dir, { recursive: true })
