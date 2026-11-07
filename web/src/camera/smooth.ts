@@ -1,4 +1,4 @@
-// Mask math (plan_camera S0.2, the frozen contract; the gate/presence land in S1.1). Pure — testable in node.
+// Mask math (plan_camera S0.2 + S1.1, the frozen contract). Pure — testable in node.
 // Data is top-down u8 (row 0 = the frame's top), values 0..255 = confidence.
 export interface MaskStats {
   area: number // mean confidence, 0..1 (D3's presence follows it)
@@ -7,8 +7,44 @@ export interface MaskStats {
   box: [x0: number, y0: number, x1: number, y1: number] // 0..1 of the mask, [0,0,0,0] when empty
 }
 
-/** EMA weight of a kept mask (design D2, OBS's default). S0.2 uses it fixed; S1.1's gate() may lower it. */
+/** EMA weight of a settled mask (design D2, OBS's default); the gate lowers it to SLOW or 0 per mask (S1.1). */
 export const KEEP = 0.85
+
+// Gate + presence knobs (S1.1): the design defaults — [R0] re-tunes them (and the jump's shape) on the clip.
+export const AREA_MAX = 0.6 // [R0] area above this = a flooded mask, never shown (the "never flash the whole frame" guarantee)
+export const JUMP = 0.5 // [R0] a jump: the relative area change above this
+export const HOLD = 6 // [R0] jump masks held at k 0 (≈250 ms) before SLOW accepts
+export const SLOW = 0.15 // [R0] k while a jump keeps up past HOLD (a real entry or exit, accepted until it settles)
+export const PRESENCE_FULL = 0.08 // [R0] the area that reads presence 1
+
+export interface Gate {
+  area: number // follows the masks with the gate's k
+  held: number // the jump-streak count; a settle frame resets it
+}
+
+/** The mask's EMA weight (the CP1 contract, D2): 0 on a flood (area > AREA_MAX) and during the first HOLD masks of
+ * a jump streak; SLOW while the jump keeps up past HOLD (a real entry or exit); KEEP when settled. `g.area`
+ * follows with the same k; `g.held` counts the streak — a settle frame resets it, so an alternating strobe
+ * (.1/.9/.1/…) never accumulates past 1 and is always held.
+ * [R0]: the jump is design D2's relative change |area − g.area| / max(g.area, .02); the step brief's absolute
+ * |area − g.area| does not hold a .12-area person's empty frames (|0 − .12| < .5) — this step's "holds the
+ * flood/empty" check needs the relative form. */
+export function gate(g: Gate, area: number): number {
+  let k: number
+  if (area > AREA_MAX) k = 0
+  else if (Math.abs(area - g.area) / Math.max(g.area, 0.02) > JUMP) k = ++g.held <= HOLD ? 0 : SLOW
+  else {
+    g.held = 0
+    k = KEEP
+  }
+  g.area += k * (area - g.area)
+  return k
+}
+
+/** The `presence` binding source (the CP1 contract): rests at 0, full at PRESENCE_FULL, clamped to 0..1. */
+export function presence(area: number): number {
+  return Math.min(1, Math.max(0, area / PRESENCE_FULL))
+}
 
 export function stats(data: Uint8Array, w: number, h: number): MaskStats {
   let sum = 0

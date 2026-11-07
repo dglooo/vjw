@@ -62,8 +62,9 @@ describe('sources', () => {
     createFeatures().fill(out, 1 / 60, parseSettings(null), PRESETS.default)
     out.build = 0.5 // build/drop: app.ts fills these (the arrangement, S5.3), not sources()/fill()
     out.drop = 0.2
+    out.presence = 0.3 // presence: app.ts fills it (the camera, S1.1), not sources()/fill()
     expect(Object.keys(out).sort()).toEqual([...SOURCE_IDS].sort())
-    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 4 + 2)
+    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 4 + 2 + 1)
     for (const k of SOURCE_IDS) expect(Number.isFinite(out[k]), k).toBe(true)
   })
 })
