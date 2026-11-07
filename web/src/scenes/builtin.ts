@@ -496,6 +496,27 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // TD wave 2, S2.2 (CP2): pointillize — the scatter's dots mode: the spectrum as round additive sprites that burst on
+  // kicks, scatter on the reese and blast on the drop. The binds repeat the def (scenes/points.ts); the bass class rides
+  // `reese`: Auto-style moves it to wobble under Dubstep.
+  {
+    v: 1, id: 'builtin:pointillize', name: 'Pointillize', star: true, // Auto: reese (scatter; wobble under Dubstep)
+    layers: [{
+      gen: { ref: 'native/spectrum' }, // its bars give the dots their colours
+      fx: [{
+        ref: 'native/scatter', // the def's bind (scenes/points.ts), repeated: built-ins stay JSON literals
+        values: { dots: 1, sizeVar: 0.7 },
+        bind: {
+          burst: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 0, max: 2 }, // a kick bursts the dots
+          size: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.9, max: 1.4 }, // the sub swells them
+          scatter: { source: 'reese', amount: 1, attack: 0.05, release: 0.35, min: 0, max: 0.12 }, // Auto-style's one: the bass scatters them
+          spring: { source: 'build', amount: 1, attack: 1, release: 2, min: 40, max: 12 }, // a build loosens it
+          explode: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop blasts them apart
+        },
+      }],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
   // CP4 (2b S4.4): the S4.1–S4.3 pixel effects as scenes. The binds repeat each file's VJW_BIND (built-ins stay JSON
   // literals); the ⚡ ones (bars' and led-grid's glow) are the file's VJW_FLASH, gated to ≤3 onsets/s. The bass class
   // rides `reese` (mosaic's jitter): Auto-style moves it to wobble under Dubstep.

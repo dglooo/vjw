@@ -2,7 +2,9 @@
 // simplex-noise field, gather onto its zero contour (glowing threads), burst outward on kicks and draw additively into
 // one persistent half-float trail, faded each frame by a constant blend (no texture read, no ping-pong); then the shared
 // bloom and particles.ts's tone map. Scatter: the layer's image as one square point per stage cell, coloured by its home
-// pixel, displaced by a drifting noise field and sprung home; kicks and the drop blast it apart. The TF pattern is
+// pixel, displaced by a drifting noise field and sprung home; kicks and the drop blast it apart. At `dots` 1 (wave-2
+// S2.2, the pointillize mode) the squares are round additive sprites, jittered off the grid and size-spread by `sizeVar`.
+// The TF pattern is
 // particles.ts's (after the twgl.js example, MIT, Gregg Tavares): two buffer sets, one pass that integrates and rasterises.
 // Look: TD particlesGpu.tox + Particle/Trail POP, pixelRelocator.tox (studied, rewritten). Credits: webgl-noise snoise
 // (Ian McEwan, Ashima Arts, MIT; its header is kept in NOISE); gl/bloom.ts.
@@ -141,7 +143,11 @@ const FS = `#version 300 es
 precision highp float;
 in vec3 vColor;
 out vec4 outColor;
-void main() { outColor = vec4(vColor, 1.0); }`
+uniform float uRound;
+void main() {
+  if (uRound > .5 && length(gl_PointCoord - .5) > .5) discard; // uRound 1: the round sprite (the scatter's dots, S2.2); 0: today's square
+  outColor = vec4(vColor, 1.0);
+}`
 
 let tfProgram: ProgramInfo | undefined // as particles.ts: compiled once and shared; the engine's cache takes no varyings
 
@@ -220,7 +226,7 @@ export const swarm: NativeDef = {
         gl.blendFunc(gl.ONE, gl.ONE)
         pts.run({
           uDt: Math.min(f.dt, 0.05), uTime: f.time, uAspect: f.width / f.height, uBurst: v.burst, uTurb: v.turbulence,
-          uSize: v.size, uSparkle: v.sparkle, uHue: v.hueStep, uSpawn: spawn ? 1 : 0,
+          uSize: v.size, uSparkle: v.sparkle, uHue: v.hueStep, uSpawn: spawn ? 1 : 0, uRound: 0,
         })
         gl.disable(gl.BLEND)
         const lit = bloom.apply(trail.attachments[0], f.width, f.height, GLOW)
@@ -259,9 +265,10 @@ out vec3 vColor;
 uniform sampler2D uSrc;
 uniform int uCols;
 uniform vec2 uGrid;
-uniform float uDt, uTime, uAspect, uCell, uBurst, uSize, uScatter, uSpring, uExplode;
+uniform float uDt, uTime, uAspect, uCell, uBurst, uSize, uScatter, uSpring, uExplode, uDots, uSizeVar, uPx;
 ${NOISE}${HASH}
 void main() {
+  uint id = uint(gl_VertexID);
   vec2 uv = (vec2(gl_VertexID % uCols, gl_VertexID / uCols) + 0.5) / uGrid; // its cell's centre
   vec2 home = (uv * 2.0 - 1.0) * vec2(uAspect, 1.0);
   vec2 p = state == vec4(0.0) ? home : state.xy, v = state.zw; // new: at home, at rest
@@ -275,22 +282,28 @@ void main() {
   v = (v + dir * uExplode * ${EXPLODE.toFixed(1)} + uDt * (k * (target - p) + dir * uBurst * ${S_BURST.toFixed(1)})) / (1.0 + uDt * c + uDt * uDt * k);
   p += v * uDt;
   stateOut = vec4(p, v);
-  vColor = texture(uSrc, uv).rgb; // its home pixel: the image plays on inside the squares
-  gl_PointSize = uCell * uSize;
-  gl_Position = vec4(p.x / uAspect, p.y, 0.0, 1.0);
+  vColor = texture(uSrc, uv).rgb * mix(1.0, 1.0 / uSize, uDots); // dots: the deposit ÷ size, as the swarm's — a swell reads thicker, not size² brighter
+  gl_PointSize = uCell * uSize * mix(1.0, 0.25 + 0.75 * hash(id), uDots * uSizeVar); // dots: the random size spread
+  // dots: a stable per-point jitter, render only (the spring keeps aiming at home) — uCell px → scene units. Every factor
+  // is exact at uDots 0, so the squares are bit for bit the wave-1 look.
+  vec2 pp = p + (vec2(hash(id + 7u), hash(id + 13u)) - 0.5) * uCell * 0.8 * uDots * uPx;
+  gl_Position = vec4(pp.x / uAspect, pp.y, 0.0, 1.0);
 }`
 
 let scatterProgram: ProgramInfo | undefined
 
 /** TD pixelRelocator. Bindings: D1 with the 2026-11-05 ruling (scatter binds reese; Auto-style maps it to wobble in
  *  Dubstep). spring's range is inverted (S1.4's G3): a build loosens it, so the squares float farther and settle
- *  slower; once the build releases they snap back. */
+ *  slower; once the build releases they snap back. dots/sizeVar (wave-2 S2.2, the pointillize mode) are static: the
+ *  squares become round additive sprites, jittered off the grid and size-spread — the bindings are the squares'. */
 export const scatter: NativeDef = {
   id: 'native/scatter', name: 'Scatter', kind: 'filter', category: 'geometry', credit: 'VeeJay Wizard', inputs: [
     { name: 'burst', type: 'float', min: 0, max: 3, default: 0 }, // radial push, ∝ the radius
     { name: 'size', type: 'float', min: 0.5, max: 2, default: 1 }, // × the cell
     { name: 'scatter', type: 'float', min: 0, max: 0.5, default: 0 }, // TD's weight: displacement up to ±scatter/2 uv
     { name: 'spring', type: 'float', min: 4, max: 100, default: 40 }, // the pull home, as ω (rad/s): 40 snaps, 12 glides
+    { name: 'dots', type: 'float', min: 0, max: 1, default: 0 }, // 1: round additive sprites, jittered off the grid (S2.2)
+    { name: 'sizeVar', type: 'float', min: 0, max: 1, default: 0 }, // at dots: the size spread, 0.25×–1× the base
     { name: 'explode', type: 'event' }, // a radial blast, sprung back
   ],
   bind: {
@@ -309,13 +322,18 @@ export const scatter: NativeDef = {
       draw(f, v, src) {
         const explode = !!v.explode && !held // the rising edge, as the swarm's spawn
         held = !!v.explode
-        gl.clearColor(0, 0, 0, 1) // square opaque points on black
+        const dots = (v.dots as number) > 0.5 // S2.2: the pointillize mode (order-independent additive; TD's random order skipped)
+        gl.clearColor(0, 0, 0, 1) // opaque squares on black, or the dots' additive field
         gl.clear(gl.COLOR_BUFFER_BIT)
+        if (dots) { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE) } else gl.disable(gl.BLEND)
+        gl.viewport(0, 0, f.width, f.height) // the points at the target's px, as scope/particles (the default viewport is the canvas')
         pts.run({
           uSrc: src, uCols: grid.cols, uGrid: [grid.cols, grid.rows], uDt: Math.min(f.dt, 0.05), uTime: f.time,
           uAspect: f.width / f.height, uCell: Math.max(f.width / grid.cols, f.height / grid.rows), uBurst: v.burst,
           uSize: v.size, uScatter: v.scatter, uSpring: v.spring, uExplode: explode ? 1 : 0,
+          uDots: v.dots, uSizeVar: v.sizeVar, uPx: 2 / f.height, uRound: dots ? 1 : 0,
         })
+        gl.disable(gl.BLEND) // as the swarm: no state into the next node
       },
       dispose: pts.dispose,
     }
