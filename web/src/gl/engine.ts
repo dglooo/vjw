@@ -99,23 +99,27 @@ const shots = [renderTarget(), renderTarget()] // A: shot.from, B: shot.to
 export const temps = [renderTarget(), renderTarget()]
 
 const audioBytes = new Uint8ClampedArray(2 * BINS) // row 0 FFT, row 1 waveform: the toy texture; fft/wave are its rows
+const waveLrBytes = new Uint8ClampedArray(2 * BINS) // row 0 L, row 1 R: the waveLR texture (S0.2)
 const r8 = (rows: number) => createTexture(gl, { width: BINS, height: rows, internalFormat: gl.R8, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE, auto: false })
 /** Audio as R8 textures (design E3): `fft` and `wave` 512×1 for ISF audioFFT/audio, `toy` 512×2 (rows FFT, waveform)
- *  for Shadertoy's iChannel0 ⚠️ G5. */
-export const audioTex = { fft: r8(1), wave: r8(1), toy: r8(2) }
-function upload(tex: WebGLTexture, rows: number, offset: number) {
+ *  for Shadertoy's iChannel0 ⚠️ G5, `waveLR` 512×2 (row 0 L, row 1 R) for the CP2 scope (S0.2). */
+export const audioTex = { fft: r8(1), wave: r8(1), toy: r8(2), waveLR: r8(2) }
+function upload(tex: WebGLTexture, rows: number, offset: number, bytes: Uint8ClampedArray = audioBytes) {
   gl.bindTexture(gl.TEXTURE_2D, tex)
-  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, BINS, rows, gl.RED, gl.UNSIGNED_BYTE, audioBytes, offset)
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, BINS, rows, gl.RED, gl.UNSIGNED_BYTE, bytes, offset)
 }
-/** Every frame: 512 bins in dB and 512 waveform samples (−1…1) into the audio textures. */
-export function setAudio(magDb: Float32Array, wave: Float32Array) {
+/** Every frame: 512 bins in dB, 512 mid waveform samples and the L/R pair (−1…1) into the audio textures. */
+export function setAudio(magDb: Float32Array, wave: Float32Array, waveL: Float32Array, waveR: Float32Array) {
   for (let i = 0; i < BINS; i++) {
     audioBytes[i] = ((magDb[i] - FFT_MIN_DB) / (FFT_MAX_DB - FFT_MIN_DB)) * 255 // clamped: −∞ dB (silence) → 0
     audioBytes[BINS + i] = (0.5 + 0.5 * wave[i]) * 255
+    waveLrBytes[i] = (0.5 + 0.5 * waveL[i]) * 255
+    waveLrBytes[BINS + i] = (0.5 + 0.5 * waveR[i]) * 255
   }
   upload(audioTex.fft, 1, 0)
   upload(audioTex.wave, 1, BINS)
   upload(audioTex.toy, 2, 0)
+  upload(audioTex.waveLR, 2, 0, waveLrBytes)
 }
 
 let fade!: { info: ProgramInfo; u: Record<string, unknown> } // app.ts sets the first one at boot
