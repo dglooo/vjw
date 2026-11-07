@@ -713,6 +713,21 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // TD wave 2, S3.3 (CP3): quick wins q3 + q2 — the spectrum posterised into 8-colour hard regions (color-threshold),
+  // the reds inverting on the snare (rgb-contrast). Two filters at most over the spectrum: a third took a scene from
+  // 3.7 to 6.4 ms GPU p95 at 1728×1118 (S4.4). The binds repeat each file's VJW_BIND; no bass-class binding, so
+  // Auto-style changes nothing.
+  {
+    v: 1, id: 'builtin:poster', name: 'Poster', star: true,
+    layers: [{
+      gen: { ref: 'native/spectrum' },
+      fx: [
+        { ref: 'own/color-threshold', bind: { tR: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.3, max: 0.6 } } }, // the sub opens the reds' threshold
+        { ref: 'own/rgb-contrast', bind: { cR: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 1, max: -5 } } }, // a snare inverts the reds (min > max inverts)
+      ],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.

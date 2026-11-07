@@ -211,12 +211,25 @@ describe('parseIsf', () => {
   })
 
   // TD look (plan_td_look.md conventions): the own files its steps add, one entry per step.
-  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient', 'julia', 'phaser', 'diff-feedback', 'stars', 'change-color'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1; julia: wave-2 S1.2; phaser, diff-feedback, stars: wave-2 S1.3; change-color: wave-2 S3.1 (the q5/q6 donor-verification contingency)
+  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient', 'julia', 'phaser', 'diff-feedback', 'stars', 'change-color', 'rgb-contrast', 'color-threshold', 'dent'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1; julia: wave-2 S1.2; phaser, diff-feedback, stars: wave-2 S1.3; change-color: wave-2 S3.1 (the q5/q6 donor-verification contingency); rgb-contrast, color-threshold, dent: wave-2 S3.3 (q2, q3, q7)
   test.each(NEW_OWN)('own/%s parses, binds only known sources, and binds every VJW_FLASH input from 0', (stem) => {
     const files = import.meta.glob('./own/*.fs', { query: '?raw', import: 'default', eager: true })
     const d = parseIsf(files[`./own/${stem}.fs`] as string, stem) // throws on a flash name that is not an input
     for (const b of Object.values(d.bind ?? {})) expect(SOURCE_IDS, stem).toContain(b.source)
     for (const n of d.flash ?? []) expect(d.bind?.[n]?.min, `${stem} ${n}`).toBe(0)
+  })
+
+  test('own/rgb-contrast + color-threshold + dent: the S3.3 binds (the reversed cR, the sub tR, the kick width)', () => {
+    const files = import.meta.glob('./own/*.fs', { query: '?raw', import: 'default', eager: true })
+    const rc = parseIsf(files['./own/rgb-contrast.fs'] as string, 'rgb-contrast')
+    expect(Object.keys(rc.bind ?? {})).toEqual(['cR'])
+    expect(rc.bind?.cR).toEqual({ source: 'snare', amount: 1, attack: 0, release: 0.3, min: 1, max: -5 }) // min > max inverts the reds
+    const ct = parseIsf(files['./own/color-threshold.fs'] as string, 'color-threshold')
+    expect(Object.keys(ct.bind ?? {})).toEqual(['tR'])
+    expect(ct.bind?.tR).toEqual({ source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.3, max: 0.6 })
+    const dn = parseIsf(files['./own/dent.fs'] as string, 'dent')
+    expect(Object.keys(dn.bind ?? {})).toEqual(['width'])
+    expect(dn.bind?.width).toEqual({ source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0.3, max: 0.5 })
   })
 
   test('own/bars: a persistent float 128×1 levels pass, then the draw (2b S4.1)', () => {
