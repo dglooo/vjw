@@ -4,6 +4,10 @@
 // loop scaffolding changed (constant bound + break over the donor's identical int range — radius caps at 15 — a
 // float fi copy for the sample coords, the index declared in the for); the math, the passes and the inputs are
 // verbatim from the donor (the S3.1 Color Replacement precedent).
+// Cost (S3.2, measured): billed p95 +flash 6.33/7.18 ms over spectrum at 1728×1118 (dnb174-arr / dubstep140-arr)
+// at the locked sub bind radius 2→8 — over the 5 ms A/B, so builtin:melt was dropped at the gate (lead ruling S3.2;
+// the static-radius-6 reading is worse, 9.87/9.87). L-class catalog effect: use it in a scene you expect to play
+// long only at the bind min or below, or accept the governor scaling (the julia L-class precedent).
 /*{
     "CATEGORIES": [
         "Blur"
