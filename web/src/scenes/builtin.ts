@@ -728,6 +728,33 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // TD wave 2, S3.4 (CP3): quick-win group 1 — the spectrum solarized (the S3.1 donor: the build opens the
+  // inversion, the drop flips it), then relit as fake relief with an lfo-swept light angle and sub-driven depth
+  // (own/emboss — the donor Emboss declares `varying`, design fact 8, so it was never a copy). Two fx over the
+  // spectrum (R6); the binds repeat each file's VJW_BIND; no bass-class binding, so Auto-style changes nothing.
+  {
+    v: 1, id: 'builtin:solar-emboss', name: 'Solar emboss', star: true,
+    layers: [{
+      gen: { ref: 'native/spectrum' },
+      fx: [
+        {
+          ref: 'isf/Solarize',
+          bind: {
+            centerBrightness: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.35, max: 0.65 }, // the build opens the inversion (S3.1)
+            inverse: { source: 'drop', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the drop flips it (S3.1)
+          },
+        },
+        {
+          ref: 'own/emboss',
+          bind: {
+            angle: { source: 'lfo', shape: 'sine', rate: 0.05, amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the light sweeps, one turn per 20 s
+            k: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.3, max: 0.05 }, // the sub deepens the relief (reversed: k is the normal's z, min > max)
+          },
+        },
+      ],
+      blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
