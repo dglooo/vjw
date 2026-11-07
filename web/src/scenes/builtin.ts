@@ -604,6 +604,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // TD wave 2, S1.2: the plan's two fractal built-ins (julia trap + mandelbrot over the spectrum) were dropped at
+  // the gate (billed p95 18.5/6.2 ms at the locked Iter 32/res .25, over the 5 ms budget for starred scenes; lead
+  // ruling 2026-11-07) — own/julia stays in the catalog as an L-class effect.
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
