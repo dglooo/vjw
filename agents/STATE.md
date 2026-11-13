@@ -9,7 +9,7 @@
 **Specs:** `thoughts/spec_veejay_wizard.md` + `spec_effects`, `spec_audio_reactivity`, `spec_td_look`, `spec_effect_editor`, `spec_camera`. **Team:** planner Fable 5.1 max; others Opus 5.5 max; researcher high.
 
 ### Where we stopped
-- **2026-11-14 (session 11):** the user's live camera check found the probe overlay stretched into vertical stripes. Lead root-caused two probe bugs: camprobe.ts L96/L111 v-flip precedence (`(1.0 - fragY)/uRes` → clamped edge row) + `readMask` decoding RG16F half bits as unorm16 (1.0 → 60/255 → `iou` sees empty masks → **S0.4's K7 agreement = 1 is an artifact, re-measure at R0**). Tier-1 `frontend-coder` dispatched (worktree, port 5175).
+- **2026-11-14 (session 11):** the user's live camera check found the probe overlay stretched into vertical stripes. Lead root-caused two probe bugs: camprobe.ts L96/L111 v-flip precedence (`(1.0 - fragY)/uRes` → clamped edge row) + `readMask` decoding RG16F half bits as unorm16 (1.0 → 60/255 → `iou` sees empty masks → **S0.4's K7 agreement = 1 is an artifact, re-measure at R0**). Tier-1 `frontend-coder` dispatched, then **stopped on the user's word ("later") before any edit** → queued under Small.
 - **2b effect editor ✅ CLOSED (lead, 2026-11-06)** — CP1–CP4, 15/15 steps, 417 tests. Close-out: CP1 bool-binding stills + meter (`s1.3-cp1-*`), 13 structural ops on `builtin:td-feedback` keep the trail (one harness false-positive fixed: mute's 2 in-flight draws); CP3 quiet re-run 2 late = the known mount + one 35 ms blip in the first bake pass (S3.4 clean); CP4 60 s runs 0 late both fixtures (S4.4). **⚠️ the S4.4 worktree `agent-aaf6b5f45785c2ca1` + Vite 5174 are KEPT (the user denied the cleanup; browser check) — remove when the user is done.** Lead server on 5173 runs the merged tree.
 ### Queue (user order 2026-11-05)
 1. Finish 2b.
@@ -27,6 +27,7 @@
    - milk first tile 32 ms; library mount 51 ms; no baking at 30 fps;
    - the swarm TF pass lacks the explicit `gl.viewport` the S2.2 scatter draw gained (latent points mis-mapping in tiles / governor scale; Tier 1);
    - the event trigger stores `true` in the doc (Tier 1);
+   - **camprobe overlay stripes + readMask decode (Tier 1, user deferred 2026-11-14):** camprobe.ts L96/L111 `vec2(x, 1.0 - fragY)/uRes` → `uRes.y - fragY`; camera.ts `readMask` decodes RG16F half bits as unorm16 → proper half→float + one unit test; must land before the R0 probe runs (K7 + sheet masks depend on it);
    - Vite dev warns "dynamic import cannot be analyzed" at `segment.worker.ts` L191 `return import(url)` (the G1 shim's fallback, runtime URL by design) → `import(/* @vite-ignore */ url)` (Tier 1, user 2026-11-14);
    - §1/§2 (taste); §4 Spectrum perf; spec §7.5 30-min run; REC WebCodecs (low).
 
