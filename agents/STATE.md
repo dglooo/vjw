@@ -26,6 +26,7 @@
    - milk first tile 32 ms; library mount 51 ms; no baking at 30 fps;
    - the swarm TF pass lacks the explicit `gl.viewport` the S2.2 scatter draw gained (latent points mis-mapping in tiles / governor scale; Tier 1);
    - the event trigger stores `true` in the doc (Tier 1);
+   - Vite dev warns "dynamic import cannot be analyzed" at `segment.worker.ts` L191 `return import(url)` (the G1 shim's fallback, runtime URL by design) → `import(/* @vite-ignore */ url)` (Tier 1, user 2026-11-14);
    - §1/§2 (taste); §4 Spectrum perf; spec §7.5 30-min run; REC WebCodecs (low).
 
 ### Waiting on the user
