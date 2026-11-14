@@ -124,3 +124,12 @@ export function morphStep(m: Morph, len: number, next: boolean, bar: number, hol
   if (next || bar - since >= hold) return { from: m.to, to: (m.to + 1) % len, mix: 0, slot: hold > 0 ? bar : NaN, dur: next ? SLAM : PHASE }
   return { ...m, slot: since, mix: Math.min(1, m.mix + dt / m.dur) }
 }
+
+/** The eased per-point progress of the CPU morph (S1.4, plexus): the twin of creatures' VS switch `i/N < uMix ? B : A`
+ *  (there the spring is the easing; here the lerp is). The point at phase t ∈ [0,1) starts when `mix` passes t and
+ *  settles exactly at mix 1, so a settled morph is fully `to`. PURE: 0 at mix 0, 1 at mix 1, monotone in mix, a
+ *  later t starts later. */
+export const stagger = (mix: number, t: number): number => {
+  const x = Math.min(1, Math.max(0, (mix - t) / (1 - t)))
+  return x * x * (3 - 2 * x)
+}

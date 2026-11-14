@@ -61,14 +61,21 @@ test('plexus: a geometry generator, tagged for the 2b library; plexusN shrinks a
 })
 
 const gen = (id: string) => BUILTIN.find((d) => d.id === id)!.layers[0].gen
-test('plexus: every bind names a declared input and a real source; the built-in scene repeats the def bind; all inputs bound', () => {
+test('plexus: every bind names a declared input and a real source; the def bind stays the classic four (S1.4 frozen pair); zodiac binds the shape inputs', () => {
   expect(gen('builtin:plexus').ref).toBe(plexus.id)
   expect(gen('builtin:plexus').bind).toEqual(plexus.bind)
   for (const [name, b] of Object.entries(plexus.bind!)) {
     expect(plexus.inputs.some((i) => i.name === name)).toBe(true)
     expect(SOURCE_IDS).toContain(b.source)
   }
-  expect(Object.keys(plexus.bind!).sort()).toEqual(plexus.inputs.map((i) => i.name).sort()) // no statics, no bass class (Auto: —)
+  expect(Object.keys(plexus.bind!).sort()).toEqual(['dist', 'drift', 'hue', 'size']) // S1.4: shape/wander/pulse/hold/next ride builtin:zodiac's bind
+  const z = gen('builtin:zodiac')
+  expect(z.ref).toBe(plexus.id)
+  expect(z.values).toMatchObject({ shape: 5, hold: 32 }) // SETS[4] = zodiac, the S0.2 hold ruling
+  for (const name of ['drift', 'dist', 'size', 'pulse', 'hue', 'wander', 'next']) {
+    expect(plexus.inputs.some((i) => i.name === name), name).toBe(true)
+    expect(SOURCE_IDS).toContain(z.bind![name].source)
+  }
 })
 
 test('builtin:plexus: starred, one native/plexus generator layer', () => {

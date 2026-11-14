@@ -9,6 +9,8 @@ import { createProgramInfo, setUniforms, type ProgramInfo } from 'twgl.js'
 import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, renderTarget } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
+import { SETS } from './animals'
+import { morphStep, shapePoints, stagger, type Morph } from './shapes'
 import { COMPOSITE_FS } from './particles'
 
 const N = 400 // knob: node count (the design's < 0.1 ms CPU budget)
@@ -90,13 +92,20 @@ let lineProgram: ProgramInfo | undefined // as scope's: compiled once and shared
 let nodeProgram: ProgramInfo | undefined
 
 /** Bindings (⚠ the plan marks them a lead assumption — the design names none; assigned per the 2d policy, confirm
- *  at the CP2 demo). No bass-class input, so Auto-style changes nothing. */
+ *  at the CP2 demo). No bass-class input, so Auto-style changes nothing. S1.4 adds the shape inputs (unbound here:
+ *  this def's bind stays the classic four, so builtin:plexus — shape 0 — is the frozen pair; builtin:zodiac binds
+ *  them per plan row 5). */
 export const plexus: NativeDef = {
   id: 'native/plexus', name: 'Plexus', kind: 'generator', category: 'geometry', tags: ['plexus', 'lines'], credit: 'VeeJay Wizard', inputs: [
     { name: 'dist', type: 'float', min: 0.05, max: 0.8, default: 0.25 }, // the connect radius, scene units
     { name: 'drift', type: 'float', min: 0, max: 1, default: 0.5 }, // the orbits' speed (0: still)
     { name: 'size', type: 'float', min: 1, max: 8, default: 3 }, // the node's px at a 1000 px tall target
     { name: 'hue', type: 'float', min: 0, max: 1, default: 0.45 }, // the base hue, turns
+    { name: 'shape', type: 'long', values: [0, ...SETS.map((_, i) => i + 1)], labels: ['free', ...SETS.map((s) => s.name)], default: 0 }, // S1.4: 0 today's homes; k: SETS[k − 1]'s stroke samples
+    { name: 'wander', type: 'float', min: 0, max: 1, default: 1 }, // S1.4: × the orbit radii — .15 holds the shape, 1 is today's drift
+    { name: 'pulse', type: 'float', min: 0, max: 0.2, default: 0 }, // S1.4: a radial punch, the nodes push out
+    { name: 'hold', type: 'float', min: 0, max: 64, default: 0 }, // S1.4: bars an animal holds before a calm morph; 0 = only `next` switches
+    { name: 'next', type: 'event' }, // S1.4: slam into the set's next animal
   ],
   bind: {
     drift: { source: 'lfo', shape: 'sine', rate: 0.05, amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // a 20 s breath of drift
@@ -138,18 +147,43 @@ export const plexus: NativeDef = {
     gl.enableVertexAttribArray(aCol)
     gl.vertexAttribPointer(aCol, 3, gl.FLOAT, false, 20, 8)
     gl.bindVertexArray(null)
+    let morph: Morph | undefined // S1.4: the shape's morph clock (unset until shape > 0; fresh per shape value)
+    let morphSet = 0
+    let held = false // the `next` rising edge, as creatures'
     return {
+      nodes: pos, // S1.4's pair-count bench reads the CPU truth (a reference, not a copy)
       draw(f, v) {
         const dt = Math.min(f.dt, 0.05)
         const aspect = f.width / f.height
         const dist = Math.max(1e-3, v.dist as number)
         const drift = v.drift as number
+        const shapeK = v.shape as number
+        if (shapeK > 0) { // 0: today's path, the homes and orbits below untouched (builtin:plexus's frozen pair)
+          const ids = (SETS[shapeK - 1] ?? SETS[0]).ids
+          if (!morph || morphSet !== shapeK) { morph = { from: 0, to: 0, mix: 1, slot: NaN, dur: 1 }; morphSet = shapeK }
+          const edge = !!v.next && !held
+          held = !!v.next
+          morph = morphStep(morph, ids.length, edge, f.sync.bar, v.hold as number, dt)
+          const A = shapePoints(ids[morph.from], n) // the stroke samples, n×4 [x, y, z, edge] (xy only here)
+          const B = shapePoints(ids[morph.to], n)
+          for (let i = 0; i < n; i++) { // the staggered home A → B per point (no spring on the CPU: the lerp is the easing)
+            const s = stagger(morph.mix, i / n)
+            hx[i] = A[4 * i] + (B[4 * i] - A[4 * i]) * s
+            hy[i] = A[4 * i + 1] + (B[4 * i + 1] - A[4 * i + 1]) * s
+          }
+        }
+        // Squared scale of the orbit radii: at .15 the orbit (≤ .01 scene) is under the node spacing, so the shape
+        // holds (the contract's .15); at 1 it is exactly today's drift (bit-identical: rad × 1).
+        const wander = (v.wander as number) ** 2
         // The orbit integrates its phase (drift 0 stills the web at its current phase — no jump as the lfo moves it).
         for (let i = 0; i < n; i++) {
           phase[i] += om[i] * drift * dt
-          pos[2 * i] = hx[i] * aspect + rad[i] * Math.cos(phase[i])
-          pos[2 * i + 1] = hy[i] + rad[i] * Math.sin(phase[i])
+          const r = rad[i] * wander
+          pos[2 * i] = hx[i] * aspect + r * Math.cos(phase[i])
+          pos[2 * i + 1] = hy[i] + r * Math.sin(phase[i])
         }
+        const pu = v.pulse as number
+        if (pu > 0) for (let i = 0; i < n; i++) { pos[2 * i] *= 1 + pu; pos[2 * i + 1] *= 1 + pu } // the radial punch, 0 = off
         const k = plexusPairs(pos, n, dist, aspect, pair)
         for (let i = 0; i < n; i++) {
           const t0 = (v.hue as number) + hueOff[i], o = i * 5
