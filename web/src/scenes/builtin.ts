@@ -824,6 +824,31 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Scene wave 3, S1.2 (CP1): Abyss — DnB. The 3D regime over row 1 (plan § Scenes row 3): static depth .35 (the
+  // 3D volume on by default) and trail .7 (a little motion history in the depth); the camera sways on its own lfo
+  // sine — a flat silhouette must never turn edge-on. 65k points hold a shark; the build scatters them, the drop
+  // slams them into a jellyfish. The binds repeat row 1 with the row's hue / swirl / size / yaw (⚠️ assumptions
+  // until the CP1 demo); the bass class rides `reese` (swirl): Auto-style moves it to wobble under Dubstep.
+  {
+    v: 1, id: 'builtin:abyss', name: 'Abyss', star: true, // DnB · Auto: reese (swirl; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'native/creatures', values: { set: 2, trail: 0.7, depth: 0.35, hold: 32 }, // shark ↔ jellyfish; the 3D volume, the camera sway, 32 bars (the S0.2 ruling)
+        bind: {
+          scatter: { source: 'build', amount: 1, attack: 1, release: 0.15, min: 0.15, max: 0.9 }, // the floor .15 — the points always breathe; a build loosens the shark into a cloud
+          next: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop slams the cloud into the jellyfish
+          pulse: { source: 'kick', amount: 1, attack: 0, release: 0.12, min: 0, max: 1 }, // a kick sends a tighter ring through it
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.55, max: 0.62 }, // a snare turns the colour (deep blue)
+          swirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.02, max: 0.2 }, // Auto-style's one: the bass stirs the volume gently
+          size: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 2, max: 4 }, // the sub swells the points
+          sparkle: { source: 'hats', amount: 1, attack: 0, release: 0.08, min: 0, max: 0.5 }, // hats twinkle them
+          yaw: { source: 'lfo', shape: 'sine', rate: 0.07, amount: 1, attack: 0, release: 0, min: -0.09, max: 0.09 }, // the camera sway, a 14.3 s breath, never edge-on
+          pan: { source: 'lfo', shape: 'sine', rate: 0.04, amount: 1, attack: 0, release: 0, min: -0.35, max: 0.35 }, // the autonomous left–right drift
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
   // Scene wave 3, S2.1 (CP2): the techno laser — four truss emitters, green + white eight-beam fans, a 16-step chase
   // that moves the light without changing its amount (own/laser-grid's header: the odd-`hits` bijection). Brightness
   // on a hit only through the ⚡ pair (the file's VJW_FLASH, gated ≤ 3/s). The binds repeat the file's VJW_BIND
