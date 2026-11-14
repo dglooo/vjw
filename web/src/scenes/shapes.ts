@@ -99,3 +99,20 @@ export function shapePoints(id: string, n: number): Float32Array {
   cache.set(key, out)
   return out
 }
+
+/** The morph clock of a set of animals: `mix` runs 0 → 1 over `dur` s, the share of the points that already aim at
+ *  `to` (the rest still at `from`: the staggered switch); `slot` is the bar the hold counts from, NaN = unset. */
+export interface Morph { from: number; to: number; mix: number; slot: number; dur: number }
+const SLAM = 0.12 // knob: s, the drop's switch: every point retargets within it (the spring is the flight)
+const PHASE = 1.5 // knob: s, the calm morph's sweep through the points
+
+/** One frame of the morph clock (pure, the unit-tested seam). `next` (a rising edge: the drop) slams to the set's
+ *  next animal over SLAM; `hold` bars after the last switch it morphs there calmly over PHASE, so the drop's animal
+ *  always gets its full hold. hold 0 = off: the count is forgotten, and an unset count (or a grid that restarted)
+ *  starts at this bar — a scene cut to mid-track opens assembled, and the bars that pass while the clock is off
+ *  (creatures: the build's loose cloud) are not made up for. */
+export function morphStep(m: Morph, len: number, next: boolean, bar: number, hold: number, dt: number): Morph {
+  const since = hold > 0 ? (bar >= m.slot ? m.slot : bar) : NaN
+  if (next || bar - since >= hold) return { from: m.to, to: (m.to + 1) % len, mix: 0, slot: hold > 0 ? bar : NaN, dur: next ? SLAM : PHASE }
+  return { ...m, slot: since, mix: Math.min(1, m.mix + dt / m.dur) }
+}

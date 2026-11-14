@@ -771,6 +771,29 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Scene wave 3, S0.2 (CP0): Spirit — DnB. 65k glowing points hold a wolf; the build loosens it into a drifting
+  // cloud, the drop slams the cloud into an eagle (and the next drop back), a kick sends a ring through the shape,
+  // a snare turns its colour, hats only twinkle. The binds repeat the def (scenes/creatures.ts; plan § Scenes row 1,
+  // ⚠️ assumptions until the CP0 demo); the bass class rides `reese` (swirl): Auto-style moves it to wobble under
+  // Dubstep. trail is the row's static; hold is 32 bars, not the row's 16 (the note on the gen).
+  {
+    v: 1, id: 'builtin:spirit', name: 'Spirit', star: true, // Auto: reese (swirl; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'native/creatures', values: { set: 0, trail: 0.5, hold: 32 }, // wolf ↔ eagle; 32 bars (the row's 16 morphed the wolf away at the canonical 16-bar intro's end, just before the build)
+        bind: {
+          scatter: { source: 'build', amount: 1, attack: 1, release: 0.15, min: 0, max: 0.9 }, // a build loosens the animal into a drifting cloud
+          next: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop slams the cloud into the next animal
+          pulse: { source: 'kick', amount: 1, attack: 0, release: 0.25, min: 0, max: 1 }, // a kick sends a ring through it
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.52, max: 0.72 }, // a snare turns the colour
+          swirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.02, max: 0.25 }, // Auto-style's one: the bass stirs the shape
+          size: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 2.5, max: 4.5 }, // the sub swells the points
+          sparkle: { source: 'hats', amount: 1, attack: 0, release: 0.08, min: 0, max: 0.5 }, // hats twinkle them
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.

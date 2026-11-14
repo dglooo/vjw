@@ -33,7 +33,7 @@ const GAIN = 0.8 // knob: one point's deposit ÷ its size (trails sum ≈ 1/(1 �
 const GLOW = 2 // knob: bloom strength
 
 // webgl-noise noise3Dgrad.glsl (donor/webgl-noise, MIT): its header and code, the comments and blank lines dropped.
-const NOISE = `
+export const NOISE = `
 // Description : Array and textureless GLSL 2D/3D/4D simplex
 //               noise functions.
 //      Author : Ian McEwan, Ashima Arts.
@@ -98,7 +98,7 @@ float snoise(vec3 v, out vec3 gradient) {
   gradient *= 105.0;
   return 105.0 * dot(m4, pdotx);
 }`
-const HASH = `
+export const HASH = `
 uint mixu(uint x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; return x ^ (x >> 16); } // lowbias32
 float hash(uint x) { return float(mixu(x)) / 4294967296.0; } // fract(sin) has ~8 bits here: 512 points shared the origin`
 
@@ -153,7 +153,7 @@ let tfProgram: ProgramInfo | undefined // as particles.ts: compiled once and sha
 
 /** Two buffers of n vec4 `state`s, both zeroed (a zero state is "new"), ping-ponged: each run() draws the n points of
  *  one into the bound target and captures `stateOut` into the other. */
-function tfPoints(gl: WebGL2RenderingContext, prog: ProgramInfo, n: number) {
+export function tfPoints(gl: WebGL2RenderingContext, prog: ProgramInfo, n: number) {
   const [a, b] = [0, 1].map(() => createBufferInfoFromArrays(gl, { state: { numComponents: 4, data: swarmLayout(n).floats } }))
   const sets = [[a, b], [b, a]].map(([src, dst]) => ({
     vao: createVertexArrayInfo(gl, prog, src).vertexArrayObject!,
