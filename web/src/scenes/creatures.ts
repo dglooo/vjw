@@ -3,12 +3,15 @@
 // to it — scatter's backward-Euler spring, the home read from the animal's texture. A build loosens the shape into a
 // drifting cloud, the drop slams the cloud into the set's next animal, a kick sends a ring through it. The draw is
 // the swarm's: additive sprites into a persistent half-float trail, the shared bloom, particles' tone map.
+// S0.3 (pick P4): `depth` gives the animal its relief (shapes.ts's z) and `yaw` orbits gl/view.ts's camera around
+// it. Render only: the physics stays in the object plane, and at depth 0, yaw 0 the frame is the 2D scene.
 // Look: TD SN/POP sprinklePOP ex1 (points in a shape), phaserPOP ex1 (a staggered point-set transition), particlePOP
 // ex3 (image-weighted birth) (studied, rewritten). No third-party code beyond points.ts's NOISE (webgl-noise, MIT).
 import { bindFramebufferInfo, createProgramInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, renderTarget, tint } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
+import { FOCAL, orbitVP } from '../gl/view'
 import { SETS } from './animals'
 import { COMPOSITE_FS } from './particles'
 import { HASH, NOISE, tfPoints } from './points'
@@ -43,9 +46,11 @@ const VS = `#version 300 es
 in vec4 state; // pos.xy, vel.xy
 out vec4 stateOut;
 out vec3 vColor;
-uniform sampler2D uA, uB; // the animal morphed from / to, a texel per point: home.xy, pillow z (S0.3), edge
-uniform float uN, uMix, uDt, uTime, uAspect, uPx, uGain, uSize, uScatter, uSwirl, uPulse, uHue, uSat, uSparkle;
+uniform sampler2D uA, uB; // the animal morphed from / to, a texel per point: home.xy, relief z (× uDepth), edge
+uniform mat4 uVP; // gl/view.ts's orbit camera: at yaw 0 the z = 0 plane is the 2D scene
+uniform float uN, uMix, uDt, uTime, uPx, uGain, uSize, uScatter, uSwirl, uPulse, uHue, uSat, uSparkle, uDepth;
 ${NOISE}${HASH}
+const float FOCAL = ${FOCAL.toFixed(9)};
 vec3 hsv(float h, float s) { return mix(vec3(1.0), clamp(abs(fract(h + vec3(0.0, 2.0, 1.0) / 3.0) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s); }
 void main() {
   uint id = uint(gl_VertexID);
@@ -70,18 +75,23 @@ void main() {
   v = (v + uDt * k * (target - p)) / (1.0 + uDt * c + uDt * uDt * k);
   p += v * uDt;
   stateOut = vec4(p, v);
+  // The depth, render only: the animal's relief once the point has landed (within 0.3 of its target), and while it
+  // flies its own signed share of the way still to go, so the slam is a volume closing in on the animal.
+  float off = length(p - target);
+  float z = uDepth * (shape.z * (1.0 - min(off / 0.3, 1.0)) + (2.0 * r1 - 1.0) * off); // 2 r1 − 1: the side shapes.ts gave its dust
   // Mostly dim dust with a few bright, whiter sparks; the outline and the detail lines burn brighter.
   float spark = r3 * r3 * r3 * r3;
   float lum = (0.08 + 1.6 * spark) * mix(1.0, ${EDGE.toFixed(2)}, shape.w) * (1.0 + ${C_LIT.toFixed(1)} * max(0.0, length(p - home) - 0.1));
   float twinkle = 1.0 + uSparkle * (4.0 * hash(id ^ mixu(floatBitsToUint(uTime))) - 2.0); // hats: zero-mean, per point
-  float s = uSize * uPx * (0.6 + 0.8 * r1), ps = max(s, 1.0); // px; under 1 px the point stays 1 px and dims instead
-  vColor = hsv(uHue + 0.15 * u - 0.03 * shape.w, uSat * (1.0 - 0.3 * spark)) * lum * twinkle * uGain / uSize * (s * s) / (ps * ps); // ÷ size: a swell reads thicker, not size² brighter
-  gl_PointSize = ps;
   // The pulse: a ring that runs from the centre out as the kick's envelope falls and pushes what it crosses outward.
   // The points bunch on its front and thin behind it: a crest of light, the frame no brighter.
   float d = length(p), band = (d - (1.0 - uPulse) * ${RING.toFixed(2)}) / ${RING_W.toFixed(2)};
   p += p / max(d, 1e-4) * exp(-band * band) * smoothstep(0.0, 0.15, uPulse) * smoothstep(0.0, 0.25, d) * ${PUSH.toFixed(2)}; // no hole punched at the centre
-  gl_Position = vec4(p.x / uAspect, p.y, 0.0, 1.0);
+  gl_Position = uVP * vec4(p, z, 1.0);
+  float near = FOCAL / max(gl_Position.w, FOCAL / 3.0); // the perspective: 1 on the z = 0 plane; a point nearer the eye is bigger and brighter (≤ 3×: a fly-by is no flash)
+  float s = uSize * uPx * (0.6 + 0.8 * r1) * near, ps = max(s, 1.0); // px; under 1 px the point stays 1 px and dims instead
+  vColor = hsv(uHue + 0.15 * u - 0.03 * shape.w, uSat * (1.0 - 0.3 * spark)) * lum * twinkle * near * uGain / uSize * (s * s) / (ps * ps); // ÷ size: a swell reads thicker, not size² brighter
+  gl_PointSize = ps;
 }`
 // A soft round sprite (particles.ts's): the falloff anti-aliases a 2-px point, so a slow drift does not shimmer.
 const FS = `#version 300 es
@@ -123,6 +133,8 @@ export const creatures: NativeDef = {
     { name: 'hue', type: 'float', min: 0, max: 1, default: 0.52 }, // the top's hue, turns; the bottom's is +0.15
     { name: 'sat', type: 'float', min: 0, max: 1, default: 0.92 },
     { name: 'sparkle', type: 'float', min: 0, max: 0.5, default: 0 }, // per-point twinkle, zero-mean
+    { name: 'depth', type: 'float', min: 0, max: 0.6, default: 0 }, // the animal's thickness, scene units each way: 0 = flat, the 2D scene
+    { name: 'yaw', type: 'float', min: -1, max: 1, default: 0 }, // the camera's orbit around it, turns
     { name: 'hold', type: 'float', min: 0, max: 64, default: 32 }, // bars an animal holds before a calm morph; 0 = only `next` switches
     { name: 'next', type: 'event' }, // slam into the set's next animal
   ],
@@ -166,9 +178,9 @@ export const creatures: NativeDef = {
         gl.blendFunc(gl.ONE, gl.ONE)
         pts.run({
           uA: shapeTex(gl, ids[morph.from % ids.length], n), uB: shapeTex(gl, ids[morph.to % ids.length], n), uN: n, uMix: morph.mix,
-          uDt: dt, uTime: f.time, uAspect: f.width / f.height, uPx: f.height / REF_H,
+          uDt: dt, uTime: f.time, uVP: orbitVP((v.yaw as number) * 2 * Math.PI, 0, f.width / f.height), uPx: f.height / REF_H,
           uGain: (GAIN * (1 - keep) * REF_N) / n, // × (1 − keep): a point at rest is as bright at any `trail`, a moving one smears
-          uSize: v.size, uScatter: v.scatter, uSwirl: v.swirl, uPulse: v.pulse, uHue: v.hue, uSat: v.sat, uSparkle: v.sparkle,
+          uSize: v.size, uScatter: v.scatter, uSwirl: v.swirl, uPulse: v.pulse, uHue: v.hue, uSat: v.sat, uSparkle: v.sparkle, uDepth: v.depth,
         })
         gl.disable(gl.BLEND)
         const lit = bloom.apply(trail.attachments[0], f.width, f.height, GLOW)

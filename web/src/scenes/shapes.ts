@@ -10,7 +10,10 @@ const S = 256 // knob: the raster's side, px (the 100-unit box → S)
 const K = S / 100 // px per box unit
 const FILL = 96 // knob: the fill's density (a stroke is 255)
 const STROKE = 2 // knob: the stroke width, box units
-const PILLOW = 12 // knob: the pillow's blur, px: how far inside the silhouette the z thickness keeps growing
+const PILLOW = 36 // knob: the relief's blur, px: the shoulder from the silhouette's rim (flat) up to the full thickness. Under ≈ 30 it is steep enough to fold over itself at a 30° yaw (S0.3)
+const LIFT = 0.5 // knob: how far up the relief its lines ride (1 = its front face): a higher drawing slides off the face at a yaw
+const CORE = 0.7 // knob: the share of a line's points that draw it; the rest scatter through the thickness as its haze
+const HAZE = 0.25 // knob: the least half-thickness of the dust and the haze, × the depth: the rim and the thin parts keep a volume
 const FIT = 0.8 // the box maps onto ±FIT scene units
 const U32 = 4294967296
 
@@ -46,8 +49,10 @@ export function sampleMask(density: Uint8Array | Uint8ClampedArray, w: number, h
 const cache = new Map<string, Float32Array>()
 
 /** n points of the animal `id` (browser only: a 2D canvas): n×4 [x, y, z, edge]. xy in scene units (the box fits
- *  ±0.8, y up); z = ±pillow, the blurred fill (thin on the feathers and tufts, ±1 deep inside; a native scales it by
- *  its depth) at a per-index depth, so a point keeps its side through a morph; edge = 1 on a stroke. Cached by id:n. */
+ *  ±0.8, y up); z in units of a native's depth, a relief: 0 on the silhouette's rim, up to ±1 deep inside (thin on
+ *  the feathers and tufts). The fill's dust takes a per-index depth through it (a point keeps its side through a
+ *  morph); a stroke's points ride LIFT up its front, so the drawing stays a drawing at a yaw, bar the 1 − CORE that
+ *  join the dust as the line's haze. edge = 1 on a stroke. Cached by id:n. */
 export function shapePoints(id: string, n: number): Float32Array {
   const key = `${id}:${n}`
   const hit = cache.get(key)
@@ -93,8 +98,11 @@ export function shapePoints(id: string, n: number): Float32Array {
     const k = Math.floor(y * S) * S + Math.floor(x * S)
     out[4 * i] = (2 * x - 1) * FIT
     out[4 * i + 1] = (1 - 2 * y) * FIT
-    out[4 * i + 2] = ((2 * mixu(i)) / U32 - 1) * (pillow[k] / 255)
-    out[4 * i + 3] = density[k] === 255 ? 1 : 0
+    const edge = density[k] === 255
+    const relief = Math.max(0, (2 * pillow[k]) / 255 - 1) // a blurred fill reads 0.5 on the rim: 0 there, 1 deep inside
+    const core = edge && mixu(i + 0x9e3779b9) < CORE * U32
+    out[4 * i + 2] = core ? LIFT * relief : ((2 * mixu(i)) / U32 - 1) * Math.max(relief, HAZE)
+    out[4 * i + 3] = edge ? 1 : 0
   }
   cache.set(key, out)
   return out
