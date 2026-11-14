@@ -794,6 +794,31 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Scene wave 3, S1.1 (CP1): Chase — rave. The streak regime over row 1 (plan § Scenes): trail .95 keeps the motion
+  // history and the swirl floor of .06 makes the points always run along the noise field — short streaks at rest,
+  // long ones on the reese. 65k points hold a prowling panther; the build scatters them, the drop slams them into a
+  // stag. The binds repeat the def plus the row's yaw (⚠️ assumptions until the CP1 demo); the bass class rides
+  // `reese` (swirl): Auto-style moves it to wobble under Dubstep.
+  // pan←lfo: added after S1.0 lands (lead follow-up)
+  {
+    v: 1, id: 'builtin:chase', name: 'Chase', star: true, // rave · Auto: reese (swirl; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'native/creatures', values: { set: 1, trail: 0.95, depth: 0.35, hold: 8 }, // panther ↔ stag; the streak trail, the 3D relief, 8 bars
+        bind: {
+          scatter: { source: 'build', amount: 1, attack: 1, release: 0.15, min: 0, max: 1.2 }, // the build tears the panther into a running cloud
+          next: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop slams the cloud into the stag
+          pulse: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 }, // a kick sends a ring through it
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.08, max: 0.2 }, // a snare turns the colour
+          swirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.06, max: 0.45 }, // Auto-style's one: the floor keeps the streaks running
+          size: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 1.2, max: 2.2 }, // the sub swells the points
+          sparkle: { source: 'hats', amount: 1, attack: 0, release: 0.08, min: 0, max: 0.5 }, // hats twinkle them
+          yaw: { source: 'lfo', shape: 'sine', rate: 0.06, amount: 1, attack: 0, release: 0, min: -0.09, max: 0.09 }, // a slow autonomous orbit
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
   // Scene wave 3, S2.1 (CP2): the techno laser — four truss emitters, green + white eight-beam fans, a 16-step chase
   // that moves the light without changing its amount (own/laser-grid's header: the odd-`hits` bijection). Brightness
   // on a hit only through the ⚡ pair (the file's VJW_FLASH, gated ≤ 3/s). The binds repeat the file's VJW_BIND
