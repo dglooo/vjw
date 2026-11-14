@@ -7,6 +7,8 @@
 // it. Render only: the physics stays in the object plane, and at depth 0, yaw 0 the frame is the 2D scene.
 // S1.0: `pan` offsets the shape's x in the stage, after the camera (NDC): the spirit's autonomous left–right drift.
 // Render only, as depth and yaw: at pan 0 the S0.3 frame is bit-identical (the offset adds 0.0 in NDC).
+// S1.3: `wisp` — a point's swirl gain = mix(1, 8·hash³, wisp): a few % of the points stray far along the swirl
+// field and stream off the body (the strays). At wisp 0 the gain is exactly 1 and the S1.0 frame is unchanged.
 // Look: TD SN/POP sprinklePOP ex1 (points in a shape), phaserPOP ex1 (a staggered point-set transition), particlePOP
 // ex3 (image-weighted birth) (studied, rewritten). No third-party code beyond points.ts's NOISE (webgl-noise, MIT).
 import { bindFramebufferInfo, createProgramInfo, createTexture, type ProgramInfo } from 'twgl.js'
@@ -50,7 +52,7 @@ out vec4 stateOut;
 out vec3 vColor;
 uniform sampler2D uA, uB; // the animal morphed from / to, a texel per point: home.xy, relief z (× uDepth), edge
 uniform mat4 uVP; // gl/view.ts's orbit camera: at yaw 0 the z = 0 plane is the 2D scene
-uniform float uN, uMix, uDt, uTime, uPx, uGain, uSize, uScatter, uSwirl, uPulse, uHue, uSat, uSparkle, uDepth, uPan;
+uniform float uN, uMix, uDt, uTime, uPx, uGain, uSize, uScatter, uSwirl, uPulse, uHue, uSat, uSparkle, uDepth, uPan, uWisp;
 ${NOISE}${HASH}
 const float FOCAL = ${FOCAL.toFixed(9)};
 vec3 hsv(float h, float s) { return mix(vec3(1.0), clamp(abs(fract(h + vec3(0.0, 2.0, 1.0) / 3.0) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s); }
@@ -58,7 +60,7 @@ void main() {
   uint id = uint(gl_VertexID);
   ivec2 at = ivec2(gl_VertexID % ${COLS}, gl_VertexID / ${COLS});
   float u = float(gl_VertexID) / uN; // its place in every animal: the mass quantile, top to bottom
-  float r1 = hash(id), r2 = hash(id + 0x9e3779b9u), r3 = hash(id + 0x7f4a7c15u);
+  float r1 = hash(id), r2 = hash(id + 0x9e3779b9u), r3 = hash(id + 0x7f4a7c15u), r4 = hash(id + 0x2545f491u);
   vec4 shape = u < uMix ? texelFetch(uB, at, 0) : texelFetch(uA, at, 0); // the staggered switch; the spring eases it
   vec2 home = shape.xy;
   vec2 p = state == vec4(0.0) ? home : state.xy, v = state.zw; // new: at home, at rest (a tile's still is the animal)
@@ -69,9 +71,10 @@ void main() {
   float a = 6.2831853 * r1 + uTime * (r3 - 0.5) * 1.5;
   vec2 own = vec2(cos(a), sin(a)) * (0.3 + r2);
   vec2 target = home + mix(flow, own, ${C_DUST.toFixed(2)}) * uScatter + own * 0.0025; // + a 1-px orbit: dust at rest still floats
-  // The swirl: the curl of a wide, faster field (along its level sets), so the shape stirs without tearing.
+  // The swirl: the curl of a wide, faster field (along its level sets), so the shape stirs without tearing. Wisp
+  // lifts a few % of the points (hash cubed) up to 8x the gain: they stray far along the field and stream off the body.
   snoise(vec3(home * ${W_SCALE.toFixed(2)} + 5.0, uTime * ${W_DRIFT.toFixed(2)}), g);
-  target += vec2(g.y, -g.x) * uSwirl * ${W_CURL.toFixed(2)};
+  target += vec2(g.y, -g.x) * uSwirl * ${W_CURL.toFixed(2)} * mix(1.0, 8.0 * r4 * r4 * r4, uWisp);
   // scatter's damped spring, backward Euler: stable at any ω and frame time.
   float w = ${SPRING.toFixed(1)} * (0.7 + 0.6 * r2), k = w * w, c = 2.0 * ${DAMP.toFixed(2)} * w;
   v = (v + uDt * k * (target - p)) / (1.0 + uDt * c + uDt * uDt * k);
@@ -142,6 +145,7 @@ export const creatures: NativeDef = {
     { name: 'depth', type: 'float', min: 0, max: 0.6, default: 0 }, // the animal's thickness, scene units each way: 0 = flat, the 2D scene
     { name: 'yaw', type: 'float', min: -1, max: 1, default: 0 }, // the camera's orbit around it, turns
     { name: 'pan', type: 'float', min: -1, max: 1, default: 0 }, // the shape's x offset in the stage, scene units: 0 = centred, render only
+    { name: 'wisp', type: 'float', min: 0, max: 1, default: 0 }, // S1.3: a point's swirl gain = mix(1, 8·hash³, wisp): a few % stray far along the field (0 = the S1.0 look)
     { name: 'hold', type: 'float', min: 0, max: 64, default: 32 }, // bars an animal holds before a calm morph; 0 = only `next` switches
     { name: 'next', type: 'event' }, // slam into the set's next animal
   ],
@@ -191,6 +195,7 @@ export const creatures: NativeDef = {
           uGain: (GAIN * (1 - keep) * REF_N) / n, // × (1 − keep): a point at rest is as bright at any `trail`, a moving one smears
           uSize: v.size, uScatter: v.scatter, uSwirl: v.swirl, uPulse: v.pulse, uHue: v.hue, uSat: v.sat, uSparkle: v.sparkle, uDepth: v.depth,
           uPan: (v.pan as number) * f.height / f.width, // scene units → NDC: the stage's x offset after the camera
+          uWisp: v.wisp,
         })
         gl.disable(gl.BLEND)
         const lit = bloom.apply(trail.attachments[0], f.width, f.height, GLOW)

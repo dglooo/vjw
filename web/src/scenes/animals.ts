@@ -104,11 +104,38 @@ export const ANIMALS: Readonly<Record<string, AnimalPath>> = {
       'M33 51Q31 58 33 65Q35 72 33 79Q31 86 32 93' +
       'M44 53Q42 60 44 67Q46 74 44 81Q42 88 43 94',
   },
+  // Front view, mirrored: ear tufts on a broad head, a big faceted eye hole, the beak a hole on the axis, a plump
+  // body to a flat base. Lines: the facial disc over and under the eye, the breast centre on the axis, one wing.
+  owl: {
+    mirror: true,
+    d:
+      'M50 16L44 11L26 3L31 16L10 26L5 38L6 56L12 74L24 88L30 90L50 91' + // crown, tuft, temple, cheek, body, base
+      'M28 30.5L33.4 32.6L35.5 38L33.4 43.4L28 45.5L22.6 43.4L20.5 38L22.6 32.6Z' + // eye (the big faceted hole)
+      'M50 46L43 50L46 58L50 60', // beak (hole on the axis)
+    lines:
+      'M46 42L36 26L23 25L10 33M46 64L37 50L24 50L11 56' + // facial disc, over and under the eye
+      'M50 60L50 90M15 58L26 84', // breast centre, wing
+  },
+  // Top view, mirrored: the wings are two filled lobes a side (the forewing a blade, tip up and out; the hindwing
+  // a rounded lobe below, a spot hole in each), the head a small filled wedge on the axis, the body a line.
+  butterfly: {
+    mirror: true,
+    d:
+      'M47 36L6 10L14 40L26 52L44 48Z' + // forewing, tip up and out
+      'M44 54L22 58L9 72L14 86L30 90L42 78L44 64Z' + // hindwing, the rounded lobe below
+      'M50 14L44 21L50 30' + // head (on the axis)
+      'M32 31.5L35.5 35L32 38.5L28.5 35Z' + // forewing spot
+      'M24 70.5L27.5 74L24 77.5L20.5 74Z', // hindwing spot
+    lines:
+      'M50 30L50 80' + // the body, a line
+      'M49 16L44 8L40 5', // the antenna
+  },
 }
 
-/** The scenes' animal sets (the `set` input's values); CP1 steps append theirs: 2 abyss, 3 dust, 4 zodiac. */
+/** The scenes' animal sets (the `set` input's values); CP1 steps append theirs: 4 zodiac. */
 export const SETS: readonly { name: string; ids: readonly string[] }[] = [
   { name: 'spirit', ids: ['wolf', 'eagle'] },
   { name: 'chase', ids: ['panther', 'stag'] },
   { name: 'abyss', ids: ['shark', 'jellyfish'] },
+  { name: 'dust', ids: ['owl', 'butterfly'] },
 ]

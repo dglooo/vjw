@@ -849,6 +849,34 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Scene wave 3, S1.3 (CP1): Dust — techno. The ink/dust regime over row 1 (plan § Scenes row 4): 1 px points at
+  // sat .15 — grain, not glow — and `wisp` sheds a few % of the points far along the swirl field with the sub, so
+  // the strays stream off the body. 65k points hold an owl; the build scatters them (the row's 0→.7, no floor),
+  // the drop slams them into a butterfly. The binds repeat row 1 with the row's hue / swirl / pulse / scatter and
+  // its wisp (⚠️ assumptions until the CP1 demo); no size bind (the grain stays 1 px); the bass class rides `reese`
+  // (swirl): Auto-style moves it to wobble under Dubstep.
+  {
+    v: 1, id: 'builtin:dust', name: 'Dust', star: true, // techno · Auto: reese (swirl; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'native/creatures', values: { set: 3, size: 1, sat: 0.15, trail: 0.6, depth: 0.35, hold: 32 }, // owl ↔ butterfly; the 1 px ink grain, the relief, 32 bars (the S0.2 ruling: the row's 16 was a planner slip)
+        bind: {
+          scatter: { source: 'build', amount: 1, attack: 1, release: 0.15, min: 0, max: 0.7 }, // the row's 0→.7 — a build loosens the owl into a grain cloud
+          next: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop slams the cloud into the butterfly
+          pulse: { source: 'kick', amount: 1, attack: 0, release: 0.12, min: 0, max: 0.6 }, // the row's 0→.6 — a kick sends a ring through the grain
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.09, max: 0.12 }, // the row's .09→.12 — a snare turns the ink
+          swirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.03, max: 0.3 }, // Auto-style's one: the row's .03→.3 — the bass stirs the grain
+          wisp: { source: 'sub', amount: 1, attack: 0.05, release: 0.4, min: 0.2, max: 0.8 }, // the sub sheds the strays off the body
+          sparkle: { source: 'hats', amount: 1, attack: 0, release: 0.08, min: 0, max: 0.5 }, // hats twinkle the grain
+          yaw: { source: 'lfo', shape: 'sine', rate: 0.06, amount: 1, attack: 0, release: 0, min: -0.09, max: 0.09 }, // row 1's orbit (the row does not override the rate)
+          pan: { source: 'lfo', shape: 'sine', rate: 0.04, amount: 1, attack: 0, release: 0, min: -0.35, max: 0.35 }, // the autonomous left–right drift
+        },
+      },
+      // The row's "low bloom" is the native's own internal bloom (GLOW 3): own/bloom as an fx pass read +≈3.3 ms at
+      // layer res 1 in the same session (billed 7.35 vs 4.07 for the fx-free abyss), over the 5 ms gate — skipped.
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
   // Scene wave 3, S2.1 (CP2): the techno laser — four truss emitters, green + white eight-beam fans, a 16-step chase
   // that moves the light without changing its amount (own/laser-grid's header: the odd-`hits` bijection). Brightness
   // on a hit only through the ⚡ pair (the file's VJW_FLASH, gated ≤ 3/s). The binds repeat the file's VJW_BIND
