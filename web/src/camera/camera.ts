@@ -11,6 +11,7 @@
 import { bindFramebufferInfo, createFramebufferInfo, createTexture, resizeFramebufferInfo } from 'twgl.js'
 import { fullscreenProgram, gl, stage } from '../gl/engine'
 import { coverFit } from './xf'
+import { halfToU8 } from './metrics'
 import { gate } from './smooth'
 import type { Gate, MaskStats } from './smooth'
 import SegmentWorker from './segment.worker.ts?worker' // classic (G1): see vite.config's worker.format
@@ -540,6 +541,6 @@ export function readMask(): { data: Uint8Array; w: number; h: number } | null {
   gl.readPixels(0, 0, w, h, f32 ? gl.RG : gl.RGBA, f32 ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE, raw)
   gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   const data = new Uint8Array(w * h)
-  for (let i = 0; i < data.length; i++) data[i] = f32 ? Math.round((raw[i * 2] / 65535) * 255) : raw[i * 4]
+  for (let i = 0; i < data.length; i++) data[i] = f32 ? halfToU8(raw[i * 2]) : raw[i * 4] // half bits, not unorm16
   return { data, w, h }
 }
