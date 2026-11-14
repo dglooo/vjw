@@ -5,6 +5,8 @@
 // the swarm's: additive sprites into a persistent half-float trail, the shared bloom, particles' tone map.
 // S0.3 (pick P4): `depth` gives the animal its relief (shapes.ts's z) and `yaw` orbits gl/view.ts's camera around
 // it. Render only: the physics stays in the object plane, and at depth 0, yaw 0 the frame is the 2D scene.
+// S1.0: `pan` offsets the shape's x in the stage, after the camera (NDC): the spirit's autonomous left–right drift.
+// Render only, as depth and yaw: at pan 0 the S0.3 frame is bit-identical (the offset adds 0.0 in NDC).
 // Look: TD SN/POP sprinklePOP ex1 (points in a shape), phaserPOP ex1 (a staggered point-set transition), particlePOP
 // ex3 (image-weighted birth) (studied, rewritten). No third-party code beyond points.ts's NOISE (webgl-noise, MIT).
 import { bindFramebufferInfo, createProgramInfo, createTexture, type ProgramInfo } from 'twgl.js'
@@ -48,7 +50,7 @@ out vec4 stateOut;
 out vec3 vColor;
 uniform sampler2D uA, uB; // the animal morphed from / to, a texel per point: home.xy, relief z (× uDepth), edge
 uniform mat4 uVP; // gl/view.ts's orbit camera: at yaw 0 the z = 0 plane is the 2D scene
-uniform float uN, uMix, uDt, uTime, uPx, uGain, uSize, uScatter, uSwirl, uPulse, uHue, uSat, uSparkle, uDepth;
+uniform float uN, uMix, uDt, uTime, uPx, uGain, uSize, uScatter, uSwirl, uPulse, uHue, uSat, uSparkle, uDepth, uPan;
 ${NOISE}${HASH}
 const float FOCAL = ${FOCAL.toFixed(9)};
 vec3 hsv(float h, float s) { return mix(vec3(1.0), clamp(abs(fract(h + vec3(0.0, 2.0, 1.0) / 3.0) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s); }
@@ -87,7 +89,9 @@ void main() {
   // The points bunch on its front and thin behind it: a crest of light, the frame no brighter.
   float d = length(p), band = (d - (1.0 - uPulse) * ${RING.toFixed(2)}) / ${RING_W.toFixed(2)};
   p += p / max(d, 1e-4) * exp(-band * band) * smoothstep(0.0, 0.15, uPulse) * smoothstep(0.0, 0.25, d) * ${PUSH.toFixed(2)}; // no hole punched at the centre
-  gl_Position = uVP * vec4(p, z, 1.0);
+  vec4 pos = uVP * vec4(p, z, 1.0);
+  pos.x += uPan * pos.w; // the pan, render only: the shape's x offset in the stage, NDC (uPan = pan ÷ aspect); 0 keeps S0.3's frame
+  gl_Position = pos;
   float near = FOCAL / max(gl_Position.w, FOCAL / 3.0); // the perspective: 1 on the z = 0 plane; a point nearer the eye is bigger and brighter (≤ 3×: a fly-by is no flash)
   float s = uSize * uPx * (0.6 + 0.8 * r1) * near, ps = max(s, 1.0); // px; under 1 px the point stays 1 px and dims instead
   vColor = hsv(uHue + 0.15 * u - 0.03 * shape.w, uSat * (1.0 - 0.3 * spark)) * lum * twinkle * near * uGain / uSize * (s * s) / (ps * ps); // ÷ size: a swell reads thicker, not size² brighter
@@ -119,9 +123,11 @@ function shapeTex(gl: WebGL2RenderingContext, id: string, n: number) {
   return tex
 }
 
-/** Bindings: plan_scenes_wave3.md § Scenes row 1 (Spirit, the default set), all ⚠️ assumptions until the CP0 demo;
- *  the bass class binds reese (swirl; Auto-style maps it to wobble in Dubstep). trail and hold stay static. No input
- *  brightens the frame on a hit: the ring only moves points, the sparkle is zero-mean. */
+/** Bindings: plan_scenes_wave3.md § Scenes row 1 (Spirit, the default set), all ⚠️ assumptions until the CP1 demo.
+ *  S1.0 (user: the DnB drive): the scatter floor .15, the pulse's release .12 (the harder kick), the swirl .05→.4,
+ *  and yaw / pan on their own lfo sines (the autonomous orbit and left–right drift). The bass class binds reese
+ *  (swirl; Auto-style maps it to wobble in Dubstep); trail, hold and depth stay static (the builtin sets depth .35:
+ *  3D on by default). No input brightens the frame on a hit: the ring only moves points, the sparkle is zero-mean. */
 export const creatures: NativeDef = {
   id: 'native/creatures', name: 'Creatures', kind: 'generator', category: 'geometry', tags: ['particles', 'animals'], credit: 'VeeJay Wizard', inputs: [
     { name: 'set', type: 'long', values: SETS.map((_, i) => i), labels: SETS.map((s) => s.name), default: 0 }, // the animals it morphs through
@@ -135,17 +141,20 @@ export const creatures: NativeDef = {
     { name: 'sparkle', type: 'float', min: 0, max: 0.5, default: 0 }, // per-point twinkle, zero-mean
     { name: 'depth', type: 'float', min: 0, max: 0.6, default: 0 }, // the animal's thickness, scene units each way: 0 = flat, the 2D scene
     { name: 'yaw', type: 'float', min: -1, max: 1, default: 0 }, // the camera's orbit around it, turns
+    { name: 'pan', type: 'float', min: -1, max: 1, default: 0 }, // the shape's x offset in the stage, scene units: 0 = centred, render only
     { name: 'hold', type: 'float', min: 0, max: 64, default: 32 }, // bars an animal holds before a calm morph; 0 = only `next` switches
     { name: 'next', type: 'event' }, // slam into the set's next animal
   ],
   bind: {
-    scatter: { source: 'build', amount: 1, attack: 1, release: 0.15, min: 0, max: 0.9 }, // a build loosens the animal into a drifting cloud
+    scatter: { source: 'build', amount: 1, attack: 1, release: 0.15, min: 0.15, max: 0.9 }, // S1.0: the floor .15 — the points always breathe; a build loosens the animal into a cloud
     next: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop slams the cloud into the next animal
-    pulse: { source: 'kick', amount: 1, attack: 0, release: 0.25, min: 0, max: 1 }, // a kick sends a ring through it
+    pulse: { source: 'kick', amount: 1, attack: 0, release: 0.12, min: 0, max: 1 }, // S1.0: release .12 — the harder, tighter kick punch; a ring through the shape
     hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.52, max: 0.72 }, // a snare turns the colour
-    swirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.02, max: 0.25 }, // the bass stirs the shape
+    swirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.05, max: 0.4 }, // S1.0: .05→.4 — the bass stirs the shape
     size: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 2.5, max: 4.5 }, // the sub swells the points
     sparkle: { source: 'hats', amount: 1, attack: 0, release: 0.08, min: 0, max: 0.5 }, // hats twinkle them
+    yaw: { source: 'lfo', shape: 'sine', rate: 0.06, amount: 1, attack: 0, release: 0, min: -0.09, max: 0.09 }, // S1.0: the autonomous slow orbit, a 16.7 s breath, never edge-on
+    pan: { source: 'lfo', shape: 'sine', rate: 0.04, amount: 1, attack: 0, release: 0, min: -0.35, max: 0.35 }, // S1.0: the autonomous left–right drift, a 25 s breath, no stage clip at the extremes
   },
   create(gl, size) {
     const prog = (program ??= createProgramInfo(gl, [VS, FS], { transformFeedbackVaryings: ['stateOut'] }))
@@ -181,6 +190,7 @@ export const creatures: NativeDef = {
           uDt: dt, uTime: f.time, uVP: orbitVP((v.yaw as number) * 2 * Math.PI, 0, f.width / f.height), uPx: f.height / REF_H,
           uGain: (GAIN * (1 - keep) * REF_N) / n, // × (1 − keep): a point at rest is as bright at any `trail`, a moving one smears
           uSize: v.size, uScatter: v.scatter, uSwirl: v.swirl, uPulse: v.pulse, uHue: v.hue, uSat: v.sat, uSparkle: v.sparkle, uDepth: v.depth,
+          uPan: (v.pan as number) * f.height / f.width, // scene units → NDC: the stage's x offset after the camera
         })
         gl.disable(gl.BLEND)
         const lit = bloom.apply(trail.attachments[0], f.width, f.height, GLOW)

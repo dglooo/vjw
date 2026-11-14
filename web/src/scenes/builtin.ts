@@ -771,24 +771,29 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
-  // Scene wave 3, S0.2 (CP0): Spirit — DnB. 65k glowing points hold a wolf; the build loosens it into a drifting
-  // cloud, the drop slams the cloud into an eagle (and the next drop back), a kick sends a ring through the shape,
-  // a snare turns its colour, hats only twinkle. The binds repeat the def (scenes/creatures.ts; plan § Scenes row 1,
-  // ⚠️ assumptions until the CP0 demo); the bass class rides `reese` (swirl): Auto-style moves it to wobble under
-  // Dubstep. trail is the row's static; hold is 32 bars, not the row's 16 (the note on the gen).
+  // Scene wave 3, S0.2 (CP0) + S1.0 (CP1, user: «ахуенно сделан, но для DnB нет динамики»): Spirit — DnB. 65k
+  // glowing points hold a wolf in its 3D relief (depth .35 static); the picture orbits and drifts left–right on its
+  // own lfo sines (yaw / pan), a build loosens it into a drifting cloud from the .15 floor, the drop slams the cloud
+  // into an eagle (and the next drop back), a kick sends a tighter ring through the shape (release .12), a snare
+  // turns its colour, hats only twinkle. The binds repeat the def (scenes/creatures.ts; plan § Scenes row 1, ⚠️
+  // assumptions until the CP1 demo); the bass class rides `reese` (swirl): Auto-style moves it to wobble under
+  // Dubstep. trail is the row's static; hold is 32 bars (the S0.2 ruling: the row's shorter hold morphed the wolf
+  // away at the canonical 16-bar intro's end, just before the build).
   {
     v: 1, id: 'builtin:spirit', name: 'Spirit', star: true, // Auto: reese (swirl; wobble under Dubstep)
     layers: [{
       gen: {
-        ref: 'native/creatures', values: { set: 0, trail: 0.5, hold: 32 }, // wolf ↔ eagle; 32 bars (the row's 16 morphed the wolf away at the canonical 16-bar intro's end, just before the build)
+        ref: 'native/creatures', values: { set: 0, trail: 0.5, hold: 32, depth: 0.35 }, // wolf ↔ eagle; S1.0: the 3D relief on by default; 32 bars (the S0.2 ruling)
         bind: {
-          scatter: { source: 'build', amount: 1, attack: 1, release: 0.15, min: 0, max: 0.9 }, // a build loosens the animal into a drifting cloud
+          scatter: { source: 'build', amount: 1, attack: 1, release: 0.15, min: 0.15, max: 0.9 }, // S1.0: the floor .15 — the points always breathe; a build loosens the animal into a cloud
           next: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop slams the cloud into the next animal
-          pulse: { source: 'kick', amount: 1, attack: 0, release: 0.25, min: 0, max: 1 }, // a kick sends a ring through it
+          pulse: { source: 'kick', amount: 1, attack: 0, release: 0.12, min: 0, max: 1 }, // S1.0: release .12 — the harder, tighter kick punch; a ring through the shape
           hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.52, max: 0.72 }, // a snare turns the colour
-          swirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.02, max: 0.25 }, // Auto-style's one: the bass stirs the shape
+          swirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.05, max: 0.4 }, // Auto-style's one: S1.0: .05→.4 — the bass stirs the shape
           size: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 2.5, max: 4.5 }, // the sub swells the points
           sparkle: { source: 'hats', amount: 1, attack: 0, release: 0.08, min: 0, max: 0.5 }, // hats twinkle them
+          yaw: { source: 'lfo', shape: 'sine', rate: 0.06, amount: 1, attack: 0, release: 0, min: -0.09, max: 0.09 }, // S1.0: the autonomous slow orbit, a 16.7 s breath, never edge-on
+          pan: { source: 'lfo', shape: 'sine', rate: 0.04, amount: 1, attack: 0, release: 0, min: -0.35, max: 0.35 }, // S1.0: the autonomous left–right drift, a 25 s breath, no stage clip at the extremes
         },
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
