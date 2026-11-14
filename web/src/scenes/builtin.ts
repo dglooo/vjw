@@ -877,6 +877,29 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Scene wave 3, S1.4 (CP1): Zodiac — techno. The line regime on native/plexus (plan § Scenes row 5): the nodes'
+  // homes are the dragon / snake stroke samples (shape 5 = SETS[4]); the build lets the nodes wander off the
+  // strokes (wander .15→1), the sub widens the web, the drop slams the constellation into the snake. The binds are
+  // row 5's (⚠️ assumptions until the CP1 demo); hold 32 (the S0.2 ruling: the row's 16 was a planner slip). The
+  // def's bind (scenes/plexus.ts) stays the classic four — builtin:plexus at shape 0 is the frozen pair.
+  {
+    v: 1, id: 'builtin:zodiac', name: 'Zodiac', star: true, // techno · Auto: reese (drift; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'native/plexus', values: { shape: 5, hold: 32 }, // dragon ↔ snake; 32 bars (the S0.2 ruling)
+        bind: {
+          drift: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.2, max: 1 }, // Auto-style's one: the row's .2→1 — the bass speeds the orbits
+          dist: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.06, max: 0.15 }, // row 5's .08→.2 narrowed (the S1.4 pair-count lever): the clustered stroke nodes hold 6–12 neighbours at rest (measured ≈ 10.3 dragon / 10.5 snake at .06), the sub still visibly widens the web
+          size: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 2, max: 5 }, // a kick swells the nodes
+          pulse: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 0.06 }, // a kick punches the web out
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.1, max: 0.16 }, // a snare turns the ink
+          wander: { source: 'build', amount: 1, attack: 1, release: 0.15, min: 0.15, max: 1 }, // the row's .15→1 — a build lets the nodes drift off the strokes
+          next: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop slams the lines into the snake
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
   // Scene wave 3, S2.1 (CP2): the techno laser — four truss emitters, green + white eight-beam fans, a 16-step chase
   // that moves the light without changing its amount (own/laser-grid's header: the odd-`hits` bijection). Brightness
   // on a hit only through the ⚡ pair (the file's VJW_FLASH, gated ≤ 3/s). The binds repeat the file's VJW_BIND

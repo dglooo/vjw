@@ -7,7 +7,7 @@ import { SOURCE_IDS } from '../bind'
 import { ANIMALS, SETS } from './animals'
 import { BUILTIN } from './builtin'
 import { creatures, creaturesN } from './creatures'
-import { morphStep, sampleMask, type Morph } from './shapes'
+import { morphStep, sampleMask, stagger, type Morph } from './shapes'
 
 vi.mock('../gl/engine', () => ({})) // takes the page's canvas + WebGL at import; the def needs neither
 
@@ -123,6 +123,34 @@ test('morphStep: the hold counts from the last switch; an unset count, hold 0 an
   expect(morphStep(m, 2, false, 85.9, 16, 0.1).to).toBe(1) // …and its animal holds 16 bars from there
   expect(morphStep(m, 2, false, 86, 16, 0.1)).toMatchObject({ from: 1, to: 0, dur: 1.5 })
   expect(morphStep(m, 2, false, 2, 16, 0.1)).toMatchObject({ to: 1, slot: 2 }) // the grid restarted: counted from its bar
+})
+
+test('stagger: 0 at mix 0', () => {
+  for (const t of [0, 0.1, 0.37, 0.5, 0.9, 0.999]) expect(stagger(0, t)).toBe(0)
+})
+
+test('stagger: 1 at mix 1', () => {
+  for (const t of [0, 0.1, 0.37, 0.5, 0.9, 0.999]) expect(stagger(1, t)).toBe(1)
+})
+
+test('stagger: monotone in mix, within [0, 1]', () => {
+  for (const t of [0, 0.2, 0.7, 0.99]) {
+    let prev = -1
+    for (let m = 0; m <= 1.0001; m += 0.025) {
+      const s = stagger(Math.min(1, m), t)
+      expect(s).toBeGreaterThanOrEqual(prev)
+      expect(s).toBeLessThanOrEqual(1)
+      prev = s
+    }
+  }
+})
+
+test('stagger: a later t starts later — ahead of the late point whenever both can move', () => {
+  for (const m of [0.15, 0.3, 0.5, 0.7, 0.9]) {
+    expect(stagger(m, 0.9)).toBeLessThan(stagger(m, 0.1)) // the early point (t 0.1) is ahead of the late one (t 0.9)
+    expect(stagger(m, 0.1)).toBeGreaterThan(0) // m > 0.1: the early point is already moving
+    expect(stagger(0.05, 0.1)).toBe(0) // m ≤ t: a point has not started
+  }
 })
 
 test('creatures: builtin:spirit is starred and repeats the def bind on real sources; set lists SETS; a tile runs a tenth of the points', () => {

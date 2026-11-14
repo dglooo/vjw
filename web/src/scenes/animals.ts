@@ -130,12 +130,36 @@ export const ANIMALS: Readonly<Record<string, AnimalPath>> = {
       'M50 30L50 80' + // the body, a line
       'M49 16L44 8L40 5', // the antenna
   },
+  // Serpent profile, unmirrored (like the panther): the density sits on the strokes (the line regime, S1.4). The
+  // body is one long S-curve, four spine blades on the back, the tail a fork, the head a small filled wedge.
+  // The strokes run long (≈ 4.5 scene units): the pair-count gate wants 6–12 neighbours at the rest dist.
+  dragon: {
+    d: 'M86 37L96 44L85 51Z', // head, pointing right, on the body's end
+    lines:
+      'M6 60Q26 66 38 44Q50 22 62 42Q74 62 86 46' + // the S-curve body, tail → neck
+      'M6 60L4 53M6 60L4 67' + // the tail fork
+      'M22 59L15 50L30 55' + // spine, the first rise
+      'M46 34L41 21L53 32' + // spine, the crest
+      'M56 35L60 24L59 37' + // spine, the descent
+      'M69 51L70 37L78 51', // spine, the dip
+  },
+  // Serpent profile, unmirrored: a coiled tail (two turns), a long four-hump wave to a small head wedge and a
+  // forked tongue. No spines — the dragon's are its mark.
+  snake: {
+    d: 'M80 47L90 52L80 57Z', // head, pointing right, on the wave's end
+    lines:
+      'M14 42Q4 42 4 53Q4 64 14 64Q24 64 24 53Q24 42 14 42Z' + // the coil, outer turn
+      'M14 47Q8 47 8 53Q8 59 14 59Q20 59 20 53Q20 47 14 47Z' + // the coil, inner turn
+      'M24 53Q30 41 36 51Q42 61 48 51Q54 41 60 51Q66 61 72 51Q77 57 80 52' + // the wave, coil → neck
+      'M90 52L95 49M90 52L95 55', // the forked tongue
+  },
 }
 
-/** The scenes' animal sets (the `set` input's values); CP1 steps append theirs: 4 zodiac. */
+/** The scenes' animal sets (the `set` input's values; the plexus `shape` input's 1…length). */
 export const SETS: readonly { name: string; ids: readonly string[] }[] = [
   { name: 'spirit', ids: ['wolf', 'eagle'] },
   { name: 'chase', ids: ['panther', 'stag'] },
   { name: 'abyss', ids: ['shark', 'jellyfish'] },
   { name: 'dust', ids: ['owl', 'butterfly'] },
+  { name: 'zodiac', ids: ['dragon', 'snake'] }, // S1.4: the line regime on native/plexus
 ]
