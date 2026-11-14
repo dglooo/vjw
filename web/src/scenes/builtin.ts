@@ -794,6 +794,30 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Scene wave 3, S2.1 (CP2): the techno laser — four truss emitters, green + white eight-beam fans, a 16-step chase
+  // that moves the light without changing its amount (own/laser-grid's header: the odd-`hits` bijection). Brightness
+  // on a hit only through the ⚡ pair (the file's VJW_FLASH, gated ≤ 3/s). The binds repeat the file's VJW_BIND
+  // (⚠️ plan assumptions, confirm at the CP2 demo); the bass class rides `reese` (tilt).
+  {
+    v: 1, id: 'builtin:laser-grid', name: 'Laser Grid', star: true, // techno · Auto: reese (tilt; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'own/laser-grid',
+        values: { hits: 5, hue: 0.36 }, // static: 10 of the 32 beams lit on every step; laser green
+        bind: {
+          phase: { source: 'bar', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the bar runs the 16 steps, a pose per beat
+          spread: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.25, max: 0.6 }, // the sub opens the fans
+          tilt: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0, max: 0.5 }, // Auto-style's one: the bass scissors them
+          dash: { source: 'hats', amount: 1, attack: 0, release: 0.06, min: 0, max: 1 }, // hats dot the beams
+          swap: { source: 'snare', amount: 1, attack: 0, release: 0.25, min: 0, max: 1 }, // a snare exchanges green and white
+          haze: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.3, max: 0.9 }, // a build thickens the smoke
+          hit: { source: 'kick', amount: 1, attack: 0, release: 0.12, min: 0, max: 0.6 }, // ⚡ a kick lifts the cores
+          burst: { source: 'drop', amount: 1, attack: 0, release: 0.4, min: 0, max: 1 }, // ⚡ the drop lights all 32, white cores
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
