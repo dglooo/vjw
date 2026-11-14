@@ -25,6 +25,14 @@ export function minWindowFps(ts: number[], windowMs = 1000): number | null {
   return best
 }
 
+/** IEEE 754 half bits → u8 (value × 255, clamped to [0, 1]): readMask's RG16F (RG, HALF_FLOAT) readback. */
+export function halfToU8(h: number): number {
+  if (h & 0x8000) return 0 // negative, −0 included
+  const e = h >> 10, f = h & 0x3ff
+  const v = e ? (1 + f / 1024) * 2 ** (e - 15) : f * 2 ** -24 // e = 31 (inf/NaN) clamps to 255 below
+  return Math.min(255, Math.round(v * 255))
+}
+
 /** Binary (v > 127) intersection-over-union of two same-size masks. Two empty masks agree → 1. */
 export function iou(a: Uint8Array, b: Uint8Array): number {
   if (a.length !== b.length) throw new Error(`iou: ${a.length} ≠ ${b.length}`)

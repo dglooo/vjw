@@ -1,6 +1,6 @@
 // plan_camera S0.3 tests for the probe metrics (the frozen CP0 JSON's numbers).
 import { describe, expect, it } from 'vitest'
-import { centroidDelta, iou, lateCount, minWindowFps, p50, p95 } from './metrics'
+import { centroidDelta, halfToU8, iou, lateCount, minWindowFps, p50, p95 } from './metrics'
 
 describe('p50 / p95', () => {
   it('quantiles on known arrays (floor(n·p) convention)', () => {
@@ -74,5 +74,15 @@ describe('lateCount', () => {
     expect(lateCount([16.7, 16.7, 16.7, 16.7, 16.7])).toBe(0)
     expect(lateCount([33, 33, 33, 50, 50, 50, 50])).toBe(0) // median is 50, so nothing exceeds 1.5×50
     expect(lateCount([])).toBe(0)
+  })
+})
+
+describe('halfToU8', () => {
+  it('decodes half bits, not unorm16 (1.0 = 0x3C00 read as 60/255 before)', () => {
+    expect(halfToU8(0x3c00)).toBe(255) // 1.0
+    expect(halfToU8(0x3800)).toBe(128) // 0.5
+    expect(halfToU8(0x3555)).toBe(85) // ≈1/3
+    expect(halfToU8(0)).toBe(0)
+    expect(halfToU8(0x8000 | 0x3c00)).toBe(0) // negative clamps
   })
 })

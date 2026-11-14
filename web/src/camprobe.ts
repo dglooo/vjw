@@ -84,8 +84,8 @@ if (navigator.gpu)
     env.webgpu = a ? { vendor: a.info.vendor, description: a.info.description } : null
   })
 
-// The overlay pass: cam.tex over the whole stage, uv in xf.ts's space (x right, y down); the uploaded row 0 is
-// the frame's top row, hence the final v flip.
+// The overlay pass: cam.tex over the whole stage, uv in xf.ts's space (x right, y down: the v flip is the
+// frag coord's, GL's y is up); the uploaded row 0 is the frame's top row (no UNPACK_FLIP_Y), so c samples as is.
 const drawCam = fullscreenProgram(`#version 300 es
 precision highp float;
 uniform sampler2D uSrc;
@@ -93,9 +93,9 @@ uniform vec2 uRes;
 uniform vec4 uXf;
 out vec4 outColor;
 void main() {
-  vec2 suv = vec2(gl_FragCoord.x, 1.0 - gl_FragCoord.y) / uRes;
+  vec2 suv = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uRes;
   vec2 c = suv * uXf.xy + uXf.zw;
-  outColor = texture(uSrc, vec2(c.x, 1.0 - c.y));
+  outColor = texture(uSrc, c);
 }`)
 
 // The S0.2 cut-out: the camera image through the EMA mask (person where m > 0, HEAVY showing through
@@ -108,10 +108,10 @@ uniform vec2 uRes;
 uniform vec4 uXf;
 out vec4 outColor;
 void main() {
-  vec2 suv = vec2(gl_FragCoord.x, 1.0 - gl_FragCoord.y) / uRes;
+  vec2 suv = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uRes;
   vec2 c = suv * uXf.xy + uXf.zw;
-  float m = texture(uMask, vec2(c.x, 1.0 - c.y)).r;
-  outColor = vec4(texture(uCam, vec2(c.x, 1.0 - c.y)).rgb * m, m);
+  float m = texture(uMask, c).r;
+  outColor = vec4(texture(uCam, c).rgb * m, m);
 }`)
 
 const pre = document.body.appendChild(document.createElement('pre'))

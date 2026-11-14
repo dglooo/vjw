@@ -188,7 +188,7 @@ if (!ctx.import)
       ;(0, eval)(await (await fetch(url)).text())
       return {}
     }
-    return import(url)
+    return import(/* @vite-ignore */ url)
   }
 
 /** One ToWorker message, from either host; `post` carries the FromWorker reply (transferred in the
