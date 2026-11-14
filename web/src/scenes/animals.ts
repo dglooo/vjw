@@ -51,9 +51,39 @@ export const ANIMALS: Readonly<Record<string, AnimalPath>> = {
       'M45.9 17.5L51.6 15.2L50.5 19.2Z', // eye
     lines: EAGLE_LINES + flip(EAGLE_LINES),
   },
+  // Prowling profile (the one unmirrored hard case): a low crouch, forelegs stretched forward, hind legs back, the
+  // tail raised in a straight blade. One closed outline, nose → ears → back → tail → four blade legs → throat.
+  // Holes: the slit eye; lines: the shoulder and hip plates, the brow crease.
+  panther: {
+    d:
+      'M90 35L84 31L81 26L79 18L73 24L67 18L62 26' + // nose, stubby snout, brow, small ears, nape
+      'L55 25L45 29L34 34L27 35' + // shoulder hump, back, tail base
+      'L26 36L6 8L17 42' + // raised tail: top edge, tip, bottom edge, rump
+      'L11 54L7 70L4 80L12 82L14 72L17 62' + // hind near leg, stretched back
+      'L26 63L28 64L30 74L32 82L40 82L38 72L36 63' + // belly, hind far leg, stretched forward
+      'L46 62L50 62L52 73L54 82L62 82L60 72L58 62' + // belly, fore far leg, stretched back
+      'L63 56L67 50L70 56L75 68L80 80L91 82L86 72L81 62L76 53' + // chest, fore near leg, stretched forward
+      'L70 48L73 43L78 41L84 38Z' + // throat, jaw, lower snout
+      'M76 32L68 31L65 36L73 38Z', // eye
+    lines:
+      'M55 25L61 45M34 34L37 56M73 24L68 30', // shoulder plate, hip crease, brow
+  },
+  // Front head, mirrored: forehead → out-swept ear → cheek → long muzzle → chin; the diamond nose pad is a hole on
+  // the axis, the antlers (beam with a hook tip, two tines) are lines.
+  stag: {
+    mirror: true,
+    d:
+      'M50 20L42 23L16 14L31 27L26 40L23 52L28 63L35 71L42 79L50 85' + // forehead, ear, cheek, jaw, muzzle, chin
+      'M44 36L35 33L31 40L40 42Z' + // eye
+      'M50 64L42 66L44 74L50 76', // nose pad
+    lines:
+      'M44 20L37 13L27 9L14 8L7 13M37 13L32 4M27 9L23 3' + // antlers: beam + hook, two tines
+      'M50 42L50 64M42 23L44 36M26 40L31 40M50 76L50 84', // bridge, brow plate, cheek crease, philtrum
+  },
 }
 
 /** The scenes' animal sets (the `set` input's values); CP1 steps append theirs: 1 chase, 2 abyss, 3 dust, 4 zodiac. */
 export const SETS: readonly { name: string; ids: readonly string[] }[] = [
   { name: 'spirit', ids: ['wolf', 'eagle'] },
+  { name: 'chase', ids: ['panther', 'stag'] },
 ]
