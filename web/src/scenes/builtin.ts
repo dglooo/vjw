@@ -900,6 +900,31 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Scene wave 3, S3.1 (CP3): Wireform — techno. TD's parametric meshes as a glowing wire surface that orbits
+  // (plan § Scenes row 8): kicks run a wave over the grid, the reese corkscrews it, through the build the quads
+  // drift apart along their normals, and at the drop they fly back together as the next surface (hold 8 bars —
+  // row 8's choreography, the S1.0 creatures-only hold ruling does not apply). The binds repeat the def
+  // (scenes/wireform.ts; ⚠️ assumptions until the CP3 demo); the bass class rides `reese` (twist): Auto-style
+  // moves it to wobble under Dubstep.
+  {
+    v: 1, id: 'builtin:wireform', name: 'Wireform', star: true, // techno · Auto: reese (twist; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'native/wireform', values: { pitch: 0.06, hold: 8 }, // static pitch (row 8), the 8-bar hold (row 8)
+        bind: {
+          explode: { source: 'build', amount: 1, attack: 1, release: 0.15, min: 0, max: 0.8 }, // the build lets the quads drift apart
+          next: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop flies them back together as the next surface
+          pulse: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 0.25 }, // a kick runs a wave over the grid
+          twist: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0, max: 1.2 }, // Auto-style's one: the reese corkscrews it
+          scale: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.85, max: 1.1 }, // the sub breathes the surface
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.5, max: 0.85 }, // a snare walks the colour
+          sparkle: { source: 'hats', amount: 1, attack: 0, release: 0.08, min: 0, max: 0.5 }, // hats twinkle the grid
+          yaw: { source: 'lfo', shape: 'saw', rate: 0.04, amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // one full turn per 25 s (the saw wraps: the orbit stays continuous)
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
   // Scene wave 3, S2.1 (CP2): the techno laser — four truss emitters, green + white eight-beam fans, a 16-step chase
   // that moves the light without changing its amount (own/laser-grid's header: the odd-`hits` bijection). Brightness
   // on a hit only through the ⚡ pair (the file's VJW_FLASH, gated ≤ 3/s). The binds repeat the file's VJW_BIND
