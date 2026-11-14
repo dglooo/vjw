@@ -80,10 +80,35 @@ export const ANIMALS: Readonly<Record<string, AnimalPath>> = {
       'M44 20L37 13L27 9L14 8L7 13M37 13L32 4M27 9L23 3' + // antlers: beam + hook, two tines
       'M50 42L50 64M42 23L44 36M26 40L31 40M50 76L50 84', // bridge, brow plate, cheek crease, philtrum
   },
+  // Side profile, unmirrored (it swims right): a wedge nose with a slit-eye hole and a short mouth, three gill
+  // slits, a tall raked dorsal, a big crescent tail, one pectoral blade. One closed outline, nose → back → tail →
+  // belly → jaw.
+  shark: {
+    d:
+      'M95 42L85 35L74 33L63 32L56 32L45 5L37 32L26 35L4 7L17 45L5 80L24 57' + // nose, back, dorsal, crescent tail, rump
+      'L38 61L52 60L36 92L62 62L74 57L85 51Z' + // belly, pectoral blade, jaw
+      'M80 39L74 40L72 45L78 46Z', // eye
+    lines:
+      'M68 38L66 48M62 39L60 49M56 40L54 50' + // three gill slits
+      'M88 44L83 47', // mouth
+  },
+  // Front bell, mirrored: a faceted dome with a scalloped rim (the open half starts and ends on the axis); the
+  // tentacles are three wavy strands a side, `lines` from the rim.
+  jellyfish: {
+    mirror: true,
+    d:
+      'M50 9L40 11L31 17L24 26L20 37L18 44L19 49' + // dome, widest, rim
+      'L24 46L28 51L33 47L37 52L42 48L45 53L50 49', // three scallops to the axis
+    lines:
+      'M22 51Q20 58 22 65Q24 72 22 79Q20 86 21 92' + // three wavy tentacles
+      'M33 51Q31 58 33 65Q35 72 33 79Q31 86 32 93' +
+      'M44 53Q42 60 44 67Q46 74 44 81Q42 88 43 94',
+  },
 }
 
-/** The scenes' animal sets (the `set` input's values); CP1 steps append theirs: 1 chase, 2 abyss, 3 dust, 4 zodiac. */
+/** The scenes' animal sets (the `set` input's values); CP1 steps append theirs: 2 abyss, 3 dust, 4 zodiac. */
 export const SETS: readonly { name: string; ids: readonly string[] }[] = [
   { name: 'spirit', ids: ['wolf', 'eagle'] },
   { name: 'chase', ids: ['panther', 'stag'] },
+  { name: 'abyss', ids: ['shark', 'jellyfish'] },
 ]
