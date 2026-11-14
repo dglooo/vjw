@@ -804,7 +804,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   // long ones on the reese. 65k points hold a prowling panther; the build scatters them, the drop slams them into a
   // stag. The binds repeat the def plus the row's yaw (⚠️ assumptions until the CP1 demo); the bass class rides
   // `reese` (swirl): Auto-style moves it to wobble under Dubstep.
-  // pan←lfo: added after S1.0 lands (lead follow-up)
   {
     v: 1, id: 'builtin:chase', name: 'Chase', star: true, // rave · Auto: reese (swirl; wobble under Dubstep)
     layers: [{
@@ -819,6 +818,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
           size: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 1.2, max: 2.2 }, // the sub swells the points
           sparkle: { source: 'hats', amount: 1, attack: 0, release: 0.08, min: 0, max: 0.5 }, // hats twinkle them
           yaw: { source: 'lfo', shape: 'sine', rate: 0.06, amount: 1, attack: 0, release: 0, min: -0.09, max: 0.09 }, // a slow autonomous orbit
+          pan: { source: 'lfo', shape: 'sine', rate: 0.04, amount: 1, attack: 0, release: 0, min: -0.35, max: 0.35 }, // S1.1 follow: the autonomous left–right drift (S1.0's pan input), a 25 s breath, no stage clip at the extremes
         },
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
