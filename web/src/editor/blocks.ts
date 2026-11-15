@@ -22,6 +22,8 @@ const TD_NATIVES = new Set(['native/rgba-delay', 'native/time-machine', 'native/
 const REF: NodeDoc = { ref: 'native/tunnel' } // an effect's tile runs over it (G4: S3.3 judges the look)
 const tile = (id: string, name: string, gen: NodeDoc, fx: NodeDoc[] = []): SceneDoc => ({ v: 1, id: `tile:${id}`, name, star: false, layers: [{ ...newLayer(gen), fx }] })
 const mine = (s: SceneDoc) => !s.id.startsWith('builtin:') // a user scene (library.ts's isBuiltin)
+/** What a tile shows: its name, loosely ('Tunnel mesh' = 'tunnel-mesh'), and its node refs, values and binds aside. */
+const look = (name: string, s: SceneDoc) => `${name.toLowerCase().replace(/[-\s]+/g, ' ')}|${s.layers.map((l) => [l.gen, ...l.fx].map((n) => n.ref).join('>')).join('|')}`
 
 /** A def's origin by its id, first match wins; an `own/*` file is TouchDesigner when a line starts `// Look: TD` or
  *  `// Look: a TD`. */
@@ -44,7 +46,8 @@ function sceneOrigin(s: SceneDoc, rawFs: ReadonlyMap<string, string>): Origin {
 }
 
 /** Every non-transition def once (`milk/*` in group milkdrop), every toy found in the scenes as a generator (once per
- *  ref), every scene as a scene; by origin, then kind, then name. `rawFs`: the `.fs` files' text (catalog.ts). */
+ *  ref), every scene as a scene but a built-in twin of a block; by origin, then kind, then name. `rawFs`: the `.fs`
+ *  files' text (catalog.ts). */
 export function blocks(catalog: ReadonlyMap<string, EffectDef>, scenes: readonly SceneDoc[], rawFs: ReadonlyMap<string, string> = new Map()): Block[] {
   const out: Block[] = []
   for (const d of catalog.values()) {
@@ -64,7 +67,10 @@ export function blocks(catalog: ReadonlyMap<string, EffectDef>, scenes: readonly
       out.push({ id: gen.ref, name: s.name, kind: 'generator', group: 'other', origin: mine(s) ? 'mine' : 'ours', tags: [], credit: gen.credit ?? '', node: gen, scene: tile(gen.ref, s.name, gen) })
     }
   }
-  for (const s of scenes) out.push({ id: s.id, name: s.name, kind: 'scene', group: 'other', origin: sceneOrigin(s, rawFs), tags: [], credit: '', scene: s })
+  // A built-in that is one block alone under that block's name (Tunnel, Neuro Serpent, every MilkDrop preset) is that
+  // block's tile twice (user 2026-11-16: the duplicates): the block stays, the scene stays in the header's list.
+  const twins = new Set(out.map((b) => look(b.name, b.scene)))
+  for (const s of scenes) if (mine(s) || !twins.has(look(s.name, s))) out.push({ id: s.id, name: s.name, kind: 'scene', group: 'other', origin: sceneOrigin(s, rawFs), tags: [], credit: '', scene: s })
   return out.sort((a, b) => ORDER.indexOf(a.origin) - ORDER.indexOf(b.origin) || KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || a.name.localeCompare(b.name))
 }
 

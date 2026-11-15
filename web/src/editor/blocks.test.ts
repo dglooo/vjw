@@ -18,8 +18,11 @@ const CATALOG = new Map([
 const TOY: NodeDoc = { ref: 'toy/plasma', code: 'void mainImage(out vec4 c, in vec2 p) { c = vec4(1.0); }', credit: 'Someone' }
 const layer = (gen: NodeDoc): LayerDoc => ({ gen, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 })
 const scene = (id: string, name: string, ...gens: NodeDoc[]): SceneDoc => ({ v: 1, id, name, star: false, layers: gens.map(layer) })
-// The toy again in a user scene (a Save as of the built-in): one block.
-const SCENES = [scene('builtin:toy-plasma', 'Toy plasma', TOY), scene('builtin:tunnel', 'Tunnel', { ref: 'native/tunnel' }), scene('u-1', 'Mine', { ref: 'native/spectrum' }, TOY)]
+// The toy again in a user scene (a Save as of the built-in): one block. Two layers each: one block alone is its twin.
+const SCENES = [
+  scene('builtin:toy-plasma', 'Toy plasma', TOY, { ref: 'native/tunnel' }), scene('builtin:tunnel', 'Tunnel', { ref: 'native/tunnel' }, { ref: 'native/spectrum' }),
+  scene('u-1', 'Mine', { ref: 'native/spectrum' }, TOY),
+]
 const all = blocks(CATALOG, SCENES)
 const get = (id: string) => all.find((b) => b.id === id)!
 
@@ -82,6 +85,23 @@ test('a toy inside a scene becomes one generator block whose node is the toy, na
   expect(get('toy/plasma')).toMatchObject({ kind: 'generator', name: 'Toy plasma', group: 'other', credit: 'Someone', node: TOY })
   expect(get('toy/plasma').scene.layers).toEqual([layer(TOY)])
   expect(blocks(CATALOG, []).some((b) => b.id.startsWith('toy/'))).toBe(false)
+})
+
+test("a built-in that is one block alone under the block's name, loosely, is listed once: as the block (user 2026-11-16)", () => {
+  const cat = new Map<string, EffectDef>([...CATALOG, ['own/tunnel-mesh', def('own/tunnel-mesh', 'generator')]])
+  const fx = (s: SceneDoc, ...refs: string[]): SceneDoc => ({ ...s, layers: [{ ...s.layers[0], fx: refs.map((ref) => ({ ref })) }] })
+  const out = blocks(cat, [
+    scene('builtin:tunnel', 'Tunnel', { ref: 'native/tunnel' }), // twins: a generator's tile,
+    scene('builtin:mesh', 'Tunnel mesh', { ref: 'own/tunnel-mesh' }), // its name loosely,
+    scene('builtin:blob', 'MINDBLOB', { ref: 'milk/flexi-mindblob', values: { x: 1 } }), // its values aside,
+    fx(scene('builtin:bloom', 'Bloom', { ref: 'native/tunnel' }), 'own/bloom'), // an effect's tile,
+    scene('builtin:toy-plasma', 'Toy plasma', TOY), // a toy's
+    fx(scene('builtin:glow', 'Tunnel', { ref: 'native/tunnel' }), 'own/bloom'), // listed: more than the block,
+    scene('builtin:zodiac', 'Zodiac', { ref: 'native/tunnel' }), // another name,
+    scene('u-2', 'Tunnel', { ref: 'native/tunnel' }), // a user's
+  ])
+  expect(out.filter((b) => b.kind === 'scene').map((b) => b.id)).toEqual(['u-2', 'builtin:glow', 'builtin:zodiac'])
+  expect(out.map((b) => b.id)).toEqual(expect.arrayContaining(['native/tunnel', 'own/tunnel-mesh', 'milk/flexi-mindblob', 'own/bloom', 'toy/plasma']))
 })
 
 test('built-in and user scenes appear as kind scene, rendering their own doc, with no node', () => {
