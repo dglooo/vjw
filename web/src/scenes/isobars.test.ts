@@ -4,37 +4,37 @@
 import { expect, test, vi } from 'vitest'
 import { SOURCE_IDS } from '../bind'
 import { BUILTIN } from './builtin'
-import { contourNormal, laser, laserField, laserGrid, traceBands } from './laser'
+import { contourNormal, isobarField, isobarGrid, isobars, traceBands } from './isobars'
 
 vi.mock('../gl/engine', () => ({})) // takes the page's canvas + WebGL at import; the seams need neither
 
 const SAMPLES: [number, number][] = []
 for (let j = 0; j <= 16; j++) for (let i = 0; i <= 16; i++) SAMPLES.push([i / 16, j / 16])
 
-test('laser: a geometry generator, tagged for the 2b library; the tile halves the grid (the wireform precedent)', () => {
-  expect(laser.kind).toBe('generator')
-  expect(laser.category).toBe('geometry')
-  expect(laser.tags).toEqual(['laser', 'trace'])
-  expect(laserGrid()).toBe(96)
-  expect(laserGrid([320, 180])).toBe(48)
-  expect(laser.flash).toEqual(['hit', 'width', 'burst']) // width [F] per row 6 / the step's behaviour
+test('isobars: a geometry generator, tagged for the 2b library; the tile halves the grid (the wireform precedent)', () => {
+  expect(isobars.kind).toBe('generator')
+  expect(isobars.category).toBe('geometry')
+  expect(isobars.tags).toEqual(['isobars', 'trace'])
+  expect(isobarGrid()).toBe(96)
+  expect(isobarGrid([320, 180])).toBe(48)
+  expect(isobars.flash).toEqual(['hit', 'width', 'burst']) // width [F] per row 6 / the step's behaviour
 })
 
-test('laserField mode 0: mirror-symmetric about x = ½ (the strict techno geometry)', () => {
+test('isobarField mode 0: mirror-symmetric about x = ½ (the strict techno geometry)', () => {
   for (const [x, y] of SAMPLES) {
-    const a = laserField(0, x, y, 1.37, 0.5, 0.4, 0.3)
-    const b = laserField(0, 1 - x, y, 1.37, 0.5, 0.4, 0.3)
+    const a = isobarField(0, x, y, 1.37, 0.5, 0.4, 0.3)
+    const b = isobarField(0, 1 - x, y, 1.37, 0.5, 0.4, 0.3)
     // the residue is the (1−x)−(1−ex) cancellation (~1e-15); a band flip needs ~1e-3
     expect(Math.abs(a - b), `x ${x} y ${y}`).toBeLessThan(1e-12)
   }
-  expect(laserField(0, 0.5, 0.5, 0.7, 0.25, 0, 0)).toBeGreaterThan(0) // the lattice's centre is lit
-  for (const [x, y] of SAMPLES) expect(Number.isFinite(laserField(0, x, y, 2.1, 0, 1, 1))).toBe(true)
+  expect(isobarField(0, 0.5, 0.5, 0.7, 0.25, 0, 0)).toBeGreaterThan(0) // the lattice's centre is lit
+  for (const [x, y] of SAMPLES) expect(Number.isFinite(isobarField(0, x, y, 2.1, 0, 1, 1))).toBe(true)
 })
 
-test('laserField mode 0: the stepped pose — identical between pose steps, changed across one (pose = floor(phase·steps)/steps)', () => {
+test('isobarField mode 0: the stepped pose — identical between pose steps, changed across one (pose = floor(phase·steps)/steps)', () => {
   const t = 0.9, amp = 0.3, scan = 0.2
   const pose = (phase: number, steps = 4) => Math.floor(phase * steps) / steps
-  const field = (p: number) => SAMPLES.map(([x, y]) => laserField(0, x, y, t, p, amp, scan))
+  const field = (p: number) => SAMPLES.map(([x, y]) => isobarField(0, x, y, t, p, amp, scan))
   // same step → same field (phase 0.10 and 0.24 both floor to pose 0; 0.25 and 0.49 both to 0.25)
   expect(field(pose(0.10))).toEqual(field(pose(0.24)))
   expect(field(pose(0.25))).toEqual(field(pose(0.49)))
@@ -45,9 +45,9 @@ test('laserField mode 0: the stepped pose — identical between pose steps, chan
   expect(Math.max(...field(1).map((v, i) => Math.abs(v - field(0)[i])))).toBeLessThan(1e-12)
 })
 
-test("laserField mode 0: amp scales the blob reach — the field's energy grows with the sub", () => {
+test("isobarField mode 0: amp scales the blob reach — the field's energy grows with the sub", () => {
   const t = 1.7, pose = 0.5
-  const energy = (amp: number) => SAMPLES.reduce((s, [x, y]) => s + Math.max(0, laserField(0, x, y, t, pose, amp, 0)), 0)
+  const energy = (amp: number) => SAMPLES.reduce((s, [x, y]) => s + Math.max(0, isobarField(0, x, y, t, pose, amp, 0)), 0)
   const e0 = energy(0), e1 = energy(0.5), e2 = energy(1)
   expect(e1).toBeGreaterThan(e0)
   expect(e2).toBeGreaterThan(e1)
@@ -169,22 +169,22 @@ test('contourNormal (fix 1, F6): the gradient normal at both ends of every trace
   }
 })
 
-test('builtin:laser-grid: mode 0 on native/laser, the row-6 bindings (the ⚡ pair bound from 0), starred', () => {
-  const d = BUILTIN.find((x) => x.id === 'builtin:laser-grid')!
+test('builtin:isobars: mode 0 on native/isobars, the row-6 bindings (the ⚡ pair bound from 0), starred', () => {
+  const d = BUILTIN.find((x) => x.id === 'builtin:isobars')!
   expect(d.star).toBe(true)
   expect(d.layers).toHaveLength(1)
   const gen = d.layers[0].gen
-  expect(gen.ref).toBe(laser.id)
+  expect(gen.ref).toBe(isobars.id)
   expect(gen.values).toMatchObject({ mode: 0, steps: 4, K: 5, haze: 0.5 })
   expect(gen.bind).toEqual(ROW6) // the def bind is repeated (the vortex/orb precedent)
-  for (const name of Object.keys(gen.bind!)) expect(laser.inputs.some((i) => i.name === name), name).toBe(true)
+  for (const name of Object.keys(gen.bind!)) expect(isobars.inputs.some((i) => i.name === name), name).toBe(true)
   expect(gen.bind!.hit.min).toBe(0) // the ⚡ pair from 0 (the flashGate's policy)
   expect(gen.bind!.burst.min).toBe(0)
 })
 
 test('the def bind names declared inputs and real sources (the plexus test, same shape)', () => {
-  for (const [name, b] of Object.entries(laser.bind!)) {
-    expect(laser.inputs.some((i) => i.name === name), name).toBe(true)
+  for (const [name, b] of Object.entries(isobars.bind!)) {
+    expect(isobars.inputs.some((i) => i.name === name), name).toBe(true)
     expect(SOURCE_IDS).toContain(b.source)
   }
 })

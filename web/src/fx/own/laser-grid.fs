@@ -1,6 +1,6 @@
 // VeeJay Wizard, 2026
-// NOTE (2026-11-14): look rejected by user — the scene is now `native/laser` mode 0 (the trace-beam pipeline,
-// plan wave 3 CP2 rework). This file stays in the catalog as a manual L-class effect; nothing here is reused.
+// NOTE (2026-11-14): look rejected by user 2026-11-14; the trace look moved to native/isobars (builtin:isobars), a
+// new laser scene is pending. This file stays in the catalog as a manual L-class effect; nothing here is reused.
 // Look: TD laserCHOP (studied, rewritten) — OPSnippets CHOP/laserCHOP example1 ("a few ways to generate laser
 // patterns") and example2 (a stepped pattern: cycles + phase). Our reading: four truss emitters throw eight-beam
 // fans into haze and a 16-step pattern chops them. Nothing is copied; no third-party code.

@@ -1,3 +1,4 @@
+// Isobars (user 2026-11-15: the look stays as its own scene, it is not a laser; a new laser scene is pending).
 // TD trace-beam as a CPU native (plan wave 3 S2.1 rework, CP2; design_laser_rework.md Variant A): per-frame
 // pattern field → step-lookup into K bands → marching-squares trace → real-width additive ribbon geometry +
 // mip-chain haze. Mode 0 = the techno grid: a 4×3 mirror-symmetric emitter lattice of capsule "beams" whose
@@ -36,7 +37,7 @@ function setEmitter(r: number, c: number, ex: number, ey: number, dirx: number, 
   EMIT[o + 9] = ey - (R + Math.abs(diry) * len); EMIT[o + 10] = ey + (R + Math.abs(diry) * len)
 }
 
-/** The pose's per-emitter terms (the pure core of laserField, precomputed once per frame). The mirror pair
+/** The pose's per-emitter terms (the pure core of isobarField, precomputed once per frame). The mirror pair
  *  (c, 3−c) is stored as an EXACT reflection (ex → 1−ex, dirx → −dirx), so the field is mirror-symmetric
  *  about x = ½ to the last bit (the strict techno geometry, tested). `pose` = floor(phase·steps)/steps
  *  (already stepped by the caller; all terms are periodic in pose so pose 1 ≡ pose 0). */
@@ -76,7 +77,7 @@ function interference(x: number, y: number, t: number, scan: number): number {
 /** The mode-0 field at (x, y): the sum of the lattice's capsule bumps + the interference. x, y ∈ [0,1].
  *  A beam's bump is (1 − d²/R²)³ about its capsule — the isobars ladder out from the centreline: the tight
  *  top bands are the bright thin core, the wide low bands the faint skirt (the beam cross-section). */
-export function laserField(mode: number, x: number, y: number, t: number, pose: number, amp: number, scan: number): number {
+export function isobarField(mode: number, x: number, y: number, t: number, pose: number, amp: number, scan: number): number {
   if (mode !== 0) return 0 // mode 1 (the storm): S2.2
   fillEmitters(t, pose, amp, scan)
   let f = interference(x, y, t, scan)
@@ -197,7 +198,7 @@ export function contourNormal(g: Float32Array, w: number, h: number, x: number, 
 
 const GRID = 96 // knob: the field grid per frame on the main thread (the plan's lever, in order: 96 → 64 → K → cap)
 /** The tile (2b S3.2, design S6): half the grid (the swarm's ×.1 precedent, grid-shaped). */
-export const laserGrid = (size?: readonly [number, number]) => (size ? GRID / 2 : GRID)
+export const isobarGrid = (size?: readonly [number, number]) => (size ? GRID / 2 : GRID)
 const SEG_CAP = 8000 // knob: the trace budget (the TD `step` knob; the shortest drop first when over)
 const VMAX = 0.9 // knob: the field peak the K bands span (the rest peak measures ≈ .99: below it, the core level carries)
 const CHASE_LIT = 3 // knob: the levels the chase lights — the SAME count on every step (P7)
@@ -302,8 +303,8 @@ void main() {
 
 /** Bindings (row 6 of plan § Scenes; ⚠️ planner assumptions — the design §2 table, confirmed at the CP2
  *  demo). No bass-class default, so Auto-style moves `scan` (reese) to wobble under Dubstep. */
-export const laser: NativeDef = {
-  id: 'native/laser', name: 'Laser', kind: 'generator', category: 'geometry', tags: ['laser', 'trace'], credit: 'VeeJay Wizard',
+export const isobars: NativeDef = {
+  id: 'native/isobars', name: 'Isobars', kind: 'generator', category: 'geometry', tags: ['isobars', 'trace'], credit: 'VeeJay Wizard',
   inputs: [
     { name: 'mode', type: 'long', values: [0, 1], labels: ['grid', 'storm'], default: 0 }, // S2.2 adds the storm field
     { name: 'K', type: 'float', min: 2, max: 8, default: 5 }, // the step-lookup's band count (build 3 → 6: the density ramp)
@@ -332,7 +333,7 @@ export const laser: NativeDef = {
     burst: { source: 'drop', amount: 1, attack: 0, release: 0.4, min: 0, max: 1 }, // ⚡ the drop full-opens: all K levels, the widest pose, the chase stopped
   },
   create(gl, size) {
-    const G = laserGrid(size)
+    const G = isobarGrid(size)
     const cap = size ? SEG_CAP / 2 : SEG_CAP
     const ribbon = createProgramInfo(gl, [VS, FS], { attribLocations: { aPos: 0, aDir: 1, aLevel: 2, aSide: 3 } })
     const composite = fullscreenProgram(COMPOSITE)
@@ -359,9 +360,9 @@ export const laser: NativeDef = {
     gl.bindVertexArray(null)
     let chaseT = 0 // the chase's rotation (the state: the hats integrate it, a burst stops it)
     let state: { pose: number; K: number; M: number; o: number; segs: number; burst: number; width: number; dash: number } =
-      { pose: 0, K: 5, M: CHASE_LIT, o: 0, segs: 0, burst: 0, width: 0, dash: 0 } // the laserState()'s CPU truth (per instance)
+      { pose: 0, K: 5, M: CHASE_LIT, o: 0, segs: 0, burst: 0, width: 0, dash: 0 } // the isobarState()'s CPU truth (per instance)
     return {
-      laserState() { // the harness reads the pose / chase / trace's CPU truth (the plexus `nodes` precedent)
+      isobarState() { // the harness reads the pose / chase / trace's CPU truth (the plexus `nodes` precedent)
         return { pose: state.pose, K: state.K, M: state.M, o: state.o, chase: chaseT, segs: state.segs, burst: state.burst, width: state.width, dash: state.dash }
       },
       draw(f, v) {
