@@ -18,7 +18,7 @@ import { HASH } from './points'
 const TAU = Math.PI * 2, DEG = Math.PI / 180
 
 // ---- the rig (pure: serpent.test.ts runs it in Node) ----
-export const RING = 16 // p.xyz, hw | a.xyz (wide axis), s (arc, world) | c.xyz (thick axis), heat | ht, crest, band (HDR), spare
+export const RING = 16 // p.xyz, hw | a.xyz (wide axis), s (arc, world) | c.xyz (thick axis), heat | ht, crest, band (HDR: the whip), slit (HDR: the snap gash)
 export const PART = 12 // p.xyz, size | d.xyz (the streak vector), kind (0 spark, 1 glint, 2 glow) | rgb, intensity
 export const RINGS = 192
 export const MAXP = 384
@@ -53,7 +53,7 @@ const cross = (a: number[], b: number[]) => [a[1] * b[2] - a[2] * b[1], a[2] * b
 /** §R5 travel rule: ripple lengths per beat, the fastest of {1/8, 1 beat, 2 beats} that keeps the rate ≤ 3 Hz. */
 export const ripplePerBeat = (bpm: number) => (bpm <= 90 ? 2 : bpm <= 180 ? 1 : 0.5)
 
-export interface StepIn { v: Readonly<Record<string, Value>>; beat: number; bpm: number; now: number; dt: number; aspect: number }
+export interface StepIn { v: Readonly<Record<string, Value>>; beat: number; bpm: number; now: number; dt: number; aspect: number; perBeat?: number } // perBeat: a ripple-rate override (T-S5 arm)
 export interface SerpentOut {
   rings: number; parts: number; vp: Float32Array; eye: number[]; cam: number[]; nearDist: number
   glow: number; shock: number; shockR: number; key: number; ripple: number; rippleH: number; burst: number; w: number
@@ -128,7 +128,7 @@ export function createSerpent(seed = 1, n = RINGS) {
       const pumpK = whipOn && pump ? PUMP * Math.sin(Math.PI * clamp(c / (LOOP + CRACK), 0, 1)) : 0
       // the ripple (§R5): + k × the beat step, capped at twice the nominal; bpm 0 → 2.9 Hz on the wall clock
       const step = i.bpm > 0 && !first ? Math.min(Math.max(0, i.beat - prevBeat), 2 * db) : db
-      rip += ripplePerBeat(bpm) * step
+      rip += (i.perBeat || ripplePerBeat(bpm)) * step
       prevBeat = i.beat
       // the body numbers (world, before the zoom and the fit)
       const w = (W_REST + (W_GROOVE - W_REST) * b4) * (1 - 0.36 * Wg) * (1 + pumpK)
@@ -256,11 +256,11 @@ export function createSerpent(seed = 1, n = RINGS) {
         const ca = Math.cos(ang), sa = Math.sin(ang)
         const ax = ca * rx + sa * bx, ay = ca * ry + sa * by, azz = ca * rz + sa * bz // the wide axis a
         const hw = (wf / 2) * taper * (1 + bulge), ht = (hw / 2.4) * (1 + 0.3 * sub)
-        const band = 6 * loopA * Math.exp(-(((s - sL) / (1.5 * w)) ** 2)) + gash * Math.exp(-(((s - snapS) / (0.8 * w)) ** 2))
+        const band = 6 * loopA * Math.exp(-(((s - sL) / (1.5 * w)) ** 2)), slit = gash * Math.exp(-(((s - snapS) / (0.8 * w)) ** 2))
         rings[r] = P[o]; rings[r + 1] = P[o + 1]; rings[r + 2] = P[o + 2]; rings[r + 3] = hw
         rings[r + 4] = ax; rings[r + 5] = ay; rings[r + 6] = azz; rings[r + 7] = s * sc
         rings[r + 8] = ty * azz - tz * ay; rings[r + 9] = tz * ax - tx * azz; rings[r + 10] = tx * ay - ty * ax // c = t × a
-        rings[r + 11] = heat; rings[r + 12] = ht; rings[r + 13] = bulge / 0.3; rings[r + 14] = band; rings[r + 15] = 0
+        rings[r + 11] = heat; rings[r + 12] = ht; rings[r + 13] = bulge / 0.3; rings[r + 14] = band; rings[r + 15] = slit
         nearD = Math.min(nearD, Math.hypot(eye[0] - P[o], eye[1] - P[o + 1], eye[2] - P[o + 2]) - hw)
       }
       // the snap's sparks (24–40 from the gash) and the hats' glints (8 ± 4 on crests facing the eye, 60 ms)
@@ -305,9 +305,9 @@ export function createSerpent(seed = 1, n = RINGS) {
       }
       const glow = 2 * Wg * Wg
       const axisP = [(Z[0] * z * 0.5 - cx) * sc, (Z[1] * z * 0.5 - cy) * sc, (Z[2] * z * 0.5 - cz) * sc]
-      if (glow > 0.01) for (let q = 0; q < 6; q++) {
-        const zz = ((q + 0.5) / 6 - 0.5) * z * sc
-        put(axisP[0] + Z[0] * zz, axisP[1] + Z[1] * zz, axisP[2] + Z[2] * zz, 2.4 * wf, 0, 0, 0, 2, 1, 0.54, 0.12, glow)
+      if (glow > 0.01) for (let q = 0; q < 10; q++) {
+        const zz = ((q + 0.5) / 10 - 0.5) * z * sc
+        put(axisP[0] + Z[0] * zz, axisP[1] + Z[1] * zz, axisP[2] + Z[2] * zz, Math.max(2.4 * wf, 0.08 * z * sc), 0, 0, 0, 2, 1, 0.54, 0.12, glow)
       }
       const shockAge = now - shockT
       st = {
@@ -373,8 +373,8 @@ function rmf(P: Float32Array, T: Float32Array, R: Float32Array, n: number) {
 
 // ---- the GL: Variant A (a mesh + depth in the native's own HDR target) ----
 /** The spike's A/B switches (T-P2 / T-P3; the bench flips them live): `msaa` ≥ 2 = mode M at that sample count, 0 = mode
- *  S; the depth (+ MSAA colour) invalidates; the split's body / parts arms. */
-export const SERPENT_GL = { msaa: 0, invalidate: true, body: true, parts: true }
+ *  S; the depth (+ MSAA colour) invalidates; the split's body / parts arms; a ripple-rate override (T-S5). */
+export const SERPENT_GL = { msaa: 0, invalidate: true, body: true, parts: true, perBeat: 0 } // perBeat 0 = the §R5 rule
 const SIDES = 24
 const f4 = (x: number) => x.toFixed(4)
 const GLOW_K = 0.9 // knob ⚠️: the 1/8 glow's gain in the composite
@@ -397,7 +397,7 @@ out vec3 vA;
 out vec3 vT;
 out vec2 vX;
 out float vS;
-out vec3 vH;
+out vec4 vH;
 void main() {
   bool hd = (gl_VertexID & 1) == 0;
   vec4 P = hd ? aP1 : aP0, A = hd ? aA1 : aA0, C = hd ? aC1 : aC0, X = hd ? aX1 : aX0;
@@ -409,7 +409,7 @@ void main() {
   vT = cross(A.xyz, C.xyz);
   vX = vec2(ct, st);
   vS = A.w;
-  vH = vec3(C.w, X.y, X.z);
+  vH = vec4(C.w, X.yzw);
   gl_Position = uVP * vec4(p, 1.0);
 }`
 // P1 FS: 3 flutes a face + the travelling saw ripple as an analytic bump; the dark studio in view space (a key strip,
@@ -423,7 +423,7 @@ in vec3 vA;
 in vec3 vT;
 in vec2 vX;
 in float vS;
-in vec3 vH;
+in vec4 vH;
 uniform vec3 uEye, uCamR, uCamU, uCamB, uAxisP, uAxisD;
 uniform float uNear, uW, uRip, uRipH, uBurst, uKey, uGlow, uModeS;
 out vec4 outColor;
@@ -434,7 +434,7 @@ vec3 studio(vec3 r, float s) {
   float el = asin(clamp(r.y, -1.0, 1.0)), az = atan(r.x, r.z);
   vec3 c = 6.0 * KEY * band(el, 0.84, 0.052, s) * band(az, 0.0, 0.61, 2.0 * s); // the key: 48° up, 70° × 6°, HDR 6
   c += 3.0 * RIM * (band(az, 2.27, 0.07, s) + band(az, -2.27, 0.07, s)) * band(el, 0.0, 0.52, 2.0 * s); // rims ±130°, 8° × 60°
-  c += 0.22 * KEY * smoothstep(-0.2, 1.0, r.y); // a dim soft top fill: the steel's form (no edge, no horizon)
+  c += 0.45 * KEY * smoothstep(-0.2, 1.0, r.y) + 0.35 * KEY * smoothstep(0.6, -0.4, r.z) * smoothstep(-0.3, 0.5, r.y); // soft top fill + back panel: the steel's form (no edge, no horizon)
   return c + 1.6 * FOGC * smoothstep(0.1, -0.7, r.y); // the fog bounce from below
 }
 vec3 ramp(float h) { // #5A0A06 → #B3130B → #FF3B12 → #FF8A1F → #FFD98A → #FFF6E0
@@ -461,17 +461,17 @@ void main() {
   float s = 0.015 + 0.22 * cav + min(0.12, 0.5 * length(fwidth(rv))); // polished crests, satin cavities; no crawl
   vec3 F = TINT + (1.0 - TINT) * pow(1.0 - NdV, 5.0);
   vec3 col = studio(rv, s) * F * uKey * (1.0 + 2.0 * vH.y) * (1.0 - 0.65 * cav);
-  col += 2.5 * RIM * pow(1.0 - NdV, 3.0) * (1.0 - 0.5 * cav); // the Fresnel rim
+  col += 1.2 * RIM * pow(1.0 - NdV, 5.0) * (1.0 - 0.5 * cav); // the Fresnel rim
   vec3 d = vPos - uAxisP;
   d -= dot(d, uAxisD) * uAxisD;
   float da = length(d);
   col += uGlow * CORE * max(0.0, dot(N, -d / max(da, 1e-4))) * exp(-pow(da / (3.0 * uW), 2.0)); // the core's back-light
   float gw = mix(0.08, 0.2, uBurst), H = vH.x, on = edge * fade * step(0.02, rip);
   float gill = smoothstep(0.0, 0.03, f) * smoothstep(gw, gw - 0.03, f) * on; // the slit in each trough
-  col += gill * H * ramp(H) * (1.5 + 2.5 * H) * (1.0 + uBurst);
+  col += gill * H * ramp(H) * (0.4 + 1.2 * H * H) * (1.0 + uBurst);
   float fr = smoothstep(gw - 0.03, gw, f) * smoothstep(gw + 0.12, gw + 0.05, f) * on * H; // the tempering fringe
   col += fr * 0.35 * mix(vec3(0.416, 0.169, 0.851), vec3(0.247, 0.627, 1.0), clamp((f - gw) / 0.12, 0.0, 1.0));
-  col += vH.z * vec3(1.0, 0.95, 0.85); // the whip band, the snap gash: white-hot
+  col += vH.z * vec3(1.0, 0.95, 0.85) + vH.w * exp(-pow(x / 0.16, 2.0)) * vec3(1.0, 0.9, 0.7); // the whip band (the section), the snap gash (a slit)
   col = max(col, FLOOR);
   float dist = length(uEye - vPos), tr = exp(-0.6931 * (dist - uNear) / uNear); // ≤ 25 % at 3× the nearest distance
   outColor = vec4(col * tr + FOGC * (1.0 - tr), uModeS > 0.5 ? clamp(uNear / dist, 0.002, 1.0) : 1.0);
@@ -551,7 +551,7 @@ vec3 shade(vec2 uv) {
   float cov = uModeS > 0.5 ? step(1e-3, b.a) : clamp(b.a, 0.0, 1.0);
   vec3 bg = mix(vec3(0.039, 0.071, 0.125), vec3(0.016, 0.024, 0.039), uv.y) + vec3(0.071, 0.137, 0.247) * 0.6 * exp(-pow((uv.y - 0.5) / 0.16, 2.0));
   float rr = length((uv - 0.5) * uRes) / uRes.x;
-  bg += uShock * vec3(0.30, 0.42, 0.65) * exp(-pow((rr - uShockR) / 0.035, 2.0));
+  bg += uShock * vec3(0.15, 0.21, 0.33) * exp(-pow((rr - uShockR) / 0.018, 2.0));
   vec3 E = bg * (1.0 - cov) + b.rgb + ${f4(GLOW_K)} * texture(uGlow, uv).rgb;
   float m = max(max(E.r, E.g), max(E.b, 1e-4));
   return mix(E / m, vec3(1.0), 0.9 * smoothstep(1.0, 2.0, m)) * (1.0 - exp(-m));
@@ -644,7 +644,7 @@ export const serpent: NativeDef = {
       serpentInfo: () => ({ samples, half, msaa: !size && SERPENT_GL.msaa > 1 && samples.some((x) => x >= SERPENT_GL.msaa) ? SERPENT_GL.msaa : 0 }),
       draw(f: Parameters<ReturnType<NativeDef['create']>['draw']>[0], v: Readonly<Record<string, Value>>) {
         frame = (frame + 1) >>> 0
-        const r = rig.step({ v, beat: f.sync.beat, bpm: f.sync.bpm, now: performance.now() / 1000, dt: f.dt, aspect: f.width / f.height }, ringBuf, partBuf)
+        const r = rig.step({ v, beat: f.sync.beat, bpm: f.sync.bpm, now: performance.now() / 1000, dt: f.dt, aspect: f.width / f.height, perBeat: SERPENT_GL.perBeat }, ringBuf, partBuf)
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
         const W = f.width, H = f.height, M = native.serpentInfo().msaa
         if (M) {
@@ -722,7 +722,7 @@ export const serpent: NativeDef = {
       dispose() {
         for (const fb of [fbS, fbM]) if (fb) {
           gl.deleteFramebuffer(fb.framebuffer)
-          for (const a of fb.attachments) if (gl.isTexture(a)) gl.deleteTexture(a); else gl.deleteRenderbuffer(a)
+          for (const a of fb.attachments) if (a instanceof WebGLTexture) gl.deleteTexture(a); else gl.deleteRenderbuffer(a)
         }
         for (const t of [tR, tD, tH, tV]) {
           gl.deleteFramebuffer(t.framebuffer)
