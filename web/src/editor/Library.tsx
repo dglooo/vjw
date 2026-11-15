@@ -7,7 +7,7 @@ import { dragged, MIME } from './dnd'
 import { H, tiles, visible, W } from './tiles'
 
 const KINDS: readonly BlockKind[] = ['generator', 'effect', 'scene']
-const GROUPS: readonly Block['group'][] = ['feedback', 'geometry', 'liquid', 'retro', 'milkdrop', 'other']
+const GROUPS: readonly Block['group'][] = ['feedback', 'geometry', 'liquid', 'retro', 'other'] // milkdrop: the origin chip's
 const ORDER = Object.keys(ORIGINS) as Origin[] // the sections, top down
 const KEY = 'vjw.lib' // sessionStorage: the filters and the search, kept over a reload (CP3 demo)
 interface Q { kind?: BlockKind; group?: string; origin?: string; tag?: string; text?: string; fav?: boolean }
