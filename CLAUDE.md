@@ -93,7 +93,7 @@ Definitions live in `.claude/agents/<name>.md`. Dispatch with `subagent_type: "<
 | `tester` | Independent AV QA | Tier 3 S6 | ❌ | Haiku 5.5 | high |
 | `backend-coder` | — | 💤 **Dormant** — no server in the pilot (spec §3). Definition is written when a server or Electron main-process work appears. | ✅ docs | Opus 5.5 | max |
 | `security-auditor` | — | ⛔ **Disabled** (user 2026-11-15), parked at `agents/_archive/agents/security-auditor.md` | — | — | — |
-| the user | Human Creative Approver | Tier 3 S3 + S7: stills → ok / not ok | — | — | — |
+| the user | Human Creative Approver | Tier S: the 10 s clip → ok / fix list / not ok (Tier 3 S3 + S7 stills in the hardening phase) | — | — | — |
 
 <!-- 2026-11-01..11-03 the team ran on Qwen (medium/low) as a trial; user decision 2026-11-03: back to Anthropic models. -->
 
@@ -101,7 +101,7 @@ Definitions live in `.claude/agents/<name>.md`. Dispatch with `subagent_type: "<
 
 **🧰 Tooling is unchanged (user 2026-11-15).** SDLC v1.2 changes the orchestration only: roles, gates, stage order. Sub-agents work as before (definitions in `.claude/agents/`, fresh context per dispatch, worktrees, the dispatch rules in § Lead workflow #11). graphify, ponytail and the skills stay mandatory: every agent that reads code asks graphify first (§ graphify), and every agent that writes code (product, tests or scratch scripts) invokes `ponytail` first.
 
-**Independent roles run on big changes only (user 2026-11-15).** `architecture-skeptic`, `test-architect`, `creative-qa` and `tester` (AV QA) run inside Tier 3: new scenes, new architecture, radical feature introductions. Refinements of existing scenes/effects (Tier 1–2) skip them: coders write tests alongside their code and the lead runs the gates, as before. The user can still ask for any of them outside Tier 3.
+**Independent roles run on big changes only (user 2026-11-15; narrowed 2026-11-16).** `architecture-skeptic`, `test-architect`, `creative-qa` and `tester` (AV QA) run inside Tier 3 architecture work (new architecture, radical feature introductions) and in the hardening phase. New scenes go Tier S without them. Refinements of existing scenes/effects (Tier 1–2) skip them: coders write tests alongside their code and the lead runs the gates, as before. The user can still ask for any of them outside Tier 3.
 
 **Model roster (user revision 2026-11-15).** Max model + max reasoning where the architectural and creative catches come from: `system-designer`, `planner`, `creative-director` on **Fable 5.2** (`model: fable`; the alias resolves to `claude-fable-5-2`, seen in the subagent transcripts 2026-11-15). **Opus 5.5** (`model: opus`) at max for the builders and the challenger: `frontend-coder`, `audio-dsp`, `architecture-skeptic` (a different model from the designer on purpose, for an independent challenge); `researcher` at high. The checkers run on the smallest model: `test-architect`, `creative-qa`, `tester` on **Haiku 5.5** (`model: haiku`, ⚠️ resolved id unverified until the first dispatch; ≈40× cheaper than Opus) at high; move one to Sonnet 5.5 only if its output proves too generic. The definitions carry model and effort, so a dispatch passes no override. **Fable briefs (planner, designer, creative-director): exact line ranges to read + incremental writes (≤5 KB per call)**: Fable planner runs on 2026-10-29 stalled in API timeouts on big single responses.
 
@@ -141,8 +141,24 @@ Trivial change, no architectural decision. Lead jumps straight to a coder or the
 Finishing or tuning an existing scene or effect, a new built-in that recombines existing natives/effects, a binding or audio knob, a bugfix in a known area. Scope clear, no genuine architectural alternatives, 1–3 files. Lead → `planner` → `frontend-coder` → lead gates; no independent roles. Reuses fresh research (delta < 2 weeks, area unchanged); otherwise → Tier 3. Bugfixes follow SDLC §6: a failing regression test first (RED), root cause, minimal fix, GREEN.
 **Examples:** a new animal pair on `native/creatures`, retuning a scene's bindings, `MIN_GAP` 50→60.
 
-### Tier 3 — Big change (SDLC v1.2)
-New scenes (a new visual concept or a new native renderer), new architecture (>5 files or >2 modules, API contract / data model / dep tree changes), radical feature introductions, or stale/missing research. Stages adapted from SDLC §3 and §17:
+### Tier S — Scene sprint (DEFAULT for every scene and look change, user 2026-11-16)
+Why: the heavy Tier 3 flow (12+ stages per scene) gave clean code but a mediocre look, slowly. The look comes from proven sources and fast iteration with the user's eyes. Speed over reliability now; reliability returns in the hardening phase (below).
+```
+1 ref     lead: the source = a proven work (MilkDrop preset, Shadertoy / TD / ISF / donor shader, a reference
+          video or image from the user) + the user's words. Port by analogy over inventing from text.
+2 build   ONE frontend-coder dispatch (worktree): the scene + built-in; tests only for real logic (ponytail);
+          gates green. Output: a 10 s clip (mp4, ffmpeg) on a real track (tracks/) + a 12-frame strip
+          (the coder and the lead judge motion from the strip; the clip is for the user).
+3 look    lead sends the clip to the user → ok / fix list / not ok.
+4 fix     the SAME coder (SendMessage, context kept) applies the fix list → a new clip. ≤ 3 rounds, then rethink the source.
+5 ship    ok → lead merges, gates, tags, one STATE line + one line in agents/hardening.md (the debt ledger).
+```
+- **Skipped in Tier S:** researcher, creative-director, system-designer, architecture-skeptic, test-architect, planner, creative-qa, tester, stills sheets, test matrices, gate records. The lead may still add one of them for a specific risk (one line why).
+- **Kept (safety, not process):** the app-wide flash gate (≤ 3/s, `post.ts`) stays on; gates green; one frame-time number (billed p95 or the stills harness mean) in the coder's report; headless harnesses; never commit audio.
+- **Hardening phase (later, when we polish usability):** each line in `agents/hardening.md` gets the Tier 3 S4–S6 treatment (tests, bench, flash and binding checks, AV QA). Until then the line is debt, not a blocker.
+
+### Tier 3 — Big change (SDLC v1.2) — architecture only; scenes go Tier S (user 2026-11-16)
+New architecture (>5 files or >2 modules, API contract / data model / dep tree changes), radical feature introductions, or stale/missing research. Stages adapted from SDLC §3 and §17:
 
 ```
 S0 intake    lead: epic spec in thoughts/ — mood, triggers, non-goals, acceptance IDs (R1…)
@@ -183,7 +199,7 @@ User 2026-11-15: removed from the pipeline for now. The definition is parked at 
 
 - ❌ Never start anything in production mode.
 - ❌ Never invent codebase or spec facts — only from `researcher`'s output.
-- ❌ Never plan an unpicked variant (the pick is logged in STATE.md), and never build a new scene past S3 without the user's ok on its stills.
+- ❌ Never plan an unpicked variant (the pick is logged in STATE.md), and never call a scene done without the user's ok on its clip (Tier S step 3).
 - ❌ No PASS without runner evidence (SDLC §1.5): a gate or metric counts only from a command actually run — commit SHA, command, exit code. UNKNOWN is never PASS.
 - ❌ Never let a coder copy donor code without a plan step authorising it.
 - ✅ Any dependency license is allowed, GPL/AGPL included (spec §6, user decision 2026-10-27). Record each dep's license; prefer permissive when options are equal. SDLC §1.8/§8 licence reviews reduce to recording provenance, never a blocker.
@@ -197,7 +213,7 @@ User 2026-11-15: removed from the pipeline for now. The definition is parked at 
 2. Read `STATE.md HEAD` + `INDEX.md`.
 3. Classify task tier (1 / 2 / 3). When in doubt → higher.
 4. Execute per tier.
-5. Tier 3: pick the design variant (lead pick per the never-ask rule) and record it in STATE.md; send the S3 and S7 stills to the user and wait for ok / not ok on that scene.
+5. Tier S: send the clip, wait for ok / fix list on that scene; other lanes keep going. Tier 3: pick the design variant (lead pick per the never-ask rule) and record it in STATE.md; send the S3 and S7 stills to the user and wait for ok / not ok on that scene.
 6. After every sub-agent call: 2–3 line summary to the user + what's next, **and log it in STATE.md HEAD**.
 7. On completion: update `STATE.md HEAD` (append summary, demote older to TAIL) and `INDEX.md` (add new artifact line).
 8. Independent roles run only inside Tier 3 (or when the user asks); security is disabled.
