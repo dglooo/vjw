@@ -221,8 +221,11 @@ async function dispatch(m: ToWorker, post: Post): Promise<void> {
     }
   } catch (err) {
     let msg = String(err instanceof Error ? err.stack ?? err.message : err)
-    if (m.type === 'init' && m.model !== 'synthetic' && !(await served(`${m.base}models/${m.model === 'selfie' ? SELFIE.file : POSE_FILE}`)))
-      msg = 'Model missing: run `node scripts/models.mjs`' // K-1 rule 5 (K-12): a missing model is never silent
+    if (m.type === 'init' && m.model !== 'synthetic') {
+      // K-1 rule 5 (K-12): a missing model is never silent; nor is the postinstall fileset (S1.4, B18): the same remedy
+      const files = [`${m.base}models/${m.model === 'selfie' ? SELFIE.file : POSE_FILE}`, `${m.base}mediapipe/vision_wasm_internal.js`]
+      if (!(await Promise.all(files.map(served))).every(Boolean)) msg = 'Model missing: run `node scripts/models.mjs`'
+    }
     post({ type: 'error', msg })
   }
 }

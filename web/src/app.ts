@@ -11,7 +11,7 @@ import { createTempoSource } from './audio/tempo'
 import { createStyle, styleIn, type StyleOut } from './audio/style'
 import { type Hit } from './audio/drums'
 import { createRemap, restyle, sources, type Sources } from './bind'
-import { cam, camGate, camGpuMs, camMask, readCam, readMask, selectCamera, tick as camTick } from './camera/camera'
+import { cam, camGate, camGpuMs, camMask, readCam, readMask, selectCamera, startCamera, tick as camTick } from './camera/camera'
 import { presence } from './camera/smooth'
 import { count as camUsers } from './camera/users'
 import { createDirector } from './director'
@@ -52,10 +52,13 @@ library.onChange(() => director.setPlaylist(library.playlist()))
 const loaded = library.load().catch((e: unknown) => console.error('library', e)) // no IndexedDB: the built-ins only
 // Compile-all at Start (design E2): once the audio context runs (the Start click, or at load when autoplay is allowed)
 // and the library is read, every program of the playlist compiles while the loop plays on.
-const warmUp = () =>
+// plan_camera S1.4 (decision 7): the saved camera reopens at the same moment.
+const warmUp = () => {
+  void startCamera()
   void loaded
     .then(() => warm(library.playlist(), (n, of) => store.patch({ compiling: `compiling ${n}/${of}` })))
     .then(() => store.patch({ compiling: null }))
+}
 if (ctx.state === 'running') warmUp()
 else ctx.addEventListener('statechange', warmUp, { once: true })
 const tempo = createTempoSource()
