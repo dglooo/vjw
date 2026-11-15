@@ -299,7 +299,8 @@ The lead fills this table. UNKNOWN is never PASS. A PASS needs runner evidence (
 | S2 matrix | PASS | test-architect, 2026-11-15 | `agents/test-architect/matrix_camera.md` (45 tests; 60 after coverage); lead rulings F1–F6 in `agents/STATE.md` HEAD | — |
 | S3 spike + user: the `dj-*` scenes (M4) | UNKNOWN | creative-qa → user | | |
 | S4 coverage: this plan against the matrix | PASS | test-architect 2026-11-15 + lead (E1–E10 applied) | `matrix_camera.md` § Coverage (60 tests); G2 B20 hook + G3 B31 flat-frame band confirm at their first run (UNKNOWN until then) | — |
-| S6 CP1: gates + harnesses + AV QA | UNKNOWN | lead (runner) → tester | | |
+| S6 CP1: gates + harnesses (runner) | PASS | lead, 2026-11-15, master `1778724` | gates 543/543 (lint/typecheck/test exit 0) at each merge `c08c40a`/`a489dde`/`2493cf0`/`bfd23b9`/`430af77`; build + preview 4173: **P2** K1 min1s 28.5 ≥ 24, K2 mainMs p95 .4, inferMs 9.1/12.9 (`scratchpad/cam/cp1-P2-probe.json`; the probe's absolute K3 late=1 is superseded by P4 per design L599); **P4** ABAB late on/off 1/0 + 0/0, 1.00× ×4 → PASS (`cp1-P4.json`); **P3** = P4's ON runs (60 s camera + Mask person + light-tunnel, 1/0 late, 1.00×; the cam-app P3 case imports `/src` and cannot run on preview); **B11** 0/255 PASS; **sheet** `cp1-sheet.png`; dev: B1–B5, B6, B7–B10, B12, B13, B14, B15, B18, B23, B26–B28, B30, B31 PASS; B17 PASS on preview; B20 UNKNOWN (hook ineffective, LOW); B25 not run (UNKNOWN); headless = not GPU numbers (P5 billed at CP2) | — |
+| S6 CP1: AV QA | UNKNOWN | tester | | |
 | S6 CP1: the K-2 live arm (M3: `inferMs.p95` ≤ 33.3 ms, `maskFps.min1s` ≥ 24) | UNKNOWN | user run → lead | the arm JSON; it does not block the CP1 commit (lead decision 2026-11-15) | |
 | S6 CP1: K2 on the live arm (`mainMs` p95 ≤ 1 ms) | UNKNOWN | user run → lead (M3, same run) | the arm JSON | |
 | S6 CP1: latency (M2: K4 ≤ 100 ms) | UNKNOWN | user run → lead | the Latency PNGs | |
