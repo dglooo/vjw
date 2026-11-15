@@ -33,6 +33,7 @@ const W_REST = 0.14, W_GROOVE = 0.18 // w, world units: 7 % / 9 % FH (FH = 2 at 
 const LEN = 40 // L = 40 w
 const R_MAX = 0.8 // the coil radius cap (world): at 0.8 turns the extra length goes into the pitch (a slack corkscrew)
 const GAP = 1.5 // the pitch per turn ≥ 1.5 w: the 0.5 w gap between tape-wound turns
+const ARC_R = 1 // ⚠️ drift: the coil axis's arc radius (world): the body's reach stays inside the camera distance (FOCAL 2.41)
 const FLOOR_W = 0.3, FLOOR_BARS = 32 // G4: W ≥ .30 × min(1, bars since the last drop ÷ 32)
 const W_TAU_BARS = 8 // ⚠️ drift: W falls toward max(build, floor) with τ 8 bars (a build that drops before its fire keeps its wind)
 const WHIP_MIN = 0.06 // under it a drop rise is the +15 % pump whip (recipe 4)
@@ -165,6 +166,14 @@ export function createSerpent(seed = 1, n = RINGS) {
         P[j * 3 + 1] = Rr * Math.sin(phi) + kink
         P[j * 3 + 2] = z
         S[j] = s
+      }
+      // the drifting curve: the coil axis bends on an arc (radius ≥ ARC_R, ≤ 315° in all) in the local x–z plane, so a
+      // slack body (0.8 turns, its length in the pitch) curls inside the frame instead of reaching past the camera
+      const Ra = Math.max(ARC_R, z / (1.75 * Math.PI))
+      for (let j = 0; j < n; j++) {
+        const o = j * 3, f = (P[o + 2] - z / 2) / Ra, cf = Math.cos(f), sf = Math.sin(f), x = P[o]
+        P[o] = Ra * (1 - cf) + x * cf
+        P[o + 2] = Ra * sf - x * sf
       }
       tangents(P, T, n)
       // the whip loop: a windowed trochoid in the base tangent's plane, R_L = 1.2 w → 3 w tail → head in 1 beat
