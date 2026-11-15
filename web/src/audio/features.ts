@@ -102,15 +102,19 @@ export function createFeatures() {
         hop = 0
       }
     },
-    /** kick, snare, hats = e^(−age/τ); sub, reese, wobble, wobbleDepth as at() left them. Each × the user's × the
-     *  preset's sens (missing = 1), at most 1. The drums read before `dt` is added, so the frame a hit is drained on
-     *  reads its peak and an `event` input (≥ 0.5, live.ts) fires on it. */
+    /** kick, snare, hats = e^(−age/τ); sub, reese, wobble, wobbleDepth as at() left them; reeseLevel = raw.reese.
+     *  Each × the user's × the preset's sens (missing = 1), at most 1. The drums read before `dt` is added, so the frame
+     *  a hit is drained on reads its peak and an `event` input (≥ 0.5, live.ts) fires on it. */
     fill(out: Sources, dt: number, s: AudioSettings, p: Preset) {
       for (const d of DRUMS) {
         out[d] = Math.min(1, sens(s, p, d) * Math.exp(-age[d] / TAU[d]))
         age[d] += dt
       }
       for (const id of SUSTAINED) out[id] = Math.min(1, sens(s, p, id) * v[id])
+      // reeseLevel (W4 Serpent presence): raw.reese itself, the kick-gated reese-band amplitude (linear, ≈ .15–.30 on a
+      // mastered DnB drop), not a ratio: a steady bass reads its level where `reese` reads 0. Ceiling: snare bodies and
+      // rolls in the band pass (the gate catches kicks only).
+      out.reeseLevel = Math.min(1, sens(s, p, 'reeseLevel') * raw.reese)
       // u:* — e2 × gain through a dt one-pole (bind.ts's evaluate() shape: attack up, release down, 0 = instant).
       // A renamed band keeps its id; a removed one drops from the settings and reads 0 here.
       for (const id of uIds)

@@ -178,6 +178,15 @@ describe('sustained sources (design C1)', () => {
     expect(at(settings({ reese: 3 })).reese).toBe(1) // ≈ 1.3 caps at 1
   })
 
+  test('reeseLevel = min(1, sens × raw.reese): the linear kick-gated level, not a ratio; a trip holds the pre-kick level', () => {
+    const rows = play(feats(11, (t) => Array(3).fill(t >= 10 && t < 10.3 ? 3 : 0.4), (t) => t >= 10 && t < 10.25))
+    for (const [, r] of rows) expect(r.reeseLevel).toBe(Math.min(1, r.rawReese))
+    expect([near(rows, 9.9).reeseLevel, near(rows, 9.9).reese]).toEqual([Math.fround(0.4), 0]) // steady: its level; `reese` 0
+    expect(near(rows, 10.19).reeseLevel).toBe(Math.fround(0.4)) // the gate's 0.2 s hold
+    expect(near(rows, 10.22).reeseLevel).toBe(1) // 3, capped
+    expect(near(play(feats(2, () => [1, 0.4, 1]), settings({ reeseLevel: 2 })), 1.9).reeseLevel).toBeCloseTo(0.8, 6)
+  })
+
   test('at(t) reads the hops up to the heard time t; later ones wait in the queue', () => {
     const f = createFeatures()
     for (const m of feats(2, (t) => [t < 1 ? 1 : 4, 1, 1])) f.push(m)
@@ -304,6 +313,16 @@ describe('sustained sources through analysis.ts (fixtures)', () => {
       expect(maxDiff(loud, bed, id), id).toBeLessThan(0.16) // the ratio within 16% (the old .08 at ÷ 2)
       expect(maxDiff(quiet, loud, id), id).toBeLessThan(0.05) // ±5%
     }
+  })
+
+  test('reeseLevel: kicks alone peak under 15% of a bass bed (a tail blip at +HOLD); the bed reads linear in the gain', () => {
+    const track = pattern('techno', 8) // four on the floor: 32 kicks
+    const bed = mix(track, ['sub', 'reese', 'room'])
+    const lv = (x: Float32Array) => col(listen(x), 'reeseLevel').sort((a, b) => a - b)
+    const [loud, quiet, kicks] = [lv(bed), lv(bed.map((v) => v / 4)), lv(mix(track, ['kick', 'room']))]
+    const p50 = (v: number[]) => v[v.length >> 1]
+    expect(kicks[kicks.length - 1]).toBeLessThan(0.15 * p50(loud)) // measured .10: 1–3 hops of the kick's tail at +0.2 s
+    expect(p50(quiet) / p50(loud)).toBeCloseTo(0.25, 4)
   })
 
   test('wobbleDepth: a 4.67 Hz LFO wobble reads ≥ 2× a steady reese, at any gain; wobble rises once per LFO period', () => {
