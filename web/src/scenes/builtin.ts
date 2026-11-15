@@ -1004,6 +1004,31 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Rave Lasers (RL S3 spike, design_rave_lasers.md Variant A + rev 2; creative_rave_lasers.md): a DnB festival laser
+  // rig in haze. 23 fixed emitters (truss row, side towers, floor row, booth pair), hair-thin beams; the figures cut on
+  // the bar (Fan / Grid loud, Sheet + Lone beams quiet), the build closes them into a square cage, the drop shoots every
+  // emitter at the viewer. The binds repeat the def (scenes/lasers.ts), `burst` before `hit` (SR-5: the gate's tie).
+  {
+    v: 1, id: 'builtin:rave-lasers', name: 'Rave Lasers', star: true, // dnb · Auto: reese (scissor; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'native/lasers',
+        values: { layout: 0, green: 0.7, white: 0.3, red: 0, haze: 0.5 },
+        bind: {
+          open: { source: 'sub', amount: 1, attack: 0.04, release: 0.3, min: 0, max: 1 }, // the sub opens the fans
+          scissor: { source: 'reese', amount: 1, attack: 0.03, release: 0.15, min: 0, max: 1 }, // Auto-style's one: neighbour fans scissor
+          converge: { source: 'build', amount: 1, attack: 0.15, release: 0.8, min: 0, max: 1 }, // the build ramp into the cage
+          flick: { source: 'hats', amount: 1, attack: 0, release: 0.18, min: 0, max: 1 }, // the hats: the chase's dark share
+          pop: { source: 'kick', amount: 1, attack: 0, release: 0.14, min: 0, max: 1 }, // a kick snaps the spread, jumps the chase
+          snap: { source: 'snare', amount: 1, attack: 0, release: 0.11, min: 0, max: 1 }, // a snare: the Grating burst, the chase reverses
+          climax: { source: 'drop', amount: 1, attack: 0, release: 0.4, min: 0, max: 1 }, // the drop latch (geometry, ungated)
+          burst: { source: 'drop', amount: 1, attack: 0, release: 0.4, min: 0, max: 1 }, // ⚡ white cores (listed before hit: the tie)
+          hit: { source: 'kick', amount: 1, attack: 0, release: 0.14, min: 0, max: 1 }, // ⚡ core light +40 %
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.

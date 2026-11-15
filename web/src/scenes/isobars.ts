@@ -260,7 +260,7 @@ void main() {
 // The haze reads the beam pass's mip chain (box-filtered: the thin moving beams never alias). The far haze (the lit
 // air between the beams): a separable Gaussian, σ 3 texels, over the mip level of ≈ HAZE_FAR_N rows (a coarse mip
 // read directly shows box creases). The near halo: a 3×3 tent in the composite. Linear in the beams: P7 holds.
-const BLUR = `#version 300 es
+export const BLUR = `#version 300 es
 precision highp float;
 uniform sampler2D uSrc;
 uniform vec2 uRes;  // the target size
