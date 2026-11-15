@@ -13,7 +13,8 @@ export interface TempoSource {
    *  prior centred there. null = the default fold and prior. */
   setRange(bpm: Band | null): void
   /** Design C3/C4, for the classifier: per window, the ACF prominence of its best candidate lag mapped to 0–1 like the
-   *  confidence. The ACF always spans 45–360 BPM, so this never depends on the active range. */
+   *  confidence. The ACF always spans 45–360 BPM, so this never depends on the active range. T1: `windows[0]` is DnB's.
+   *  A later window whose best lag reads ⅔ or 4/5 of DnB's best tempo (octave-folded) gets at most DnB's evidence. */
   families(windows: readonly Band[]): number[]
 }
 export interface TempoOpts {
@@ -36,6 +37,11 @@ const CONF_BEATS = 16 // on-grid fraction span
 const COMB_BEATS = 8 // beats summed per phase candidate
 const MIN_FIT = 4 // onsets needed for the fit; fewer keeps the ACF period and the comb phase
 const MARGIN = 1.1 // knob (default): a range's candidates reach this factor past each end (techno 135 → 148.5)
+// T1 (dsp_detector_2026-11-16 R2): a two-step's kick → kick lags, 1.5 and 2.5 beats (116 and 69.6 at 174), sit in the
+// techno and dubstep windows. Their lag over DnB's best lag, folded into [1, 2): 3/2 and 5/4, ±SUB_TOL.
+const SUBS = [1.5, 1.25]
+const SUB_TOL = 0.03
+const SUB_FLOOR = 0.2 // knob: the DnB window caps the others only with this much evidence of its own
 
 const prior = (bpm: number, centre: number) => Math.exp(-0.5 * (Math.log2(bpm / centre) / PRIOR_OCTAVES) ** 2)
 /** A range's candidate: `bpm` in [lo/MARGIN, hi·MARGIN] × {½, 1, 2}. DnB 160–185 leaves out the two-step's ⅔ lag (116). */
@@ -165,11 +171,20 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
       centre = bpm ? Math.sqrt(bpm[0] * bpm[1]) : PRIOR_BPM
       ;[min, max] = bpm ? [centre / Math.SQRT2, centre * Math.SQRT2] : [o.minBpm, o.maxBpm]
     },
-    families: (windows) =>
-      windows.map((w) => {
-        let top = 0
-        for (let lag = lo + 1; lag < hi; lag++) if (near(60 / (lag * hop), w)) top = Math.max(top, acf[lag])
-        return acfMean > 0 ? level(top / acfMean) : 0
-      }),
+    families: (windows) => {
+      const best = windows.map((w) => {
+        let [top, at] = [0, 0]
+        for (let lag = lo + 1; lag < hi; lag++) if (near(60 / (lag * hop), w) && acf[lag] > top) [top, at] = [acf[lag], lag]
+        return { f: acfMean > 0 ? level(top / acfMean) : 0, at }
+      })
+      const [d] = best
+      const sub = (at: number) => {
+        let q = at / d.at
+        while (q >= 2) q /= 2
+        while (q < 1) q *= 2
+        return SUBS.some((r) => Math.abs(q / r - 1) < SUB_TOL)
+      }
+      return best.map((b, i) => (i > 0 && d.f >= SUB_FLOOR && d.at && b.at && sub(b.at) ? Math.min(b.f, d.f) : b.f))
+    },
   }
 }

@@ -18,11 +18,13 @@ export interface Preset {
 
 const BANDS: Preset['bands'] = { kick: [40, 150], snare: [1000, 5000], hats: [7000, 16000], sub: [30, 60], reese: [60, 250], wobble: [150, 1500] }
 
-/** The running grid's one-step octave bridge into a band (plan S3.2): `double` below `lo`, `halve` above `hi`, `none`
- *  inside. Inclusive bounds: a grid sitting exactly on `lo` or `hi` is inside and stays. Best effort — the range-folded
- *  reading relocks the grid, so a ⅔-lag reading (116 vs 174) is not walked octave by octave. */
+/** The running grid's one-step octave bridge into a band (plan S3.2): `double` when twice the grid lies inside,
+ *  `halve` when half of it does, else `none`. Inclusive bounds: a grid sitting exactly on `lo` or `hi` is inside and
+ *  stays. A move that would land outside the band too stays (T2, dsp_detector_2026-11-16: 116 → 232 under techno):
+ *  the range-folded reading relocks the grid. */
+const inside = (bpm: number, [lo, hi]: Band) => bpm >= lo && bpm <= hi
 export const snapOctave = (bpm: number, band: Band): 'double' | 'halve' | 'none' =>
-  bpm < band[0] ? 'double' : bpm > band[1] ? 'halve' : 'none'
+  inside(bpm, band) ? 'none' : inside(2 * bpm, band) ? 'double' : inside(bpm / 2, band) ? 'halve' : 'none'
 
 // `sens` is all 1 everywhere for now (tuned on the fixtures and the user's tracks), so it stays empty.
 // ponytail: C3 fixes only kicks/beat per genre; the other `proto` numbers are starting values for S4.1 to tune on the fixtures.
