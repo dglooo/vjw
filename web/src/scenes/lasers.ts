@@ -83,6 +83,9 @@ export interface RigOut { n: number; light: number; core: number; haze: number; 
 export interface LaserState {
   mode: 'quiet' | 'loud' | 'drop'; figure: number; step: number; open: number; converge: number; spread: number; power: number
   lit: number[]; onsets: number; locked: boolean; fill: number; sum: number; target: number; cuts: number // cuts: figure (re)builds so far
+  // the live r-pass truth (S5.3): the fan lean (deg), the chase's dark share (1 − Σk ÷ ΣN), the core gain the FS gets,
+  // the Pop edges and the Grating bursts so far
+  lean: number; dark: number; core: number; pops: number; bursts: number
 }
 export interface Rig { step(x: RigIn, out: Float32Array): RigOut; state(): LaserState }
 
@@ -104,7 +107,7 @@ function exitLen(x: number, y: number, dx: number, dy: number, W: number, H: num
 export function createRig(seed = 1): Rig {
   const rnd = mulberry(seed)
   let first = true, lastT = 0, locked = false, mode: LaserState['mode'] = 'quiet', fig: number = FIG.sheet, layout = 0
-  let sum = EPS, target = EPS, power = 0.5, onsets = 0, steps = 0, fill = 0, spreadDeg = 0, cuts = 0
+  let sum = EPS, target = EPS, power = 0.5, onsets = 0, steps = 0, fill = 0, spreadDeg = 0, cuts = 0, pops = 0, bursts = 0
   let drumT = -Infinity, kickT = -Infinity, prevClimax = 0, prevHit = 0, prevPop = 0, prevSnap = 0, hitIgnore = -Infinity, hotUntil = -Infinity
   let dropPhase = 0, refBar = 0, refT = 0, c16Bar: number | null = null, lastIdx = 0, lastRes = 8, lastCut = 0, cutRef = 0
   let dir = 1, sPose = 0, sweepDir = 1, loudNext = 0, burstT = -Infinity, burstRot = 0, palette = ''
@@ -187,7 +190,7 @@ export function createRig(seed = 1): Rig {
   let st: LaserState | null = null
   return {
     state() {
-      return st ? { ...st, lit: [...st.lit] } : { mode, figure: fig, step: steps, open: 0, converge: 0, spread: 0, power, lit: Array.from(lit), onsets, locked, fill, sum, target, cuts }
+      return st ? { ...st, lit: [...st.lit] } : { mode, figure: fig, step: steps, open: 0, converge: 0, spread: 0, power, lit: Array.from(lit), onsets, locked, fill, sum, target, cuts, lean: 0, dark: 0, core: 1, pops, bursts }
     },
     step(x, out) {
       const v = x.v, t = x.time
@@ -213,7 +216,7 @@ export function createRig(seed = 1): Rig {
         mode = 'drop'; dropPhase = 1; refBar = x.bar; refT = t; hitIgnore = t + HIT_IGNORE; onsets++; load = 2; power = 1
         build(FIG.crowd, 1, flick, true)
         glintAt.fill(t)
-        burstT = t; burstRot = rnd() * 360
+        burstT = t; burstRot = rnd() * 360; bursts++
       } else if (mode === 'drop') {
         if (dropPhase === 1 && barsSince(refBar, refT) >= 1 && climax < 0.5) { dropPhase = 2; refBar = x.bar; refT = t; build(FIG.grid, 1, flick); load = Math.max(load, 1) } // bar 2: the Grid's cells, not the groove fan (fix 1 F7)
         else if (dropPhase === 2 && barsSince(refBar, refT) >= 1) { dropPhase = 0; mode = 'loud'; build(nextLoud(), Math.max(open, 0.3), flick); load = Math.max(load, 1); cutRef = lastCut }
@@ -241,11 +244,11 @@ export function createRig(seed = 1): Rig {
         else if (armed && mode === 'quiet' && cutIdx - cutRef >= 4) { cutRef = cutIdx; sweepDir = -sweepDir } // the quiet cut: the sweeps turn, nothing blanks
       }
       // the hits: geometry (never gated)
-      if (pop >= 0.5 && prevPop < 0.5) chase(flick, true)
+      if (pop >= 0.5 && prevPop < 0.5) { pops++; chase(flick, true) }
       if (snap >= 0.5 && prevSnap < 0.5) {
         dir = -dir
         sPose = (sPose + 1) % poseS.length
-        if (fig !== FIG.cage && t >= burstT + BURST_LIFE + BURST_GAP) { burstT = t; burstRot = rnd() * 360 }
+        if (fig !== FIG.cage && t >= burstT + BURST_LIFE + BURST_GAP) { burstT = t; burstRot = rnd() * 360; bursts++ }
       }
       prevPop = pop
       prevSnap = snap
@@ -263,7 +266,7 @@ export function createRig(seed = 1): Rig {
       const sK = conv < 0.5 ? 1 - conv : conv < 0.8 ? 0.5 - ((conv - 0.5) / 0.3) * 0.35 : 0.15
       const perp = smooth(0.5, 0.8, conv)
       const scK = conv < 0.5 ? 1 - 1.4 * conv : 0.3 * (1 - perp)
-      const scissor = clamp(num('scissor'), 0, 1)
+      const leanDeg = fig === FIG.crowd ? 0 : 25 * clamp(num('scissor'), 0, 1) * scK // the fans' scissor lean (state truth)
       const popK = 1 + 0.3 * clamp(pop, 0, 1)
       const spTF = (8 + 52 * op) * popK * sK, spS = (4 + 26 * op) * popK * sK
       spreadDeg = spTF
@@ -313,7 +316,7 @@ export function createRig(seed = 1): Rig {
         }
         // fan and crowd
         const k = e % 2 ? 1 : -1
-        const lean = fig === FIG.crowd ? 0 : k * 25 * scissor * scK
+        const lean = k * leanDeg
         if (G === 'S') {
           const base = (left ? 0 : 180) + (left ? 1 : -1) * (fig === FIG.crowd ? 0 : poseS[sPose][e - 8]) * (1 - perp)
           return (base + lean + spS * f) * DEG
@@ -392,8 +395,11 @@ export function createRig(seed = 1): Rig {
       shootNow = false
       sum = Math.max(sum, EPS)
       first = false
-      st = { mode, figure: fig, step: steps, open: op, converge: conv, spread: spreadDeg, power, lit: Array.from(lit), onsets, locked, fill: fill / (W * H), sum, target, cuts }
-      return { n, light: A > 0 ? sum / A : 0, core: t < hitIgnore ? 1 : 1 + 0.4 * clamp(hit, 0, 1), haze: num('haze') * (conv < 0.5 ? 1 + 0.5 * conv : 1.25 + 0.25 * Math.min(1, (conv - 0.5) / 0.3)), speckle: 0.1 + 0.15 * flick }
+      const core = t < hitIgnore ? 1 : 1 + 0.4 * clamp(hit, 0, 1)
+      let K = 0, N = 0
+      for (const r of rows) { K += r.k; N += r.N }
+      st = { mode, figure: fig, step: steps, open: op, converge: conv, spread: spreadDeg, power, lit: Array.from(lit), onsets, locked, fill: fill / (W * H), sum, target, cuts, lean: leanDeg, dark: N ? 1 - K / N : 0, core, pops, bursts }
+      return { n, light: A > 0 ? sum / A : 0, core, haze: num('haze') * (conv < 0.5 ? 1 + 0.5 * conv : 1.25 + 0.25 * Math.min(1, (conv - 0.5) / 0.3)), speckle: 0.1 + 0.15 * flick }
     },
   }
 }
