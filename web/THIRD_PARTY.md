@@ -16,7 +16,7 @@ Bundled into the app.
 | react-dom | 19.3.1 | MIT |
 | twgl.js | 7.0.0 | MIT |
 
-@mediapipe/tasks-vision: the camera's segmentation runtime (the R0-Mac ruling, plan_camera S1.2a; licence from its `package.json`, the package ships no LICENSE file). The page self-hosts it so the browser touches localhost only (design D7): `postinstall` (`scripts/models.mjs`) copies the package's `wasm/` to the git-ignored `public/mediapipe/`. Its models:
+@mediapipe/tasks-vision: the camera's segmentation runtime (the R0-Mac ruling, plan_camera S1.2a; licence from its `package.json`, the package ships no LICENSE file). The page self-hosts it so the browser touches localhost only (design D7): `postinstall` (`scripts/models.mjs`) copies the package's `wasm/` to the git-ignored `public/mediapipe/`. The package's built-in usage logger (a POST to `https://odml.pa.googleapis.com/v1/log` once a minute) is refused in `src/camera/segment.worker.ts`. Its models:
 
 | file | model | where | license |
 |---|---|---|---|
