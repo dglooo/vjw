@@ -392,3 +392,121 @@ flowchart LR
 - The DJ-booth clip: ≥60 s, ≥720p30, MP4 or WebM, ideally from the show camera, with the 8 sheet moments marked: steady light, low light, strobe on/off, hands on the decks, fast moves, someone walking behind.
 - The `?camprobe` run on the Windows PC, including the 75 min soak, returning the JSON, the sheet and the latency screenshots.
 - No Swift helper or native path: the final scope dropped them.
+
+## Ruling (R0-Mac, provisional)
+
+**TL;DR**
+- **Pick (Mac):** MediaPipe Selfie landscape 144×256, MediaPipe runtime, CPU delegate, worker host, ALIGN on, RECYCLE 30 min. CP1 can start on it.
+- **What the Mac data grades:** K2 and K5 pass. K1 and K3 are instrument-limited. K4, K6 and K7 are UNKNOWN, and UNKNOWN is never PASS.
+- **S1.2 keeps one runtime** (Selfie and PoseLandmarker lite, both delegates, the `align` flag, `?camprobe`). It prunes the main host, RVM with ORT-Web, and four sheet-only models.
+
+**Basis.** 2026-11-15, system-designer, at `c46ad9a`. Evidence keys: **F** = `scratchpad/cam/s0.4-full.json`; **P** = `scratchpad/cam/camprobe-mac-ANGLE-Apple-ANGLE-Metal-Renderer-Apple-M-2026-11-07.json`; **S** = the `camprobe-soak-mac-…-2026-11-07.json` beside it; **H** = `scratchpad/cam/s0.5-harness.json`; **ST** = `agents/STATE.md` at `c46ad9a`. Plain `L…` is this file; `plan L…` is `agents/planner/plan_camera.md`. Every number is from the M4: Chrome 156, 1728×1117 @2, HEAVY held, 60 s per arm. The source is a looping clip with no person in it (`env.camSettings` null; ST L13).
+
+### Grades (Mac arms; pass lines L321–L329)
+| Arm | K1 fps, min1s / med | Inference ms, p50 / p95 | K2 main ms, p95 | K3 late | Ruling |
+|---|---|---|---|---|---|
+| base-0 / base-cam | — | — | — / 1.7 | 2 / 2 | keep: the baselines |
+| W-synthetic | 20.7 / 29.4 | 0.2 / 0.4 | 1.6 | 5 | keep: the control |
+| **W-selfie-cpu** | 21 / 29.2 (ST: 25) | 10.1 / 11.2 | 0.9 (ST: 0.9) | 4 (ST: 0) | **the pick** |
+| W-selfie-cpu, ALIGN off | 19.9 / 29.5 | 11 / 12.2 | 0.1 | 1 | keep: the flag |
+| W-selfie-gpu | 18.4 / 28.6 | 12.8 / 15.4 | 1.0 | 3 | keep: the PC delegate |
+| W-pose-cpu | 19.3 / 28 | 17.4 / 20.2 | 1.1 | 5 | keep: the K6 runner-up |
+| W-pose-gpu | 20.5 / 27.2 | 23.7 / 28.1 | 0.9 | 2 | keep: same model, same flag |
+| W-rvm (from P) | 19.9 / 28.6 | 22.6 / 23.8 | 0.5 | 0 | prune |
+| M-cpu | 21.7 / 29.6 | 6.3 / 7.3 | 7.9 (`mainTotalP95`) | 1 | prune |
+| M-same | 21.4 / 28.7 | 10.6 / 13.3 | 14.1 (`mainTotalP95`) | 0 | prune |
+
+- **Fields:** F `arms.<arm>.{maskFps, inferMs, mainMs, mainTotalP95, late}`; `scale` is 1 in every arm. "ST:" marks the S0.3 single-arm run (ST L34). ⚠️ The sheet-only arms differ by up to 36 % between F and P (Selfie square p50: 12.8 and 9.4 ms), so a smaller gap between two arms is a tie.
+- **K1 is source-limited.** The control runs 0.2 ms inference and still reads min1s 20.7; every arm reads 18.4–21.7. ST L34 names the cause: the looping-clip decode plus the hidden 1px video (a visible element moved 18.9 → 26.3). The model is not the limit: the pick delivered 1440 masks against the control's 1446 (99.6 %), and its p95 is 11.2 ms against a 33.3 ms camera frame.
+- **K2 passes for the pick:** 0.9 ms in two runs, a margin of 0.1 ms. The measure carries about ±0.5 ms of noise: the control does the same main-thread work and reads 1.6.
+- **K3 is noise-limited** ⚠️. Late counts of 0–5 do not follow the load: M-same spends 14.1 ms on main and has 0, the control has 5, and base-0 alone has 2. The pick reads 0 (ST L34) and 4 (F).
+- **UNKNOWN: K4, K6, K7.** No latency shots exist, and no frame has a person in it. For K7, `agreement.selfie.meanArea` is .0041 and `pose-lite`'s is 0: two empty masks give IoU 1 by construction, so the GPU delegate is not ruled in for Apple (L328). K5 passes (`M-same.glDiff` {} over 1498 samples), but M-same fails K2.
+
+### 1. Model, runtime, delegate (Mac)
+- **Pick: W-selfie-cpu.** MediaPipe Selfie landscape 144×256 (250 KB, ST L34; Apache-2.0, L333), MediaPipe runtime, CPU delegate. The PC delegate is unruled; it defaults to CPU until the PC run.
+- **The pick's grades:** K1 source-limited (25 in S0.3, 21 in F); K2 PASS; K3 noise-limited (0 in S0.3, 4 in F); K4 and K6 UNKNOWN; K7 does not apply to a CPU arm.
+- **Rule applied:** L331–L335, on the Mac arms only. K6 is unknown for every arm, so all arms tie on it, and the tie-break chain of L333 decides, in its own order:
+  1. MediaPipe over RVM: W-rvm is out.
+  2. Worker over main: M-cpu and M-same are out. Both also fail K2.
+  3. CPU over GPU: the two -gpu arms are out. The GPU delegate also buys nothing on the M4 (Selfie 12.8 / 15.4 ms against 10.1 / 11.2; Pose 23.7 / 28.1 against 17.4 / 20.2), and its K7 is unknown.
+  4. The smaller model: Selfie over PoseLandmarker lite. Selfie is also 1.7× faster at p50 (10.1 against 17.4 ms).
+- ⚠️ The pick is a tie-break result, not a quality result. L335 expects PoseLandmarker to suit a DJ at 2–3 m.
+
+### 2. Host, ALIGN, RECYCLE
+- **Host: worker only, with no host flag.** `M-cpu.mainTotalP95` is 7.9 ms and `M-same.mainTotalP95` is 14.1 ms, against K2 ≤2 ms on main (L323; ST L35 grades K2 on this field). G1 is solved (ST L34: the `self.import` shim in dev, a classic worker in the build).
+- **ALIGN: on** (the D2 default, L69). It costs 0.9 ms main p95 against 0.1 ms off (F).
+  - The L334 condition "K4 holds" is UNKNOWN. Computed ⚠️: a mask returns in 11.2 ms p95, under one 16.7 ms display frame, so the aligned picture lands 1–2 display frames (17–33 ms) after the raw one.
+  - The flag stays in the code. It is the K4 lever.
+- **RECYCLE: 30 min, on for both delegates** (the D2 default, L72).
+  - The soak rule L329 needs 75 min. S has 3 min: `soak.perMin[].inferP95` 11 / 11 / 12 ms, `late` 0 / 0 / 0, `maskFps` 30 / 30 / 30, with 2 swaps at 141–142 ms init and no gap (ST L35). That proves the make-before-break swap. It does not show where growth starts.
+  - #6352 is a GPU-delegate leak (D2 L71). On the CPU pick, RECYCLE is insurance ⚠️ until a 75-min soak runs.
+
+### 3. Gate knobs
+| Knob | Ruled | Evidence and note |
+|---|---|---|
+| `AREA_MAX` | .6 | D2 L58. The one live sample reads area .38 at the laptop camera (ST L35), 63 % of the cap. ⚠️ A person who leans in can cross .6; the mask then holds, by design. |
+| `JUMP` | .5, the relative form | D2 L59. The form is confirmed: an absolute .5 cannot trip on a .12-area vanish (ST L36). |
+| `HOLD` | 6 masks | D2 L59. That is 205 ms at the measured 29.2 masks/s. The design's ≈250 ms is at 24. |
+| `SLOW` | .15 | D2 L59. It needs the RG16F path; `env.floatRT` is true on the M4 (worker context, L296). Without half-float, the L62 floor k ≥ .25 overrides it. |
+| `PRESENCE_FULL` | .08 | D3 L75. At area .38, `presence` saturates at 1. |
+
+- **No default changes.** No person footage exists, so no evidence argues for one. `KEEP` .85 and `feather` .15 stay too (D2 L60, L63). ⚠️ All five knobs are retuned on the booth clip (Tier 2).
+
+### 4. HEAVY numbers (M4)
+| Number | Measured | Line that CP1 holds |
+|---|---|---|
+| Main-thread ms per camera frame, p95 (upload, EMA pass, masked draw) | 0.9 for the pick, in two runs. ALIGN-on worker arms: 0.5–1.6. The raw upload alone (`base-cam`): 1.7. | ≤1 ms (K2) |
+| Inference in the worker, p50 / p95 | 10.1 / 11.2 ms. The p95 is 34 % of a 33.3 ms camera frame. Fake device and clip: 10–16 ms (ST L34). | p95 < 33.3 ms |
+| Late frames and governor scale | base-0: 2. The pick: 4 (F), 0 (ST L34). `scale` is 1 in every arm. | No more late frames than the same-session base (L324); scale 1.00 |
+| Start-up | `initMs` 202, `firstMaskMs` 51. Recycle swap init: 141–142 ms (ST L35). | — |
+
+- **Not measured** ⚠️. The probe overlay draws only the upload, the EMA pass and one masked draw (L290). The limiter's top-mip read (D2 L67), the composite's mask sample and the billed GPU ms of `native/camera` get their first numbers in the S1.3 and S1.6 A/B runs. Layer `res` .5 is the lever (plan L155).
+- **The live camera reads worse** ⚠️: worker 18.9 / 91.9 ms p50 / p95 at 1280×720@30 (ST L35), against 10.1 / 11.2 ms on the clip. The cause is unknown.
+- **D1 L45 is amended.** The hidden 1px `<video>` is part of the K1 floor. The `<video>` must be attached in a form that holds the source rate: S0.3 measured a visible element at min1s 26.3 (ST L34). ⚠️ Which form the audience cannot see and Chrome still serves at the full rate is a research gap.
+- **VideoFrame hygiene.** H `errors[4]` reads "A VideoFrame was garbage collected without being closed". One leak path exists (Variant B risk 2, L237). The CP1 line: 0 such warnings across a recycle, a mask user going on and off, and a camera switch.
+
+### 5. S1.2: keep and prune
+| Keep | Why |
+|---|---|
+| Selfie landscape on CPU, in the worker. The model is committed under `web/public/models/` (250 KB). | The pick. |
+| The `delegate: 'GPU'` init field (rows W-selfie-gpu and W-pose-gpu). No settings UI yet. | The PC fallback, if a PC CPU misses the inference line. The PC's K7 also needs both delegates (L316). |
+| PoseLandmarker lite, as a postinstall download, not committed | The K6 runner-up for a booth shot at 2–3 m (L335). Same runtime, no new dependency. Its 17.4 / 20.2 ms fits a camera frame. |
+| The `align` flag | The K4 lever while K4 is unmeasured. |
+| W-synthetic, base-0, base-cam | The control and the baselines: K3 is relative to base-0 (L324). W-synthetic is also the only deterministic flood and empty input for the gate (ST L36). |
+| `?camprobe` with `&moments`, `&soak`, `&recycle`, Latency, the sheet and the agreement | The instrument of every re-check in item 6. It goes when R0 is final. |
+
+| Prune | Evidence | Restore from |
+|---|---|---|
+| The main host: M-cpu, and M-same with its GL-state diff | K2: 7.9 and 14.1 ms against ≤2 ms | the S0.4 merge (after `b8e9673`) |
+| W-rvm, ORT-Web 1.31.1, the RVM fp16 ONNX (7.5 MB) | Tie-break 1, and a second runtime. 22.6 / 23.8 ms, `initMs` 607 (P). | the S0.5 merge (after `76393cf`) |
+| Multiclass | 150.9–165.4 ms p50: under 7 masks/s | the S0.4 merge |
+| `deeplab_v3` | 38.2–39.5 ms p50: under the 30 fps source. 41.3–42 ms p95: at K1's 24 fps line. | the S0.4 merge |
+| Selfie square | Same family as the pick, and no faster (9.4–12.8 ms p50). The 16:9 capture fits landscape (D1 L43). | the S0.4 merge |
+| Pose full | Same family as the kept lite model. It adds no fallback dimension yet. | the S0.4 merge |
+
+### 6. Re-check triggers (every ⚠️ above maps to a row)
+| Trigger | Re-graded | May move | On a fail |
+|---|---|---|---|
+| The booth clip lands (U0.1) | The K6 sheet: 8 moments × Selfie and Pose lite, both delegates. K7 and the Pose timing, with a person in frame. K1 on a non-looping source. | The five gate knobs. The model, if Pose lite wins K6. Both are Tier 2. | No arm passes K6 → L339: more light, a closer camera, OS effects. Then restore W-rvm and grade it. |
+| The PC run lands (U0.2–U0.4) | K1, K2, K3, K7, K4 from the latency PNGs, the 75-min soak (L329), `env.floatRT`, `env.webgpu`. | The PC delegate (a saved setting, L334). `RECYCLE`. | No arm passes K1–K3 → the L338 levers, in the listed order: 540p capture, layer `res`, the PSNR skip, a 15 fps mask (a spec change). K7 fails → GPU off for that vendor (L328). The worker does not start → restore the main host (L225), then back to design. |
+| The first live run (the user, on the real camera) | K4 by eye (below). One `?camprobe` W-selfie-cpu arm on the live camera: `inferMs.p95` against 33.3 ms, `maskFps.min1s` against 24. | `ALIGN`. `AREA_MAX`. | p95 over 33.3 ms → the L338 levers, 540p capture first. The mask freezes when the user leans in → raise `AREA_MAX`. |
+| A 75-min Mac soak (the lead, on a clip, unattended) | L329 on the CPU pick, without the recycle and then with it. | `RECYCLE`. | Growth → `RECYCLE` = half the minute where it starts. |
+| The CP1 close (plan L178) | K1 and K3 in the app loop. | The `<video>` form. `ALIGN`. | A fail on the Mac → `ALIGN` off (late 1 against 4, F), then the L338 levers. |
+
+- **K4 by eye** (the user, first live run, `native/camera` with `cut` person):
+  1. Clap once, then wave a hand fast. The silhouette edge must stay on the hand. That is ALIGN on.
+  2. If the picture feels late, open `?camprobe` on the live camera and press Latency. It cycles raw → ALIGN on → ALIGN off (plan L132). Late in raw too: the delay is the camera's or the OS's, and no setting here removes it. Late only with ALIGN on: the lead rules ALIGN off.
+  3. If the camera can see the screen, the Latency PNGs of that press give the K4 number (L317).
+
+### 7. Risks of ruling now (ranked, for the architecture-skeptic)
+1. **HIGH: the live-camera path is unmeasured, and its one sample is bad.** Every graded number comes from a clip. The live sample reads 91.9 ms p95 (ST L35), 8× the clip's 11.2 ms. At that p95 a slow mask spans almost three camera frames, so the silhouette can stutter on the user's first run.
+2. **HIGH: the quality is ungraded.** The model is a tie-break pick and the knobs are untuned defaults. On a far, dark or strobed booth shot the mask can flicker, freeze or lose the DJ. L335 already leans to Pose at 2–3 m. If both MediaPipe models fail K6, RVM returns only by a restore, and it needs WebGPU on the PC.
+3. **MEDIUM: K1 and K3 are not clean passes.** min1s reads 18.4–21.7 in every arm. In F the five ALIGN-on worker arms average 3.8 late frames and the other five average 1.2; S0.3 and W-rvm read 0. If either effect is real in the app loop, the CP1 close fails (0 late, ≥24 fps in every window). The unclosed VideoFrame (H) may sit on the same path.
+4. **MEDIUM: the PC is unknown.** The CPU pick rests on M4 speed. A PC that needs the GPU delegate meets K7 (#5133, #5428) and #6352, both unmeasured. The main-host fallback (L225) is pruned on Mac evidence alone.
+5. **LOW: RECYCLE and ALIGN rest on defaults.** The soak covers 3 min of 75. K4 is a computed 1–2 frames on top of an unmeasured base.
+
+### Research gaps (for the lead)
+- The HEAVY scene id is not in the JSON or in the R0 inputs. The PC run must hold the same scene (L301).
+- What `inferMs` covers (pre-scale, downsample, stats), and how long the live sample ran (ST L35).
+- Which `<video>` state restores the full rVFC rate, and whether an element under the stage canvas counts as visible. `scratchpad/cam/s0.3-visible.json` may answer it (not an R0 input, so not read). `MediaStreamTrackProcessor`, an element-free path for live tracks, is unresearched.
+- The size of PoseLandmarker lite, for the ≤10 MB commit budget (plan L149) if it is ever ruled. Also `soak.recycle` 2: a swap count or an interval? ST L35 reads 2 swaps.
