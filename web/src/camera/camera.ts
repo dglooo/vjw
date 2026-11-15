@@ -2,12 +2,10 @@
 // one hidden <video> attached to the document; each new frame (requestVideoFrameCallback) uploads into
 // cam.tex, and cam.xf (xf.ts) keeps the cover fit fresh. With a model running, one frame goes to the
 // model host (transferred, it closes it) and its ALIGN clone (D2) is uploaded when the mask returns, so
-// the silhouette never trails the hands. S0.4: the host is `worker` (the dedicated segment.worker) or
-// `main` (the SAME module behind the SAME messages — the M-* arms); main + GPU is M-same: MediaPipe on
-// our `stage` context, its GL-state changes diffed per inference (K5, camMask.glDiff). `recycle()` is
-// D2's make-before-break: a new worker inits beside the old, the swap at its first mask, the old
-// terminated. The upload rule is milkdrop/native.ts's copy(): texImage2D, then texSubImage2D while the
-// size holds.
+// the silhouette never trails the hands. The host is the dedicated segment.worker (the R0-Mac ruling; the
+// S0.4 main-thread host was pruned in S1.2a). `recycle()` is D2's make-before-break: a new worker inits
+// beside the old, the swap at its first mask, the old terminated. The upload rule is milkdrop/native.ts's
+// copy(): texImage2D, then texSubImage2D while the size holds.
 import { bindFramebufferInfo, createFramebufferInfo, createTexture, resizeFramebufferInfo } from 'twgl.js'
 import { fullscreenProgram, gl, stage } from '../gl/engine'
 import { coverFit } from './xf'
@@ -15,8 +13,7 @@ import { halfToU8 } from './metrics'
 import { gate } from './smooth'
 import type { Gate, MaskStats } from './smooth'
 import SegmentWorker from './segment.worker.ts?worker' // classic (G1): see vite.config's worker.format
-import { dispatch, setHostCanvas, setPreInfer } from './segment.worker' // the same module, main-thread host (S0.4)
-import type { FromWorker, ModelId, Post, ToWorker } from './segment.worker'
+import type { FromWorker, ModelId, ToWorker } from './segment.worker'
 
 export const cam = {
   tex: createTexture(gl, { minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE, auto: false }),
@@ -31,7 +28,7 @@ export const camSource = { kind: 'off' as 'off' | 'camera' | 'clip', settings: n
 camStat.path = new URLSearchParams(location.search).get('upload') === 'frame' ? 'frame' : 'video'
 
 /** The mask side (S0.2): the host's state, the EMA's current texture (≤320×180, frame-space uv) and the
- *  per-frame clocks. glDiff (M-same K5) and recycleCount (the soak's `recycle`) are S0.4. */
+ *  per-frame clocks. recycleCount (the soak's `recycle`) is S0.4. */
 export const camMask = {
   model: null as ModelId | null,
   ready: null as string | null,
@@ -42,12 +39,10 @@ export const camMask = {
   h: 0,
   floatEma: !!gl.getExtension('EXT_color_buffer_float'), // the engine's HALF rule: RG16F EMA, RGBA8 (k ≥ .25) otherwise (D2)
   stats: null as MaskStats | null,
-  workerMs: [] as number[], // the model's ms (host clock — the main thread's inference cost for M-*)
+  workerMs: [] as number[], // the model's ms (worker clock)
   mainMs: [] as number[], // upload + EMA (main clock)
   ts: [] as number[], // mask-arrival times (main clock) — the probe's maskFps
   inFlight: 0,
-  glDiff: null as Record<string, string> | null, // M-same K5: the distinct GL state changes MediaPipe left in our context
-  glDiffSamples: 0, // the inferences the K5 diff bracketed (an empty glDiff with 0 samples would be a false negative)
   recycleCount: 0, // the make-before-break swaps performed (the soak JSON's `recycle`)
 }
 /** ALIGN (design D2): on = the image waits for its mask (the clone uploaded when the mask returns);
@@ -83,12 +78,10 @@ void main() {
   outColor = vec4(v, 0.0, 0.0, 1.0);
 }`)
 
-// One model host (S0.4): the dedicated worker, or the same segment.worker module on the main thread.
-// `next` is the recycling worker (D2 make-before-break) — it inits beside `slot` and takes over at its
-// first mask. The main thread has one module instance, so there is never a `next` there.
+// One model host: the dedicated worker. `next` is the recycling worker (D2 make-before-break) — it inits
+// beside `slot` and takes over at its first mask.
 interface Slot {
-  kind: 'worker' | 'main'
-  w: Worker | null
+  w: Worker
   ready: boolean
   inFlight: number
   born: number // performance.now() at creation: the recycle trail times the init (a stalled next blocks the cadence)
@@ -97,46 +90,8 @@ let slot: Slot | null = null // serving
 let next: Slot | null = null // recycling in
 let pending: VideoFrame | null = null // the ALIGN clone (D2), uploaded when its mask returns
 let nextId = 0
-let startOpts: { model: ModelId; delegate: 'CPU' | 'GPU'; base: string; host: 'main' | 'worker' } = { model: 'selfie', delegate: 'CPU', base: '/', host: 'worker' }
-let glBefore: Record<string, unknown> | null = null // the M-same K5 before-snapshot (the preInfer hook)
-
-// K5 (M-same): the GL state, named against the objects we know, so the diff reads "which foreign objects
-// MediaPipe bound where" — the CP1 save/restore guard list.
-let camFbo: WebGLFramebuffer | null = null
-function nameTex(t: WebGLTexture | null): string {
-  if (!t) return 'null'
-  if (t === cam.tex) return 'cam'
-  if (t === rawMask.tex) return 'rawMask'
-  if (t === (emaA.attachments[0] as WebGLTexture) || t === (emaB.attachments[0] as WebGLTexture)) return 'ema'
-  return 'foreign'
-}
-function nameFbo(f: WebGLFramebuffer | null): string {
-  if (!f) return 'default(canvas)'
-  if (f === emaA.framebuffer || f === emaB.framebuffer) return 'ema'
-  if (f === camFbo) return 'camFbo'
-  return 'foreign'
-}
-function glState(): Record<string, unknown> {
-  const s: Record<string, unknown> = {
-    fbo: nameFbo(gl.getParameter(gl.FRAMEBUFFER_BINDING)),
-    blend: gl.isEnabled(gl.BLEND),
-    depth: gl.isEnabled(gl.DEPTH_TEST),
-    stencil: gl.isEnabled(gl.STENCIL_TEST),
-    scissor: gl.isEnabled(gl.SCISSOR_TEST),
-    colormask: gl.getParameter(gl.COLOR_WRITEMASK),
-    viewport: Array.from(gl.getParameter(gl.VIEWPORT) as Int32Array),
-    unpack: [gl.getParameter(gl.UNPACK_ALIGNMENT), gl.getParameter(gl.UNPACK_ROW_LENGTH), gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL)],
-  }
-  const saved = gl.getParameter(gl.ACTIVE_TEXTURE)
-  const tex: string[] = []
-  for (let u = 0; u < 8; u++) {
-    gl.activeTexture(gl.TEXTURE0 + u)
-    tex.push(nameTex(gl.getParameter(gl.TEXTURE_BINDING_2D)))
-  }
-  gl.activeTexture(saved)
-  s.tex = tex
-  return s
-}
+let startOpts: { model: ModelId; delegate: 'CPU' | 'GPU'; base: string } = { model: 'selfie', delegate: 'CPU', base: '/' }
+let camFbo: WebGLFramebuffer | null = null // readCam's attachment of cam.tex
 
 function onMask(role: 'slot' | 'next', s: Slot, m: Extract<FromWorker, { type: 'mask' }>) {
   const t0 = performance.now()
@@ -152,7 +107,7 @@ function onMask(role: 'slot' | 'next', s: Slot, m: Extract<FromWorker, { type: '
       pending.close()
       pending = null
     }
-    if (old?.kind === 'worker') old.w?.terminate()
+    old?.w.terminate()
     camMask.recycleCount++
     console.info(`cam: recycle ${camMask.recycleCount} — ${startOpts.model} ${startOpts.delegate} is live after ${Math.round(performance.now() - s.born)} ms init, the old host terminated`)
   }
@@ -189,7 +144,7 @@ function handleMsg(role: 'slot' | 'next', m: FromWorker) {
     else {
       // the recycle failed (init or first frames): drop the incoming, the old host keeps serving (no gap)
       console.error(`cam: recycle host failed: ${m.msg} — the old host keeps serving`)
-      if (s.kind === 'worker') s.w?.terminate()
+      s.w.terminate()
       next = null
     }
   } else onMask(role, s, m)
@@ -199,8 +154,7 @@ function sendFrame(s: Slot, f: VideoFrame) {
   const id = ++nextId
   s.inFlight = id
   if (s === slot) camMask.inFlight = id // live, not just at mask arrival: the soak's stuck watchdog reads it
-  if (s.kind === 'worker') s.w!.postMessage({ type: 'frame', id, frame: f } satisfies ToWorker, [f])
-  else void dispatch({ type: 'frame', id, frame: f }, mainPost)
+  s.w.postMessage({ type: 'frame', id, frame: f } satisfies ToWorker, [f])
 }
 
 /** A worker's onmessage, bound to its Slot — the role is derived from identity at message time.
@@ -214,68 +168,35 @@ function routeMsg(s: Slot) {
   }
 }
 
-// The main-thread host's reply: for M-same, the K5 diff of the GL state the inference just left behind.
-const mainPost: Post = (f) => {
-  if (f.type === 'mask' && glBefore) {
-    const after = glState()
-    const diff = camMask.glDiff
-    if (diff)
-      for (const k of Object.keys(glBefore)) if (JSON.stringify(glBefore[k]) !== JSON.stringify(after[k])) diff[k] = `${glBefore[k]} → ${after[k]}`
-    camMask.glDiffSamples++
-    glBefore = null
-  }
-  handleMsg('slot', f)
-}
-
-/** Start a model (the probe runs one at a time). `host: 'main'` runs the same module behind the same
- *  messages on the main thread; main + GPU is M-same (MediaPipe on our `stage` context, K5 diffed). */
+/** Start a model (the probe runs one at a time) in a fresh worker. */
 export interface StartOpts {
   delegate?: 'CPU' | 'GPU'
-  host?: 'main' | 'worker'
   base?: string
 }
 export function startModel(model: ModelId, opts: StartOpts = {}) {
   stopModel()
-  startOpts = { model, delegate: opts.delegate ?? 'CPU', base: opts.base ?? '/', host: opts.host ?? 'worker' }
+  startOpts = { model, delegate: opts.delegate ?? 'CPU', base: opts.base ?? '/' }
   camMask.model = model
-  const main = opts.host === 'main'
-  if (main && startOpts.delegate === 'GPU') {
-    // M-same (design Variant C): MediaPipe's GPU delegate binds OUR stage canvas → our WebGL2 context
-    setHostCanvas(stage)
-    setPreInfer(() => {
-      glBefore = glState()
-    })
-    camMask.glDiff = {}
-  }
-  const s: Slot = { kind: main ? 'main' : 'worker', w: null, ready: false, inFlight: 0, born: performance.now() }
+  const s: Slot = { w: new SegmentWorker(), ready: false, inFlight: 0, born: performance.now() }
   slot = s
-  const init: ToWorker = { type: 'init', model, delegate: startOpts.delegate, base: startOpts.base }
-  if (s.kind === 'worker') {
-    s.w = new SegmentWorker()
-    s.w.onmessage = routeMsg(s)
-    s.w.onerror = (e) => console.error('cam: slot worker died:', e.message) // a silent death = no more masks, no pageerror
-    s.w.postMessage(init)
-  } else void dispatch(init, mainPost)
+  s.w.onmessage = routeMsg(s)
+  s.w.onerror = (e) => console.error('cam: slot worker died:', e.message) // a silent death = no more masks, no pageerror
+  s.w.postMessage({ type: 'init', model, delegate: startOpts.delegate, base: startOpts.base } satisfies ToWorker)
 }
 
 /** D2 make-before-break (S0.4): a new worker initialised beside the old one, the swap at its first mask,
- *  the old one terminated. Worker host only — the main thread has one model instance per module. */
+ *  the old one terminated. */
 export function recycle() {
   if (!slot) return
-  if (slot.kind === 'main') {
-    console.info('cam: recycle skipped (main host: one model instance per thread)')
-    return
-  }
   if (next) {
     // a next that never becomes ready (and never errors) would stall the whole recycle cadence: drop it after 10 s
     if (performance.now() - next.born > 10000) {
       console.error(`cam: recycle host stalled in init (${Math.round(performance.now() - next.born)} ms) — dropped, the old host keeps serving`)
-      if (next.kind === 'worker') next.w?.terminate()
+      next.w.terminate()
       next = null
     } else return
   }
-  const s: Slot = { kind: 'worker', w: null, ready: false, inFlight: 0, born: performance.now() }
-  s.w = new SegmentWorker()
+  const s: Slot = { w: new SegmentWorker(), ready: false, inFlight: 0, born: performance.now() }
   s.w.onmessage = routeMsg(s)
   s.w.onerror = (e) => console.error('cam: recycle worker died:', e.message)
   s.w.postMessage({ type: 'init', model: startOpts.model, delegate: startOpts.delegate, base: startOpts.base } satisfies ToWorker)
@@ -289,9 +210,9 @@ export function recycle() {
  *  during the ~300 ms re-init). */
 export function forceRecycle() {
   if (!slot) return
-  console.error(`cam: forced re-init — ${startOpts.model} ${startOpts.delegate} ${startOpts.host} (the old host hung or died mid-frame)`)
+  console.error(`cam: forced re-init — ${startOpts.model} ${startOpts.delegate} (the old host hung or died mid-frame)`)
   if (next) {
-    if (next.kind === 'worker') next.w?.terminate()
+    next.w.terminate()
     next = null
   }
   slot.inFlight = 0
@@ -299,18 +220,12 @@ export function forceRecycle() {
   startModel(startOpts.model, startOpts) // stopModel() first: terminates the corpse, re-inits
 }
 
-/** Tear the host(s) down and forget the mask state (the S0.3 probe runs the arms one after another). The
- *  main instance is not `close`d: the next init on it closes the previous task, and a stop between inits
- *  would race an in-flight main dispatch (probe-only — the page frees it on unload). */
+/** Tear the host(s) down and forget the mask state (the S0.3 probe runs the arms one after another). */
 export function stopModel() {
-  for (const s of [slot, next]) {
-    if (s?.kind === 'worker') s.w?.terminate()
-  }
+  slot?.w.terminate()
+  next?.w.terminate()
   slot = null
   next = null
-  setHostCanvas(null)
-  setPreInfer(null)
-  glBefore = null
   camMask.model = null
   camMask.ready = null
   camMask.readyAt = null
@@ -319,8 +234,6 @@ export function stopModel() {
   camMask.stats = null
   camMask.w = camMask.h = 0
   camMask.inFlight = 0
-  camMask.glDiff = null
-  camMask.glDiffSamples = 0
   // recycleCount is NOT reset here: the probe resets it per arm/soak window (armSetup), so a forced
   // re-init (which routes through startModel → stopModel) cannot zero the soak's swap evidence
   if (pending) {
