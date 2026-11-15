@@ -39,7 +39,9 @@ function glSide() {
     raw: tex(),
     ema: pair(),
     ref: pair(),
-    // `ema = mix(ema, raw, k)`, one pass at mask res, only when a mask arrived (D2)
+    // `ema = mix(ema, tent(raw), k)`, one pass at mask res, only when a mask arrived (D2). The 3×3 tent (4 bilinear
+    // taps on the texel corners) is for every mask reader: one tap of the near-binary mask, through the readers'
+    // smoothstep, cuts a staircase of its texels (≈ 7 px at 1728 wide) and turns the model's unsure checker into blocks.
     emaPass: fullscreenProgram(`#version 300 es
 precision highp float;
 uniform sampler2D uRaw;
@@ -48,8 +50,9 @@ uniform float uK;
 uniform vec2 uRes;
 out vec4 outColor;
 void main() {
-  vec2 uv = gl_FragCoord.xy / uRes;
-  float v = mix(texture(uEma, uv).r, texture(uRaw, uv).r, uK);
+  vec2 uv = gl_FragCoord.xy / uRes, t = 0.5 / uRes;
+  float raw = 0.25 * (texture(uRaw, uv - t).r + texture(uRaw, uv + t).r + texture(uRaw, uv + vec2(t.x, -t.y)).r + texture(uRaw, uv - vec2(t.x, -t.y)).r);
+  float v = mix(texture(uEma, uv).r, raw, uK);
   outColor = vec4(v, 0.0, 0.0, 1.0);
 }`),
     // one fragment: the mean Rec. 709 luma of a 16×9 grid of cam.tex taps, and its slow EMA (no CPU readback, K-5)

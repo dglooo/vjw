@@ -1,5 +1,5 @@
 import type { Binding } from '../bind'
-import type { SceneDoc } from '../doc'
+import type { LayerDoc, SceneDoc } from '../doc'
 import { MILK_SCENES, spread } from '../milkdrop/presets'
 
 // own/bloom's VJW_BIND (plan_td_look.md S1.4), for the two scenes that end on it; ⚡ = VJW_FLASH, ≤3 onsets/s
@@ -1031,5 +1031,51 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
 ]
 
+// Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
+// fallback: no camera or nobody in frame leaves it playing (decision 6) — every person layer fades with presence and the
+// camera draws nothing without a picture. The bass class rides L0's `reese` binds; presence is never in an Auto-style map.
+const PRESENCE: Binding = { source: 'presence', amount: 1, attack: 0.3, release: 1.5, min: 0, max: 1 }
+const td = (id: string) => OWN.find((d) => d.id === id)!.layers[0]
+const OUTLINE: LayerDoc = {
+  gen: { ref: 'native/outline', bind: { // the def's bind (scenes/camera.ts), repeated
+    width: { source: 'sub', amount: 1, attack: 0.05, release: 0.4, min: 1.5, max: 4 }, // the sub thickens the line
+    glow: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 }, // ⚡ a kick flares the halo
+    hueStep: { source: 'snare', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }, // a snare steps the hue
+  } },
+  fx: [{ ref: 'own/bloom', bind: BLOOM }], blend: 'add', opacity: 1, speed: 1, res: 1, bind: { opacity: PRESENCE },
+}
+// dj-ghost's bloom without level ⚡ ← drop: on the whole bright figure it floods white (S2.3 fix 1). Not a lower max:
+// the flash gate fires at .5, so a level under it never rises (post.ts flashGate).
+const GHOST_BLOOM: Record<string, Binding> = { threshold: BLOOM.threshold, glow: BLOOM.glow, rampShift: BLOOM.rampShift }
+const DJ: readonly SceneDoc[] = [
+  {
+    v: 1, id: 'builtin:dj-over-tunnel', name: 'DJ over tunnel', star: true, // camera · Auto: reese (twirl; wobble under Dubstep)
+    layers: [
+      td('builtin:light-tunnel'),
+      { gen: { ref: 'native/camera' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1, mask: 'person', bind: { opacity: PRESENCE } }, // cut none: the mask cuts (D4)
+      OUTLINE,
+    ],
+  },
+  {
+    v: 1, id: 'builtin:dj-inside', name: 'DJ inside', star: true, // camera · Auto: reese (displace, turbulence; wobble under Dubstep)
+    layers: [
+      { ...td('builtin:td-feedback'), fx: td('builtin:td-feedback').fx.slice(0, 1), opacity: 0.5 }, // no bloom: the outline's
+      { ...td('builtin:swarm'), mask: 'person', bind: { opacity: PRESENCE } }, // the swarm inside your silhouette
+      OUTLINE,
+    ],
+  },
+  {
+    v: 1, id: 'builtin:dj-ghost', name: 'DJ ghost', star: true, // camera · Auto: reese (edge, spread; wobble under Dubstep)
+    layers: [
+      { ...td('builtin:edge-rings'), opacity: 0.6 }, // the rings dimmed: the screened ghost reads over them, not white
+      { // negative before rgba-delay: the ring writes alpha 1, so a − rgb after it would turn the black outside white
+        gen: { ref: 'native/camera', values: { cut: 1 } },
+        fx: [{ ref: 'own/negative', bind: { amount: { source: 'snare', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 } } }, td('builtin:rgba-delay').fx[0], { ref: 'own/bloom', bind: GHOST_BLOOM }],
+        blend: 'screen', opacity: 1, speed: 1, res: 1, bind: { opacity: PRESENCE },
+      },
+    ],
+  },
+]
+
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
-export const BUILTIN: readonly SceneDoc[] = spread(OWN, MILK_SCENES)
+export const BUILTIN: readonly SceneDoc[] = spread([...OWN, ...DJ], MILK_SCENES)
