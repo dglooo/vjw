@@ -9,6 +9,8 @@ declare module 'butterchurn' {
     render(opts: { audioLevels: Levels; elapsedTime: number }): void
     setRendererSize(width: number, height: number, opts: Size): void
     readonly internalCanvas: OffscreenCanvas // undocumented (G2): boot check
+    // undocumented (milk-sync): the levels its render() computes first (dist :11655), then reads into the equations
+    readonly renderer: { readonly audioLevels: { val: Float32Array; att: Float32Array; updateAudioLevels(fps: number, frame: number): void } }
   }
   const butterchurn: { createVisualizer(ctx: AudioContext, canvas: HTMLCanvasElement, opts: { width: number; height: number } & Size): Visualizer }
   export default butterchurn
