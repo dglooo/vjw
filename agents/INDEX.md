@@ -73,3 +73,5 @@
 - `agents/architecture-skeptic/skeptic_amen_shatter.md` — skeptic on Amen Shatter (2026-11-15): 3 HIGH (onset-confirm through kick dropouts, backward beat replay, drop cut / cold entry), 4 MED, 4 LOW. Current.
 - `agents/architecture-skeptic/skeptic_neuro_serpent.md` — skeptic on Neuro Serpent (2026-11-15): 1 HIGH (one-frame presence fires the drop cascade), 7 MED (MSAA resolve cost, overshading, clock, ripple strobe…), 4 LOW. Current.
 - `agents/test-architect/matrix_amen_shatter.md` — Amen Shatter test matrix (2026-11-15, 60 tests; S3 spike minimum in §4). Current.
+- `agents/test-architect/matrix_neuro_serpent.md` — Neuro Serpent test matrix (2026-11-15, 59 tests; spike order in §1; gaps G1–G10). Current.
+- `agents/audio-dsp/dsp_serpent_replay.md` — Serpent replay pre-step (2026-11-15): knobs, lines a–h (d–g fail: no absence detector), reeseLevel §4 record. Current.
