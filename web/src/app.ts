@@ -46,9 +46,12 @@ scenes.catalog = catalog
 let transition = 'own/crossfade' // the fades' look (design E7): a random pick per fade, never the same twice in a row
 setTransition(transition)
 // The playlist is the starred scenes (design E4): built-ins first, then the user's, in step with the library. It starts
-// with the built-ins; the user's join once IndexedDB is read.
-const director = createDirector(library.playlist(), { confidentTheta: CONFIDENT })
-library.onChange(() => director.setPlaylist(library.playlist()))
+// with the built-ins; the user's join once IndexedDB is read. With no camera playing, the scenes that need one sit out;
+// frame() re-sets it when the camera goes live or off.
+let playLive = cam.live // the camera state the director's playlist was made for
+const playlist = () => library.playlist((playLive = cam.live))
+const director = createDirector(playlist(), { confidentTheta: CONFIDENT })
+library.onChange(() => director.setPlaylist(playlist()))
 const loaded = library.load().catch((e: unknown) => console.error('library', e)) // no IndexedDB: the built-ins only
 // Compile-all at Start (design E2): once the audio context runs (the Start click, or at load when autoplay is allowed)
 // and the library is read, every program of the playlist compiles while the loop plays on.
@@ -347,6 +350,7 @@ function frame(now: number) {
     } else if (toConfident === null && firstOnset !== null && f.sync.confidence >= CONFIDENT) toConfident = t - firstOnset
     locked = f.sync.bpm > 0
   }
+  if (cam.live !== playLive) director.setPlaylist(playlist()) // the camera scenes join or leave the rotation
   const shot = director.update(f.time, f.sync) // rAF's now is on the performance.now() clock
   if (shot.to && shot.to !== fadingTo) {
     const others = transitions.filter((id) => id !== transition) // empty with one transition: it stays

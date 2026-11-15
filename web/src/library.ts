@@ -11,8 +11,9 @@ type Kv = Pick<Storage, 'getItem' | 'setItem'>
 const STARS = 'vjw.stars' // { [built-in id]: boolean }: the user's stars over the built-ins' own
 const FAVS = 'vjw.favs' // [block or scene id]: the editor library's favourites (2b S3.1), apart from the stars, not exported
 const PERSISTED = 'vjw.persisted' // set once navigator.storage.persist() is granted
-// Nothing starred: the built-ins starred by default, as the director needs a non-empty playlist (plan S2.1).
-const FALLBACK = BUILTIN.filter((d) => d.star).map((d) => d.id)
+const CAMERA = new Set(['native/camera', 'native/outline'])
+/** A camera node or a masked layer: with no camera its person layers fade out and it repeats its other layers. */
+const needsCamera = (d: SceneDoc) => d.layers.some((l) => l.mask || [l.gen, ...l.fx].some((n) => CAMERA.has(n.ref)))
 const isBuiltin = (id: SceneId) => id.startsWith('builtin:')
 const byCreated = (a: SceneDoc, b: SceneDoc) => (a.created ?? 0) - (b.created ?? 0)
 
@@ -103,10 +104,14 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
       kv.setItem(FAVS, JSON.stringify([...f]))
       notify()
     },
-    /** The autopilot's order: the starred built-ins as BUILTIN lists them, then the starred user scenes, oldest first. */
-    playlist(): SceneId[] {
-      const ids = [...builtin.values(), ...all()].filter((d) => d.star).map((d) => d.id)
-      return ids.length ? ids : FALLBACK
+    /** The autopilot's order: the starred built-ins as BUILTIN lists them, then the starred user scenes, oldest first.
+     *  `camLive` false: a scene that needs the camera sits out (user 2026-11-16: it played as a duplicate); a manual
+     *  pick (director.cut) still opens it. Nothing starred: the built-ins starred by default, as the director needs a
+     *  non-empty playlist (plan S2.1). */
+    playlist(camLive = true): SceneId[] {
+      const on = (d: SceneDoc) => d.star && (camLive || !needsCamera(d))
+      const ids = [...builtin.values(), ...all()].filter(on).map((d) => d.id)
+      return ids.length ? ids : BUILTIN.filter(on).map((d) => d.id)
     },
     /** Downloads every user scene as one `veejay-library-<local date>.json`. */
     exportLibrary() {
