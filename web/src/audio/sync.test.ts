@@ -264,22 +264,31 @@ describe('hold, confidence and hysteresis', () => {
 
 describe('snapOctave', () => {
   const dnb: [number, number] = [160, 185] // PRESETS.dnb.bpm
+  const techno: [number, number] = [118, 135] // PRESETS.techno.bpm
 
   test('below the band doubles, above it halves, inside it stays', () => {
-    expect(snapOctave(77, dnb)).toBe('double')
-    expect(snapOctave(159.9, dnb)).toBe('double')
-    expect(snapOctave(200, dnb)).toBe('halve')
+    expect(snapOctave(87, dnb)).toBe('double')
+    expect(snapOctave(91, dnb)).toBe('double')
     expect(snapOctave(370, dnb)).toBe('halve')
+    expect(snapOctave(256, techno)).toBe('halve')
     expect(snapOctave(174, dnb)).toBe('none')
   })
 
   test('the bounds are inclusive: sitting exactly on lo or hi is inside', () => {
     expect(snapOctave(160, dnb)).toBe('none')
     expect(snapOctave(185, dnb)).toBe('none')
+    expect(snapOctave(80, dnb)).toBe('double') // 160
   })
 
-  test('one step only: a ⅔-lag reading (116 vs 174) doubles, not walks', () => {
-    expect(snapOctave(116, dnb)).toBe('double')
-    expect(snapOctave(91, dnb)).toBe('double') // 182/2 is still below lo: one double, the relock settles the rest
+  // T2 (dsp_detector_2026-11-16 R3): the bridge used to move the grid out of every band: Sili 116.3 → 232.3 under
+  // techno, Bad Co 128.3 → 256.9 under DnB, 1991 173.8 → 87.1 under techno. The range-folded reading relocks those.
+  test('a move whose result lies outside the band too stays: 116 under techno or DnB, 77, 159.9 or 200 under DnB', () => {
+    expect(snapOctave(116, techno)).toBe('none') // 232
+    expect(snapOctave(173.8, techno)).toBe('none') // 86.9
+    expect(snapOctave(116, dnb)).toBe('none') // 232, the ⅔-lag grid
+    expect(snapOctave(128.3, dnb)).toBe('none') // 256.6
+    expect(snapOctave(77, dnb)).toBe('none') // 154
+    expect(snapOctave(159.9, dnb)).toBe('none') // 319.8
+    expect(snapOctave(200, dnb)).toBe('none') // 100
   })
 })

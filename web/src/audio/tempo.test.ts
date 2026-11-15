@@ -226,4 +226,18 @@ describe('setRange and families (design C3)', () => {
     expect(s140[0]).toBeLessThan(0.3)
     expect(t128[0]).toBe(0)
   })
+
+  // T1 (dsp_detector_2026-11-16 R2): a two-step's kick → kick lags (1.5 and 2.5 beats: 116 and 69.6 at 174) sit in the
+  // techno and dubstep windows; DnB's own window only gets the kick → snare beat. Those windows get at most DnB's evidence.
+  test('families: a two-step at 174 (kicks on 1 and the and-of-3, snares on 2 and 4) reads T_dnb ≥ T_dubstep, T_techno', () => {
+    const b = 60 / 174
+    const hits: Hit[] = []
+    for (let t = 0.2; t < 10; t += 4 * b) for (const [k, odf] of [[0, 13], [1, 10], [2.5, 13], [3, 10]]) hits.push({ t: t + k * b, strength: 3.5, odf })
+    const src = createTempoSource()
+    feed(src, hits, 10)
+    const [d, u, t] = src.families([dnb, dubstep, techno])
+    expect(d).toBeGreaterThan(0.2) // measured .35; before T1 dubstep read .41 and techno .60
+    expect(d).toBeGreaterThanOrEqual(u)
+    expect(d).toBeGreaterThanOrEqual(t)
+  })
 })
