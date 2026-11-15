@@ -59,6 +59,7 @@
 - `agents/architecture-skeptic/skeptic_rave_lasers.md` — skeptic on the Rave Lasers design (2026-11-15): 1 HIGH (shared flick blanks 1-beam emitters → cage strobes), 6 MED (cost basis, drop bench, layer clock, tone-map crossings, burst gate slot, exit fade), 4 LOW. Current.
 - `agents/test-architect/matrix_rave_lasers.md` — Rave Lasers test strategy + matrix (2026-11-15, 46 tests; S3 spike minimum marked; bench holds the drop via climax-unbound doc). Current.
 - `agents/planner/plan_rave_lasers.md` — Rave Lasers build plan (2026-11-15, 88 lines): S5.1–S5.4 from the user-approved spike, M, S6, S7; lead rulings LR-1..LR-4; gate record. Current.
+- `agents/backlog.md` — user feature backlog (2026-11-16): TD gaps (MIDI, video source, text layer, Three.js 3D, WebGPU, Syphon/Spout/NDI, mapping, set list, transitions, OSC), track recognition on line-in, Rekordbox capture, audio player, animals, next-project shaders. Current.
 - `agents/hardening.md` — reliability-debt ledger for Tier S (fast) ships (2026-11-16): one line per scene with what is not proven. Current.
 - `agents/planner/plan_amen_shatter.md` — Amen Shatter build plan (2026-11-15, 88 lines): S5.1 merge-ready on the spike branch, M, S5.2 running-pass rows, S5.3 stills guards, S6, S7; LR-1..LR-8 + lead rulings 2026-11-15; gate record. Current.
 - `agents/test-architect/coverage_amen_shatter.md` — Amen Shatter S4 coverage (2026-11-15, 169 lines): 60/60 IDs mapped, LR-5 7 ACCEPT + T-V10 REJECT, T-C15 P1–P4 numbers, B1/B2 closed by the lead (T-G7 row, T-A1r G-6 numbers); S4 PASS by lead ruling. Current.
