@@ -1,7 +1,7 @@
 // The segmentation side (plan_camera S0.2 + S0.4, design Variant B): the only place a model lives. A
 // model is one function, no classes. The module runs in the dedicated worker only (classic, G1; the R0-Mac
 // ruling: worker host). Models (S1.2a prune, design § Ruling §5): `synthetic` (the deterministic
-// ellipse — the plumbing check), `selfie` (the pick: landscape, input 256×144) and `pose-lite`
+// ellipse — the plumbing check), `selfie` (the pick: landscape, input 144×256) and `pose-lite`
 // (PoseLandmarker lite, the K6 runner-up: `outputSegmentationMasks`, the FULL frame — no pose in the frame
 // yields a 1×1 empty mask, so a person-free clip measures degenerate, not broken). The `delegate: 'GPU'`
 // init field stays (the PC fallback). VIDEO mode with a monotonic stamp; the result is area-downsampled to
