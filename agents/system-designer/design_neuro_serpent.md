@@ -319,3 +319,13 @@ Terms: `x` = `presence` / `ref`. `on` = the Schmitt state of `x`. `h` = on-time 
 - **Autopilot cut on a real drop (Shatter A-3) applies here too:** the Serpent uses the same cold-entry rule — every rise detector starts at 0, so a first frame with `drop` ≥ .5 is T0 and commits the whip from any phase under the one-whip latch; C13/C14 also run held under LOCK.
 - **Sub Focus 146.6 s vs the 147.9 s audit drop:** UNKNOWN until the user's ear check (already pending); the replay reports it, no rule change.
 - The Node replay pre-step (audio-dsp, with the `reeseLevel` light SDLC §4) sets the knob values before the spike.
+
+## Lead ruling — recheck round 2 (2026-11-15) + variant pick
+Source: `agents/architecture-skeptic/skeptic_neuro_serpent.md` § Recheck: S-4..S-12 CLOSED; S-1 (replay a+b, c+d, + a 16th-snare-roll lead-in), S-2 (line e), S-3 (lines f+g) CLOSED-PENDING-REPLAY; new N-1 HIGH, N-2/N-3 MED, N-4/N-5 LOW. The lead adopts the skeptic's fixes (no waiver; the replay + Vitest prove them):
+- **N-1 (HIGH):** after a `drop` commit, the absence accumulator `a` holds at 0 until the first presence commit or for 16 bars, whichever comes first → a reese entering 3 s after a sub-led drop never fires a second whip. V7 at 174 BPM proves it.
+- **N-2 (MED):** `a` := 0 on every frame with `h` ≥ COMMIT (not only at the commit event) → a 1/16-chopped groove bass does not re-coil 2 bars into a drop. New Vitest V10.
+- **N-3 (MED):** the frozen `ref` thaws: after 16 bars without a presence commit, `ref` decays toward the running bass peak with τ = 8 bars → a quieter next track / a pulled master still confirms. Vitest V11 + replay line h (the 3 dumps chained at −6 and −12 dB).
+- **N-4 (LOW):** a size guard before twgl `resizeFramebufferInfo` (engine.ts L85 pattern) — resize only when the size changes.
+- **N-5 (LOW):** replay line f passes a whip whose truth absence is ≥ 1.13 bars (the W floor whips a real drop-out by design).
+- **Replay pre-step (audio-dsp, before the spike):** §R3 replay with the roll tag, the synthetic `arr`, line h, and the truth threshold fixed BEFORE the sweep; plus the `reeseLevel` light SDLC §4 (fixture before/after diff 0, r table). It sets θ_on/θ_off/REF_MIN/COMMIT and closes S-1..S-3 numerically.
+- **VARIANT PICK: A** (tube mesh + depth renderbuffer in the native's own HDR FBO; the spike A/Bs mode M vs mode S first). Lead pick per the never-ask rule; logged in `agents/STATE.md`.
