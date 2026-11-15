@@ -205,6 +205,24 @@ test('nothing starred: the playlist falls back to the built-ins starred by defau
   expect(lib.playlist()).toEqual(STARRED)
 })
 
+test('no live camera: a scene that needs one (a camera node or a masked layer) sits out of the playlist (user 2026-11-16)', async () => {
+  const DJ = ['builtin:dj-over-tunnel', 'builtin:dj-inside', 'builtin:dj-ghost']
+  expect(STARRED).toEqual(expect.arrayContaining(DJ))
+  const rest = STARRED.filter((id) => !DJ.includes(id))
+  const plain = scene('x').layers[0]
+  const lib = await loaded()
+  await lib.put(scene('u-outline', { star: true, created: 1, layers: [plain, { ...plain, gen: { ref: 'native/outline' } }] }))
+  await lib.put(scene('u-mask', { star: true, created: 2, layers: [{ ...plain, mask: 'background' }] }))
+  await lib.put(scene('u-plain', { star: true, created: 3 }))
+  expect(lib.playlist(false)).toEqual([...rest, 'u-plain'])
+  expect(lib.playlist(true)).toEqual([...STARRED, 'u-outline', 'u-mask', 'u-plain']) // the camera plays: they join again
+  expect(lib.playlist()).toEqual(lib.playlist(true))
+  const only = await loaded() // only camera scenes starred, no camera: the default stars that need none, never empty
+  for (const id of rest) only.setStar(id, false)
+  expect(only.playlist(true)).toEqual(DJ)
+  expect(only.playlist(false)).toEqual(rest)
+})
+
 test('corrupt built-in stars in localStorage: the built-ins keep their own', async () => {
   for (const bad of ['{ oops', 'null', '5', '{"builtin:tunnel":0}']) {
     const b = browser()
