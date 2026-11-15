@@ -11,7 +11,7 @@ import { createTempoSource } from './audio/tempo'
 import { createStyle, styleIn, type StyleOut } from './audio/style'
 import { type Hit } from './audio/drums'
 import { createRemap, restyle, sources, type Sources } from './bind'
-import { camGate } from './camera/camera'
+import { camGate, tick as camTick } from './camera/camera'
 import { presence } from './camera/smooth'
 import { createDirector } from './director'
 import { tiles } from './editor/tiles'
@@ -353,6 +353,7 @@ function frame(now: number) {
   const styled = restyle(src, rmFrom, rmTo, rmW, styledOut)
   src.build = arrangeOut.build // S5.3: expose the arrangement as binding sources (the UI lists them in S6.3)
   src.drop = arrangeOut.drop
+  camTick(now) // plan_camera S1.2b (D1): the camera host's life + its GL (upload, EMA, ref), before render() and presence
   src.presence = presence(camGate.area) // S1.1 (design D3): the gate's held area — stable through flood/strobe; rests at 0 with no camera
   f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)
   if (arrangeOut.fired !== null) dropAt = f.time

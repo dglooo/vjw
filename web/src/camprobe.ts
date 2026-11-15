@@ -15,11 +15,12 @@
 // through the camera). At the end: JSON + sheet downloads, the frozen CP0 shape.
 import { director, governor } from './app'
 import {
-  allowCameras, cam, camAlign, camGate, camMask, camSource, camStat, forceRecycle, listCameras, readCam, readMask, recycle, selectCamera, startModel, stopModel, video,
+  allowCameras, cam, camAlign, camGate, camHost, camMask, camSource, camStat, listCameras, readCam, readMask, selectCamera, video,
 } from './camera/camera'
 import { fullscreenProgram, gl, stage } from './gl/engine'
 import { centroidDelta, iou, minWindowFps, p50, p95 } from './camera/metrics'
 import type { ModelId } from './camera/segment.worker'
+import * as users from './camera/users' // users.use(): a bare use() reads as React's hook to the rules-of-hooks lint
 import { store } from './store'
 
 const params = new URLSearchParams(location.search)
@@ -29,8 +30,22 @@ const CLIP = params.get('clip') // a same-origin URL fetched on boot (the harnes
 const ARMS = (params.get('arms') ?? 'base-0,base-cam,W-synthetic,W-selfie-cpu,W-selfie-cpu-align-off,W-selfie-gpu,W-pose-cpu,W-pose-gpu').split(',').filter(Boolean)
 const MOMENTS = (params.get('moments') ?? '12,35').split(',').map((s) => +s).filter((n) => n > 0)
 const SOAK_MIN = +(params.get('soak') ?? 0)
-const RECYCLE_MIN = +(params.get('recycle') ?? 0) // D2 make-before-break cadence during the soak (S0.4)
+const RECYCLE_MIN = +(params.get('recycle') ?? 0) // D2 make-before-break cadence (S0.4): tick swaps at this host age
 const ARM_SECONDS = 60
+if (RECYCLE_MIN) camHost.recycleMs = RECYCLE_MIN * 60000
+
+// The arm's mask user (S1.2b): tick() spawns the host while one is held and retires it after the release.
+let release: (() => void) | null = null
+function startModel(model: ModelId, delegate: 'CPU' | 'GPU' = 'CPU') {
+  Object.assign(camHost, { model, delegate })
+  release ??= users.use(true)
+}
+async function stopModel() {
+  release?.()
+  release = null
+  for (let i = 0; i < 100 && camMask.model !== null; i++) await sleep(50) // tick retires it on the next rAF
+  camMask.workerMs.length = camMask.mainMs.length = camMask.ts.length = 0
+}
 
 interface ArmSpec {
   name: string
@@ -191,10 +206,10 @@ function overlay() {
     if (deltas.length > 300) deltas.shift()
   }
   lastT = now
-  if (camMask.tex && cam.w && cam.h) {
+  if (camMask.model && cam.w && cam.h) {
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    drawCutout({ uCam: cam.tex, uMask: camMask.tex, uRes: [stage.width, stage.height], uXf: cam.xf })
+    drawCutout({ uCam: cam.tex, uMask: cam.mask, uRes: [stage.width, stage.height], uXf: cam.xf })
     gl.disable(gl.BLEND)
   } else if (cam.w && cam.h) drawCam({ uSrc: cam.tex, uRes: [stage.width, stage.height], uXf: cam.xf }) // raw until the first mask
   drawLat()
@@ -208,15 +223,13 @@ function overlay() {
     const up = camStat.ms.length ? `median ${q(camStat.ms, 0.5)!.toFixed(2)} p95 ${q(camStat.ms, 0.95)!.toFixed(2)} ms / frame` : 'no uploads yet'
     const mk = camMask
     const maskLine = mk.model
-      ? `mask ${mk.model} ${mk.ready ?? 'waiting for the worker…'}${mk.error ? ` ERROR: ${mk.error}` : ''} · ema ${mk.w}×${mk.h} ${mk.floatEma ? 'RG16F' : 'RGBA8 (k ≥ .25)'} k=gate (area ${camGate.area.toFixed(3)} held ${camGate.held}) · ALIGN ${camAlign.on ? 'on' : 'off'}`
+      ? `mask ${mk.model} ${mk.ready ?? 'waiting for the worker…'}${cam.error ? ` ERROR: ${cam.error}` : ''} · ema ${mk.w}×${mk.h} ${mk.floatEma ? 'RG16F' : 'RGBA8 (k ≥ .25)'} k=gate (area ${camGate.area.toFixed(3)} held ${camGate.held}) · ALIGN ${camAlign.on ? 'on' : 'off'}`
       : null
-    const maskStat =
-      maskLine && mk.stats
-        ? ` · area ${mk.stats.area.toFixed(3)} · centroid (${mk.stats.cx.toFixed(3)}, ${mk.stats.cy.toFixed(3)}) · box [${mk.stats.box.map((v) => v.toFixed(2)).join(', ')}]`
-        : ''
+    const st = cam.stats
+    const maskStat = maskLine ? ` · area ${st.area.toFixed(3)} · centroid (${st.cx.toFixed(3)}, ${st.cy.toFixed(3)}) · box [${st.box.map((v) => v.toFixed(2)).join(', ')}]` : ''
     const maskMs =
       maskLine && mk.workerMs.length
-        ? ` · worker ${q(mk.workerMs, 0.5)!.toFixed(1)}/${q(mk.workerMs, 0.95)!.toFixed(1)} ms p50/p95 · main ${q(mk.mainMs, 0.95)!.toFixed(2)} ms p95 · in-flight ${mk.inFlight}`
+        ? ` · worker ${q(mk.workerMs, 0.5)!.toFixed(1)}/${q(mk.workerMs, 0.95)!.toFixed(1)} ms p50/p95 · main ${q(mk.mainMs, 0.95)?.toFixed(2)} ms p95`
         : ''
     probe.canRun = !!env.stage && (camSource.kind === 'clip' || camSource.kind === 'camera') && !probe.running
     probe.audioSource = store.getSnapshot().source
@@ -255,7 +268,7 @@ async function waitUntil(pred: () => boolean, ms: number, what: string) {
   const t0 = performance.now()
   while (performance.now() - t0 < ms) {
     if (pred()) return
-    if (camMask.error) throw new Error(`${what}: worker error: ${camMask.error}`)
+    if (cam.error) throw new Error(`${what}: worker error: ${cam.error}`)
     await sleep(100)
   }
   throw new Error(`${what}: timed out after ${ms} ms`)
@@ -272,9 +285,8 @@ const r2 = (x: number | null) => (x === null ? null : Math.round(x * 100) / 100)
 
 /** Put the arm's source + model + ALIGN in place; the 60 s window starts only at steady state. */
 async function armSetup(spec: ArmSpec): Promise<{ initMs: number; firstMaskMs: number } | null> {
-  stopModel()
-  camMask.recycleCount = 0 // the swap count belongs to this arm/soak window (not to stopModel: a forced
-  // re-init mid-soak would otherwise zero the soak's evidence)
+  await stopModel()
+  camMask.recycleCount = 0 // the swap count belongs to this arm/soak window
   if (spec.align !== null) camAlign.on = spec.align
   if (!spec.camera) {
     if (camSource.kind !== 'off') await selectCamera('off')
@@ -287,7 +299,7 @@ async function armSetup(spec: ArmSpec): Promise<{ initMs: number; firstMaskMs: n
   }
   if (!spec.model) return null
   const t0 = performance.now()
-  startModel(spec.model, { delegate: spec.delegate })
+  startModel(spec.model, spec.delegate)
   await waitUntil(() => camMask.ready !== null, 90000, `init ${spec.model}`)
   const initMs = performance.now() - t0
   await waitUntil(() => camMask.ts.length > 0, 30000, `first mask ${spec.model}`)
@@ -373,21 +385,20 @@ function agreeSample(spec: ArmSpec) {
     w: mk.w,
     h: mk.h,
     data: mk.data,
-    area: camMask.stats?.area ?? 0,
+    area: cam.stats.area,
   })
 }
 
 /** &soak=<min>: one arm (the first of &arms, default W-selfie-cpu) for N minutes, logged per minute.
- *  &recycle=<min> (S0.4, D2 make-before-break): a new worker inits beside the old at each cadence, the
- *  swap at its first mask, the old terminated — `recycle` in the JSON counts the swaps actually made. */
+ *  &recycle=<min> (S0.4, D2 make-before-break): tick() starts a new worker beside the old at that host age, the
+ *  swap at its first mask, the old retired — `recycle` in the JSON counts the swaps actually made. The stuck
+ *  watchdog is tick's (K-1, S1.2b). */
 async function soakArm(spec: ArmSpec, minutes: number): Promise<{ recycle: number | null; perMin: { min: number; maskFps: number | null; inferP95: number | null; late: number }[] }> {
   await armSetup(spec)
   governor.reset()
   await sleep(2000)
   const t0 = performance.now()
   const perMin: { min: number; maskFps: number | null; inferP95: number | null; late: number }[] = []
-  const recycleCap = RECYCLE_MIN ? Math.floor((minutes * 60000 - 1) / (RECYCLE_MIN * 60000)) : 0
-  let recycleAt = -1e9 // a failed recycle retries after 5 s (the old host keeps serving meanwhile)
   let lastDrops = 0
   let bTs: number[] = [], bWm: number[] = []
   let ti = camMask.ts.length, wi = camMask.workerMs.length
@@ -404,30 +415,9 @@ async function soakArm(spec: ArmSpec, minutes: number): Promise<{ recycle: numbe
     bTs = []
     bWm = []
   }
-  let stuckId = 0, stuckAt = 0
   const poll = setInterval(() => {
     bTs.push(...camMask.ts.slice(ti)); ti = camMask.ts.length
     bWm.push(...camMask.workerMs.slice(wi)); wi = camMask.workerMs.length
-    // a frame stuck in flight is a host that hung or died (inference never returns): 3 s is 250× the
-    // worst round trip — force a re-init so the feed (and the soak evidence) survives
-    if (camMask.inFlight) {
-      if (camMask.inFlight !== stuckId) {
-        stuckId = camMask.inFlight
-        stuckAt = performance.now()
-      } else if (performance.now() - stuckAt > 3000) {
-        console.error(`soak: frame ${stuckId} stuck in flight ${Math.round(performance.now() - stuckAt)} ms — forcing a re-init`)
-        stuckId = 0
-        forceRecycle()
-      }
-    } else stuckId = 0
-    if (recycleCap) {
-      const due = Math.min(Math.floor((performance.now() - t0) / (RECYCLE_MIN * 60000)), recycleCap)
-      if (camMask.recycleCount < due && performance.now() - recycleAt > 5000) {
-        recycleAt = performance.now()
-        log(`soak: recycle ${camMask.recycleCount + 1}/${recycleCap} — a new worker inits beside the old (D2 make-before-break)`)
-        recycle()
-      }
-    }
     while (perMin.length < Math.floor((performance.now() - t0) / 60000) && perMin.length < minutes) flush()
   }, 500)
   log(`${spec.name}: soak ${minutes} min (recycle ${RECYCLE_MIN ? `every ${RECYCLE_MIN} min` : 'off'})`)
@@ -436,7 +426,7 @@ async function soakArm(spec: ArmSpec, minutes: number): Promise<{ recycle: numbe
   bTs.push(...camMask.ts.slice(ti))
   bWm.push(...camMask.workerMs.slice(wi))
   while (perMin.length < minutes) flush()
-  log(`soak: done — swaps ${camMask.recycleCount}${recycleCap ? ` (due ${recycleCap})` : ''} · ${JSON.stringify(perMin)}`)
+  log(`soak: done — swaps ${camMask.recycleCount} · ${JSON.stringify(perMin)}`)
   return { recycle: RECYCLE_MIN ? camMask.recycleCount : null, perMin }
 }
 
@@ -551,10 +541,10 @@ async function sheetPass(specs: ArmSpec[]): Promise<HTMLCanvasElement | null> {
         sctx.globalAlpha = 1
       }
       sctx.fillStyle = '#8f8'
-      sctx.fillText(`${spec.name} · t=${sec}s${t !== sec ? ` (mod ${video.duration.toFixed(1)})` : ''} · area ${(camMask.stats?.area ?? 0).toFixed(3)}`, x0, y0 + CH + 15)
+      sctx.fillText(`${spec.name} · t=${sec}s${t !== sec ? ` (mod ${video.duration.toFixed(1)})` : ''} · area ${cam.stats.area.toFixed(3)}`, x0, y0 + CH + 15)
     }
   }
-  stopModel()
+  await stopModel()
   return sheet
 }
 
@@ -590,7 +580,7 @@ async function latencyRun() {
       ['align-off', false],
     ]
     for (const [mode, align] of modes) {
-      stopModel()
+      await stopModel()
       if (align === null) log('latency raw (no model)')
       else {
         camAlign.on = align
