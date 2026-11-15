@@ -10,7 +10,7 @@ const STROBE = 0.15 // the strobe's peak (full heat, full confidence), on top: g
 const EIGHTHS = 0.5 // heat from which the strobe pulses on 1/8 notes instead of 1/4
 const SURE = 0.3 // sync confidence below this: no strobe (sync's LOCK)
 const FLASH = 0.8 // the drop flash's peak white mix
-const TAU = 0.2 // s, its decay
+const TAU = 0.1 // s, its decay: ≤ .25 at +200 ms, ≤ .10 at +250 ms (RL fix 1, F3; design_rave_lasers.md L207's app-wide knob)
 const STEP = 1 / 255 // one 8-bit step: less is 0, so a cold frame is the identity and the engine skips the pass
 const WCAG = 3 // WCAG 2.3.1: flashes never above this many/s
 
