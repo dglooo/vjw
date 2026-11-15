@@ -60,10 +60,13 @@ const DEFAULTS: ArrangeOpts = {
 const SLOW = 1 // τ of the sparse detector's EMA of `low`
 const CUT_TAU = 0.1 // τ of the cut test's EMA of `low` (D1)
 // D3′ (lead pick 2026-11-16): the autopilot cut waits this long past a fire and needs low / G averaged ≥ `back` over the
-// wait, so a bass stab cuts nothing (19-track replay: false cuts 13 → 9). `fired`, so `drop`, stays instant.
-// ponytail: one wait per fire, no re-try (the fire's refractory runs): a drop that opens with a ≤ .15 s hit and then a bass
-// gap loses its cut (Monty 165.6, Place 2b 54.3: cut hits 33 → 31); re-wait on the next kick-backed return if that matters
+// wait, so a bass stab cuts nothing (19-track replay: false cuts 13 → 9). `fired`, so `drop`, stays instant. A failed wait
+// waits again on the next kick-backed return within RETRY s of the fire: a drop that opens with a ≤ .15 s hit and then a
+// bass gap still cuts (Monty 165.6, Place 2b 54.3: cut hits 31 → 33, no false cut added).
+// ponytail: a bass return later than RETRY s after the fire loses its cut, and a stab chain within RETRY s cuts on a later
+// stab (none on the 19-track replay); gate the re-wait on the return's ratio if that shows up
 const CONFIRM = 0.5
+const RETRY = 4
 // an armed breakdown stays armed this long after sparse ends: a loud drop ends it before `sustain`, and a bass-carrying
 // build can sit between the break and its drop (ruling: ≈ 7 s, from Rumble's profile; was 1). Ceiling: a drop that the
 // refractory blocks fires as it ends if still in GRACE, up to 8 s late
@@ -97,7 +100,7 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
   let [kickAt, kickBeat] = [-Infinity, null as number | null]
   let [rise, riseKick] = [NaN, false] // when the current return started (NaN = none), and whether near a kick
   let [firedAt, conf, heatAt, warm] = [-Infinity, 0, 0, 0] // warm = build smoothed (heat away from a drop)
-  let [waitSum, waitN] = [NaN, 0] // the last fire's cut confirmation: Σ low / G over its frames (NaN = no cut waiting)
+  let [cutUntil, waitAt, waitSum, waitN] = [-Infinity, 0, NaN, 0] // the last fire's cut: a wait may start until cutUntil; the running wait's start, Σ low / G, frames (NaN = none)
 
   return {
     update(x) {
@@ -152,13 +155,18 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
         if (c >= o.minConf) {
           out.fired = conf = c
           // `armed` ends: its peak doesn't carry into a break that starts within GRACE (7b); `rise`: the refractory covers it
-          ;[firedAt, heatAt, warm, out.build, intro, armed, waitSum, waitN] = [x.now, out.heat, 0, 0, false, -Infinity, 0, 0]
+          ;[firedAt, heatAt, warm, out.build, intro, armed, cutUntil, waitSum] = [x.now, out.heat, 0, 0, false, -Infinity, x.now + RETRY, NaN]
           slow = Math.max(slow, g) // the drop ends the breakdown
         }
       }
+      // a wait starts on a kick-backed return (the fire's own frame first) while the fire's cut is open
+      if (Number.isNaN(waitSum) && x.now <= cutUntil && riseKick && x.now - rise >= o.sustain) [waitAt, waitSum, waitN] = [x.now, 0, 0]
       if (!Number.isNaN(waitSum)) {
-        ;[waitSum, waitN] = [waitSum + x.low / g, waitN + 1] // from the fire's own frame
-        if (x.now - firedAt >= CONFIRM) [out.confirmed, waitSum] = [waitSum / waitN >= o.back ? conf : null, NaN]
+        ;[waitSum, waitN] = [waitSum + x.low / g, waitN + 1] // from the wait's own first frame
+        if (x.now - waitAt >= CONFIRM) {
+          const ok = waitSum / waitN >= o.back
+          ;[out.confirmed, waitSum, cutUntil] = [ok ? conf : null, NaN, ok ? -Infinity : cutUntil] // a cut closes it
+        }
       }
       const since = x.now - firedAt
       out.drop = conf * Math.exp(-since / RELEASE)

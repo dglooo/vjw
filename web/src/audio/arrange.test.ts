@@ -235,6 +235,21 @@ test('D3′: the fire stays instant; its cut comes 0.5 s later, only if low / G 
   }
 })
 
+test('D3′ re-wait: a drop that opens with a 0.15 s hit and a bass gap (Monty 165.6, Place 2b 54.3) cuts on its kick-backed return within 4 s of the fire', () => {
+  for (const [gap, cuts] of [[1, 1], [4.5, 0]] as const) { // Monty: a ≈ 1 s gap at .01–.02 G
+    const r = run(song(GROOVE, BREAK, { ...DROP, s: 0.15 }, { ...BREAK, s: gap }, DROP))
+    const [f] = fires(r)
+    const c = r.filter((x) => x.confirmed !== null)
+    expect(fires(r), `gap ${gap} s`).toHaveLength(1) // one instant fire, at the hit
+    expect(c, `gap ${gap} s`).toHaveLength(cuts)
+    if (!cuts) continue
+    expect(c[0].confirmed).toBe(f.fired)
+    const back = 40 + 0.15 + gap // the return's first kick
+    expect(c[0].now - back).toBeGreaterThanOrEqual(0.1 + 0.5) // `sustain`, then the 0.5 s wait
+    expect(c[0].now - back).toBeLessThan(0.1 + 0.5 + 2 / 60)
+  }
+})
+
 test('confidence rises with the break length, the return ratio, beat alignment and the build', () => {
   // no floor: the formula; cuts off unless a part says so (a deep break would read as a full build: see below)
   const raw = (...parts: Part[]) => fires(run(song(...parts.map((p) => ({ cuts: false, ...p }))), { minConf: 0 })).map((f) => f.fired!)
