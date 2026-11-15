@@ -1029,6 +1029,32 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Neuro Serpent (W4 S3 spike, design_neuro_serpent.md Variant A + the L223 fallback; creative_neuro_serpent.md): one
+  // open chrome band-tube coiling in lit fog; the build winds it, the drop whips it. The binds repeat the def
+  // (scenes/serpent.ts); `presence` stays bound to reeseLevel for the absence wind (flag OFF).
+  {
+    v: 1, id: 'builtin:neuro-serpent', name: 'Neuro Serpent', star: true, // dnb
+    layers: [{
+      gen: {
+        ref: 'native/serpent',
+        values: { orbit: 1, yaw: 30, pitch: 12, zoom: 1 },
+        bind: {
+          bass: { source: 'band8', amount: 1, attack: 0.06, release: 0.3, min: 0, max: 1 }, // B: twist, ripple, flex, scale
+          presence: { source: 'reeseLevel', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the absence wind (OFF)
+          reese: { source: 'reese', amount: 1, attack: 0.03, release: 0.2, min: 0, max: 1 }, // the burst (the larger)
+          wobble: { source: 'wobble', amount: 1, attack: 0.03, release: 0.2, min: 0, max: 1 },
+          sub: { source: 'sub', amount: 1, attack: 0.04, release: 0.4, min: 0, max: 1 }, // the thickness
+          kick: { source: 'kick', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // a ring pair per rise
+          snare: { source: 'snare', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // a snap per rise
+          hats: { source: 'hats', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // glints + the shiver
+          build: { source: 'build', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the floor of W
+          drop: { source: 'drop', amount: 1, attack: 0, release: 0.4, min: 0, max: 1 }, // the whip (ungated)
+          flare: { source: 'drop', amount: 1, attack: 0, release: 0.4, min: 0, max: 1 }, // ⚡ the after-flare
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
