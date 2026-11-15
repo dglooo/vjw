@@ -59,6 +59,7 @@
 - **Coders:** fixtures `scratchpad/fx_audio/*.wav`; lanes: A 5175, B 5176 (5173 = foreign Docker; 5174 free); restart Vite after `web/src` edits; harnesses in the main checkout `scratchpad/ed/` (the worktree has none — scratchpad is git-ignored); pgrep patterns bracketed (`[s]1.0-…`).
 - **Servers (user rule 2026-11-07): after EVERY merge the lead audits `lsof -iTCP:5173-5176` + `ps` for vite — no idle dev servers. The lead's own server is started on demand for a check and killed after; worktrees are removed at the merge (the user was tired of port/PID sprawl).
 - **Infra:** graphify post-commit hook; session-only crons; Telegram Agent `run_in_background: true`; plugins superpowers, ponytail, graphify, context7 (read-only key; use sparingly).
+- **Real tracks (user 2026-11-15):** `tracks/` (git-ignored): Kanine Feel The Vibration, Sub Focus Elevate, Andy C Who Like The What (dnb), Skrillex Rumble (dubstep), Bicep Glue Kanine bootleg (.wav). **User-facing stills sheets + look tuning use them**; deterministic gates (r, bench, flatness, edges) stay on `scratchpad/fx_audio/*-arr.wav`.
 - **Prefs:** Russian; artifacts in English; never ask (take the recommended option, report the pick); REC low; no Docker; AI reviews = leads to verify.
 
 ## TAIL
