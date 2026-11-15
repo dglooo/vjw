@@ -8,6 +8,7 @@
 // milkdrop/native.ts's copy(): texImage2D, then texSubImage2D while the size holds.
 import { bindFramebufferInfo, createFramebufferInfo, createTexture, resizeFramebufferInfo } from 'twgl.js'
 import { fullscreenProgram, gl, stage } from '../gl/engine'
+import { store, type UiSnapshot } from '../store'
 import { RECYCLE_MS, retryAt, stalled, STUCK_MS, type HostClock } from './host'
 import { halfToU8 } from './metrics'
 import { gate } from './smooth'
@@ -83,6 +84,19 @@ export const cam = {
   error: null as string | null, // the last host failure, null after the next good mask (K-1)
   w: 0,
   h: 0,
+}
+const CAM_KEY = 'vjw.camera' // the saved camera id, as audio/input.ts's 'vjw.device' (decision 7)
+
+/** The overlay's camera line (S1.4): cam.live, cam.video and cam.error into the UI store, + p. store.patch skips a
+ *  no-change, so onMask may call it per mask. */
+function publish(p: Partial<UiSnapshot> = {}) {
+  store.patch({ camLive: cam.live, camVideo: cam.video, camError: cam.error, ...p })
+}
+
+/** The main UI's "Video" switch (Decision 1): off hides the picture, the masks keep working. Session-only. */
+export function setVideo(on: boolean) {
+  cam.video = on
+  publish()
 }
 /** Upload path A/B (D1): &upload=frame|video, per-frame ms of the last ~10 s, cam.tex upload times (the probe's
  *  "the image holds"), rVFC captureTime presence (env). */
@@ -176,6 +190,7 @@ function fail(h: Host, why: string, now: number) {
       pending = null
     }
     cam.error = why
+    publish()
     failAt = now
     camMask.model = camMask.ready = camMask.readyAt = null
   } else next = null // RECYCLE's incoming: the old host keeps serving
@@ -261,6 +276,7 @@ function onMask(h: Host, m: MaskMsg) {
   h.masked = true
   if (h !== slot) return // RECYCLE's incoming: tick swaps it in; this first mask is dropped
   cam.error = null // a good mask (K-1)
+  publish()
   failAt = null
   fresh?.frame?.close() // two masks inside one rAF: the newer wins
   fresh = { mask: m, frame: pending } // ALIGN (D2): the image waits for its mask
@@ -428,13 +444,14 @@ function upload() {
 }
 
 /** K-4: no source. resetMask() + every track stopped + srcObject null + cam.live false (the host retires at the next
- *  tick) + no image (cam.w 0). Callers: the start of every selectCamera, and track onended (the device unplugged). */
+ *  tick) + no image (cam.w 0). Callers: selectCamera (its start, a failed pick) and track onended (unplugged). */
 function resetStream() {
   resetMask()
   ;(video.srcObject as MediaStream | null)?.getTracks().forEach((t) => t.stop())
   video.srcObject = null
   cam.live = false
   cam.w = cam.h = 0 // nothing camera-shaped is drawn (the probe's base-0); the next frame reallocates
+  publish()
 }
 
 // requestVideoFrameCallback has no cancel API, so a stale chain cannot be un-armed — only made inert.
@@ -463,16 +480,42 @@ function arm() {
  *  in audio/input.ts's listDevices. */
 export async function listCameras() {
   const all = await navigator.mediaDevices.enumerateDevices()
-  return all.filter((d) => d.kind === 'videoinput' && d.label)
+  const list = all.filter((d) => d.kind === 'videoinput' && d.label)
+  store.patch({ cameras: list.map((d) => ({ id: d.deviceId, label: d.label })) }) // the picker's options (S1.4)
+  return list
 }
 
-/** Permission prompt only; the picker (CP1) then shows labeled devices. */
+/** Permission prompt only; the picker then shows labeled devices. A refusal reads on the camera line (D7). */
 export async function allowCameras() {
-  const ms = await navigator.mediaDevices.getUserMedia({ video: true })
-  ms.getTracks().forEach((t) => t.stop())
+  try {
+    const ms = await navigator.mediaDevices.getUserMedia({ video: true })
+    ms.getTracks().forEach((t) => t.stop())
+  } catch (e) {
+    publish({ camFail: failName(e) })
+    return
+  }
+  await listCameras()
 }
 
+/** D7: a failed pick or allow is logged and named on the camera line, never thrown. */
+function failName(e: unknown) {
+  console.warn('cam: camera unavailable:', e)
+  return (e as Error)?.name || 'Error'
+}
+
+/** Start (decision 7): the saved camera reopens, unless a source was picked before Start. A camera that is gone
+ *  reads OverconstrainedError on the camera line. */
+export async function startCamera() {
+  const id = localStorage.getItem(CAM_KEY)
+  if (id && !store.getSnapshot().camera) await selectCamera(id)
+}
+
+let selGen = 0 // K-7: selectCamera's generation, as rvcGen is the rVFC chain's
+/** K-7: the last call wins. Each call begins with resetStream(); after each await a superseded call stops its own
+ *  tracks and resolves, its errors (the AbortError of an interrupted play()) dropped. A failure never throws (D7): its
+ *  name reads on the camera line. A device pick is saved (reopened at Start, decision 7); Off forgets it. */
 export async function selectCamera(sel: string | 'off' | File) {
+  const gen = ++selGen
   resetStream()
   video.pause()
   if (clipUrl) {
@@ -485,28 +528,51 @@ export async function selectCamera(sel: string | 'off' | File) {
   camSource.kind = 'off'
   camSource.settings = null
   camSource.caps = null
-  if (sel === 'off') return
-  if (sel instanceof File) {
-    camSource.kind = 'clip'
-    clipUrl = URL.createObjectURL(sel)
-    video.loop = true
-    video.src = clipUrl
-  } else {
-    mirror = true
-    const ms = await navigator.mediaDevices.getUserMedia({
-      video: { deviceId: { exact: sel }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-    })
-    const t = ms.getVideoTracks()[0]
-    t.onended = resetStream
-    camSource.kind = 'camera'
-    camSource.settings = t.getSettings()
-    camSource.caps = t.getCapabilities()
-    console.info('camera', camSource.settings) // as selectDevice logs its track's settings
-    video.srcObject = ms
+  publish({ camera: sel === 'off' ? null : sel instanceof File ? { kind: 'file', name: sel.name } : { kind: 'device', id: sel }, camFail: null })
+  if (sel === 'off') return localStorage.removeItem(CAM_KEY)
+  try {
+    if (sel instanceof File) {
+      camSource.kind = 'clip'
+      clipUrl = URL.createObjectURL(sel)
+      video.loop = true
+      video.src = clipUrl
+    } else {
+      mirror = true
+      const ms = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: sel }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+      })
+      if (gen !== selGen) return ms.getTracks().forEach((t) => t.stop()) // superseded: its own tracks stop
+      const t = ms.getVideoTracks()[0]
+      t.onended = () => {
+        if (gen !== selGen) return // a replaced source's late event
+        resetStream() // unplugged: the camera layer goes empty, presence 0
+        publish({ camera: null })
+      }
+      camSource.kind = 'camera'
+      camSource.settings = t.getSettings()
+      camSource.caps = t.getCapabilities()
+      console.info('camera', camSource.settings) // as selectDevice logs its track's settings
+      video.srcObject = ms
+    }
+    await video.play()
+  } catch (e) {
+    if (gen !== selGen) return
+    resetStream() // a play() failure after getUserMedia would leave its tracks live
+    publish({ camera: null, camFail: failName(e) })
+    return
   }
-  await video.play()
+  if (gen !== selGen) return
   cam.live = true
+  publish()
   arm()
+  if (sel instanceof File) return
+  localStorage.setItem(CAM_KEY, sel)
+  await listCameras() // the labels appear once a camera is granted (as selectDevice's listDevices)
+}
+
+if (DOM) {
+  navigator.mediaDevices.addEventListener('devicechange', listCameras) // the picker follows plugs (S1.4)
+  void listCameras()
 }
 
 /** S0.3 probe readbacks (sheet + latency clock): top-first RGBA8 of the uploaded camera image,
