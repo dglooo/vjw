@@ -38,7 +38,7 @@ export const MAX_INST = 256
 export const FIG = { sheet: 0, fan: 1, grid: 2, cage: 3, crowd: 4 } as const // sheet = Sheet + Lone beams; crowd = Beam-to-crowd
 
 // Knobs ⚠️ (spike values, the S3 look; design SR-3 / SR-4 / SR-6).
-const L0_K = 1.24 // the frame's total light at power 1, per frame px² (rig units): a loud Fan skirt peak ≈ m 1
+const L0_K = 0.45 // the frame's total light at power 1, per frame px² (rig units): a loud Fan skirt peak ≈ m .4, its core ≈ 1.1
 const SUM_RATE = 0.4 // /s, log: the light state's slew (≤ 7.1 % per 8th at 174 BPM)
 const EPS = 1e-3 // the light state's floor (N-2: the log step can leave 0)
 const W_MAX = 0.35 // a beam's relative weight cap (share ÷ lit beams): the capped regime (cage, Lone beams, thin Grid)
@@ -398,8 +398,8 @@ export function createRig(seed = 1): Rig {
 const f4 = (x: number) => x.toFixed(4)
 const HAZE_NEAR_N = 140 // the near halo: a 3×3 tent at the mip level of ≈ this many rows (Isobars')
 const HAZE_FAR_N = 64 // the far haze: ≈ 64 rows, σ 3 texels ≈ 52 px (design P2–P3: a lone beam's haze < .1 % at 200 px)
-const HAZE_NEAR = 0.9 // knob ⚠️: the near halo per unit of `haze`
-const HAZE_FAR = 2.2 // knob ⚠️: the lit air between the beams per unit of `haze`
+const HAZE_NEAR = 0.35 // knob ⚠️: the near halo per unit of `haze`
+const HAZE_FAR = 1.1 // knob ⚠️: the lit air between the beams per unit of `haze`
 const EXPOSURE = 1
 const SMOKE_DIV = 8 // the smoke field's resolution divisor
 // The colours (creative §2.5), skirt / hot core per tint: green · white · red. Green is the design's (.1, 1, .38)
