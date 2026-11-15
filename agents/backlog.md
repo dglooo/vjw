@@ -1,12 +1,26 @@
 # Backlog — VeeJay Wizard (user-facing features)
 
 ## TL;DR
-- The user's feature backlog, one item per line, owned by the lead. Not ordered yet: the user sets the order.
+- The user's feature backlog, owned by the lead. **Order set by the user 2026-11-16** (§ Order); the sections below hold the item details.
 - Sources: the TouchDesigner gap list (lead, 2026-11-16, checked against the code), the user's requests of 2026-11-16 (track recognition, Rekordbox capture), earlier queued items.
 - Debt from fast ships lives in `agents/hardening.md`, not here.
 
 ## Freshness
 - 2026-11-16, lead. Code facts: no `requestMIDIAccess` in `web/src`; video only from the camera (`camera/camera.ts`); `MediaRecorder` in `recorder.ts`; LFO sources exist (`bind.ts`); 13 transitions (`editor/blocks.ts:23`); engine = WebGL2 + twgl.js 7 + Butterchurn 3 beta 5, 100 % TypeScript.
+
+## Order (user 2026-11-16, voice message; transcription read by the lead)
+1. **MilkDrop on our audio system** (running; `sync` knob keeps the old path open for quick rework).
+2. **New MilkDrop presets.**
+3. **Audio in: line-in = the same signal decoding as the file** (§ Audio input).
+4. **WebGPU: millions of particles, fluids.**
+5. **3D on Three.js: models incl. animals, chrome reflections.**
+6. **Text layer** — just a text layer.
+7. **MIDI controller** — basic, without extras. ⚠️ Assumption, needs confirmation: the transcription reads «мобиль»; the lead reads it as MIDI (the first item of the gap list).
+8. **Video files as a source.**
+9. **Set list / timeline** — lay the groundwork only («закладываем»).
+10. **Rekordbox audio capture** — the last stage.
+- **Dropped for now:** output to other apps (Syphon / Spout / NDI) — «в пизду их пока»; multi-screen / mapping and OSC (not named, parked with it). More transitions: not named, parked.
+- Not in the order, queued separately: the audio player (file transport), the animals rework (the user writes the tasks), shaders from the user's next project.
 
 ## Queued (user asked earlier)
 - **Audio player for the file input** (Tier 2): scrub bar, play/pause, ±10 s on the existing `new Audio()` (`audio/input.ts:70`); beat grid and drop state survive a seek.
