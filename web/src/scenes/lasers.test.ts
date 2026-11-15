@@ -412,6 +412,18 @@ test('T-C11s: 5 s of zero features on a running grid: 0 chase steps, 0 Pops, 0 b
   }
 })
 
+test('S5.3 truth: `pops` counts the Pop edges, `bursts` the Grating bursts as drawn (the live r-pass reads them)', () => {
+  const kick = beats(0, 4 * BAR), snare = beats(BEAT, 4 * BAR, 2 * BEAT)
+  const fr = drive(loudFrames(4), (t) => ({ v: { ...base(), open: 0.5, pop: env(t, kick), snap: env(t, snare, 0.11) } }))
+  const rays = (f: Fr) => { for (let o = 0; o < f.buf.length; o += STRIDE) if (f.buf[o + 10] === 2) return true; return false }
+  fr.forEach((f, i) => {
+    const p = fr[i - 1]
+    expect(f.s.pops - (p?.s.pops ?? 0), `pop @${f.t.toFixed(3)}`).toBe(+(env(f.t, kick) >= 0.5 && !(p && env(p.t, kick) >= 0.5)))
+    expect(f.s.bursts - (p?.s.bursts ?? 0), `burst @${f.t.toFixed(3)}`).toBe(+(rays(f) && !(p && rays(p))))
+  })
+  expect([fr.at(-1)!.s.pops, fr.at(-1)!.s.bursts]).toEqual([kick.length, snare.length])
+})
+
 test('T-R2: every instance starts at an emitter (≤ 4 px; each beam extended backward too); ≥ 2 lit groups per tile; one set of points per layout', () => {
   const T = tiles()
   expect(Object.values(T).map((f) => f.s.figure)).toEqual([FIG.sheet, FIG.fan, FIG.cage, FIG.crowd, FIG.grid, FIG.grid, FIG.grid]) // the moments S1–S7
