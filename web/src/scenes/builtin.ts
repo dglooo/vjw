@@ -950,6 +950,30 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Scene wave 3, S3.3 (CP3): Orb — DnB. TD's displaced point sphere: 60k static unit vectors, no TF state.
+  // The sub swells and roughens the surface (amp, freq), each kick runs a shock shell across it (spike), the
+  // reese corkscrews it (twist), and the drop shatters the radius and it falls back (shatter, plan § Scenes
+  // row 10). The binds repeat the def (scenes/orb.ts; ⚠️ assumptions until the CP3 demo); the bass class
+  // rides `reese` (twist): Auto-style moves it to wobble under Dubstep.
+  {
+    v: 1, id: 'builtin:orb', name: 'Orb', star: true, // DnB · Auto: reese (twist; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'native/orb',
+        bind: {
+          amp: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.08, max: 0.35 }, // the sub swells and roughens the sphere
+          spike: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 0.5 }, // each kick runs a shock shell across it
+          twist: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0, max: 1 }, // Auto-style's one: the reese corkscrews it
+          freq: { source: 'build', amount: 1, attack: 1, release: 0.3, min: 1.5, max: 5 }, // the build roughens the swell
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.58, max: 0.8 }, // a snare walks the colour
+          sparkle: { source: 'hats', amount: 1, attack: 0, release: 0.08, min: 0, max: 0.5 }, // hats twinkle the points
+          shatter: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop shatters and rebuilds it
+          yaw: { source: 'lfo', shape: 'saw', rate: 0.05, amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // one orbit per 20 s (the saw wraps: continuous)
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
   // Scene wave 3, S2.1 (CP2): the techno laser — four truss emitters, green + white eight-beam fans, a 16-step chase
   // that moves the light without changing its amount (own/laser-grid's header: the odd-`hits` bijection). Brightness
   // on a hit only through the ⚡ pair (the file's VJW_FLASH, gated ≤ 3/s). The binds repeat the file's VJW_BIND
