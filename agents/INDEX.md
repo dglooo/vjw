@@ -70,6 +70,7 @@
 - `agents/research/_adhoc/scene_origins_2026-11-15.md` — editor library origin map (108 defs, 88 scenes → MilkDrop / TD / ISF donors / Ours / Camera) + the mechanical rule. Fresh.
 - `agents/planner/plan_editor_origins.md` — Tier-2 plan (2026-11-15): editor library grouped by origin (Mine · Ours · TouchDesigner · MilkDrop · ISF/Shadertoy · Camera), one coder step. Current.
 - `agents/audio-dsp/dsp_dnb_wave4.md` — W4 signal feasibility (2026-11-15, 120 lines): Serpent on band6/8 + procedural ripple; Shatter on the beat grid + a scene-side bar-phase histogram; latency, build/drop limits; no analyser change needed. Fresh.
+- `agents/audio-dsp/trackview_2026-11-16.md` — track viewer (`scratchpad/trackview/trackview <track>` → PNG + JSON) + 19-track drop map (2026-11-16): drops 26/49 hit (53 %), 13 false; first drops 7/19; tuning set 10/14 vs new 16/35; DnB tempo/genre errors on 6/18. Current.
 - `agents/creative-director/creative_neuro_serpent.md` — Neuro Serpent creative spec (2026-11-15, 147 lines): fluted chrome band-tube, B/W signals, drop cascade, 10 stills, C1–C18, SG1–SG4. Current.
 - `agents/creative-director/creative_amen_shatter.md` — Amen Shatter creative spec (2026-11-15, 149 lines): 16×10 wrapped lattice, kick bands / snare strips / hat cells on the 16th grid, plate generator, drop hold-then-shatter, 10 stills. Current.
 - `agents/system-designer/design_amen_shatter.md` — Amen Shatter architecture (2026-11-15, 234 lines): pure CPU core + shatterState; A one-pass inline plate (rec.), B HDR plate + blit stamps, C ring (rejected). Current.
