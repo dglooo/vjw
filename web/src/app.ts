@@ -11,7 +11,7 @@ import { createTempoSource } from './audio/tempo'
 import { createStyle, styleIn, type StyleOut } from './audio/style'
 import { type Hit } from './audio/drums'
 import { createRemap, restyle, sources, type Sources } from './bind'
-import { cam, camGate, camGpuMs, camMask, readCam, readMask, selectCamera, tick as camTick } from './camera/camera'
+import { cam, camGate, camGpuMs, camMask, readCam, readMask, selectCamera, startCamera, tick as camTick } from './camera/camera'
 import { presence } from './camera/smooth'
 import { count as camUsers } from './camera/users'
 import { createDirector } from './director'
@@ -19,7 +19,7 @@ import { tiles } from './editor/tiles'
 import type { FrameInput } from './frame'
 import { catalog, transitions } from './fx/catalog'
 import { gpuMs, render, scenes, setAudio, setOutput, setTransition, stage } from './gl/engine'
-import { flashOnsets, live, prepare, warm } from './gl/live'
+import { builds, flashOnsets, live, prepare, warm } from './gl/live'
 import { postFor } from './gl/post'
 import { library } from './library'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
@@ -52,10 +52,13 @@ library.onChange(() => director.setPlaylist(library.playlist()))
 const loaded = library.load().catch((e: unknown) => console.error('library', e)) // no IndexedDB: the built-ins only
 // Compile-all at Start (design E2): once the audio context runs (the Start click, or at load when autoplay is allowed)
 // and the library is read, every program of the playlist compiles while the loop plays on.
-const warmUp = () =>
+// plan_camera S1.4 (decision 7): the saved camera reopens at the same moment.
+const warmUp = () => {
+  void startCamera()
   void loaded
     .then(() => warm(library.playlist(), (n, of) => store.patch({ compiling: `compiling ${n}/${of}` })))
     .then(() => store.patch({ compiling: null }))
+}
 if (ctx.state === 'running') warmUp()
 else ctx.addEventListener('statechange', warmUp, { once: true })
 const tempo = createTempoSource()
@@ -199,7 +202,7 @@ if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: fl
 // plan_camera CP1 (S1.2b): the camera's harness hooks — mask users, SegmentWorker constructions, frames posted to a
 // host; also on the probe and bench pages (their harnesses read it, camGpuMs under ?bench)
 if (DEBUG || /camprobe|bench/.test(location.search))
-  Object.assign(window, { __cam: { cam, users: camUsers, hosts: () => camMask.hosts, frames: () => camMask.frames, readCam, readMask, select: selectCamera, gpuMs: camGpuMs } })
+  Object.assign(window, { __cam: { cam, users: camUsers, hosts: () => camMask.hosts, frames: () => camMask.frames, builds, readCam, readMask, select: selectCamera, gpuMs: camGpuMs } })
 
 /** S2.5: the worklet's config for the active preset (T1: frame() moves `configured` to it, picked or detected). Sent
  * only when it really changed (ids + Hz, drums and floors too) — a sens or auto toggle must not re-send. `rev` grows

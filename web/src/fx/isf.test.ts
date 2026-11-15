@@ -1,7 +1,9 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { SOURCE_IDS } from '../bind'
 import { BUILTIN } from '../scenes/builtin'
 import { pairsByTarget, parseIsf, sizeExpr } from './isf'
+
+vi.mock('../gl/engine', () => ({})) // scenes/camera's import takes the page's canvas + WebGL; the defs need neither
 
 const BODY = '\nvoid main() {\n  gl_FragColor = IMG_THIS_PIXEL(inputImage);\n}\n'
 const isf = (header: object, body = BODY) => `/*${JSON.stringify(header)}*/${body}`
@@ -211,12 +213,19 @@ describe('parseIsf', () => {
   })
 
   // TD look (plan_td_look.md conventions): the own files its steps add, one entry per step.
-  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient', 'julia', 'phaser', 'diff-feedback', 'stars', 'change-color', 'rgb-contrast', 'color-threshold', 'dent', 'emboss', 'sharpen', 'checker', 'hsv-blur', 'rgba-blur', 'laser-grid'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1; julia: wave-2 S1.2; phaser, diff-feedback, stars: wave-2 S1.3; change-color: wave-2 S3.1 (the q5/q6 donor-verification contingency); rgb-contrast, color-threshold, dent: wave-2 S3.3 (q2, q3, q7); emboss, sharpen, checker: wave-2 S3.4 (q9, q8, q10); hsv-blur, rgba-blur: wave-2 S3.5 (q11, the pair); laser-grid: wave-3 S2.1
+  const NEW_OWN = ['td-feedback', 'edge-rings', 'bloom', 'light-tunnel', 'radial-blur', 'flow-smear', 'reaction-diffusion', 'bars', 'mosaic', 'led-grid', 'superformula', 'polar', 'gradient', 'julia', 'phaser', 'diff-feedback', 'stars', 'change-color', 'rgb-contrast', 'color-threshold', 'dent', 'emboss', 'sharpen', 'checker', 'hsv-blur', 'rgba-blur', 'laser-grid', 'negative'] // bars, mosaic, led-grid: 2b S4.1–S4.3; superformula, polar, gradient: wave-2 S1.1; julia: wave-2 S1.2; phaser, diff-feedback, stars: wave-2 S1.3; change-color: wave-2 S3.1 (the q5/q6 donor-verification contingency); rgb-contrast, color-threshold, dent: wave-2 S3.3 (q2, q3, q7); emboss, sharpen, checker: wave-2 S3.4 (q9, q8, q10); hsv-blur, rgba-blur: wave-2 S3.5 (q11, the pair); laser-grid: wave-3 S2.1; negative: camera S2.2
   test.each(NEW_OWN)('own/%s parses, binds only known sources, and binds every VJW_FLASH input from 0', (stem) => {
     const files = import.meta.glob('./own/*.fs', { query: '?raw', import: 'default', eager: true })
     const d = parseIsf(files[`./own/${stem}.fs`] as string, stem) // throws on a flash name that is not an input
     for (const b of Object.values(d.bind ?? {})) expect(SOURCE_IDS, stem).toContain(b.source)
     for (const n of d.flash ?? []) expect(d.bind?.[n]?.min, `${stem} ${n}`).toBe(0)
+  })
+
+  // camera S2.1 (matrix U4): the camera natives' defs, by the same rule.
+  test.each(['camera', 'outline'] as const)('native/%s binds only known sources, and binds every flash input from 0', async (k) => {
+    const d = (await import('../scenes/camera'))[k]
+    for (const b of Object.values(d.bind ?? {})) expect(SOURCE_IDS, k).toContain(b.source)
+    for (const n of d.flash ?? []) expect(d.bind?.[n]?.min, `${k} ${n}`).toBe(0)
   })
 
   test('own/rgb-contrast + color-threshold + dent: the S3.3 binds (the reversed cR, the sub tR, the kick width)', () => {

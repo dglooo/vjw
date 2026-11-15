@@ -48,6 +48,11 @@
   border-radius: 6px;
 }
 
+.bar button[aria-pressed='false'] {
+  text-decoration: line-through; /* "Video" off: the camera picture is hidden */
+  color: #8888;
+}
+
 .hint {
   opacity: 0.55;
 }

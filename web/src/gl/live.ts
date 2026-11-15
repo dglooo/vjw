@@ -10,7 +10,9 @@
 import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { ctx } from '../audio/input'
 import { evaluate, level, type Binding, type BindState, type Sources } from '../bind'
-import { CODE_MAX, defaults, type Blend, type LayerDoc, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
+import { cam } from '../camera/camera'
+import * as users from '../camera/users' // users.use(): a bare use() reads as React's hook to the rules-of-hooks lint
+import { CODE_MAX, defaults, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
 import * as edit from '../edit'
 import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
@@ -36,6 +38,8 @@ export interface Live {
   addFx(layer: number, at?: number): void; removeFx(layer: number, i: number): void; moveFx(layer: number, from: number, to: number): void
   setGen(layer: number): void; addLayer(at?: number): void; removeLayer(i: number): void; moveLayer(from: number, to: number): void
   setBlend(layer: number, b: Blend): void
+  /** camera CP1: the layer's mask; none → a mode takes the layer's camera user, a mode → none releases it. */
+  setMask(layer: number, m: MaskMode | undefined): void
   /** Preview only (design S2), never saved: a muted layer draws nothing. */
   mute(layer: number, on: boolean): void
   /** A bound input's last evaluated value (`key`: `name`, or `name.i` for one component); undefined when unbound. */
@@ -48,8 +52,9 @@ export interface Live {
  *  size the targets were fitted for. `frames`: a shader's FRAMEINDEX, its own draws so far (0 on its first). */
 interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number }
 /** A built layer: its nodes (a null one blacks the layer out), its live opacity/speed (bindable) and res, its clock,
- *  the reused FrameInput copy a native reads, its own target once `res` < 1, and the editor's mute (black too). */
-interface Layer { blend: Blend; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null; muted: boolean }
+ *  the reused FrameInput copy a native reads, its own target once `res` < 1, and the editor's mute (black too). `mask`
+ *  (camera CP1): the doc's; `release` gives back the camera user a masked layer holds (K-3), idempotent. */
+interface Layer { blend: Blend; mask?: MaskMode; release: () => void; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null; muted: boolean }
 /** `y`: the value it evaluated last (Live.read). */
 interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState; flash?: FlashState; y?: number }
 const LAYER_INPUTS: readonly Input[] = [{ name: 'opacity', type: 'float' }, { name: 'speed', type: 'float' }] // bindable
@@ -98,6 +103,20 @@ const BLENDS: Record<Exclude<Blend, 'difference' | 'dodge'>, [mode: number, sf: 
   multiply: [2, gl.DST_COLOR, gl.ZERO], // dst · mix(1, src, op)
   max: [3, gl.ONE, gl.ONE], // MAX(op·src, dst): the render sets the equation to MAX, then resets it to FUNC_ADD
 }
+// The layer mask (camera CP1, D4), in both composites: op × m (person) or × (1 − m) (background), m the feathered
+// mask through cam.xf, sampled where scenes/camera.ts samples it (xf.ts's space, y down). So every blend runs at op = m
+// and nothing darkens the feather twice. uMaskMode 0: op as it was (an unmasked scene renders the same bytes).
+const MASK = `uniform sampler2D uMask;
+uniform int uMaskMode; // 0 none, 1 person, 2 background
+uniform vec4 uXf;
+uniform float uFeather;
+float masked(float op) {
+  if (uMaskMode == 0) return op;
+  float m = smoothstep(0.5 - uFeather, 0.5 + uFeather, texture(uMask, vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uRes * uXf.xy + uXf.zw).r);
+  return op * (uMaskMode == 1 ? m : 1.0 - m);
+}`
+const MASK_MODE = { person: 1, background: 2 } as const
+const FEATHER = 0.15 // D2's global feather f
 // Alpha 0 (add, screen) and 1 (multiply, max) leave acc's alpha as it was.
 const composite = fullscreenProgram(`#version 300 es
 precision highp float;
@@ -105,13 +124,14 @@ uniform sampler2D uSrc;
 uniform vec2 uRes;
 uniform float uOpacity;
 uniform int uMode;
+${MASK}
 out vec4 outColor;
 void main() {
   vec4 c = texture(uSrc, gl_FragCoord.xy / uRes);
-  float op = uOpacity;
+  float op = masked(uOpacity);
   outColor = uMode == 0 ? vec4(c.rgb * c.a, c.a) * op : uMode == 1 ? vec4(c.rgb * op, 0.0) : uMode == 3 ? vec4(c.rgb * op, 1.0) : vec4(1.0 - op + op * c.rgb, 1.0);
 }`)
-const cu: Record<string, unknown> = { uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0 } // reused every composite
+const cu: Record<string, unknown> = { uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0, uMask: null, uMaskMode: 0, uXf: cam.xf, uFeather: FEATHER } // reused every composite
 // difference/dodge (wave-2 S0.1): the old acc is copied into the scratch below, and this two-sampler pass computes
 // the new acc. uMode: 0 difference |acc − op·src|, 1 dodge acc / max(1e-3, 1 − op·src).
 const compositeDst = fullscreenProgram(`#version 300 es
@@ -121,15 +141,18 @@ uniform sampler2D uSrc;
 uniform vec2 uRes;
 uniform float uOpacity;
 uniform int uMode;
+${MASK}
 out vec4 outColor;
 void main() {
   vec4 a = texture(uAcc, gl_FragCoord.xy / uRes);
   vec4 c = texture(uSrc, gl_FragCoord.xy / uRes);
-  float op = uOpacity;
+  float op = masked(uOpacity);
   outColor = uMode == 0 ? vec4(abs(a.rgb - op * c.rgb), a.a) : vec4(a.rgb / max(vec3(1e-3), 1.0 - op * c.rgb), a.a); // no scalar/vec3 max overload in ES 3.00
 }`)
-const cd: Record<string, unknown> = { uAcc: null, uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0 } // reused like cu
+const cd: Record<string, unknown> = { uAcc: null, uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0, uMask: null, uMaskMode: 0, uXf: cam.xf, uFeather: FEATHER } // reused like cu
 const scratch = renderTarget() // module level, shared by every scene: difference/dodge's old-acc copy, fit at use
+let built = 0 // buildLayer calls (__cam.builds(), the camera harness's B7)
+export const builds = () => built
 
 /** `own`: a tile's (tile()): its doc, and the size its own temps and natives are made for. */
 function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, number] }): Live {
@@ -269,9 +292,10 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     return out.attachments[0]
   }
 
-  const buildLayer = (l: LayerDoc): Layer => ({
-    blend: l.blend, nodes: [node(l.gen), ...l.fx.map(node)], v: { opacity: l.opacity, speed: l.speed, res: l.res }, t: 0, f: {} as FrameInput,
-    small: l.res < 1 ? renderTarget() : null, muted: false,
+  // A masked layer holds one camera user (K-3); a tile's holds none (N-4), so a library bake or hover never spawns a host.
+  const buildLayer = (l: LayerDoc): Layer => (built++, {
+    blend: l.blend, mask: l.mask, release: users.use(!!l.mask && !own), nodes: [node(l.gen), ...l.fx.map(node)], v: { opacity: l.opacity, speed: l.speed, res: l.res }, t: 0,
+    f: {} as FrameInput, small: l.res < 1 ? renderTarget() : null, muted: false,
   })
 
   /** The one freeing path, of a disposed scene and of a removed node or layer: a native's own dispose() (a milk/* one
@@ -281,6 +305,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     new Set(n?.passes.flatMap((x) => x.pair ?? [])).forEach(free) // a shared pair once
   }
   function freeLayer(l: Layer) {
+    l.release()
     if (l.small) free(l.small)
     l.nodes.forEach(freeNode)
   }
@@ -316,11 +341,11 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
         const l = layers[i]
         const dt = f.dt * l.v.speed
         l.t += dt
-        const ok = !l.muted && !l.nodes.includes(null) // not ok: black (layer 0 still clears acc)
+        const ok = !l.muted && !l.nodes.includes(null) && !l.nodes[0]?.native?.hidden?.() // not ok: black (layer 0 still clears acc); a hidden gen adds nothing (N-1)
         const last = l.nodes[l.nodes.length - 1]
         const small = l.v.res < 1 ? (l.small ??= renderTarget()) : null // the panel may lower res after the build
         // The fast path (design E1): its last pass draws straight into acc, unless that pass writes an ISF TARGET.
-        const direct = i === 0 && ok && l.blend === 'normal' && l.v.opacity === 1 && !small && !last?.passes.at(-1)?.pair
+        const direct = i === 0 && ok && l.blend === 'normal' && l.v.opacity === 1 && !small && !last?.passes.at(-1)?.pair && !l.mask
         if (i === 0 && !direct) {
           bindFramebufferInfo(gl, acc)
           gl.clearColor(0, 0, 0, 1)
@@ -334,6 +359,8 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
           src = run(l.nodes[k]!, l, f, dt, src, dst)
         }
         if (direct) continue
+        cu.uMask = cd.uMask = cam.mask // the EMA's current target: it swaps per mask
+        cu.uMaskMode = cd.uMaskMode = l.mask ? MASK_MODE[l.mask] : 0
         if (l.blend === 'difference' || l.blend === 'dodge') {
           // acc can't be read and written in one pass: copy it, then compute the new acc from the two samplers.
           scratch.fit(acc.width, acc.height)
@@ -407,6 +434,12 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     setBlend(layer, b) {
       layers[layer].blend = b // read per frame
     },
+    setMask(layer, m) {
+      const l = layers[layer]
+      if (m && !l.mask) l.release = users.use(!own) // none → a mode; person ↔ background moves nothing
+      if (!m) l.release() // a mode → none (idempotent: none → none is a no-op)
+      l.mask = m // read per frame
+    },
     mute(layer, on) {
       layers[layer].muted = on // read per frame
     },
@@ -465,6 +498,7 @@ const op = {
   removeLayer: (i: number) => restructure((d) => edit.removeLayer(d, i), (l) => l.removeLayer(i)),
   moveLayer: (from: number, to: number) => restructure((d) => edit.moveLayer(d, from, to), (l) => l.moveLayer(from, to)),
   setBlend: (layer: number, b: Blend) => restructure((d) => edit.setBlend(d, layer, b), (l) => l.setBlend(layer, b)),
+  setMask: (layer: number, m: MaskMode | undefined) => restructure((d) => edit.setMask(d, layer, m), (l) => l.setMask(layer, m)),
   setValue(p: edit.NodePath, input: string, v: Value | undefined) {
     const l = edited()
     const old = edit.setValue(l.doc, p, input, v)
@@ -528,6 +562,8 @@ export const panel = {
   removeLayer: (i: number) => act(() => op.removeLayer(i), (ld) => op.insertLayer(ld, i)),
   moveLayer: (from: number, to: number) => act(() => op.moveLayer(from, to), () => op.moveLayer(to, from)),
   setBlend: (layer: number, b: Blend) => act(() => op.setBlend(layer, b), (old) => op.setBlend(layer, old)),
+  /** camera CP1: 'person' | 'background', undefined = none (S1.5's setMask). */
+  setMask: (layer: number, m: MaskMode | undefined) => act(() => op.setMask(layer, m), (old) => op.setMask(layer, old)),
   /** Preview only (design S2): never saved, never undone. */
   mute: (layer: number, on: boolean) => edited().mute(layer, on),
   /** A pasted Shadertoy `mainImage` (spec §4.4, design E5) as a new top layer. Returns why not (too long, its compile

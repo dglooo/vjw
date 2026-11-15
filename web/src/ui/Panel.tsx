@@ -4,7 +4,7 @@ import { activePreset } from '../audio/settings'
 import { PRESETS } from '../audio/presets'
 import { BAND_COUNT } from '../audio/energy'
 import { BIND_DEFAULTS, sourceGroups, type Binding, type Shape } from '../bind'
-import { defaults, type Blend, type LayerDoc, type NodeDoc, type SceneId } from '../doc'
+import { defaults, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
 import type { Kind, Value } from '../fx/types'
 import { live, panel, type NodePath } from '../gl/live'
@@ -264,7 +264,7 @@ export function Meters({ id }: { id: SceneId }) {
   return null
 }
 
-/** A layer's head row: its number and generator, its blend, `children` (the editor's buttons), remove. */
+/** A layer's head row: its number and generator, its blend and camera mask, `children` (the editor's buttons), remove. */
 export function LayerHead({ i, l, n, children }: { i: number; l: LayerDoc; n: number; children?: ReactNode }) {
   return (
     <div className="head">
@@ -273,6 +273,11 @@ export function LayerHead({ i, l, n, children }: { i: number; l: LayerDoc; n: nu
       </span>
       <select aria-label="Blend" defaultValue={l.blend} onChange={(e) => panel.setBlend(i, e.target.value as Blend)}>
         {BLENDS.map((b) => <option key={b}>{b}</option>)}
+      </select>
+      <select aria-label="Mask" defaultValue={l.mask ?? ''} onChange={(e) => panel.setMask(i, (e.target.value || undefined) as MaskMode | undefined)}>
+        <option value="">no mask</option>
+        <option value="person">person</option>
+        <option value="background">background</option>
       </select>
       {children}
       {n > 1 && (
