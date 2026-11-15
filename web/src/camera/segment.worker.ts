@@ -123,6 +123,16 @@ const ctx = self as unknown as {
   import?: (url: string) => Promise<unknown>
 }
 
+// D7 (localhost only): tasks-vision 1.2.2 carries a usage logger that POSTs to
+// https://odml.pa.googleapis.com/v1/log once a minute (vision_bundle's logger class; S0.3 took it for
+// Chrome's own telemetry, the S1.2a B17 run caught it). The worker refuses every foreign fetch: the logger
+// catches the rejection, stops its timer and prints nothing; the wasm and the models stay same-origin.
+const fetch0 = self.fetch.bind(self)
+self.fetch = (input, init) => {
+  const url = new URL(input instanceof Request ? input.url : String(input), self.location.href)
+  return url.origin === self.location.origin ? fetch0(input, init) : Promise.reject(new Error(`segment.worker: foreign fetch refused (D7): ${url.origin}`))
+}
+
 // MediaPipe's loader loads the self-hosted wasm glue: on the main thread a classic <script> tag (Vite
 // serves /public untransformed — verified in vision_bundle's Ph), in a worker importScripts (which throws
 // in a module worker, G1) → the `self.import` fallback, which Vite dev poisons for /public files. The shim
