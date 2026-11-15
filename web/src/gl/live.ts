@@ -316,7 +316,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
         const l = layers[i]
         const dt = f.dt * l.v.speed
         l.t += dt
-        const ok = !l.muted && !l.nodes.includes(null) // not ok: black (layer 0 still clears acc)
+        const ok = !l.muted && !l.nodes.includes(null) && !l.nodes[0]?.native?.hidden?.() // not ok: black (layer 0 still clears acc); a hidden gen adds nothing (N-1)
         const last = l.nodes[l.nodes.length - 1]
         const small = l.v.res < 1 ? (l.small ??= renderTarget()) : null // the panel may lower res after the build
         // The fast path (design E1): its last pass draws straight into acc, unless that pass writes an ISF TARGET.
