@@ -227,7 +227,7 @@ const style = createStyle()
 // S5.3: the arrangement detector (build/drop/heat) runs every frame; its output drives the post pass, the frame's
 // heat speed, and the drop cut. `dropAt` = seconds since the last confident drop (-Infinity = none yet).
 const arrangement = createArrangement()
-let arrangeOut: ArrangeOut = { build: 0, drop: 0, heat: 0, sparse: false, fired: null }
+let arrangeOut: ArrangeOut = { build: 0, drop: 0, heat: 0, sparse: false, fired: null, confirmed: null }
 let dropAt = -Infinity
 // energy.ts's 30 Hz–16 kHz log grid: the first band at/above 4 kHz; `high` = the sum of those bands (S5.3).
 const highStart = Math.ceil((BAND_COUNT * Math.log(4000 / 30)) / Math.log(16000 / 30))
@@ -369,7 +369,7 @@ function frame(now: number) {
   src.presence = presence(camGate.area) // S1.1 (design D3): the gate's held area — stable through flood/strobe; rests at 0 with no camera
   f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)
   if (arrangeOut.fired !== null) dropAt = f.time
-  if (shouldCut(arrangeOut.fired, store.getSnapshot().hold)) director.cut(director.peek()) // a confident drop cuts, unless LOCK/panel
+  if (shouldCut(arrangeOut.confirmed, store.getSnapshot().hold)) director.cut(director.peek()) // a confident drop cuts once confirmed (0.5 s on, D3′), unless LOCK/panel
   // S5.3: the live heat post pass (postFor at rest = identity: the engine skips it).
   const post = postFor(arrangeOut.heat, dropAt > 0 ? f.time - dropAt : Infinity, f.sync.beat, f.sync.bpm, f.sync.confidence)
   sources(f, src)

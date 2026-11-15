@@ -225,18 +225,24 @@ test('§4.3 a 16-bar equal-power crossfade dnb → dubstep switches at most once
   expect(m.log.length).toBeLessThanOrEqual(2) // the first pick plus ≤ 1 switch
 })
 
-test.each([['dnb', 174], ['dubstep', 140]] as const)('§4.5 build → drop → cut, %s -arr through the held features path at 20 frame phases: one drop ≥ 0.6 within a beat; shouldCut unlocked, not under LOCK', (genre, bpm) => {
+test.each([['dnb', 174], ['dubstep', 140]] as const)('§4.5 build → drop → cut, %s -arr through the held features path at 20 frame phases: one drop ≥ 0.6 within a beat, its cut confirmed 0.5 s later; shouldCut unlocked, not under LOCK', (genre, bpm) => {
   const song = arr(genre) // 16 bars, an 8-bar breakdown (riser + roll), the drop, 8 bars
   const frames = inputs(song.x, genre, bpm)
   for (let p = 0; p < 20; p++) {
     // At near = HOLD (the old 0.2 s) DnB missed at 3 of 20 phases: there the 0.203 s hold spans 13 frames (S1.11)
-    const f = fires(run(frames(p / 20 / FPS_APP)))
+    const r = run(frames(p / 20 / FPS_APP))
+    const f = fires(r)
     expect(f, `phase ${p}/20`).toHaveLength(1) // and no extra drop in the groove, the build or after
     expect(f[0].now - song.drop).toBeGreaterThan(0)
     expect(f[0].now - song.drop).toBeLessThanOrEqual(60 / bpm) // measured ≤ 0.34 s: the hold + `sustain`
     expect(f[0].fired!).toBeGreaterThanOrEqual(0.6) // measured ≥ 0.80 DnB, ≥ 0.66 Dubstep
-    expect(shouldCut(f[0].fired, false)).toBe(true)
-    expect(shouldCut(f[0].fired, true)).toBe(false) // LOCK
+    const c = r.filter((x) => x.confirmed !== null) // D3′: the autopilot cuts on this, the first frame ≥ 0.5 s on
+    expect(c, `phase ${p}/20`).toHaveLength(1)
+    expect(c[0].confirmed).toBe(f[0].fired)
+    expect(c[0].now - f[0].now).toBeGreaterThanOrEqual(0.5)
+    expect(c[0].now - f[0].now).toBeLessThan(0.5 + 1 / FPS_APP)
+    expect(shouldCut(c[0].confirmed, false)).toBe(true)
+    expect(shouldCut(c[0].confirmed, true)).toBe(false) // LOCK
   }
 })
 
