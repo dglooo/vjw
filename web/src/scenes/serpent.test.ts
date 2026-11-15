@@ -135,3 +135,26 @@ test('T-B1 + T-R7: presence binds reeseLevel (not the camera presence); one buil
   expect(docs.map((d) => d.id)).toEqual(['builtin:neuro-serpent'])
   expect(docs[0].layers[0].gen.bind).toEqual(serpent.bind)
 })
+
+test('fix 1 (F-01, F-03): Groove reads w 7.8–9 % FH at angle A; the whip loop (its apex ring) stays in frame', () => {
+  const fire = 8 * BAR, rig = createSerpent(3), rings = new Float32Array(RINGS * RING), parts = new Float32Array(MAXP * PART)
+  const groove: number[] = []
+  let out = 0, seen = 0
+  for (let i = 0; i < Math.round((fire + 4 * BAR) * FPS); i++) {
+    const t = i / FPS, v = { bass: t > fire ? 0.85 : 0.1, build: t < fire ? (0.9 * t) / fire : 0, drop: dropSrc(t, [fire]), orbit: 0, yaw: 30, pitch: 12 }
+    const vp = rig.step({ v, beat: (t * BPM) / 60, bpm: BPM, now: t, dt: 1 / FPS, aspect: ASPECT }, rings, parts).vp
+    const s = rig.state()
+    const j = s.loop >= 0 ? Math.round(s.loop * (RINGS - 1)) : -1
+    if (j >= 0) { // the loop's apex ring (the pan's target): its ndc
+      const [x, y, z] = rings.subarray(j * RING, j * RING + 3), cw = vp[3] * x + vp[7] * y + vp[11] * z + vp[15]
+      out = Math.max(out, Math.abs((vp[0] * x + vp[4] * y + vp[8] * z + vp[12]) / cw), Math.abs((vp[1] * x + vp[5] * y + vp[9] * z + vp[13]) / cw))
+      seen++
+    }
+    if (t > fire + BAR && s.phase === 'groove') groove.push(s.wFH)
+  }
+  const med = groove.sort((a, b) => a - b)[groove.length >> 1]
+  expect(med).toBeGreaterThanOrEqual(7.8) // FRAME 1 (v1 framing) read 7.4 here; the creative's Groove w is 9 % FH
+  expect(med).toBeLessThanOrEqual(9)
+  expect(seen).toBeGreaterThanOrEqual(15) // the loop lasts 1 beat (≈ 20 frames at 174 BPM)
+  expect(out).toBeLessThanOrEqual(1) // inside the frame (the pan box is ±0.8); no pan (PAN_BOX 99): 3.5
+})

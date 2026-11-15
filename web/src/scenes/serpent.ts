@@ -40,7 +40,11 @@ const WHIP_MIN = 0.06 // under it a drop rise is the +15 % pump whip (recipe 4)
 const PUMP = 0.15
 const LATCH = 2 // s: one whip per drop (recipe 5, C14)
 const UNWIND = 1.5, LOOP = 1, CRACK = 1 // beats (T4; G3: the loop 1 beat, the crack in the next)
-const COV = 0.35, COV_ZOOM = 0.4, CLEAR = 0.5 // T9: the coverage cap, the eye clearance (world)
+const COV = 0.35, CLEAR = 0.5 // T9: the coverage cap, the eye clearance (world)
+/** fix 1 (F-01) ⚠️ knob: the framing gain (T9 may now scale up to it). The body's median ring sits ≈ 1.2 × FOCAL from the
+ *  eye, so the focal-plane `w` (7 → 9 % FH) read 7.5 % in Groove; × 1.2 brings it to ≈ 9 % without a thinner body. */
+const FRAME = 1.2
+const PAN_BOX = 0.8 // fix 1 (F-03) ⚠️ knob: the whip's loop apex / head stays inside ±0.8 of the frame (ndc)
 const SPARK_MAX = 150
 
 const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x))
@@ -64,6 +68,7 @@ export interface SerpentState {
   phase: 'coil' | 'release' | 'groove'; W: number; B: number; turns: number; twist: number; ripple: number; ripplePhase: number
   spanFW: number; speed: number; whips: number; pumps: number; rings: number; snaps: number; snapSide: 1 | -1; glints: number
   flares: number; coverage: number; fit: number; heat: number; loop: number; crack: number
+  wFH: number; silFH: number // fix 1 (F-01): the median on-screen width (% FH) of the in-frame untapered rings: the wide axis `w`, the lens silhouette
 }
 
 export function createSerpent(seed = 1, n = RINGS) {
@@ -71,17 +76,18 @@ export function createSerpent(seed = 1, n = RINGS) {
   const P = new Float32Array(n * 3), T = new Float32Array(n * 3), R = new Float32Array(n * 3), S = new Float32Array(n)
   const X0 = new Float32Array(n * 2) // the last frame's projected (x · aspect, y) ndc: the speed truth
   const sp = new Float32Array(SPARK_MAX * 9) // x y z vx vy vz born life fork
-  const gli = new Float32Array(16 * 4) // glints: x y z born
+  const gli = new Float32Array(16 * 7) // glints: x y z (the streak's start) born, the streak vector along the spine
   const rp = new Float32Array(6 * 2).fill(-1) // kick ring pairs: s0, born
   const vp = new Float32Array(16)
+  const WQ = new Float32Array(n), SQ = new Float32Array(n) // the per-ring on-screen widths (% FH) behind wFH / silFH
   const yaw0 = rnd() * TAU, a0 = (rnd() - 0.5) * 0.6, ph1 = rnd() * TAU, ph2 = rnd() * TAU, phi0 = rnd() * TAU
-  let first = true, lastNow = 0, layerT = 0, prevBeat = 0, rip = 0
+  let first = true, lastNow = 0, layerT = 0, prevBeat = 0, rip = 0, panR = 0, panU = 0
   let b3 = 0, b4 = 0, heat = 0, W = 0, bars = 0, Wg = 0
   let prevDrop = 0, prevFlare = 0, prevKick = 0, prevSnare = 0, prevHats = 0
   let whipOn = false, c = 0, W0 = 0, pump = false, lastWhip = -Infinity, whips = 0, pumps = 0, hand = rnd() < 0.5 ? 1 : -1
   let shockT = -Infinity, flares = 0, nRings = 0, snaps = 0, snapS = 0, snapT = -Infinity, snapC = 0, side: 1 | -1 = rnd() < 0.5 ? 1 : -1
   let shT = -Infinity, shSign = 1, nGlints = 0, nSp = 0, nGl = 0, cx = 0, cy = 0, cz = 0, fit = 1, sparked = false, nearK = n >> 1
-  let st: SerpentState = { phase: 'coil', W: 0, B: 0, turns: 0.8, twist: 0.25, ripple: 0, ripplePhase: 0, spanFW: 0, speed: 0, whips: 0, pumps: 0, rings: 0, snaps: 0, snapSide: side, glints: 0, flares: 0, coverage: 0, fit: 1, heat: 0, loop: -1, crack: -1 }
+  let st: SerpentState = { phase: 'coil', W: 0, B: 0, turns: 0.8, twist: 0.25, ripple: 0, ripplePhase: 0, spanFW: 0, speed: 0, whips: 0, pumps: 0, rings: 0, snaps: 0, snapSide: side, glints: 0, flares: 0, coverage: 0, fit: 1, heat: 0, loop: -1, crack: -1, wFH: 0, silFH: 0 }
 
   const spark = (x: number, y: number, z: number, dx: number, dy: number, dz: number, w: number, now: number) => {
     if (nSp >= SPARK_MAX) return
@@ -104,7 +110,7 @@ export function createSerpent(seed = 1, n = RINGS) {
       const bpm = i.bpm > 0 ? i.bpm : 174, beatS = 60 / bpm, db = dtw / beatS
       const B = clamp(num('bass'), 0, 1), sub = clamp(num('sub'), 0, 1), burst = clamp(Math.max(num('reese'), num('wobble')), 0, 1)
       const build = clamp(num('build'), 0, 1), drop = num('drop'), flare = clamp(num('flare'), 0, 1)
-      const kick = num('kick'), snare = num('snare'), hats = num('hats'), zoom = clamp(num('zoom', 1), 0.5, 3)
+      const kick = num('kick'), snare = num('snare'), hats = num('hats'), zoom = clamp(num('zoom', 1), 1, 3)
       b3 = pole(b3, B, 0.08, 0.5, dtw) // row 3: flex + thrash
       b4 = pole(b4, B, 0.4, 2, dtw) // row 4: scale + key gain
       heat = pole(heat, B, 0.06, 0.9, dtw) // the gills: dark within 2 bars of the bass leaving (C17)
@@ -170,11 +176,17 @@ export function createSerpent(seed = 1, n = RINGS) {
       // the drifting curve: the coil axis bends on an arc (radius ≥ ARC_R, ≤ 315° in all) in the local x–z plane, so a
       // slack body (0.8 turns, its length in the pitch) curls inside the frame instead of reaching past the camera
       const Ra = Math.max(ARC_R, z / (1.75 * Math.PI))
+      let gx = 0, gy = 0, gz = 0
       for (let j = 0; j < n; j++) {
         const o = j * 3, f = (P[o + 2] - z / 2) / Ra, cf = Math.cos(f), sf = Math.sin(f), x = P[o]
         P[o] = Ra * (1 - cf) + x * cf
         P[o + 2] = Ra * sf - x * sf
+        gx += P[o]; gy += P[o + 1]; gz += P[o + 2]
       }
+      // fix 1 (F-03): the bent body is recentred on its own centroid every frame. The release (4 → 0.8 turns) moves the
+      // arc's and the helix's centroid ≈ 1 unit (½ FH), which the 1-s camera lag followed late: the whip left the frame.
+      gx /= n; gy /= n; gz /= n
+      for (let j = 0; j < n; j++) { const o = j * 3; P[o] -= gx; P[o + 1] -= gy; P[o + 2] -= gz }
       tangents(P, T, n)
       // the whip loop: a windowed trochoid in the base tangent's plane, R_L = 1.2 w → 3 w tail → head in 1 beat
       const loopA = whipOn ? smooth(0, 0.08, c) * smooth(LOOP + 0.3, LOOP, c) : 0
@@ -187,7 +199,7 @@ export function createSerpent(seed = 1, n = RINGS) {
           let nx = -ty, ny = tx, nz = 0 // ẑ × t, or x̂ × t where t ∥ ẑ
           if (Math.hypot(nx, ny) < 0.3) { nx = 0; ny = -tz; nz = ty }
           const nl = Math.hypot(nx, ny, nz) || 1, a = loopA * RL * Math.sin(psi / 2) ** 2
-          const fa = -Math.sin(psi) * a, fb = ((1 - Math.cos(psi)) * a) / nl
+          const fa = -Math.sin(psi) * Math.min(a, 0.14 * ell), fb = ((1 - Math.cos(psi)) * a) / nl // fix 1: the along-spine term ≤ ell ÷ 2π × .9, so the loop's base never folds (a 'Z' cusp in S5)
           P[o] += fa * tx + fb * nx; P[o + 1] += fa * ty + fb * ny; P[o + 2] += fa * tz + fb * nz
         }
       }
@@ -208,35 +220,66 @@ export function createSerpent(seed = 1, n = RINGS) {
       const yaw = orbit ? yaw0 + 4 * DEG * layerT : num('yaw') * DEG, pitch = orbit ? (12.5 + 7.5 * Math.sin((TAU * layerT) / 47)) * DEG : num('pitch', 12) * DEG
       const eye = [FOCAL * Math.sin(yaw) * Math.cos(pitch), FOCAL * Math.sin(pitch), FOCAL * Math.cos(yaw) * Math.cos(pitch)]
       vp.set(orbitVP(yaw, pitch, i.aspect))
+      // fix 1 (F-02): `zoom` is a lens zoom (clip x, y × zoom) aimed at the mid-body ring (no lag), so T9 no longer scales
+      // a close-up back (the old geometry scale × the clearance gave fit .05). ponytail: a zoom change jumps the aim.
+      if (zoom > 1) for (const k of [0, 1, 4, 5, 8, 9, 12, 13]) vp[k] *= zoom
       const back = norm(eye), right = norm(cross([0, 1, 0], back)), up = cross(back, right)
-      for (let j = 0; j < n; j++) { const o = j * 3; P[o] = (P[o] - cx) * zoom; P[o + 1] = (P[o + 1] - cy) * zoom; P[o + 2] = (P[o + 2] - cz) * zoom }
+      const mid = (n >> 1) * 3, ox = zoom > 1 ? P[mid] : cx, oy = zoom > 1 ? P[mid + 1] : cy, oz = zoom > 1 ? P[mid + 2] : cz
+      for (let j = 0; j < n; j++) { const o = j * 3; P[o] -= ox; P[o + 1] -= oy; P[o + 2] -= oz }
       // the crack: the head tip sweeps out and back across the view (≥ 60 % FW of travel) in the beat after the loop
       const p2 = whipOn ? clamp((c - LOOP) / CRACK, 0, 1) : 0, h = (n - 1) * 3
+      let crackDir: number[] | null = null
       if (p2 > 0 && p2 < 1) {
         const th = norm([P[h] - P[h - 9], P[h + 1] - P[h - 8], P[h + 2] - P[h - 7]]), dir = norm(cross(th, back))
-        const A = 0.95 * zoom * (1 + (pump ? PUMP : 0)) * Math.sin(Math.PI * p2)
+        const A = 0.95 * (1 + (pump ? PUMP : 0)) * Math.sin(Math.PI * p2)
         for (let j = Math.floor(0.6 * n); j < n; j++) { const f = A * smooth(0.6 * L, L, S[j]) ** 2, o = j * 3; P[o] += f * dir[0]; P[o + 1] += f * dir[1]; P[o + 2] += f * dir[2] }
-        if (!sparked && p2 >= 0.5) { // the crack sheds 80–120 sparks from the tip
-          sparked = true
-          for (let q = 80 + Math.floor(rnd() * 41); q > 0; q--) spark(P[h], P[h + 1], P[h + 2], dir[0], dir[1], dir[2], w * zoom, now)
-        }
+        if (!sparked && p2 >= 0.5) { sparked = true; crackDir = dir } // the crack sheds 80–120 sparks from the tip (after the fit + pan)
       }
-      // T9 fit: coverage ≤ 35 % (40 % zoomed) and every ring surface ≥ 0.5 in front of the eye (the body, 40 w long, can
+      // T9 fit: coverage ≤ 35 % (a close-up: no cap) and every ring surface ≥ 0.5 in front of the eye (the body, 40 w long, can
       // reach past the camera: a depth test, not only a distance); one scale about the centre, release 1 s. A re-draw in
       // the same frame (dtw 0: a still's second angle) renders its own need but keeps the stored fit.
-      const wz = w * zoom
+      const wz = w
       let cov = project(P, vp, n, i.aspect, X0, null, wz), near = Infinity, toEye = 0
       for (let j = 0; j < n; j++) {
         const o = j * 3, d = Math.hypot(eye[0] - P[o], eye[1] - P[o + 1], eye[2] - P[o + 2]) - wz / 2
         if (d < near) { near = d; nearK = j }
         toEye = Math.max(toEye, P[o] * back[0] + P[o + 1] * back[1] + P[o + 2] * back[2] + wz / 2)
       }
-      let need = Math.min(1, Math.sqrt((zoom > 1 ? COV_ZOOM : COV) / Math.max(cov, 1e-6)))
+      let need = zoom > 1 ? FRAME : Math.min(FRAME, Math.sqrt(COV / Math.max(cov, 1e-6))) // a close-up is excepted from the cap (creative §2)
       if (toEye > FOCAL - CLEAR) need = Math.min(need, (FOCAL - CLEAR) / toEye)
+      if (need > 1 && zoom === 1) { // scaling up, the perspective grows the coverage faster than need²: re-measure there once
+        for (let j = 0; j < n * 3; j++) P[j] *= need
+        const c2 = project(P, vp, n, i.aspect, X0, null, wz * need)
+        for (let j = 0; j < n * 3; j++) P[j] /= need
+        if (c2 > COV) need = Math.max(1, need * Math.sqrt(COV / c2))
+      }
       const fitNow = first || need < fit ? need : fit + (need - fit) * (1 - Math.exp(-dtw / 1))
       if (first || dtw > 0) fit = fitNow
       for (let j = 0; j < n * 3; j++) P[j] *= fitNow
-      const sc = zoom * fitNow, wf = w * sc
+      // fix 1 (F-03): the frame follows the whip loop: its apex ring is kept inside ±PAN_BOX of the frame by a pan along
+      // the camera's right / up (out at once; home τ 0.4 s from the crack on: centred again by drop + 1 bar), not by a
+      // smaller body. Live sparks and glints ride the pan; a same-frame re-draw (dtw 0) keeps the stored pan.
+      let wantR = 0, wantU = 0
+      const jx = whipOn && c < LOOP ? clamp(Math.round(sL / ds), 0, n - 1) : -1
+      if (jx >= 0) {
+        const o = jx * 3, x = P[o] + panR * right[0] + panU * up[0], y = P[o + 1] + panR * right[1] + panU * up[1], zz = P[o + 2] + panR * right[2] + panU * up[2]
+        const cw = Math.max(0.05, vp[3] * x + vp[7] * y + vp[11] * zz + vp[15]), X = (vp[0] * x + vp[4] * y + vp[8] * zz + vp[12]) / cw, Y = (vp[1] * x + vp[5] * y + vp[9] * zz + vp[13]) / cw
+        wantR = panR + ((clamp(X, -PAN_BOX, PAN_BOX) - X) * cw * i.aspect) / (FOCAL * zoom)
+        wantU = panU + ((clamp(Y, -PAN_BOX, PAN_BOX) - Y) * cw) / (FOCAL * zoom)
+      }
+      const ease = (y: number, x: number) => (Math.abs(x) > Math.abs(y) ? x : y + (x - y) * (1 - Math.exp(-dtw / 0.4))) // out at once, home τ 0.4 s
+      if (first || dtw > 0) {
+        const dR = ease(panR, wantR) - panR, dU = ease(panU, wantU) - panU
+        panR += dR; panU += dU
+        for (let e = 0; e < 3; e++) {
+          const d = dR * right[e] + dU * up[e]
+          for (let q = 0; q < nSp; q++) sp[q * 9 + e] += d
+          for (let q = 0; q < nGl; q++) gli[q * 7 + e] += d
+        }
+      }
+      for (let j = 0; j < n; j++) { const o = j * 3; for (let e = 0; e < 3; e++) P[o + e] += panR * right[e] + panU * up[e] }
+      const sc = fitNow, wf = w * sc, pz = sc * zoom // pz: the parts' world size → the lens-zoomed pixels
+      if (crackDir) for (let q = 80 + Math.floor(rnd() * 41); q > 0; q--) spark(P[h], P[h + 1], P[h + 2], crackDir[0], crackDir[1], crackDir[2], wf, now)
       let speed = 0, xmin = Infinity, xmax = -Infinity
       cov = project(P, vp, n, i.aspect, X0, (j, x, y) => {
         if (!first && dtw > 0) speed += Math.hypot(x - X0[j * 2], y - X0[j * 2 + 1])
@@ -255,7 +298,7 @@ export function createSerpent(seed = 1, n = RINGS) {
       for (let q = 0; q < 6; q++) if (rp[q * 2 + 1] >= 0 && 0.3 * 2 ** (-(now - rp[q * 2 + 1]) / 0.1) < 0.005) rp[q * 2 + 1] = -1
       // the rings
       const gash = snapT < 0 ? 0 : 6 * Math.exp(-(now - snapT) / 0.1)
-      let nearD = Infinity
+      let nearD = Infinity, nq = 0
       for (let j = 0; j < n; j++) {
         const o = j * 3, r = j * RING, s = S[j], u = s / L, ue = Math.min(u, 1 - u)
         const taper = j === 0 || j === n - 1 ? 0 : ue < 0.15 ? 0.2 + 0.8 * smooth(0, 0.15, ue) : 1
@@ -278,7 +321,15 @@ export function createSerpent(seed = 1, n = RINGS) {
         rings[r + 8] = ty * azz - tz * ay; rings[r + 9] = tz * ax - tx * azz; rings[r + 10] = tx * ay - ty * ax // c = t × a
         rings[r + 11] = heat; rings[r + 12] = ht; rings[r + 13] = bulge / 0.3; rings[r + 14] = band; rings[r + 15] = slit
         nearD = Math.min(nearD, Math.hypot(eye[0] - P[o], eye[1] - P[o + 1], eye[2] - P[o + 2]) - hw)
+        const p0 = P[o], p1 = P[o + 1], p2w = P[o + 2], cw = vp[3] * p0 + vp[7] * p1 + vp[11] * p2w + vp[15]
+        if (taper === 1 && cw > 0.05 && Math.abs((vp[0] * p0 + vp[4] * p1 + vp[8] * p2w + vp[12]) / cw) <= 1 && Math.abs((vp[1] * p0 + vp[5] * p1 + vp[9] * p2w + vp[13]) / cw) <= 1) {
+          const vx = eye[0] - p0, vy = eye[1] - p1, vz = eye[2] - p2w // e = t × (to the eye): across the spine on screen
+          const ex = ty * vz - tz * vy, ey = tz * vx - tx * vz, ez = tx * vy - ty * vx, k = (zoom * FOCAL * 100) / cw
+          WQ[nq] = hw * k
+          SQ[nq++] = (Math.hypot(hw * (ax * ex + ay * ey + azz * ez), ht * (rings[r + 8] * ex + rings[r + 9] * ey + rings[r + 10] * ez)) / (Math.hypot(ex, ey, ez) || 1)) * k
+        }
       }
+      const med = (q: Float32Array) => (nq ? q.subarray(0, nq).sort()[nq >> 1] : 0)
       // the snap's sparks (24–40 from the gash) and the hats' glints (8 ± 4 on crests facing the eye, 60 ms)
       if (snapNew) {
         const r = clamp(Math.round(snapS / ds), 0, n - 1) * RING, sg = side
@@ -289,8 +340,12 @@ export function createSerpent(seed = 1, n = RINGS) {
         for (let q = 4 + Math.floor(rnd() * 9); q > 0 && nGl < 16; q--) {
           const r = Math.floor((0.15 + 0.7 * rnd()) * n) * RING
           const sg = (eye[0] - rings[r]) * rings[r + 8] + (eye[1] - rings[r + 1]) * rings[r + 9] + (eye[2] - rings[r + 2]) * rings[r + 10] > 0 ? 1 : -1
-          const xo = (rnd() - 0.5) * 1.2, g = nGl++ * 4
-          for (let e = 0; e < 3; e++) gli[g + e] = rings[r + e] + sg * rings[r + 8 + e] * rings[r + 12] * 1.05 + xo * rings[r + 3] * rings[r + 4 + e]
+          const xo = (rnd() - 0.5) * 1.2, g = nGl++ * 7, k = 0.8 * rings[r + 3]
+          // fix 1 (F-12): a glint is a short streak along the spine (t = a × c, 0.8 hw), not a 4-ray star
+          gli[g + 4] = (rings[r + 5] * rings[r + 10] - rings[r + 6] * rings[r + 9]) * k
+          gli[g + 5] = (rings[r + 6] * rings[r + 8] - rings[r + 4] * rings[r + 10]) * k
+          gli[g + 6] = (rings[r + 4] * rings[r + 9] - rings[r + 5] * rings[r + 8]) * k
+          for (let e = 0; e < 3; e++) gli[g + e] = rings[r + e] + sg * rings[r + 8 + e] * rings[r + 12] * 1.05 + xo * rings[r + 3] * rings[r + 4 + e] - gli[g + 4 + e] / 2
           gli[g + 3] = now
         }
       }
@@ -311,25 +366,29 @@ export function createSerpent(seed = 1, n = RINGS) {
         const x = sp[b] + sp[b + 3] * age, y = sp[b + 1] + sp[b + 4] * age - 0.6 * age * age, zz = sp[b + 2] + sp[b + 5] * age
         const cg = t < 0.5 ? 1 - 0.29 * (t / 0.5) : 0.71 - 0.36 * ((t - 0.5) / 0.5), cb = t < 0.5 ? 1 - 0.65 * (t / 0.5) : 0.35 - 0.23 * ((t - 0.5) / 0.5)
         const I = 6 * (1 - t), k1 = 0.045, f = sp[b + 8], cf = Math.cos(f), sf = Math.sin(f)
-        put(x, y, zz, 0.006 * sc, sp[b + 3] * k1, sp[b + 4] * k1, sp[b + 5] * k1, 0, 1, cg, cb, I)
-        put(x + sp[b + 3] * k1 * 0.5, y + sp[b + 4] * k1 * 0.5, zz + sp[b + 5] * k1 * 0.5, 0.004 * sc, (cf * sp[b + 3] - sf * sp[b + 4]) * k1 * 0.6, (sf * sp[b + 3] + cf * sp[b + 4]) * k1 * 0.6, sp[b + 5] * k1 * 0.6, 0, 1, cg, cb, I * 0.7)
+        put(x, y, zz, 0.006 * pz, sp[b + 3] * k1, sp[b + 4] * k1, sp[b + 5] * k1, 0, 1, cg, cb, I)
+        put(x + sp[b + 3] * k1 * 0.5, y + sp[b + 4] * k1 * 0.5, zz + sp[b + 5] * k1 * 0.5, 0.004 * pz, (cf * sp[b + 3] - sf * sp[b + 4]) * k1 * 0.6, (sf * sp[b + 3] + cf * sp[b + 4]) * k1 * 0.6, sp[b + 5] * k1 * 0.6, 0, 1, cg, cb, I * 0.7)
       }
       nSp = live
       for (let q = 0; q < nGl; q++) {
-        const age = now - gli[q * 4 + 3]
-        if (age < 0.06) put(gli[q * 4], gli[q * 4 + 1], gli[q * 4 + 2], 0.03 * sc, 0, 0, 0, 1, 1, 0.97, 0.92, 4 * (1 - age / 0.06))
+        const g = q * 7, age = now - gli[g + 3]
+        if (age < 0.06) put(gli[g], gli[g + 1], gli[g + 2], 0.008 * pz, gli[g + 4], gli[g + 5], gli[g + 6], 1, 1, 0.97, 0.92, 4 * (1 - age / 0.06))
       }
-      const glow = 2 * Wg * Wg
-      const axisP = [(Z[0] * z * 0.5 - cx) * sc, (Z[1] * z * 0.5 - cy) * sc, (Z[2] * z * 0.5 - cz) * sc]
+      // fix 1 (F-10): the release spends the core glow in ¼ beat. Its 10 billboards lie on the straight coil axis, which
+      // the unfurling body (z grows, the axis arcs) leaves: at drop + 0.2 s they smeared a tan veil across the frame.
+      const glow = 2 * Wg * Wg * (whipOn ? 1 - smooth(0, 0.25, c) : 1)
+      // the coil axis's midpoint = the local origin after the bend, moved by the recentring (the old Z·z/2 predates the arc)
+      const axisP = [0, 1, 2].map((e) => (-gx * V[e] - gy * U[e] - gz * Z[e] - (e ? (e > 1 ? oz : oy) : ox)) * sc + panR * right[e] + panU * up[e])
       if (glow > 0.01) for (let q = 0; q < 10; q++) {
         const zz = ((q + 0.5) / 10 - 0.5) * z * sc
-        put(axisP[0] + Z[0] * zz, axisP[1] + Z[1] * zz, axisP[2] + Z[2] * zz, Math.max(2.4 * wf, 0.08 * z * sc), 0, 0, 0, 2, 1, 0.54, 0.12, glow)
+        put(axisP[0] + Z[0] * zz, axisP[1] + Z[1] * zz, axisP[2] + Z[2] * zz, Math.max(2.4 * wf, 0.08 * z * sc) * zoom, 0, 0, 0, 2, 1, 0.54, 0.12, glow)
       }
       const shockAge = now - shockT
       st = {
         phase: whipOn ? 'release' : whips && Wg < WHIP_MIN ? 'groove' : 'coil', W: Wg, B, turns, twist, ripple: 0.07 * B * (1 + 0.5 * burst), ripplePhase: rip,
         spanFW: xmax > xmin ? (clamp(xmax, -i.aspect, i.aspect) - clamp(xmin, -i.aspect, i.aspect)) / (2 * i.aspect) : 0, speed,
         whips, pumps, rings: nRings, snaps, snapSide: side, glints: nGlints, flares, coverage: cov, fit: fitNow, heat, loop: whipOn && c < LOOP ? sL / L : -1, crack: p2 > 0 && p2 < 1 ? p2 : -1,
+        wFH: med(WQ), silFH: med(SQ),
       }
       first = false
       return {
@@ -451,7 +510,16 @@ vec3 studio(vec3 r, float s) {
   vec3 c = 6.0 * KEY * band(el, 0.84, 0.052, s) * band(az, 0.0, 0.61, 2.0 * s); // the key: 48° up, 70° × 6°, HDR 6
   c += 3.0 * RIM * (band(az, 2.27, 0.07, s) + band(az, -2.27, 0.07, s)) * band(el, 0.0, 0.52, 2.0 * s); // rims ±130°, 8° × 60°
   c += 0.45 * KEY * smoothstep(-0.2, 1.0, r.y) + 0.35 * KEY * smoothstep(0.6, -0.4, r.z) * smoothstep(-0.3, 0.5, r.y); // soft top fill + back panel: the steel's form (no edge, no horizon)
+  c += 0.5 * KEY * smoothstep(0.2, 1.0, r.z); // fix 1 (F-01): a soft front fill: the tube's middle reads steel, not navy glass
   return c + 1.6 * FOGC * smoothstep(0.1, -0.7, r.y); // the fog bounce from below
+}
+// fix 1 (F-01): a strip light stretched along the body (anisotropy: creative §2's highlight-line ref): a line wherever
+// the normal's part across the spine (Np) meets the half vector's, so every wide still carries the key line + 2 rim
+// lines, which the flutes split; fades where the half vector runs along the spine.
+float stripLine(vec3 Np, vec3 T, vec3 V, vec3 L, float p) {
+  vec3 H = normalize(L + V), Hp = H - dot(H, T) * T;
+  float l = length(Hp);
+  return l < 1e-3 ? 0.0 : pow(max(dot(Np, Hp / l), 0.0), p) * smoothstep(0.2, 0.6, l);
 }
 vec3 ramp(float h) { // #5A0A06 → #B3130B → #FF3B12 → #FF8A1F → #FFD98A → #FFF6E0
   vec3 c = mix(vec3(0.353, 0.039, 0.024), vec3(0.702, 0.075, 0.043), smoothstep(0.0, 0.2, h));
@@ -461,7 +529,7 @@ vec3 ramp(float h) { // #5A0A06 → #B3130B → #FF3B12 → #FF8A1F → #FFD98A 
   return mix(c, vec3(1.0, 0.965, 0.878), smoothstep(0.8, 1.0, h));
 }
 void main() {
-  vec3 T = normalize(vT), A = normalize(vA), V = normalize(uEye - vPos), N = normalize(vN);
+  vec3 T = normalize(vT), A = normalize(vA), V = normalize(uEye - vPos), N = normalize(vN), N0 = N;
   float x = clamp(vX.x, -1.0, 1.0), edge = 1.0 - smoothstep(0.72, 0.92, abs(x));
   float groove = (0.5 + 0.5 * cos(12.566371 * x)) * edge; // 3 flutes a face (x = 0, ±.5), depth 6 % of t
   N = normalize(N - 0.314 * sin(12.566371 * x) * edge * A);
@@ -469,22 +537,35 @@ void main() {
   float fade = 1.0 - smoothstep(0.1, 0.17, fw); // below 6 px a length it fades out
   float steep = smoothstep(0.85 - e, 0.85 + e, f) * (1.0 - smoothstep(1.0 - e, 1.0, f));
   float hR = f < 0.85 ? f / 0.85 : (1.0 - f) / 0.15; // 0 trough … 1 crest; the steep side 15 %
-  N = normalize(N - mix(1.0 / 0.85, -1.0 / 0.15, steep) * uRipH / (0.6 * uW) * fade * T);
+  N = normalize(N - mix(1.0 / 0.85, -0.5 / 0.15, steep) * uRipH / (0.6 * uW) * fade * T); // fix 1: the steep side's tilt halved (the rungs)
   float rip = clamp(uRipH / (0.105 * uW), 0.0, 1.0);
-  float cav = clamp(0.75 * groove + 0.8 * (1.0 - hR) * rip * fade, 0.0, 1.0);
+  float cav = clamp(0.75 * groove + 0.45 * (1.0 - hR) * rip * fade, 0.0, 1.0); // fix 1: the trough's share .8 → .45 (the rungs)
   float NdV = max(dot(N, V), 0.0);
   vec3 r = reflect(-V, N), rv = vec3(dot(r, uCamR), dot(r, uCamU), dot(r, uCamB));
   float s = 0.015 + 0.22 * cav + min(0.12, 0.5 * length(fwidth(rv))); // polished crests, satin cavities; no crawl
   vec3 F = TINT + (1.0 - TINT) * pow(1.0 - NdV, 5.0);
   vec3 col = studio(rv, s) * F * uKey * (1.0 + 2.0 * vH.y) * (1.0 - 0.65 * cav);
-  col += 1.2 * RIM * pow(1.0 - NdV, 5.0) * (1.0 - 0.5 * cav); // the Fresnel rim
+  col += RIM * pow(1.0 - NdV, 8.0) * (1.0 - 0.5 * cav); // the Fresnel rim (fix 1: narrower, the steel leads)
+  // the lines: HDR 6 key (48° up behind the eye) + HDR 3 rims (±130°), as studio(); the width follows Np's pixel
+  // footprint (≥ 1 px: no crawl); the ripple's tilt along the spine chops them into dashes (creative §2), a satin
+  // cavity dims them
+  vec3 Np = N - dot(N, T) * T;
+  float dash = pow(dot(Np, Np), 8.0);
+  Np = normalize(N0 - dot(N0, T) * T); // the lens normal (no flutes): one line per light a face (the flute-split lines strobed: T-S5 .48)
+  float aa = length(fwidth(Np)), p = clamp(1.4 / max(aa * aa, 1e-5), 24.0, 600.0), g = (0.4 + 0.6 * p / 600.0) * dash;
+  vec3 Lk = normalize(0.743 * uCamU + 0.669 * uCamB), Lr = -0.643 * uCamB;
+  vec3 lines = KEY * (8.0 * g * stripLine(Np, T, V, Lk, p) + 1.2 * dash * stripLine(Np, T, V, Lk, 40.0) + 0.3 * stripLine(Np, T, V, Lk, 6.0))
+    + RIM * (3.0 * g) * (stripLine(Np, T, V, Lr + 0.766 * uCamR, p) + stripLine(Np, T, V, Lr - 0.766 * uCamR, p));
+  col += lines * F * uKey * (1.0 + 2.0 * vH.y) * (1.0 - 0.6 * cav);
   vec3 d = vPos - uAxisP;
   d -= dot(d, uAxisD) * uAxisD;
   float da = length(d);
   col += uGlow * CORE * max(0.0, dot(N, -d / max(da, 1e-4))) * exp(-pow(da / (3.0 * uW), 2.0)); // the core's back-light
   float gw = mix(0.08, 0.2, uBurst), H = vH.x, on = edge * fade * step(0.02, rip);
-  float gill = smoothstep(0.0, 0.03, f) * smoothstep(gw, gw - 0.03, f) * on; // the slit in each trough
-  col += gill * H * ramp(H) * (0.4 + 1.2 * H * H) * (1.0 + uBurst);
+  // fix 1 (F-09): the slit in each trough on the §2 heat ramp: dark-red lips → orange → a white-hot core (by heat),
+  // below HDR 1 so the steel lines lead (the v1 gill was one cream band: the "rungs")
+  float gp = 1.0 - abs(2.0 * clamp(f / gw, 0.0, 1.0) - 1.0), gill = smoothstep(0.0, 0.6, gp) * step(f, gw) * on;
+  col += gill * gp * ramp(H * gp * gp) * H * (0.25 + 0.9 * H * H) * (1.0 + uBurst);
   float fr = smoothstep(gw - 0.03, gw, f) * smoothstep(gw + 0.12, gw + 0.05, f) * on * H; // the tempering fringe
   col += fr * 0.35 * mix(vec3(0.416, 0.169, 0.851), vec3(0.247, 0.627, 1.0), clamp((f - gw) / 0.12, 0.0, 1.0));
   col += vH.z * vec3(1.0, 0.95, 0.85) + vH.w * exp(-pow(x / 0.16, 2.0)) * vec3(1.0, 0.9, 0.7); // the whip band (the section), the snap gash (a slit)
@@ -492,7 +573,7 @@ void main() {
   float dist = length(uEye - vPos), tr = exp(-0.6931 * (dist - uNear) / uNear); // ≤ 25 % at 3× the nearest distance
   outColor = vec4(col * tr + FOGC * (1.0 - tr), uModeS > 0.5 ? clamp(uNear / dist, 0.002, 1.0) : 1.0);
 }`
-// P2: sparks (streaks), glints (4-ray stars), the core glow (soft discs): camera-facing quads, depth-tested, additive.
+// P2: sparks (streaks), glints (streaks along the spine), the core glow (soft discs): camera-facing quads, depth-tested, additive.
 const PART_VS = `#version 300 es
 layout(location = 0) in vec4 aP;
 layout(location = 1) in vec4 aD;
@@ -530,9 +611,9 @@ void main() {
   if (vK.x < 0.5) { // a spark: a soft streak with round caps, its head brighter
     float al = clamp(vQ.x, 0.0, vK.y), dx = vQ.x - al;
     a = exp(-3.0 * (dx * dx + vQ.y * vQ.y)) * (0.35 + 0.65 * al / max(vK.y, 1e-3));
-  } else if (vK.x < 1.5) { // a glint: a 4-ray star
-    float r = length(vQ);
-    a = exp(-30.0 * r * r) + 0.5 * (exp(-40.0 * abs(vQ.y)) + exp(-40.0 * abs(vQ.x))) * max(0.0, 1.0 - r);
+  } else if (vK.x < 1.5) { // a glint: an even soft streak along the spine (fix 1, F-12)
+    float dx = vQ.x - clamp(vQ.x, 0.0, vK.y);
+    a = exp(-3.0 * (dx * dx + vQ.y * vQ.y));
   } else { // the core glow
     float r2 = dot(vQ, vQ);
     a = exp(-3.0 * r2) * max(0.0, 1.0 - r2);
