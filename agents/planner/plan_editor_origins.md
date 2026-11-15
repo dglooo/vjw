@@ -11,7 +11,7 @@ None (Tier 2, no design round). Lead rulings 2026-11-15: the `Look: TD` header d
 **CP1 = S1.** Frozen contract: `type Origin = 'mine' | 'ours' | 'td' | 'milkdrop' | 'isf' | 'camera'`; `ORIGINS: Record<Origin, string>` (key order = display order, value = label); `Block.origin: Origin`; `blocks(catalog, scenes, rawFs?)`; `filterBlocks` query field `origin?`; `rawFs: Map<string, string>` exported by `catalog.ts` (id → raw `.fs` text).
 Demo: `cd web && npm run dev`, then open the editor. The library shows the sections in the TL;DR order. Each header reads `label · count`. A click on a header folds its section. An origin chip leaves one section.
 ## Steps
-### S1 [ ] Origin sections in the library (size M, time box 45 min)
+### S1 [x] Origin sections in the library (size M, time box 45 min)
 Invoke the `ponytail` skill (full) before writing code. Browser harnesses headless (user rule 2026-11-15).
 **Files (no other files):** `web/src/fx/catalog.ts`, `web/src/editor/blocks.ts`, `web/src/editor/blocks.test.ts`, `web/src/editor/Library.tsx`.
 1. `catalog.ts`: export `rawFs = new Map<string, string>()`. The registration loop (L27–34) calls `rawFs.set(id, src)`.
@@ -30,6 +30,8 @@ Invoke the `ponytail` skill (full) before writing code. Browser harnesses headle
 
 **Done-check:** `cd web && npm run lint && npm run typecheck && npm test` (573 + the new test, all green). One headless browser check with a fresh profile: the editor is open and the `summary` texts in DOM order are `Ours · 49`, `TouchDesigner · 72`, `MilkDrop · 50`, `ISF/Shadertoy donors · 23`, `Camera · 3` (no Mine; Camera 6 if the dj-* scenes are merged). Save one still to `scratchpad/ed/origins/`. Report a count mismatch with the ids. Do not tune the rules to fit.
 **Depends on:** no step. Notes: `catalog.ts` L26–34 is a merge hotspot with the scene lanes; the DOM gets one `<ul>` per section (old harness selectors on `.library ul`). **New npm deps:** none. **Donor authorisation:** none.
+**Lead confirmations (2026-11-15, coder brief):** the three ⚠️ above are confirmed: toy found only in a user scene → mine; the `dj-*` id arm is dropped; the category chips row stays as is.
+**Changed during implementation:** (1) The stills are in the worktree's `scratchpad/ed/` (the isolation guard refused the main checkout's `scratchpad/`), not `scratchpad/ed/origins/`. The brief asked for one still. There are two: `editor-origins.png` has the first four sections folded by header clicks, so all five headers and the Camera tiles fit in one shot. `editor-origins-open.png` shows the default state (all open). Each has a `.small.png` copy at 1200 px. (2) The harness `scratchpad/ed/editor-origins.mjs` also checks the demo: each header count equals its tile count, the TouchDesigner chip leaves one section, and a header click folds its section. All checks PASS, with 0 console errors. The section tile ids are in `editor-origins.json`. (3) The new test's "no header" text has `Look: TD` in the middle of a line, which also checks the `^`/`m` anchoring. The test also checks the literal key order of `ORIGINS`. No count mismatch: Ours 49 · TouchDesigner 72 · MilkDrop 50 · ISF/Shadertoy donors 23 · Camera 3.
 ## Acceptance mapping
 - User request "groups by origin (MilkDrop / ours / TouchDesigner), not by the alphabet" → S1: the two Vitest tests (rules, order) + the S6 still (headers, counts).
 - Lead rulings 1–5 → the new test's samples (header forms, mixed scene → ours, user scene → mine).
@@ -37,5 +39,5 @@ Invoke the `ponytail` skill (full) before writing code. Browser harnesses headle
 | stage | status | reviewer | evidence | waiver |
 |---|---|---|---|---|
 | S2 skeptic | n/a | — | — | Tier 2: no independent roles |
-| S5 build (S1) | UNKNOWN | frontend-coder | | |
+| S5 build (S1) | PASS | frontend-coder | branch `worktree-agent-a48670fdf0a3e59cb` on base `ebb1bd7`: `npm run lint` exit 0, `npm run typecheck` exit 0, `npm test` exit 0 (51 files, 574 tests); headless `scratchpad/ed/editor-origins.mjs` ALL PASS (worktree scratchpad) | |
 | S6 gates + one headless still of the open editor | UNKNOWN | lead | | |
