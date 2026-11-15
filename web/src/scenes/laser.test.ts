@@ -104,6 +104,20 @@ test('traceBands: the saddle cases route by the corners\' mean (deterministic, t
   ])
 })
 
+test('traceBands: a continuous band coordinate interpolates sub-cell (smooth contours, not the integer staircase)', () => {
+  // a ramp along x, v = 0.3·i − 0.5 (the draw's F·K/VMAX − ½): level L's boundary (t = L + ½) sits at i = 10(L + 1)/3
+  const w = 12, h = 4
+  const bands = new Float32Array(w * h)
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) bands[j * w + i] = 0.3 * i - 0.5
+  const segs = traceBands(bands, w, h, 1000)
+  expect(segs.every((s) => s[4] >= 0 && s[4] <= 2)).toBe(true) // v ∈ [−½, 2.8]: levels 0..2, never a negative level
+  for (const L of [0, 1, 2]) {
+    const s = segs.filter((x) => x[4] === L)
+    expect(s).toHaveLength(h - 1) // one straight boundary per level
+    for (const [x0, , x1] of s) for (const x of [x0, x1]) expect(x * (w - 1)).toBeCloseTo((10 * (L + 1)) / 3, 4)
+  }
+})
+
 test('traceBands: the cap is respected — over budget, the shortest segments drop; never a crash', () => {
   // a checkerboard of 0/1: every cell is a saddle → 2 segments per cell
   const w = 16, h = 16

@@ -4,8 +4,8 @@
 // pose ticks on the bar saw (beat-locked re-pose, not a glide) — the beams are traced isobars with a beam
 // cross-section (thin bright core, wide faint skirt), NOT the per-pixel analytic fan the user rejected
 // 2026-11-14 (own/laser-grid.fs keeps its header note). Light is neutral by construction (P7): every frame a
-// fixed total light is distributed over the levels proportional to q·w·L (q = lit/dim share, w = the level's
-// width, L = its traced length this frame), so the level chase, the pose ticks and the K ramp move the light
+// fixed total light is distributed over the levels proportional to q·ρ·w·L (q = lit/dim share, ρ = the
+// cross-section's brightness, skirt faint → core 1, w = the level's width, L = its traced length this frame), so the level chase, the pose ticks and the K ramp move the light
 // without changing its amount; brightness on a hit only through the ⚡ inputs (flashGate ≤ 3/s).
 // Look: TD laserCHOP ex2 + Trace SOP (research_donor_laser.md §1/§3: pattern → step-lookup "topographic lines"
 // → trace; thresh/step = our band/cap knobs) and the laser-dome preset's beat-locked discrete re-pose
@@ -115,9 +115,10 @@ const edgePoint = (i: number, j: number, e: number, t: number, a: number, b: num
   }
 }
 
-/** Single-pass marching squares over every band boundary of a w×h grid of step-lookup band indices
- *  (integers 0..K: the value b = the field sits above b−1 and below b more boundaries). Emits the
- *  contour segments of the thresholds 0.5, 1.5, … as [x0, y0, x1, y1, level] in normalized [0,1]²
+/** Single-pass marching squares over every band boundary of a w×h grid of step-lookup band coordinates
+ *  (integers 0..K = the classic band indices; the draw passes the CONTINUOUS coordinate F·K/VMAX − ½, so the
+ *  crossings interpolate sub-cell = smooth contours, not the integer grid's staircase). Emits the contour
+ *  segments of the thresholds 0.5, 1.5, … as [x0, y0, x1, y1, level] in normalized [0,1]²
  *  (level 0 = the outermost boundary, level K−1 the innermost core). `cap` respected: over budget → the
  *  shortest segments drop first (the TD Trace SOP `step`/`doresample` knob — "how many points you
  *  generate and the un-snoothness you can accept"), never a crash. */
@@ -131,7 +132,7 @@ export function traceBands(bands: Float32Array, w: number, h: number, cap: numbe
       const a = bands[row + i], b = bands[row + i + 1], c = bands[row + w + i + 1], d = bands[row + w + i]
       const mn = Math.min(a, b, c, d), mx = Math.max(a, b, c, d)
       if (mn === mx) continue
-      for (let L = mn; L < mx; L++) { // the active boundaries of this cell (t = L + ½)
+      for (let L = Math.max(0, Math.floor(mn - 0.5) + 1); L <= mx - 0.5; L++) { // the active boundaries: t = L + ½ ∈ (mn, mx]
         const t = L + 0.5
         const cs = (a >= t ? 8 : 0) | (b >= t ? 4 : 0) | (c >= t ? 2 : 0) | (d >= t ? 1 : 0)
         let table: readonly number[]
@@ -177,15 +178,16 @@ const GRID = 96 // knob: the field grid per frame on the main thread (the plan's
 /** The tile (2b S3.2, design S6): half the grid (the swarm's ×.1 precedent, grid-shaped). */
 export const laserGrid = (size?: readonly [number, number]) => (size ? GRID / 2 : GRID)
 const SEG_CAP = 8000 // knob: the trace budget (the TD `step` knob; the shortest drop first when over)
-const VMAX = 1.15 // knob: the field peak the K bands span (step-lookup threshold lattice)
+const VMAX = 0.9 // knob: the field peak the K bands span (the rest peak measures ≈ .99: below it, the core level carries)
 const CHASE_LIT = 3 // knob: the levels the chase lights — the SAME count on every step (P7)
 const DIM = 0.2 // knob: an unlit level's share of the per-area light (the faint ghost rails)
 const LIGHT = 1.1 // knob: the frame's total linear light at rest (the flatness is independent of it)
+const SKIRT_A = 0.35 // knob: the outermost level's per-pixel brightness vs the core's 1 (the beam cross-section)
 const W_CORE = 0.006 // knob: the ribbon's half-width, scene units (the core, at pop 1)
 const W_SKIRT = 0.02 // the skirt (the outer levels widen: the beam cross-section)
-const WIDTH_POP = 1.6 // ⚡ `width` (kick): the half-widths ×(1 + 1.6·width) — the beam pop (flash-gated)
+const WIDTH_POP = 0.8 // ⚡ `width` (kick): the half-widths ×(1 + 0.8·width) — the beam pop (flash-gated)
 const HIT_POP = 0.5 // ⚡ `hit` (kick): the total light ×(1 + 0.5·hit) (flash-gated)
-const BURST_W = 1.6 // ⚡ `burst` (drop): full width — the half-widths ×(1 + 1.6·burst), all K levels, the widest pose, the chase stopped
+const BURST_W = 0.5 // ⚡ `burst` (drop): full width — the half-widths ×(1 + 0.5·burst), all K levels, the widest pose, the chase stopped
 const HAZE_GAIN = 1.2 // the ⅛-res tent's gain per unit of `haze`
 const CHASE_SPEED = 2.2 // the chase's rotation, levels/s at dash 1 (the hats flutter it)
 
@@ -224,7 +226,7 @@ void main() {
   vec3 green = vec3(0.10, 1.00, 0.38);
   vec3 white = vec3(0.90, 1.00, 0.92);
   vec3 base = mix(green, white, uWhite);
-  vec3 col = mix(base, vec3(1.0), 0.45 * vLevel + 0.5 * uBurst); // the core is whiter
+  vec3 col = mix(base, vec3(1.0), (0.45 + 0.55 * uBurst) * vLevel); // the core is whiter; the burst whitens the core, the skirt stays green
   outColor = vec4(col * cs * vA, 1.0);
 }`
 // The ⅛-res 3×3 tent (the halo precedent, S3.5's budget lever): (1 2 1 / 2 4 2 / 1 2 1) / 16.
@@ -363,7 +365,9 @@ export const laser: NativeDef = {
               const d2 = qx * qx + qy * qy, R2 = EMIT[oo + 5] * EMIT[oo + 5]
               if (d2 < R2) { const s = 1 - d2 / R2; F += EMIT[oo + 6] * s * s * s }
             }
-            const band = Math.min(K, (F * Ki) | 0) // the step-lookup (a negative F floors to 0)
+            // the step-lookup coordinate, continuous (the contours interpolate sub-cell); the top clamp keeps level K
+            // untraced while the core's crossing stays exact up to a band over VMAX
+            const band = Math.min(K + 0.49, Math.max(0, F * Ki)) - 0.5
             field[row + i] = band
             field[row + G - 1 - i] = band // the mirror: the picture is symmetric to the last bit
           }
@@ -391,22 +395,20 @@ export const laser: NativeDef = {
           verts[A + 24] = x0; verts[A + 25] = y0; verts[A + 26] = px; verts[A + 27] = py; verts[A + 28] = level; verts[A + 29] = 1
           verts[A + 30] = x1; verts[A + 31] = y1; verts[A + 32] = px; verts[A + 33] = py; verts[A + 34] = level; verts[A + 35] = 1
         }
-        // The light (P7, by construction): a fixed total, distributed over the levels ∝ q/(w·L) — every lit
-        // level's per-area light is LIGHT/S, so the chase's rotation, the pose's ticks and the K ramp move
+        // The light (P7, by construction): a fixed total, distributed over the levels ∝ q·ρ·w·L — a level's
+        // per-area light is LIGHT·q·ρ/S, so the chase's rotation, the pose's ticks and the K ramp move
         // the light without changing its amount (the total = LIGHT·hitPop·wPop, the ⚡ pair gated ≤ 3/s).
         const width = v.width as number
         const wPop = 1 + WIDTH_POP * width + BURST_W * burst
         const hitPop = 1 + HIT_POP * (v.hit as number)
+        // q·ρ per level: the chase's lit share × the cross-section (ρ: the skirt faint → the core 1)
         let S = 0
         for (let l = 0; l < K; l++) {
-          const q = burst > 0 ? 1 : (((l - o) % K + K) % K < M ? 1 : DIM)
-          const wl = W_CORE + (W_SKIRT - W_CORE) * (K > 1 ? l / (K - 1) : 0)
-          S += q * wl * lenL[l]
+          const c = K > 1 ? l / (K - 1) : 1
+          uLevelA[l] = (burst > 0 ? 1 : (((l - o) % K + K) % K < M ? 1 : DIM)) * (SKIRT_A + (1 - SKIRT_A) * c)
+          S += uLevelA[l] * (W_SKIRT + (W_CORE - W_SKIRT) * c) * lenL[l] // the VS's width: mix(skirt, core, c)
         }
-        for (let l = 0; l < K; l++) {
-          const q = burst > 0 ? 1 : (((l - o) % K + K) % K < M ? 1 : DIM)
-          uLevelA[l] = S > 1e-6 ? (LIGHT * hitPop * q) / S : 0
-        }
+        for (let l = 0; l < K; l++) uLevelA[l] = S > 1e-6 ? (LIGHT * hitPop * uLevelA[l]) / S : 0
         for (let l = K; l < 8; l++) uLevelA[l] = 0
         state = { pose, K, M, o, segs: n / 6, burst, width, dash: v.dash as number }
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null

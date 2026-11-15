@@ -979,7 +979,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   // 96² mirror-symmetric emitter-lattice field, the step-lookup into K bands, the marching-squares trace, and
   // real-width additive ribbons (bright thin core, wide faint skirt) + the ⅛-res tent haze. The poses tick on
   // the bar saw (4/bar); the level chase is light-neutral (P7: the same count of levels lit on every step, the
-  // light distributed ∝ q/(w·L) per frame), so the picture re-poses and chases while the frame never blinks as
+  // light distributed ∝ q·ρ·w·L per frame), so the picture re-poses and chases while the frame never blinks as
   // a whole. Brightness on a hit only through the ⚡ trio (gated ≤ 3/s). The binds repeat the def
   // (scenes/laser.ts; ⚠️ row-6 assumptions, confirm at the CP2 demo); the bass class rides `reese` (scan).
   {
