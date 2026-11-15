@@ -18,6 +18,9 @@ import SegmentWorker from './segment.worker.ts?worker' // classic (G1): see vite
 import type { FromWorker, ModelId, ToWorker } from './segment.worker'
 
 type MaskMsg = Extract<FromWorker, { type: 'mask' }>
+// Vitest (node) imports this module (S1.2b item 5: gl/live.ts and scenes/camera.ts import cam): no page and no GL
+// there, so nothing below touches either at import; the GL fields stay undefined and nothing draws with them.
+const DOM = typeof document !== 'undefined'
 const EMPTY: MaskStats = { area: 0, cx: 0, cy: 0, box: [0, 0, 0, 0] }
 const REF_TAU = 1000 // ms: cam.ref's time constant (K-5, τ ≈ 1 s)
 
@@ -64,16 +67,16 @@ void main() {
 }`),
   }
 }
-const G = glSide()
+const G = DOM ? glSide() : (null as unknown as ReturnType<typeof glSide>)
 let ei = 0 // the mask EMA's current target
 let ri = 0 // cam.ref's current target
 
 /** The CP1 contract (rev 2), + w/h: cam.tex's size (0 = no image). */
 export const cam = {
-  tex: G.tex,
-  mask: G.ema[0].attachments[0] as WebGLTexture, // the EMA's current target: never null, all-zero until a mask (N-2)
+  tex: G?.tex,
+  mask: G?.ema[0].attachments[0] as WebGLTexture, // the EMA's current target: never null, all-zero until a mask (N-2)
   xf: new Float32Array(4),
-  ref: G.ref[0].attachments[0] as WebGLTexture, // 1×1: R the slow EMA (τ ≈ 1 s) of the mean luma, G this frame's mean
+  ref: G?.ref[0].attachments[0] as WebGLTexture, // 1×1: R the slow EMA (τ ≈ 1 s) of the mean luma, G this frame's mean
   stats: EMPTY, // the last good mask's
   live: false, // a source plays: a host may run (K-11)
   video: true, // the main-UI switch (Decision 1, S1.4): it hides the picture, the masks keep working
@@ -85,7 +88,7 @@ export const cam = {
 export const camStat = { path: 'video', ms: [] as number[], captureTime: false }
 /** The active source, for the probe's env (camSettings/camCaps) and the overlay's status line. */
 export const camSource = { kind: 'off' as 'off' | 'camera' | 'clip', settings: null as MediaTrackSettings | null, caps: null as MediaTrackCapabilities | null }
-camStat.path = new URLSearchParams(location.search).get('upload') === 'frame' ? 'frame' : 'video'
+camStat.path = DOM && new URLSearchParams(location.search).get('upload') === 'frame' ? 'frame' : 'video'
 
 /** The host side for the probe: the serving host's model (null = none) and ready info, the mask size, the per-mask
  *  clocks. recycleCount (the soak's `recycle`) is S0.4. */
@@ -95,7 +98,7 @@ export const camMask = {
   readyAt: null as number | null, // performance.now() of the serving host's ready (the probe's initMs/firstMaskMs)
   w: 0,
   h: 0,
-  floatEma: G.float,
+  floatEma: G?.float,
   workerMs: [] as number[], // the model's ms (worker clock)
   mainMs: [] as number[], // tick's mask upload + EMA (main clock)
   ts: [] as number[], // mask-arrival times (main clock) — the probe's maskFps
@@ -318,11 +321,14 @@ export function tick(now: number) {
   }
 }
 
-export const video = document.createElement('video')
-video.muted = true
-video.playsInline = true
-video.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none' // hidden, still decoding
-document.body.appendChild(video)
+function hiddenVideo() {
+  const v = document.createElement('video')
+  v.muted = true
+  v.playsInline = true
+  v.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none' // hidden, still decoding
+  return document.body.appendChild(v)
+}
+export const video = DOM ? hiddenVideo() : (null as unknown as HTMLVideoElement)
 
 let mirror = false // a webcam preview is mirrored (like a mirror); a clip is not
 let clipUrl: string | null = null
