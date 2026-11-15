@@ -90,4 +90,4 @@ The lead fills it. UNKNOWN is never PASS. The three PASS rows are the lead's sta
 | S4 coverage | PASS | `test-architect` 2026-11-15 + lead (E1–E3 applied, G1 ruled) | `matrix_rave_lasers.md` § Coverage (48 tests) | G1 lead ruling: flash-gated rows (kick → hit/pop under the ≤3/s gate) and the hats-dark row use r ≥ .60 (the Isobars hit←kick .64 precedent: the gate drops kicks by design); every ungated bind keeps r ≥ .80. T-C10 dnb174-arr flatness 8.1 % = waiver F9 (not PASS) |
 | S6 gates + harnesses | UNKNOWN | lead (runner) | | |
 | S6 AV QA | UNKNOWN | `tester` | | |
-| S7 user | UNKNOWN | user | | |
+| S7 user | PASS | user, 2026-11-15 («рейв лазеры ок») | final sheet `scratchpad/ed/rave-lasers/rl-sheet-v3-1200.png` | **I-1 (HIGH, numeric creative targets C5–C9 missed by the approved look) WAIVED by the user** — accepted as is |
