@@ -53,3 +53,4 @@
 - `agents/creative-qa/cqa_laser_grid_spike.md` — creative QA of the trace-laser spike sheet (2026-11-15): REVISE, HIGH 3 (closed pills not beams, no haze, drop not a climax). The look became `builtin:isobars`. Current.
 - `agents/architecture-skeptic/skeptic_camera_r0.md` — skeptic on the camera R0-Mac ruling + CP1 contract (2026-11-15): 1 HIGH (no hung-worker recovery), 9 MED, 2 LOW; verdicts on the ruling §7 risks. Current.
 - `agents/research/research_rave_lasers.md` — Rave Lasers S1 research (2026-11-15, 129 lines): real rigs + placements + counts, 10 figures on camera, 10 realism cues, show sync rates, 9 render techniques with costs, donor/codebase reuse; gaps marked. Fresh.
+- `agents/test-architect/matrix_camera.md` — camera CP1–CP2 test strategy + matrix (2026-11-15, 45 tests by layer; fault injection for host health, video on/off; missing fixtures person.mp4 / torch mjpeg). Current.
