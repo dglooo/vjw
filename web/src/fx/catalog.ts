@@ -11,6 +11,7 @@ import { scope } from '../scenes/scope'
 import { spectrum } from '../scenes/spectrum'
 import type { NodeDoc } from '../doc'
 import { tunnel } from '../scenes/tunnel'
+import { vortex } from '../scenes/vortex'
 import { wireform } from '../scenes/wireform'
 import { wrapToy, wrapTransition } from './glsl'
 import { parseIsf } from './isf'
@@ -18,7 +19,7 @@ import type { EffectDef, ShaderDef } from './types'
 
 const files = import.meta.glob(['./isf/*.fs', './own/*.fs'], { query: '?raw', import: 'default', eager: true })
 
-export const catalog = new Map<string, EffectDef>([tunnel, spectrum, particles, glitch, rgbaDelay, timeMachine, slitScan, swarm, scatter, scope, plexus, creatures, wireform, ...milkdrop].map((d) => [d.id, d] as const))
+export const catalog = new Map<string, EffectDef>([tunnel, spectrum, particles, glitch, rgbaDelay, timeMachine, slitScan, swarm, scatter, scope, plexus, creatures, wireform, vortex, ...milkdrop].map((d) => [d.id, d] as const))
 for (const [path, src] of Object.entries(files)) {
   const id = path.slice('./'.length, -'.fs'.length) // isf/<stem> or own/<stem>
   try {

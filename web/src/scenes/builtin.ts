@@ -925,6 +925,31 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Scene wave 3, S3.2 (CP3): Vortex — rave. TD's force look: a tilted spiral disc of 65k trailing points.
+  // The velocity relaxes toward a force field (a tangential spin, the 1/√r falloff, an inward pull, a curl
+  // noise); the reese spins it up, the sub breathes the pull, kicks punch it outward, and the drop runs the
+  // nova's envelope — the disc blasts out and re-forms (plan § Scenes row 9). The binds repeat the def
+  // (scenes/vortex.ts; ⚠️ assumptions until the CP3 demo); the bass class rides `reese` (spin): Auto-style
+  // moves it to wobble under Dubstep.
+  {
+    v: 1, id: 'builtin:vortex', name: 'Vortex', star: true, // rave · Auto: reese (spin; wobble under Dubstep)
+    layers: [{
+      gen: {
+        ref: 'native/vortex', values: { pitch: 0.17 }, // static pitch (row 9)
+        bind: {
+          spin: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.4, max: 2.5 }, // Auto-style's one: the reese spins the disc up
+          pull: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.6, max: 0.25 }, // the sub breathes it (the pull eases on a swell)
+          burst: { source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0, max: 1.5 }, // a kick punches the disc outward
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0, max: 0.25 }, // a snare walks the colour
+          sparkle: { source: 'hats', amount: 1, attack: 0, release: 0.08, min: 0, max: 0.5 }, // hats twinkle the points
+          trail: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.88, max: 0.97 }, // a build lengthens the trails
+          nova: { source: 'drop', amount: 1, attack: 0, release: 0.1, min: 0, max: 1 }, // the drop: the blast out and the re-form
+          yaw: { source: 'lfo', shape: 'saw', rate: 0.03, amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // one orbit per 33 s (the saw wraps: the orbit stays continuous)
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
   // Scene wave 3, S2.1 (CP2): the techno laser — four truss emitters, green + white eight-beam fans, a 16-step chase
   // that moves the light without changing its amount (own/laser-grid's header: the odd-`hits` bijection). Brightness
   // on a hit only through the ⚡ pair (the file's VJW_FLASH, gated ≤ 3/s). The binds repeat the file's VJW_BIND
