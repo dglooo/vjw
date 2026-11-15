@@ -192,7 +192,20 @@ async function dispatch(m: ToWorker, post: Post): Promise<void> {
       model = null
     }
   } catch (err) {
-    post({ type: 'error', msg: String(err instanceof Error ? err.stack ?? err.message : err) })
+    let msg = String(err instanceof Error ? err.stack ?? err.message : err)
+    if (m.type === 'init' && m.model !== 'synthetic' && !(await served(`${m.base}models/${m.model === 'selfie' ? SELFIE.file : POSE_FILE}`)))
+      msg = 'Model missing: run `node scripts/models.mjs`' // K-1 rule 5 (K-12): a missing model is never silent
+    post({ type: 'error', msg })
+  }
+}
+
+/** A same-origin file is there: Vite (dev and preview) answers a missing one with its index.html, 200 text/html. */
+async function served(url: string) {
+  try {
+    const r = await fetch(url, { method: 'HEAD' })
+    return r.ok && !r.headers.get('content-type')?.includes('text/html')
+  } catch {
+    return false
   }
 }
 

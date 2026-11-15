@@ -8,7 +8,7 @@
 // milkdrop/native.ts's copy(): texImage2D, then texSubImage2D while the size holds.
 import { bindFramebufferInfo, createFramebufferInfo, createTexture, resizeFramebufferInfo } from 'twgl.js'
 import { fullscreenProgram, gl, stage } from '../gl/engine'
-import { RECYCLE_MS, stalled, type HostClock } from './host'
+import { RECYCLE_MS, retryAt, stalled, STUCK_MS, type HostClock } from './host'
 import { halfToU8 } from './metrics'
 import { gate } from './smooth'
 import type { Gate, MaskStats } from './smooth'
@@ -121,12 +121,18 @@ let fresh: { mask: MaskMsg; frame: VideoFrame | null } | null = null // a mask b
 let imageFresh = false // cam.tex changed since the last tick: the ref pass runs
 let refAt = 0
 let nextId = 0
+let nextSpawnAt = -Infinity // tick spawns no host before this (K-1 rule 2)
+let lastRetryAt: number | null = null // the last granted respawn: retryAt's window (N-3); only fail() writes it
+let failAt: number | null = null // the serving host's last failure, until a good mask: STUCK_MS later → resetMask()
 let camFbo: WebGLFramebuffer | null = null // readCam's attachment of cam.tex
 
 function spawn(now: number): Host {
   const h: Host = { w: new SegmentWorker(), ready: false, masked: false, born: now, sentAt: null, inFlight: 0 }
   h.w.onmessage = (e: MessageEvent<FromWorker>) => onMsg(h, e.data)
-  h.w.onerror = (e) => console.error('cam: worker died:', e.message) // a silent death = no more masks, no pageerror
+  h.w.onerror = (e) => {
+    e.preventDefault() // fail() logs it once; uncancelled, it would also surface as the page's uncaught error
+    onMsg(h, { type: 'error', msg: `crashed: ${e.message || 'worker error'}` })
+  }
   h.w.postMessage({ type: 'init', model: camHost.model, delegate: camHost.delegate, base: camHost.base } satisfies ToWorker)
   return h
 }
@@ -141,13 +147,56 @@ function retire(h: Host) {
   else h.w.terminate()
 }
 
-/** The host's life (K-3, K-6, K-11): one is wanted while mask users > 0 && cam.live. */
+/** The one failure path (K-1): an error reply, the worker's onerror, the watchdog. The host is terminated at once and
+ *  the image takes the raw path (no host ready); the respawn waits for retryAt (N-3). Never throws (D7). */
+function fail(h: Host, why: string, now: number) {
+  h.w.terminate()
+  h.inFlight = 0
+  h.sentAt = null
+  if (h === slot) {
+    slot = null
+    if (pending) {
+      pending.close()
+      pending = null
+    }
+    cam.error = why
+    failAt = now
+    camMask.model = camMask.ready = camMask.readyAt = null
+  } else next = null // RECYCLE's incoming: the old host keeps serving
+  nextSpawnAt = lastRetryAt = retryAt(now, lastRetryAt)
+  console.warn(`cam: host failed (${why}) — terminated; the next spawn in ${Math.round(nextSpawnAt - now)} ms`)
+}
+
+/** K-4 + N-2: no mask. The gate's area and held 0 (presence 0), empty stats, and BOTH EMA targets cleared: cam.mask
+ *  stays a valid all-zero texture (a kept target would show the old silhouette for HOLD masks on re-entry). */
+function resetMask() {
+  camGate.area = camGate.held = 0
+  cam.stats = EMPTY
+  if (fresh) {
+    fresh.frame?.close()
+    fresh = null
+  }
+  for (const fb of G.ema) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb.framebuffer)
+    gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]) // leaves the engine's clearColor alone
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+}
+
+/** The host's life (K-1, K-3, K-6, K-11): one is wanted while mask users > 0 && cam.live; the watchdog fails a
+ *  stalled one (host.ts). */
 function hostLife(now: number) {
   for (const h of leaving)
     if (stalled(h, now)) {
       h.w.terminate()
       leaving.delete(h)
     }
+  if (slot && stalled(slot, now)) fail(slot, 'stalled', now)
+  if (next && stalled(next, now)) fail(next, 'stalled', now)
+  if (failAt !== null && now - failAt > STUCK_MS) {
+    failAt = null // no good mask within STUCK_MS of the failure: no frozen ghost stays on screen (K-1 rule 4)
+    resetMask()
+  }
   if (count() > 0 && cam.live) {
     if (next?.masked) {
       // D2 make-before-break: the incoming's first mask is back; the old host retires (on its in-flight reply)
@@ -158,9 +207,11 @@ function hostLife(now: number) {
       console.info(`cam: recycle ${camMask.recycleCount} — ${camHost.model} ${camHost.delegate} is live after ${Math.round(now - slot.born)} ms, the old host retired`)
     }
     if (!slot) {
-      slot = spawn(now)
-      camMask.model = camHost.model
-    } else if (!next && now - slot.born > camHost.recycleMs) {
+      if (now >= nextSpawnAt) {
+        slot = spawn(now)
+        camMask.model = camHost.model
+      }
+    } else if (!next && now - slot.born > camHost.recycleMs && now >= nextSpawnAt) {
       next = spawn(now)
       console.info(`cam: recycle started — a new ${camHost.model} ${camHost.delegate} worker initialises beside the old`)
     }
@@ -181,7 +232,7 @@ function onMsg(h: Host, m: FromWorker) {
       camMask.ready = m.info
       camMask.readyAt = performance.now()
     }
-  } else if (m.type === 'error') cam.error = m.msg // armSetup's waitUntil throws on it
+  } else if (m.type === 'error') fail(h, m.msg.split('\n')[0], performance.now()) // the stack's first line
   else onMask(h, m)
 }
 
@@ -191,6 +242,8 @@ function onMask(h: Host, m: MaskMsg) {
   h.sentAt = null
   h.masked = true
   if (h !== slot) return // RECYCLE's incoming: tick swaps it in; this first mask is dropped
+  cam.error = null // a good mask (K-1)
+  failAt = null
   fresh?.frame?.close() // two masks inside one rAF: the newer wins
   fresh = { mask: m, frame: pending } // ALIGN (D2): the image waits for its mask
   pending = null
