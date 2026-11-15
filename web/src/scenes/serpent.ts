@@ -212,15 +212,22 @@ export function createSerpent(seed = 1, n = RINGS) {
           for (let q = 80 + Math.floor(rnd() * 41); q > 0; q--) spark(P[h], P[h + 1], P[h + 2], dir[0], dir[1], dir[2], w * zoom, now)
         }
       }
-      // T9 fit: coverage ≤ 35 % (40 % zoomed) and ≥ 0.5 eye clearance; one scale about the centre, release 1 s
+      // T9 fit: coverage ≤ 35 % (40 % zoomed) and every ring surface ≥ 0.5 in front of the eye (the body, 40 w long, can
+      // reach past the camera: a depth test, not only a distance); one scale about the centre, release 1 s. A re-draw in
+      // the same frame (dtw 0: a still's second angle) renders its own need but keeps the stored fit.
       const wz = w * zoom
-      let cov = project(P, vp, n, i.aspect, X0, null, wz), near = Infinity
-      for (let j = 0; j < n; j++) { const o = j * 3, d = Math.hypot(eye[0] - P[o], eye[1] - P[o + 1], eye[2] - P[o + 2]) - wz / 2; if (d < near) { near = d; nearK = j } }
+      let cov = project(P, vp, n, i.aspect, X0, null, wz), near = Infinity, toEye = 0
+      for (let j = 0; j < n; j++) {
+        const o = j * 3, d = Math.hypot(eye[0] - P[o], eye[1] - P[o + 1], eye[2] - P[o + 2]) - wz / 2
+        if (d < near) { near = d; nearK = j }
+        toEye = Math.max(toEye, P[o] * back[0] + P[o + 1] * back[1] + P[o + 2] * back[2] + wz / 2)
+      }
       let need = Math.min(1, Math.sqrt((zoom > 1 ? COV_ZOOM : COV) / Math.max(cov, 1e-6)))
-      if (near < CLEAR) { const o = nearK * 3; need = Math.min(need, (FOCAL - CLEAR) / (Math.hypot(P[o], P[o + 1], P[o + 2]) + wz / 2)) }
-      fit = first || need < fit ? need : fit + (need - fit) * (1 - Math.exp(-dtw / 1))
-      for (let j = 0; j < n * 3; j++) P[j] *= fit
-      const sc = zoom * fit, wf = w * sc
+      if (toEye > FOCAL - CLEAR) need = Math.min(need, (FOCAL - CLEAR) / toEye)
+      const fitNow = first || need < fit ? need : fit + (need - fit) * (1 - Math.exp(-dtw / 1))
+      if (first || dtw > 0) fit = fitNow
+      for (let j = 0; j < n * 3; j++) P[j] *= fitNow
+      const sc = zoom * fitNow, wf = w * sc
       let speed = 0, xmin = Infinity, xmax = -Infinity
       cov = project(P, vp, n, i.aspect, X0, (j, x, y) => {
         if (!first && dtw > 0) speed += Math.hypot(x - X0[j * 2], y - X0[j * 2 + 1])
@@ -313,7 +320,7 @@ export function createSerpent(seed = 1, n = RINGS) {
       st = {
         phase: whipOn ? 'release' : whips && Wg < WHIP_MIN ? 'groove' : 'coil', W: Wg, B, turns, twist, ripple: 0.07 * B * (1 + 0.5 * burst), ripplePhase: rip,
         spanFW: xmax > xmin ? (clamp(xmax, -i.aspect, i.aspect) - clamp(xmin, -i.aspect, i.aspect)) / (2 * i.aspect) : 0, speed,
-        whips, pumps, rings: nRings, snaps, snapSide: side, glints: nGlints, flares, coverage: cov, fit, heat, loop: whipOn && c < LOOP ? sL / L : -1, crack: p2 > 0 && p2 < 1 ? p2 : -1,
+        whips, pumps, rings: nRings, snaps, snapSide: side, glints: nGlints, flares, coverage: cov, fit: fitNow, heat, loop: whipOn && c < LOOP ? sL / L : -1, crack: p2 > 0 && p2 < 1 ? p2 : -1,
       }
       first = false
       return {
