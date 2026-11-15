@@ -220,6 +220,7 @@ function hostLife(now: number) {
     if (slot) retire(slot)
     slot = next = null
     camMask.model = camMask.ready = camMask.readyAt = null
+    resetMask() // segmentation stops (not a RECYCLE swap): person layers empty, presence 0 (K-4)
   }
 }
 
@@ -373,15 +374,14 @@ function upload() {
   if (camStat.ms.length > 600) camStat.ms.shift()
 }
 
-/** track.onended (the device unplugged): the texture goes black at its last size, the host retires. */
-function black() {
+/** K-4: no source. resetMask() + every track stopped + srcObject null + cam.live false (the host retires at the next
+ *  tick) + no image (cam.w 0). Callers: the start of every selectCamera, and track onended (the device unplugged). */
+function resetStream() {
+  resetMask()
+  ;(video.srcObject as MediaStream | null)?.getTracks().forEach((t) => t.stop())
+  video.srcObject = null
   cam.live = false
-  const w = cam.w || 1
-  const h = cam.h || 1
-  gl.bindTexture(gl.TEXTURE_2D, cam.tex)
-  const buf = new Uint8Array(w * h * 4)
-  for (let i = 3; i < buf.length; i += 4) buf[i] = 255
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, buf)
+  cam.w = cam.h = 0 // nothing camera-shaped is drawn (the probe's base-0); the next frame reallocates
 }
 
 // requestVideoFrameCallback has no cancel API, so a stale chain cannot be un-armed — only made inert.
@@ -420,9 +420,8 @@ export async function allowCameras() {
 }
 
 export async function selectCamera(sel: string | 'off' | File) {
-  cam.live = false
+  resetStream()
   video.pause()
-  video.srcObject = null
   if (clipUrl) {
     URL.revokeObjectURL(clipUrl)
     clipUrl = null
@@ -433,10 +432,7 @@ export async function selectCamera(sel: string | 'off' | File) {
   camSource.kind = 'off'
   camSource.settings = null
   camSource.caps = null
-  if (sel === 'off') {
-    cam.w = cam.h = 0 // base-0: nothing camera-shaped is drawn (the probe's 'HEAVY alone' arm)
-    return
-  }
+  if (sel === 'off') return
   if (sel instanceof File) {
     camSource.kind = 'clip'
     clipUrl = URL.createObjectURL(sel)
@@ -448,7 +444,7 @@ export async function selectCamera(sel: string | 'off' | File) {
       video: { deviceId: { exact: sel }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
     })
     const t = ms.getVideoTracks()[0]
-    t.onended = black
+    t.onended = resetStream
     camSource.kind = 'camera'
     camSource.settings = t.getSettings()
     camSource.caps = t.getCapabilities()
