@@ -69,3 +69,4 @@
 - `agents/creative-director/creative_neuro_serpent.md` — Neuro Serpent creative spec (2026-11-15, 147 lines): fluted chrome band-tube, B/W signals, drop cascade, 10 stills, C1–C18, SG1–SG4. Current.
 - `agents/creative-director/creative_amen_shatter.md` — Amen Shatter creative spec (2026-11-15, 149 lines): 16×10 wrapped lattice, kick bands / snare strips / hat cells on the 16th grid, plate generator, drop hold-then-shatter, 10 stills. Current.
 - `agents/system-designer/design_amen_shatter.md` — Amen Shatter architecture (2026-11-15, 234 lines): pure CPU core + shatterState; A one-pass inline plate (rec.), B HDR plate + blit stamps, C ring (rejected). Current.
+- `agents/system-designer/design_neuro_serpent.md` — Neuro Serpent architecture (2026-11-15, 237 lines): A tube mesh + depth in its own HDR FBO (rec.), B SDF raymarch (fails R2), C strip impostors; levers; SG1 reeseLevel. Current.
