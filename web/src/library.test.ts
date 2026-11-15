@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import type { Binding } from './bind'
-import type { SceneDoc } from './doc'
+import { SOURCE_IDS, type Binding } from './bind'
+import { parseScene, type LayerDoc, type SceneDoc } from './doc'
 import { docs } from './edit'
 import { createLibrary, type Db } from './library'
 import { BUILTIN } from './scenes/builtin'
@@ -288,4 +288,17 @@ test('onChange after every change until unsubscribed; del forgets a scene; persi
   await other.put(scene('u-2'))
   expect(denied).toHaveBeenCalledTimes(2) // not granted: asked again on the next save
   expect(c.kv.has('vjw.persisted')).toBe(false)
+})
+
+test('the camera scenes (plan_camera S2.3): each parses; L0, the fallback, has no person; every person layer fades with presence', () => {
+  const person = (l: LayerDoc) => !!l.mask || ['native/camera', 'native/outline'].includes(l.gen.ref)
+  for (const id of ['builtin:dj-over-tunnel', 'builtin:dj-inside', 'builtin:dj-ghost']) {
+    const d = BUILTIN.find((x) => x.id === id)!
+    expect(parseScene(JSON.parse(JSON.stringify(d))), id).toStrictEqual(d)
+    expect(person(d.layers[0]), id).toBe(false)
+    expect(d.layers.filter(person).length, id).toBeGreaterThan(0)
+    for (const l of d.layers.filter(person)) expect(l.bind?.opacity, id).toEqual({ source: 'presence', amount: 1, attack: 0.3, release: 1.5, min: 0, max: 1 })
+    const sources = d.layers.flatMap((l) => [l.bind, l.gen.bind, ...l.fx.map((n) => n.bind)]).flatMap((b) => Object.values(b ?? {}).map((x) => x!.source))
+    for (const s of sources) expect(SOURCE_IDS, id).toContain(s)
+  }
 })
