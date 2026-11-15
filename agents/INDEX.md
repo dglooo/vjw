@@ -75,3 +75,4 @@
 - `agents/test-architect/matrix_amen_shatter.md` — Amen Shatter test matrix (2026-11-15, 60 tests; S3 spike minimum in §4). Current.
 - `agents/test-architect/matrix_neuro_serpent.md` — Neuro Serpent test matrix (2026-11-15, 59 tests; spike order in §1; gaps G1–G10). Current.
 - `agents/audio-dsp/dsp_serpent_replay.md` — Serpent replay pre-step (2026-11-15): knobs, lines a–h (d–g fail: no absence detector), reeseLevel §4 record. Current.
+- `agents/creative-qa/cqa_amen_shatter_spike.md` — CQA of the Amen Shatter spike sheet (2026-11-15): REVISE, 1 HIGH (set B not held), 6 MED (plate bullseye, stamps, veil…), 4 LOW. Current.
