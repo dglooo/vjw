@@ -43,7 +43,7 @@ const SUM_RATE = 0.25 // /s, log: the light state's slew (≤ 4.4 % per 8th at 1
 const EPS = 1e-3 // the light state's floor (N-2: the log step can leave 0)
 const W_MAX = 0.35 // a beam's relative weight cap (share ÷ lit beams): the capped regime (cage, Lone beams, thin Grid)
 const SHEET_W = 0.012 // a Sheet's weight: the plane spreads its emitter's power (the dimmest figure per px)
-const RAY_W = 0.25 // a Grating-burst ray's weight
+const RAY_W = 0.1 // a Grating-burst ray's weight (fix 1 F9: was .25; the snare's rays took ≈ 19 % of the light into unclipped hair lines: +7 % displayed luma per burst)
 const DISC_W = 0.6 // an origin disc's weight
 const GLINT_W = 1.2 // a 4-ray star's weight at full size: the origin flare (toward²) and the glint (≤ 50 ms, + .6)
 const STAR_S = 0.4 // a star ray's σ ÷ the disc radius (2 px at 1117 rows: it reads at sheet scale)
@@ -489,8 +489,9 @@ void main() {
   float skirt = kind == 0 && u < 1.0 ? (1.0 - u * u) * (1.0 - u * u) : 0.0; // windowed to 0 at the support (L1)
   float n = hash(uint(max(al, 0.0) / 5.0) * 747796405u + vId * 2891336453u + uFrame * 277803737u);
   float spk = 1.0 + uSpeckle * (2.0 * n - 1.0); // the grain along the beam, new each frame
-  float mote = n > 0.96 ? 16.0 * uSpeckle * sin(3.1416 * fract(max(al, 0.0) / 5.0)) : 0.0; // 4 % glitter motes on the core: a round bead (fix 1 F2)
-  outColor = vec4(uLight * g * tip * (spk * ${f4(SKIRT_A)} * skirt * sk + (spk + mote) * ${f4(CORE_A)} * uCore * (1.0 + vK.x) * core * hc), 0.0); // a hot core ×2: white-hot (F5)
+  float bm = kind == 0 ? 1.0 : 0.0; // beams only: a Grating ray's brightness stays in the light state (Rule H, the snare)
+  float mote = n > 0.96 ? 16.0 * bm * uSpeckle * sin(3.1416 * fract(max(al, 0.0) / 5.0)) : 0.0; // 4 % glitter motes on the core: a round bead (fix 1 F2)
+  outColor = vec4(uLight * g * tip * (spk * ${f4(SKIRT_A)} * skirt * sk + (spk + mote) * ${f4(CORE_A)} * uCore * (1.0 + bm * vK.x) * core * hc), 0.0); // a hot beam core ×2: white-hot (F5)
 }`
 // P4: the smoke field (2 octaves of snoise; features 150–400 px, drift 20–60 px/s) at 1/8 res, on the layer clock.
 const SMOKE = `#version 300 es
