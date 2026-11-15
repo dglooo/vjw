@@ -103,3 +103,17 @@
 - **C12 "step":** read as a frame-to-frame change of frame-mean luma > .10 (⚠️ confirm with creative-qa).
 - **S3 seed value:** not in my inputs; the planner fixes it (T-C12t and the V-tests use it).
 - **Reuse:** `web/src/audio/synth.ts` (kick, snare, hats, pattern, arrangement; graphify) may serve the synthetic streams. The coder decides (reuse first).
+
+## Amendments (S4 coverage, 2026-11-15; applied by the lead from `coverage_amen_shatter.md` §4)
+These override the rows above where they differ.
+- **M-1 T-V2** expected: "1 retract; 1 kick-cause move that is a shove or a ghost (K4)".
+- **M-2 T-V7:** "rho null on each frame up to the wide frame"; "shatter on beat slot 4 (beat ∈ [.724, 1.75))", ½-frame tolerance.
+- **M-3 T-C14** expected: "0 confirmed shoves; ≤ 1 predicted shove and its retract (C4)".
+- **M-4 T-D1:** snare-only "exactly 1 snare-cause move per rise"; kick-only "1 kick-cause shove or 16-slot slam per kick".
+- **M-5 T-D3:** +50 ms (same visit); precondition: the first rise is ≤ 1 frame after its crossing.
+- **M-6 T-R3l** command runs both fixtures: `node scratchpad/ed/amen-shatter/as-60s.mjs <dnb174-arr|dubstep140-arr> <port>`.
+- **M-7 T-C15** owner: `frontend-coder` measures (plan S5.3), `lead` runs at S6. Thresholds: `coverage_amen_shatter.md` §3 + § Lead rulings (S9 = WIDE; HDR proxy = max channel ≥ 250 share ≤ 8 %).
+- **M-8 T-A1r** expected adds (G-6, G-2): "(a) share of locked frames with rho non-null, per track (report); (b) rho adoptions after the first, per track (≤ 1); (c) share of kick rises confirmed inside their own slot visit (≥ 95 %). A breach of (b) or (c) goes to the audio-dsp lane (SDLC §4), never to a coder retune."
+- **M-9 new row T-G7:**
+  - {req: "G-7, LR-8", test: "T-G7", layer: "unit", fixture: "drive() with audioNow = frame ÷ 60 and now = audioNow, plus a 200 ms now gap at one frame; a −0.2 beat audioNow jump on a separate run", bad_input: "break residual runs on Δnow (not ΔaudioNow); 170 ms one-shot runs on audioNow (not now)", expected: "the audioNow jump gives 1 break; the now gap gives 0 breaks; the one-shot ends at now + 170 ms", command: "cd web && npx vitest run src/scenes/shatter.test.ts -t T-G7", threshold: "1 / 0 / one-shot end within 1 frame of now + 170 ms (exact counts)", owner: "frontend-coder", phase: "S5"}
+- **M-10 T-V10** fixture: `audioNow` on real time; the 200 ms gap moves `now` only (the row's own wording, L36; the spike's `drive()` moved both).
