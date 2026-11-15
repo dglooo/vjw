@@ -12,7 +12,7 @@ import { downsample, quantize, stats } from './smooth'
 import type { MaskStats } from './smooth'
 
 export type ModelId = 'synthetic' | 'selfie' | 'pose-lite'
-export type ToWorker = { type: 'init'; model: ModelId; delegate: 'CPU' | 'GPU'; base: string }
+export type ToWorker = { type: 'init'; model: ModelId; delegate: 'CPU' | 'GPU'; base: string; fault?: string } // fault: probe-only (S1.2b)
   | { type: 'frame'; id: number; frame: VideoFrame }
   | { type: 'close' }
 export type FromWorker = { type: 'ready'; info: string } | { type: 'error'; msg: string }
@@ -28,6 +28,9 @@ let seg: ImageSegmenter | null = null
 let pose: PoseLandmarker | null = null
 let stamp = 0 // the monotonic VIDEO-mode clock (a looping clip's media time jumps back)
 let n = 0 // the synthetic's frame counter
+let fault = '' // probe-only (S1.2b, ?camprobe&fault=): the init message's, see faulty()
+let seen = 0 // frames since init: the fault's N
+let canvas: OffscreenCanvas | undefined // the GPU delegate's context (glloss@N)
 
 /** The stand-in (plan CP0 TL;DR): an ellipse, area ≈ .12, whose centre drifts on a sine; every 90th frame
  *  is flooded and every 91st empty — the S1.1 gate must hold those (S0.2 shows them as flashes). */
@@ -91,7 +94,29 @@ const poseModel: Model = async (frame) => {
 }
 
 // the GPU delegate gets a private OffscreenCanvas context in the worker (W-*-gpu)
-const gpuCanvas = (delegate: 'CPU' | 'GPU') => (delegate === 'GPU' ? new OffscreenCanvas(2, 2) : undefined)
+const gpuCanvas = (delegate: 'CPU' | 'GPU') => (canvas = delegate === 'GPU' ? new OffscreenCanvas(2, 2) : undefined)
+
+/** Probe-only faults (S1.2b; K-1 T1a–T1c, matrix B1–B5, B20): `throw@N` frame N throws once, `hang@N` no answer from
+ *  frame N on, `dead` every frame throws, `crash@N` an uncaught throw (the page's onerror), `close@N` self.close() (no
+ *  event), `glloss@N` the GPU delegate's context is lost at frame N. Returns true when the frame is swallowed. */
+function faulty(frame: VideoFrame): boolean {
+  const [kind, at] = fault.split('@')
+  const i = ++seen
+  const hit = kind === 'dead' || i === +at
+  if (kind === 'glloss') {
+    if (hit) canvas?.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext()
+    return false
+  }
+  if (!hit && !(kind === 'hang' && i > +at)) return false
+  frame.close()
+  if (kind === 'throw' || kind === 'dead') throw new Error(`fault ${kind} at frame ${i}`) // → an error reply
+  if (kind === 'crash')
+    setTimeout(() => {
+      throw new Error(`fault crash at frame ${i}`)
+    })
+  if (kind === 'close') self.close()
+  return true
+}
 
 async function makeSeg(base: string, delegate: 'CPU' | 'GPU', file: string) {
   const { FilesetResolver, ImageSegmenter } = await import('@mediapipe/tasks-vision')
@@ -153,6 +178,8 @@ async function dispatch(m: ToWorker, post: Post): Promise<void> {
     if (m.type === 'init') {
       n = 0
       stamp = 0
+      fault = m.fault ?? ''
+      seen = 0
       seg?.close()
       seg = null
       pose?.close()
@@ -173,6 +200,7 @@ async function dispatch(m: ToWorker, post: Post): Promise<void> {
         post({ type: 'error', msg: 'frame before init' })
         return
       }
+      if (fault && faulty(m.frame)) return
       const t0 = performance.now()
       const r = await model(m.frame).finally(() => m.frame.close())
       let data: Uint8Array<ArrayBuffer> = r.data instanceof Float32Array ? quantize(r.data) : (r.data as Uint8Array<ArrayBuffer>)
@@ -192,7 +220,20 @@ async function dispatch(m: ToWorker, post: Post): Promise<void> {
       model = null
     }
   } catch (err) {
-    post({ type: 'error', msg: String(err instanceof Error ? err.stack ?? err.message : err) })
+    let msg = String(err instanceof Error ? err.stack ?? err.message : err)
+    if (m.type === 'init' && m.model !== 'synthetic' && !(await served(`${m.base}models/${m.model === 'selfie' ? SELFIE.file : POSE_FILE}`)))
+      msg = 'Model missing: run `node scripts/models.mjs`' // K-1 rule 5 (K-12): a missing model is never silent
+    post({ type: 'error', msg })
+  }
+}
+
+/** A same-origin file is there: Vite (dev and preview) answers a missing one with its index.html, 200 text/html. */
+async function served(url: string) {
+  try {
+    const r = await fetch(url, { method: 'HEAD' })
+    return r.ok && !r.headers.get('content-type')?.includes('text/html')
+  } catch {
+    return false
   }
 }
 

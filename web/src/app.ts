@@ -11,8 +11,9 @@ import { createTempoSource } from './audio/tempo'
 import { createStyle, styleIn, type StyleOut } from './audio/style'
 import { type Hit } from './audio/drums'
 import { createRemap, restyle, sources, type Sources } from './bind'
-import { camGate } from './camera/camera'
+import { cam, camGate, camGpuMs, camMask, readCam, readMask, selectCamera, tick as camTick } from './camera/camera'
 import { presence } from './camera/smooth'
+import { count as camUsers } from './camera/users'
 import { createDirector } from './director'
 import { tiles } from './editor/tiles'
 import type { FrameInput } from './frame'
@@ -195,6 +196,10 @@ const features = createFeatures() // kick/snare/hats envelopes from the worklet'
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
 if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets }) // ?debug: the live binding sources, settings and the flash budget's onsets, for DevTools and browser checks
+// plan_camera CP1 (S1.2b): the camera's harness hooks — mask users, SegmentWorker constructions, frames posted to a
+// host; also on the probe and bench pages (their harnesses read it, camGpuMs under ?bench)
+if (DEBUG || /camprobe|bench/.test(location.search))
+  Object.assign(window, { __cam: { cam, users: camUsers, hosts: () => camMask.hosts, frames: () => camMask.frames, readCam, readMask, select: selectCamera, gpuMs: camGpuMs } })
 
 /** S2.5: the worklet's config for the active preset (T1: frame() moves `configured` to it, picked or detected). Sent
  * only when it really changed (ids + Hz, drums and floors too) — a sens or auto toggle must not re-send. `rev` grows
@@ -353,6 +358,7 @@ function frame(now: number) {
   const styled = restyle(src, rmFrom, rmTo, rmW, styledOut)
   src.build = arrangeOut.build // S5.3: expose the arrangement as binding sources (the UI lists them in S6.3)
   src.drop = arrangeOut.drop
+  camTick(now) // plan_camera S1.2b (D1): the camera host's life + its GL (upload, EMA, ref), before render() and presence
   src.presence = presence(camGate.area) // S1.1 (design D3): the gate's held area — stable through flood/strobe; rests at 0 with no camera
   f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)
   if (arrangeOut.fired !== null) dropAt = f.time
