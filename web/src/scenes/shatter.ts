@@ -23,6 +23,7 @@ const QUIET_SLOTS = 32, SLAM_SLOTS = 16, WIDE_SLOTS = 128 // 2 bars, 1 bar, 8 ba
 const HOLD_FREE = 0.35, ONE_SHOT = 0.17, ENTRY_MAX = 0.5, WIDE_FREE = 11 // s, wall clock
 const REST = 0.25 // a seam's level while its slice stays displaced
 const SHATTER_REL = 0.4, FRINGE = 0.05, HATS_FLARE = 0.5, HATS_REL = 0.06, SLAM_FADE = 0.15 // s
+const SHATTER_FLOOR = 0.5 // L11 (A-8 measured: `burst` read 0 at the shatter on dnb174-arr, the gate full before T0): the ungated cap
 const PUSH = 0.06, SUB_PUSH = 0.04 // the hold's push-in, the sub's
 const DEG = Math.PI / 180
 
@@ -512,7 +513,7 @@ export function createShatter(seed = S3_SEED): Shatter {
       return Math.max(strips[c] ? zS[c] : -1, bands[b] ? zB[b] : -1, swapped.has(c + COLS * r) ? f : -1)
     }
     const flare = [x.kickFlare, x.snareFlare, Math.max(0, HATS_FLARE * (1 - (now - hatsT) / HATS_REL)), 0]
-    const shat = b0 > 0 && f >= shatterF ? Math.exp(-(now - shatterT) / SHATTER_REL) : 0
+    const shat = shatterF >= 0 ? Math.max(b0 > 0 ? 1 : 0, SHATTER_FLOOR) * Math.exp(-(now - shatterT) / SHATTER_REL) : 0
     const ring = now - fringeT < FRINGE, slamFade = Math.exp(-(now - slamT) / SLAM_FADE) * Math.max(REST, x.snareFlare)
     for (let r = 0; r < ROWS; r++)
       for (let c = 0; c < COLS; c++) {
@@ -572,6 +573,7 @@ const PAL = [
 const arr = (k: (p: (typeof PAL)[number]) => string[]) => `vec3[9](${PAL.flatMap(k).map(v3).join(', ')})`
 const SEAM = { core: '#F4FBFF', band: '#FF8A1F', strip: '#39E6FF', cell: '#C6FF3D', hair: '#EAFBFF' }
 const LOOK = { ring: 1.5, tail: 0.5, sheen: 0.45, disc: 0.95, rim: 2.2, core: 2.6, halo: 0.55, haloTau: 7.0, shadow: 0.35, shadowTau: 8.0 } // ⚠️ spike look
+const REACH = 40 // px: the seam halo's reach (e^(−40/7) ≈ .003); farther edges are neither fetched nor lit
 const f4 = (x: number) => x.toFixed(4)
 const FS = `#version 300 es
 precision highp float;
@@ -604,7 +606,10 @@ vec3 plate(vec2 q, float phase, float sheen, float bright, float scale, float pa
   vec2 n = r > 1e-3 ? d / r : vec2(1.0, 0.0);
   float rr = clamp(r / (0.62 * length(uRes)), 0.0, 1.0);
   vec3 col = mix(mix(field(0, pal), field(1, pal), smoothstep(0.0, 0.45, rr)), field(2, pal), smoothstep(0.45, 1.0, rr));
-  float lobe = pow(abs(cos(atan(n.y, n.x) - sheen)), 14.0) * exp(-r / (6.0 * R0)); // two opposite lobes, ≈ 35° each
+  float c2 = dot(n, vec2(cos(sheen), sin(sheen))), c4; // cos² of the angle to the sheen axis, then ^7: two opposite lobes, ≈ 35° each
+  c2 *= c2;
+  c4 = c2 * c2;
+  float lobe = c2 * c4 * c4 * c4 * exp(-r / (6.0 * R0));
   vec3 sc = byPal(SHEEN[0], SHEEN[1], SHEEN[2], pal);
   float w = 1.1 + 0.4 * smear * abs(dot(n, axis)); // edge σ px
   if (r < R0) {
@@ -631,7 +636,7 @@ vec3 seg(vec2 q, vec2 a, vec2 b, float level, int m) {
   bool v = a.x == b.x;
   float sd = v ? q.x - a.x : q.y - a.y, al = v ? q.y : q.x, lo = v ? a.y : a.x, hi = v ? b.y : b.x;
   float ex = max(0.0, max(lo - al, al - hi)), d = length(vec2(sd, ex)); // the true distance: a seam end gets a round cap (A-9)
-  if (d > 60.0) return vec3(0.0);
+  if (d > ${f4(REACH)}) return vec3(0.0);
   vec3 c = ${v3(SEAM.core)} * ${f4(LOOK.core)} * exp(-0.5 * d * d / 0.75) + TINT[m & 3] * ${f4(LOOK.halo)} * exp(-d / ${f4(LOOK.haloTau)});
   if ((m & 8) != 0) { // the red / blue fringe (crack, slam, shatter)
     float dr = length(vec2(sd - 2.5, ex)), db = length(vec2(sd + 2.5, ex));
@@ -653,14 +658,17 @@ void main() {
   } else col = plate(q + (C.xy - vec2(cell)) * cs, uPlate.x, uPlate.y, uPlate.z, uPlate.w, uPal, smear, axis);
   vec3 light = vec3(0.0);
   float shade = 1.0;
+  vec2 l = q - vec2(cell) * cs, far = cs - l; // px to my left / top sides, and to my right / bottom sides
+  // A-9: the 8 texels that hold my sides and every corner stub ((c + 1, r + 1) holds none), each only within the halo's reach
   for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) {
+    if ((dx == 1 && dy == 1) || (dx == -1 && l.x > ${f4(REACH)}) || (dx == 1 && far.x > ${f4(REACH)}) || (dy == -1 && l.y > ${f4(REACH)}) || (dy == 1 && far.y > ${f4(REACH)})) continue;
     ivec2 k = cell + ivec2(dx, dy);
     if (k.x < 0 || k.y < 0 || k.x > 15 || k.y > 9) continue;
     vec4 E = texelFetch(uEdges, k, 0);
     ivec2 m = ivec2(E.zw * 255.0 + 0.5);
     vec2 o = vec2(k) * cs, o1 = o + cs;
-    if (E.x > 0.0) light += seg(q, vec2(o1.x, o.y), o1, E.x, m.x);
-    if (E.y > 0.0) light += seg(q, vec2(o.x, o1.y), o1, E.y, m.y);
+    if (E.x > 0.0 && dx < 1 && (dx == -1 || far.x < ${f4(REACH)})) light += seg(q, vec2(o1.x, o.y), o1, E.x, m.x); // right edges: my left side, my right side
+    if (E.y > 0.0 && dy < 1 && (dy == -1 || far.y < ${f4(REACH)})) light += seg(q, vec2(o.x, o1.y), o1, E.y, m.y); // lower edges: my top side, my bottom side
     // the soft shadow toward lower-right: from my left side and my top side, cast by the slice on top
     if (dx == -1 && dy == 0 && (m.x & 4) != 0 && E.x > 0.0) shade *= 1.0 - ${f4(LOOK.shadow)} * min(1.0, uSeams) * exp(-(q.x - o1.x) / ${f4(LOOK.shadowTau)});
     if (dx == 0 && dy == -1 && (m.y & 4) != 0 && E.y > 0.0) shade *= 1.0 - ${f4(LOOK.shadow)} * min(1.0, uSeams) * exp(-(q.y - o1.y) / ${f4(LOOK.shadowTau)});
