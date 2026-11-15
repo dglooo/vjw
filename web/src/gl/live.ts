@@ -259,7 +259,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
   }
 
   /** One node into `dst` on its layer's clock; returns the texture it produced: dst's, or its last pass's TARGET. */
-  function run(n: Node, l: Layer, f: FrameInput, dt: number, src: WebGLTexture | null, dst: Target) {
+  function run(n: Node, l: Layer, f: FrameInput, dt: number, src: WebGLTexture | null, dst: Target, s: Sources) {
     let out = dst
     if (n.native) {
       bindFramebufferInfo(gl, dst)
@@ -268,7 +268,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       fl.dt = dt
       fl.width = dst.width
       fl.height = dst.height
-      n.native.draw(fl, n.u as Record<string, Value>, src) // a native filter reads it; null for a generator
+      n.native.draw(fl, n.u as Record<string, Value>, src, s) // a native filter reads src; null for a generator
     } else {
       if (n.w !== dst.width || n.h !== dst.height) resize(n, dst.width, dst.height)
       n.u.TIME = n.u.iTime = l.t // ISF's names and a toy's
@@ -356,7 +356,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
         let src: WebGLTexture | null = null
         for (let k = 0; k < l.nodes.length; k++) {
           const dst = direct && k === l.nodes.length - 1 ? acc : k === 0 && small ? small : tmp[k % 2]
-          src = run(l.nodes[k]!, l, f, dt, src, dst)
+          src = run(l.nodes[k]!, l, f, dt, src, dst, s)
         }
         if (direct) continue
         cu.uMask = cd.uMask = cam.mask // the EMA's current target: it swaps per mask

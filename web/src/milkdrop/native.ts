@@ -6,6 +6,7 @@ import { createTexture } from 'twgl.js'
 import { analyser, ctx } from '../audio/input'
 import { fullscreenProgram, gl } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
+import { createMix } from './levels'
 import { PRESETS } from './presets'
 
 const tex = createTexture(gl, { minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE, auto: false }) // shared: copy() uploads and draws at once
@@ -38,6 +39,8 @@ export function copy(src: OffscreenCanvas | HTMLCanvasElement | ImageBitmap, w: 
 const bytes = new Uint8Array(analyser.fftSize).fill(128) // 1024, Butterchurn's window; silence until the first draw
 const audioLevels = { timeByteArray: bytes, timeByteArrayL: bytes, timeByteArrayR: bytes } // our analyser is mono
 const PX = { pixelRatio: 1, textureRatio: 1 } // the target's own pixels
+const BEAT = 60 / 174 // s per beat with no grid yet (the drop burst's length)
+let mixing: ReturnType<typeof createMix> | null = null // the drawing native's mix, set around its render() only
 
 // ponytail: uncapped pool, one Chromium context each (16 max); cap if ←/→ spam ever shows
 const free: Visualizer[] = []
@@ -47,6 +50,14 @@ function make() {
   const canvas = document.createElement('canvas')
   canvas.getContext('bitmaprenderer') // Butterchurn gets no 2D context, so its frame stays in internalCanvas (S1.1 G2)
   const v = butterchurn.createVisualizer(ctx, canvas, { width: 16, height: 16, ...PX })
+  // The seam (milk-sync): render() computes the levels first, then hands them to the preset (dist :11655); ours mix in
+  // right after its own update. Its state (avg, longAvg) never sees ours: val/att are outputs only.
+  const lv = v.renderer.audioLevels
+  const own = lv.updateAudioLevels.bind(lv)
+  lv.updateAudioLevels = (fps, frame) => {
+    own(fps, frame)
+    mixing?.apply(lv)
+  }
   v.internalCanvas.addEventListener('webglcontextlost', () => location.reload()) // as the stage, engine.ts:17
   return v
 }
@@ -67,16 +78,18 @@ function load(v: Visualizer, p: (typeof PRESETS)[number]) {
 
 /** One native per shipped preset (CP2 contract). Its visualizer comes from the pool and goes back once its load settled. */
 export const milkdrop: readonly NativeDef[] = PRESETS.map((p): NativeDef => ({
-  id: `milk/${p.slug}`, name: p.name, kind: 'generator', category: 'feedback', credit: p.author, inputs: [],
+  id: `milk/${p.slug}`, name: p.name, kind: 'generator', category: 'feedback', credit: p.author,
+  inputs: [{ name: 'sync', type: 'float', min: 0, max: 1, default: 0.75 }], // 0 = the preset's own levels, 1 = our kick/snare/hats/drop
   create() {
     const v = free.pop() ?? make()
+    const mix = createMix()
     let ready = false
     let settled = false
     const loading = load(v, p)
       .then((ok) => (ready = ok)) // black until then
       .finally(() => (settled = true))
     return {
-      draw(f) {
+      draw(f, { sync }, _src, s = {}) {
         if (!ready) {
           gl.clearColor(0, 0, 0, 1)
           gl.clear(gl.COLOR_BUFFER_BIT)
@@ -84,7 +97,10 @@ export const milkdrop: readonly NativeDef[] = PRESETS.map((p): NativeDef => ({
         }
         if (v.internalCanvas.width !== f.width || v.internalCanvas.height !== f.height) v.setRendererSize(f.width, f.height, PX)
         analyser.getByteTimeDomainData(bytes)
+        mix.frame(s, sync as number, f.dt, f.sync.bpm > 0 ? 60 / f.sync.bpm : BEAT)
+        mixing = mix
         v.render({ audioLevels, elapsedTime: f.dt }) // its unit, G10
+        mixing = null
         copy(v.internalCanvas, f.width, f.height)
       },
       // Back at once when its load has settled: prepare() builds right after it disposes (live.ts), as does a panel remove
