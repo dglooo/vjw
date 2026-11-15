@@ -6,9 +6,20 @@ import type { Drum } from '../audio/drums'
 import { createFeatures } from '../audio/features'
 import { PRESETS } from '../audio/presets'
 import type { Sources } from '../bind'
-import { barPhase, CELLS, COLS, compose, createShatter, LAYOUTS, rose, ROWS, S3_SEED, slotOf, type Move, type ShatterIn, type ShatterState } from './shatter'
+import { BUILTIN } from './builtin'
+import { barPhase, CELLS, COLS, compose, createShatter, LAYOUTS, rose, ROWS, S3_SEED, shatter, slotOf, type Move, type ShatterIn, type ShatterState } from './shatter'
 
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {} })) // the engine takes the page's canvas at import
+
+test('T-R7 builtin:amen-shatter: 1 entry, 1 layer, the native only, 0 fx; its binds and seed repeat the def', () => {
+  const d = BUILTIN.filter((x) => x.id === 'builtin:amen-shatter')
+  expect(d).toHaveLength(1)
+  expect(d[0].layers).toHaveLength(1)
+  expect([d[0].layers[0].gen.ref, d[0].layers[0].fx.length]).toEqual(['native/amen-shatter', 0])
+  expect(d[0].layers[0].gen.bind).toEqual(shatter.bind)
+  expect(d[0].layers[0].gen.values?.seed).toBe(S3_SEED)
+  expect(shatter.flash).toEqual(['burst', 'kickFlare', 'snareFlare'])
+})
 
 const BPM = 174, FPS = 60
 const TAU: Record<Drum, number> = { kick: 0.12, snare: 0.12, hats: 0.06 }

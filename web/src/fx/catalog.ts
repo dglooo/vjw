@@ -12,6 +12,7 @@ import { particles } from '../scenes/particles'
 import { plexus } from '../scenes/plexus'
 import { scatter, swarm } from '../scenes/points'
 import { scope } from '../scenes/scope'
+import { shatter } from '../scenes/shatter'
 import { spectrum } from '../scenes/spectrum'
 import type { NodeDoc } from '../doc'
 import { tunnel } from '../scenes/tunnel'
@@ -23,7 +24,7 @@ import type { EffectDef, ShaderDef } from './types'
 
 const files = import.meta.glob(['./isf/*.fs', './own/*.fs'], { query: '?raw', import: 'default', eager: true })
 
-export const catalog = new Map<string, EffectDef>([tunnel, spectrum, particles, glitch, rgbaDelay, camera, outline, timeMachine, slitScan, swarm, scatter, scope, plexus, creatures, isobars, lasers, wireform, vortex, orb, ...milkdrop].map((d) => [d.id, d] as const))
+export const catalog = new Map<string, EffectDef>([tunnel, spectrum, particles, glitch, rgbaDelay, camera, outline, timeMachine, slitScan, swarm, scatter, scope, plexus, creatures, isobars, lasers, shatter, wireform, vortex, orb, ...milkdrop].map((d) => [d.id, d] as const))
 /** Every bundled `.fs` file's raw text by id: the editor library reads its `// Look: TD` header (parseIsf drops it). */
 export const rawFs = new Map<string, string>()
 for (const [path, src] of Object.entries(files)) {

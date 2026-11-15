@@ -5,11 +5,15 @@
 // kick shove, the slice table, the roll, the drop recipe) writes two 16 × 10 tables per frame; one full-screen pass
 // evaluates the plate at the relocated uv, adds HDR seams and shadows, tone-maps and dithers. Own code, credit
 // VeeJay Wizard; HASH (lowbias32) through points.ts.
+import { fullscreenProgram } from '../gl/engine'
+import type { NativeDef } from '../gl/scene'
+import type { Value } from '../fx/types'
+import { HASH } from './points'
 
 export const COLS = 16, ROWS = 10, CELLS = COLS * ROWS
 // Knobs ⚠️ (spike values; design §2.0 + rev 2).
 export const PHASE_MARGIN = 0.5 // G-2 (open, audio-dsp): barPhase's lead over the runner-up, on the 0–4 score
-export const S3_SEED = 7 // the fixed S3 seed (design decision 6): disc centre (.41, .43) of the frame
+export const S3_SEED = 3 // the fixed S3 seed (design decision 6): disc centre (.386, .560); seed 7 (.486, .442) crosses x = 864 (T-C12t)
 export const RISE = 0.05 // A-7: a hit rise = a frame-to-frame increase ≥ this on kick, snare or hats
 const TAU_SLOTS = 64 // the slot histograms' EMA: 4 bars
 const LEAD = 16 // A-6: crossings a new candidate must lead before it is adopted
@@ -555,4 +559,188 @@ export function createShatter(seed = S3_SEED): Shatter {
       }
   }
   return { step }
+}
+
+// ---- the GL: one full-screen pass (Variant A) ----
+const v3 = (h: string) => `vec3(${[1, 3, 5].map((i) => (parseInt(h.slice(i, i + 2), 16) / 255).toFixed(4)).join(', ')})`
+/** creative §2.5, by palette C (QUIET), A (GROOVE), B (WIDE and drop): field 3 stops (centre → edge), rings by radius, core, sheen. */
+const PAL = [
+  { field: ['#12233F', '#0B1026', '#05070F'], rings: ['#2BD9C5', '#5B6CFF', '#5B6CFF'], core: '#2BD9C5', sheen: '#9FB4FF' },
+  { field: ['#3A0F4A', '#1A1040', '#07060D'], rings: ['#FF5A2A', '#FFB000', '#C6FF3D'], core: '#FFB000', sheen: '#FFE9C2' },
+  { field: ['#5A1030', '#3A0A2E', '#12060F'], rings: ['#FF2E88', '#FF7A1A', '#FFF4E0'], core: '#FFF4E0', sheen: '#FFF4E0' },
+]
+const arr = (k: (p: (typeof PAL)[number]) => string[]) => `vec3[9](${PAL.flatMap(k).map(v3).join(', ')})`
+const SEAM = { core: '#F4FBFF', band: '#FF8A1F', strip: '#39E6FF', cell: '#C6FF3D', hair: '#EAFBFF' }
+const LOOK = { ring: 1.5, tail: 0.5, sheen: 0.45, disc: 0.95, rim: 2.2, core: 2.6, halo: 0.55, haloTau: 7.0, shadow: 0.35, shadowTau: 8.0 } // ⚠️ spike look
+const f4 = (x: number) => x.toFixed(4)
+const FS = `#version 300 es
+precision highp float;
+precision highp int;
+${HASH}
+uniform vec2 uRes;
+uniform sampler2D uCells;
+uniform sampler2D uEdges;
+uniform vec4 uPlate; // phase, sheen (rad), bright, scale
+uniform float uPal, uHair, uShock, uSeams;
+uniform vec2 uCentre; // frame fractions, y down
+uniform vec4 uStamp[16]; // phase, sheen, bright, pal
+uniform uint uFrame;
+out vec4 outColor;
+const vec3 FIELD[9] = ${arr((p) => p.field)};
+const vec3 RINGS[9] = ${arr((p) => p.rings)};
+const vec3 CORE[3] = vec3[3](${PAL.map((p) => v3(p.core)).join(', ')});
+const vec3 SHEEN[3] = vec3[3](${PAL.map((p) => v3(p.sheen)).join(', ')});
+const vec3 TINT[4] = vec3[4](${v3(SEAM.band)}, ${v3(SEAM.strip)}, ${v3(SEAM.cell)}, ${v3(SEAM.strip)});
+const float LN13 = ${f4(Math.log(1.3))};
+vec3 byPal(vec3 a, vec3 b, vec3 c, float p) { return p < 1.0 ? mix(a, b, p) : mix(b, c, p - 1.0); }
+vec3 field(int k, float p) { return byPal(FIELD[k], FIELD[3 + k], FIELD[6 + k], p); }
+vec3 ring(int k, float p) { return byPal(RINGS[k], RINGS[3 + k], RINGS[6 + k], p); }
+// The plate (creative §2.4) at plate px q (y down): a disc at the seeded centre with an HDR rim, 7–9 rings in closed form
+// (ring index = log base 1.3 of the radius minus the phase: one spacing per beat, × 1.3 per ring), a bow-tie sheen,
+// a 3-stop field, grooves inside the sheen, grain. The smear widens each ring edge along the move's axis (analytic).
+vec3 plate(vec2 q, float phase, float sheen, float bright, float scale, float pal, float smear, vec2 axis) {
+  vec2 C = uCentre * uRes, d = (q - C) / scale;
+  float r = length(d), R0 = 1.2 * uRes.x / 16.0;
+  vec2 n = r > 1e-3 ? d / r : vec2(1.0, 0.0);
+  float rr = clamp(r / (0.62 * length(uRes)), 0.0, 1.0);
+  vec3 col = mix(mix(field(0, pal), field(1, pal), smoothstep(0.0, 0.45, rr)), field(2, pal), smoothstep(0.45, 1.0, rr));
+  float lobe = pow(abs(cos(atan(n.y, n.x) - sheen)), 14.0) * exp(-r / (6.0 * R0)); // two opposite lobes, ≈ 35° each
+  vec3 sc = byPal(SHEEN[0], SHEEN[1], SHEEN[2], pal);
+  float w = 1.1 + 0.4 * smear * abs(dot(n, axis)); // edge σ px
+  if (r < R0) {
+    vec3 cc = byPal(CORE[0], CORE[1], CORE[2], pal);
+    float rim = exp(-0.5 * (r - R0) * (r - R0) / (w * w)) * (1.1 / w);
+    col = cc * (${f4(LOOK.disc)} * (0.8 + 0.2 * (1.0 - r / R0)) * bright) * (1.0 + 0.06 * lobe * sin(6.2832 * r / 16.0)) + cc * ${f4(LOOK.rim)} * rim * bright + sc * lobe * ${f4(LOOK.sheen)} * bright;
+  } else {
+    float t = log(r / R0) / LN13, f = fract(t - phase), sp = r * LN13, dIn = f * sp, dOut = (1.0 - f) * sp;
+    float edge = (exp(-0.5 * dIn * dIn / (w * w)) + exp(-0.5 * dOut * dOut / (w * w))) * (1.1 / w);
+    float tail = pow(max(0.0, 1.0 - (1.0 - f) / 0.6), 2.0); // fades inward from each edge over 60 % of the spacing
+    float mask = 1.0 - smoothstep(7.5, 9.0, t);
+    vec3 rc = t < 3.0 ? mix(ring(0, pal), ring(1, pal), t / 3.0) : mix(ring(1, pal), ring(2, pal), clamp((t - 3.0) / 3.0, 0.0, 1.0));
+    float groove = 1.0 + 0.06 * lobe * sin(6.2832 * r / 16.0); // ≥ 14 px apart, ≤ 6 %, only inside the sheen
+    col += rc * (${f4(LOOK.ring)} * edge + ${f4(LOOK.tail)} * tail) * mask * bright * groove + sc * lobe * ${f4(LOOK.sheen)} * bright * (0.4 + tail) * mask;
+  }
+  if (uShock >= 0.0) for (int k = 0; k < 3; k++) { // the T0 shockwave: 3 bright rings leave the core
+    float rs = R0 + 1100.0 * max(0.0, uShock - 0.07 * float(k)), ds = r - rs;
+    col += vec3(1.0, 0.96, 0.88) * 3.0 * exp(-uShock / 0.7) * exp(-0.5 * ds * ds / 4.0);
+  }
+  return col * (1.0 + 0.02 * (hash(uint(floor(q.x)) * 1973u + uint(floor(q.y)) * 9277u) * 2.0 - 1.0)); // grain ≤ 2 %
+}
+// An axis-aligned lattice segment from a to b: its core, halo (tinted) and fringe light at q.
+vec3 seg(vec2 q, vec2 a, vec2 b, float level, int m) {
+  bool v = a.x == b.x;
+  float sd = v ? q.x - a.x : q.y - a.y, al = v ? q.y : q.x, lo = v ? a.y : a.x, hi = v ? b.y : b.x;
+  float ex = max(0.0, max(lo - al, al - hi)), d = length(vec2(sd, ex)); // the true distance: a seam end gets a round cap (A-9)
+  if (d > 60.0) return vec3(0.0);
+  vec3 c = ${v3(SEAM.core)} * ${f4(LOOK.core)} * exp(-0.5 * d * d / 0.75) + TINT[m & 3] * ${f4(LOOK.halo)} * exp(-d / ${f4(LOOK.haloTau)});
+  if ((m & 8) != 0) { // the red / blue fringe (crack, slam, shatter)
+    float dr = length(vec2(sd - 2.5, ex)), db = length(vec2(sd + 2.5, ex));
+    c += vec3(1.6 * exp(-0.5 * dr * dr / 1.2), 0.0, 1.6 * exp(-0.5 * db * db / 1.2));
+  }
+  return c * level;
+}
+void main() {
+  vec2 q = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y), cs = uRes / vec2(16.0, 10.0);
+  ivec2 cell = ivec2(min(floor(q / cs), vec2(15.0, 9.0)));
+  vec4 C = texelFetch(uCells, cell, 0) * 255.0;
+  int flags = int(C.w + 0.5);
+  vec2 axis = (flags & 2) != 0 ? vec2(0.0, 1.0) : vec2(1.0, 0.0);
+  float smear = abs(C.z - 128.0) / 64.0 * dot(cs, axis);
+  vec3 col;
+  if ((flags & 1) != 0) { // a stamp: the plate-centre strip, frozen
+    vec4 S = uStamp[cell.x];
+    col = plate(vec2((floor(uCentre.x * 16.0) - float(cell.x)) * cs.x + q.x, q.y), S.x, S.y, S.z, 1.0, S.w, 0.0, axis);
+  } else col = plate(q + (C.xy - vec2(cell)) * cs, uPlate.x, uPlate.y, uPlate.z, uPlate.w, uPal, smear, axis);
+  vec3 light = vec3(0.0);
+  float shade = 1.0;
+  for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) {
+    ivec2 k = cell + ivec2(dx, dy);
+    if (k.x < 0 || k.y < 0 || k.x > 15 || k.y > 9) continue;
+    vec4 E = texelFetch(uEdges, k, 0);
+    ivec2 m = ivec2(E.zw * 255.0 + 0.5);
+    vec2 o = vec2(k) * cs, o1 = o + cs;
+    if (E.x > 0.0) light += seg(q, vec2(o1.x, o.y), o1, E.x, m.x);
+    if (E.y > 0.0) light += seg(q, vec2(o.x, o1.y), o1, E.y, m.y);
+    // the soft shadow toward lower-right: from my left side and my top side, cast by the slice on top
+    if (dx == -1 && dy == 0 && (m.x & 4) != 0 && E.x > 0.0) shade *= 1.0 - ${f4(LOOK.shadow)} * min(1.0, uSeams) * exp(-(q.x - o1.x) / ${f4(LOOK.shadowTau)});
+    if (dx == 0 && dy == -1 && (m.y & 4) != 0 && E.y > 0.0) shade *= 1.0 - ${f4(LOOK.shadow)} * min(1.0, uSeams) * exp(-(q.y - o1.y) / ${f4(LOOK.shadowTau)});
+  }
+  vec2 g = abs(q / cs - floor(q / cs + 0.5)) * cs; // px to the nearest lattice line
+  float hair = uHair * max(q.x > 2.0 && q.x < uRes.x - 2.0 ? max(0.0, 1.0 - g.x) : 0.0, q.y > 2.0 && q.y < uRes.y - 2.0 ? max(0.0, 1.0 - g.y) : 0.0);
+  vec3 E = mix(col * shade, ${v3(SEAM.hair)}, hair) + light;
+  float mx = max(max(E.r, E.g), max(E.b, 1e-4));
+  vec3 o = mix(E / mx, vec3(1.0), 0.9 * smoothstep(1.0, 2.0, mx)) * (1.0 - exp(-mx)); // the lasers' max-channel tone map
+  uint h = uint(gl_FragCoord.x) * 1973u + uint(gl_FragCoord.y) * 9277u + uFrame * 26699u;
+  outColor = vec4(o + (hash(h) + hash(h ^ 0x9e3779b9u) - 1.0) / 255.0, 1.0); // ±1 LSB TPDF dither
+}`
+
+/** Bindings (design §2.0 inputs and binds): the drums raw (release 0, the core finds the rises), the ⚡ flares gated
+ *  (`burst` first: a same-frame tie goes to the drop). */
+export const shatter: NativeDef = {
+  id: 'native/amen-shatter', name: 'Amen Shatter', kind: 'generator', category: 'geometry', tags: ['breakbeat', 'slices'], credit: 'VeeJay Wizard',
+  inputs: [
+    { name: 'kick', type: 'float', min: 0, max: 1, default: 0 }, // a rise shoves 2 bands
+    { name: 'snare', type: 'float', min: 0, max: 1, default: 0 }, // a rise cracks 4 strips; the bar's last one slams
+    { name: 'hats', type: 'float', min: 0, max: 1, default: 0 }, // a rise ticks 2 cells
+    { name: 'build', type: 'float', min: 0, max: 1, default: 0 }, // the roll: 8ths ≥ .15, 16ths ≥ .40
+    { name: 'drop', type: 'float', min: 0, max: 1, default: 0 }, // a rise runs the drop recipe
+    { name: 'bass', type: 'float', min: 0, max: 1, default: 0.5 }, // ring and sheen brightness .6 → 1.4
+    { name: 'sub', type: 'float', min: 0, max: 1, default: 0 }, // the push-in 1.00 → 1.04
+    { name: 'seams', type: 'float', min: 0, max: 1, default: 1 }, // the seam light's gain (0: relocation only)
+    { name: 'seed', type: 'long', values: [1, 2, 3, 4, 5, 6, 7, 8], default: S3_SEED },
+    { name: 'burst', type: 'float', min: 0, max: 1, default: 0 }, // ⚡ the drop: the shatter's full-HDR seams
+    { name: 'kickFlare', type: 'float', min: 0, max: 1, default: 0 }, // ⚡ amber band seams
+    { name: 'snareFlare', type: 'float', min: 0, max: 1, default: 0 }, // ⚡ cyan strip seams
+  ],
+  flash: ['burst', 'kickFlare', 'snareFlare'],
+  bind: {
+    kick: { source: 'kick', amount: 1, attack: 0, release: 0, min: 0, max: 1 },
+    snare: { source: 'snare', amount: 1, attack: 0, release: 0, min: 0, max: 1 },
+    hats: { source: 'hats', amount: 1, attack: 0, release: 0, min: 0, max: 1 },
+    build: { source: 'build', amount: 1, attack: 0.2, release: 0.5, min: 0, max: 1 },
+    drop: { source: 'drop', amount: 1, attack: 0, release: 0, min: 0, max: 1 },
+    bass: { source: 'band6', amount: 1, attack: 0.03, release: 0.3, min: 0, max: 1 },
+    sub: { source: 'sub', amount: 1, attack: 0.08, release: 0.6, min: 0, max: 1 },
+    burst: { source: 'drop', amount: 1, attack: 0, release: 0.4, min: 0, max: 1 },
+    kickFlare: { source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 },
+    snareFlare: { source: 'snare', amount: 1, attack: 0, release: 0.18, min: 0, max: 1 },
+  },
+  create(gl) {
+    let seed = S3_SEED, core = createShatter(seed), st: ShatterState | null = null, frame = 0
+    const cells = new Uint8Array(4 * CELLS), edges = new Uint8Array(4 * CELLS), stampP = new Float32Array(64)
+    const pass = fullscreenProgram(FS)
+    const table = () => {
+      const t = gl.createTexture()
+      gl.bindTexture(gl.TEXTURE_2D, t)
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, COLS, ROWS)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+      return t
+    }
+    const tC = table(), tE = table()
+    const num = (v: Readonly<Record<string, Value>>, k: string, d = 0) => (typeof v[k] === 'number' ? (v[k] as number) : d)
+    return {
+      shatterState: () => st, // the harness's CPU truth (the laserState() precedent)
+      draw(f: Parameters<ReturnType<NativeDef['create']>['draw']>[0], v: Readonly<Record<string, Value>>) {
+        const s = Math.round(num(v, 'seed', S3_SEED))
+        if (s !== seed) core = createShatter((seed = s))
+        frame = (frame + 1) >>> 0
+        st = core.step({
+          beat: f.sync.beat, bpm: f.sync.bpm, conf: f.sync.confidence, now: performance.now() / 1000, audioNow: f.audioNow,
+          kick: num(v, 'kick'), snare: num(v, 'snare'), hats: num(v, 'hats'), build: num(v, 'build'), drop: num(v, 'drop'), bass: num(v, 'bass', 0.5), sub: num(v, 'sub'),
+          seams: num(v, 'seams', 1), burst: num(v, 'burst'), kickFlare: num(v, 'kickFlare'), snareFlare: num(v, 'snareFlare'),
+        }, cells, edges, stampP)
+        for (const [t, b] of [[tC, cells], [tE, edges]] as const) {
+          gl.bindTexture(gl.TEXTURE_2D, t)
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, COLS, ROWS, gl.RGBA, gl.UNSIGNED_BYTE, b)
+        }
+        const p = st.plate
+        pass({ uRes: [f.width, f.height], uCells: tC, uEdges: tE, uPlate: [p.phase, p.sheen, p.bright, p.scale], uPal: p.pal, uHair: st.hair, uShock: st.shock, uSeams: num(v, 'seams', 1), uCentre: st.centre, uStamp: stampP, uFrame: frame })
+      },
+      dispose() {
+        gl.deleteTexture(tC)
+        gl.deleteTexture(tE)
+      },
+    }
+  },
 }

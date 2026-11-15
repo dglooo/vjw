@@ -1029,6 +1029,32 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
+  // Amen Shatter (W4 S3 spike, design_amen_shatter.md Variant A + rev 2; creative_amen_shatter.md): jungle. A glowing
+  // ring plate cut on a 16 × 10 lattice: the kick shoves bands, the snare cracks strips, the hats tick cells, the bar's
+  // last snare slams it whole; the build rolls frozen strips across, the drop holds clean, then shatters wide. One
+  // layer, the native only. The binds repeat the def (scenes/shatter.ts), `burst` first (the gate's tie).
+  {
+    v: 1, id: 'builtin:amen-shatter', name: 'Amen Shatter', star: true, // dnb (jungle)
+    layers: [{
+      gen: {
+        ref: 'native/amen-shatter',
+        values: { seams: 1, seed: 3 },
+        bind: {
+          kick: { source: 'kick', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // raw: the core finds the rises
+          snare: { source: 'snare', amount: 1, attack: 0, release: 0, min: 0, max: 1 },
+          hats: { source: 'hats', amount: 1, attack: 0, release: 0, min: 0, max: 1 },
+          build: { source: 'build', amount: 1, attack: 0.2, release: 0.5, min: 0, max: 1 }, // the roll
+          drop: { source: 'drop', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the recipe (ungated)
+          bass: { source: 'band6', amount: 1, attack: 0.03, release: 0.3, min: 0, max: 1 }, // ring + sheen brightness
+          sub: { source: 'sub', amount: 1, attack: 0.08, release: 0.6, min: 0, max: 1 }, // the push-in
+          burst: { source: 'drop', amount: 1, attack: 0, release: 0.4, min: 0, max: 1 }, // ⚡ the shatter's seams (listed first: the tie)
+          kickFlare: { source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }, // ⚡ amber band seams
+          snareFlare: { source: 'snare', amount: 1, attack: 0, release: 0.18, min: 0, max: 1 }, // ⚡ cyan strip seams
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
