@@ -67,3 +67,4 @@
 - `agents/planner/plan_editor_origins.md` — Tier-2 plan (2026-11-15): editor library grouped by origin (Mine · Ours · TouchDesigner · MilkDrop · ISF/Shadertoy · Camera), one coder step. Current.
 - `agents/audio-dsp/dsp_dnb_wave4.md` — W4 signal feasibility (2026-11-15, 120 lines): Serpent on band6/8 + procedural ripple; Shatter on the beat grid + a scene-side bar-phase histogram; latency, build/drop limits; no analyser change needed. Fresh.
 - `agents/creative-director/creative_neuro_serpent.md` — Neuro Serpent creative spec (2026-11-15, 147 lines): fluted chrome band-tube, B/W signals, drop cascade, 10 stills, C1–C18, SG1–SG4. Current.
+- `agents/creative-director/creative_amen_shatter.md` — Amen Shatter creative spec (2026-11-15, 149 lines): 16×10 wrapped lattice, kick bands / snare strips / hat cells on the 16th grid, plate generator, drop hold-then-shatter, 10 stills. Current.
