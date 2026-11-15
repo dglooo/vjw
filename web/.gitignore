@@ -26,9 +26,9 @@ dist-ssr
 # ?bench&sweep input, copied from donor/ by scripts/isf-sweep.mjs (plan S2.2)
 public/isf-sweep/
 
-# MediaPipe self-host (plan_camera S0.2, design D7: localhost only): the postinstall wasm copy and probe models
+# MediaPipe self-host (plan_camera S0.2, design D7: localhost only): the postinstall wasm copy and the
+# downloaded Pose lite model; the Selfie model is committed (S1.2a, K-12). `models/*`, not `models/`: git
+# cannot re-include a file whose parent directory is excluded.
 public/mediapipe/
-public/models/
-
-# ORT-Web self-host (plan_camera S0.5, design D7): the WebGPU build's wasm (scripts/models.mjs)
-public/ort/
+public/models/*
+!public/models/selfie_segmenter_landscape.tflite

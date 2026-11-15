@@ -1,11 +1,9 @@
 // ?camprobe (plan_camera S0.1–S0.4): the CP0 probe. Holds HEAVY (&heavy=<id>, default
 // builtin:td-feedback) the way bench.ts holds a scene, and draws cam.tex + the EMA mask cover-fitted
 // over the stage in its own rAF — registered after app.ts's frame(), which rAF ordering guarantees.
-// The unattended runner: 60 s per arm (&arms=, default the ten measured arms — base-0, base-cam,
-// W-synthetic, W-selfie-cpu[-align-off], W-selfie-gpu, W-pose-cpu/-gpu (PoseLandmarker lite), M-cpu
-// (the module on the MAIN thread), M-same (Selfie GPU on our `stage` context + the K5 GL diff),
-// W-rvm (Robust Video Matting, ORT-Web WebGPU, the recurrent states on the GPU)); the
-// sheet-only models (selfie-square, multiclass, deeplab, pose-full) run for the sheet's columns only.
+// The unattended runner: 60 s per arm (&arms=, default the eight kept arms — base-0, base-cam,
+// W-synthetic, W-selfie-cpu[-align-off], W-selfie-gpu, W-pose-cpu/-gpu (PoseLandmarker lite)); the S1.2a
+// prune removed the rest (design § Ruling §5 lists them with their restore points).
 // K7 agreement = GPU vs CPU of the same clip frames per model: each W-*-cpu/-gpu arm samples its EMA
 // mask at 500 ms clip-time buckets, the pass joins the two arms' buckets and averages iou / centroid Δ.
 // &moments=<seconds> for the sheet (moments × arms); &soak=<min> logs per minute (camprobe-soak-*.json);
@@ -17,7 +15,7 @@
 // through the camera). At the end: JSON + sheet downloads, the frozen CP0 shape.
 import { director, governor } from './app'
 import {
-  allowCameras, cam, camAlign, camMask, camSource, camStat, forceRecycle, listCameras, readCam, readMask, recycle, selectCamera, startModel, stopModel, video,
+  allowCameras, cam, camAlign, camGate, camMask, camSource, camStat, forceRecycle, listCameras, readCam, readMask, recycle, selectCamera, startModel, stopModel, video,
 } from './camera/camera'
 import { fullscreenProgram, gl, stage } from './gl/engine'
 import { centroidDelta, iou, minWindowFps, p50, p95 } from './camera/metrics'
@@ -28,7 +26,7 @@ const params = new URLSearchParams(location.search)
 const HEAVY = params.get('heavy') ?? 'builtin:td-feedback'
 const MODEL = params.get('model') as ModelId | null // manual overlay arm (S0.2)
 const CLIP = params.get('clip') // a same-origin URL fetched on boot (the harness serves it as /__clip)
-const ARMS = (params.get('arms') ?? 'base-0,base-cam,W-synthetic,W-selfie-cpu,W-selfie-cpu-align-off,W-selfie-gpu,W-pose-cpu,W-pose-gpu,M-cpu,M-same,W-rvm').split(',').filter(Boolean)
+const ARMS = (params.get('arms') ?? 'base-0,base-cam,W-synthetic,W-selfie-cpu,W-selfie-cpu-align-off,W-selfie-gpu,W-pose-cpu,W-pose-gpu').split(',').filter(Boolean)
 const MOMENTS = (params.get('moments') ?? '12,35').split(',').map((s) => +s).filter((n) => n > 0)
 const SOAK_MIN = +(params.get('soak') ?? 0)
 const RECYCLE_MIN = +(params.get('recycle') ?? 0) // D2 make-before-break cadence during the soak (S0.4)
@@ -40,8 +38,6 @@ interface ArmSpec {
   model: ModelId | null
   align: boolean | null
   delegate?: 'CPU' | 'GPU' // default CPU
-  host?: 'main' | 'worker' // default worker
-  sheetOnly?: boolean // a sheet column, no 60 s arm (design: "sheet frames")
 }
 const ARM_SPECS: Record<string, ArmSpec> = {
   'base-0': { name: 'base-0', camera: false, model: null, align: null },
@@ -52,13 +48,6 @@ const ARM_SPECS: Record<string, ArmSpec> = {
   'W-selfie-gpu': { name: 'W-selfie-gpu', camera: true, model: 'selfie', align: true, delegate: 'GPU' },
   'W-pose-cpu': { name: 'W-pose-cpu', camera: true, model: 'pose-lite', align: true },
   'W-pose-gpu': { name: 'W-pose-gpu', camera: true, model: 'pose-lite', align: true, delegate: 'GPU' },
-  'M-cpu': { name: 'M-cpu', camera: true, model: 'selfie', align: true, host: 'main' },
-  'M-same': { name: 'M-same', camera: true, model: 'selfie', align: true, host: 'main', delegate: 'GPU' },
-  'W-rvm': { name: 'W-rvm', camera: true, model: 'rvm', align: true }, // S0.5: ORT-Web WebGPU (the delegate is ignored — the EP is WebGPU)
-  'selfie-square': { name: 'selfie-square', camera: true, model: 'selfie-square', align: true, sheetOnly: true },
-  'multiclass': { name: 'multiclass', camera: true, model: 'multiclass', align: true, sheetOnly: true },
-  'deeplab': { name: 'deeplab', camera: true, model: 'deeplab', align: true, sheetOnly: true },
-  'pose-full': { name: 'pose-full', camera: true, model: 'pose-full', align: true, sheetOnly: true },
 }
 // K7: the arms whose EMA masks are sampled for the GPU-vs-CPU agreement (clip frames only).
 const AGREE_ARMS = new Set(['W-selfie-cpu', 'W-selfie-gpu', 'W-pose-cpu', 'W-pose-gpu'])
@@ -219,7 +208,7 @@ function overlay() {
     const up = camStat.ms.length ? `median ${q(camStat.ms, 0.5)!.toFixed(2)} p95 ${q(camStat.ms, 0.95)!.toFixed(2)} ms / frame` : 'no uploads yet'
     const mk = camMask
     const maskLine = mk.model
-      ? `mask ${mk.model} ${mk.ready ?? 'waiting for the worker…'}${mk.error ? ` ERROR: ${mk.error}` : ''} · ema ${mk.w}×${mk.h} ${mk.floatEma ? 'RG16F' : 'RGBA8'} k=${mk.floatEma ? 0.85 : 0.25} · ALIGN ${camAlign.on ? 'on' : 'off'}`
+      ? `mask ${mk.model} ${mk.ready ?? 'waiting for the worker…'}${mk.error ? ` ERROR: ${mk.error}` : ''} · ema ${mk.w}×${mk.h} ${mk.floatEma ? 'RG16F' : 'RGBA8 (k ≥ .25)'} k=gate (area ${camGate.area.toFixed(3)} held ${camGate.held}) · ALIGN ${camAlign.on ? 'on' : 'off'}`
       : null
     const maskStat =
       maskLine && mk.stats
@@ -298,7 +287,7 @@ async function armSetup(spec: ArmSpec): Promise<{ initMs: number; firstMaskMs: n
   }
   if (!spec.model) return null
   const t0 = performance.now()
-  startModel(spec.model, { delegate: spec.delegate, host: spec.host }) // S0.4: M-* = main host; main+GPU is M-same (our stage context)
+  startModel(spec.model, { delegate: spec.delegate })
   await waitUntil(() => camMask.ready !== null, 90000, `init ${spec.model}`)
   const initMs = performance.now() - t0
   await waitUntil(() => camMask.ts.length > 0, 30000, `first mask ${spec.model}`)
@@ -309,7 +298,6 @@ interface ArmResult {
   maskFps: { min1s: number | null; med: number | null } | null
   inferMs: { p50: number | null; p95: number | null } | null
   mainMs: { p95: number | null } | null
-  mainTotalP95: number | null // M-* arms: inference + upload + EMA, all on the main thread (K2 main ≤ 2 ms)
   late: number
   frames: number
   scale: number
@@ -317,9 +305,6 @@ interface ArmResult {
   initMs: number | null
   firstMaskMs: number | null
   align: boolean | null
-  glDiff?: Record<string, string> // M-same K5: the distinct GL state changes MediaPipe left in our context
-  glDiffSamples?: number // K5's denominator: the inferences the diff bracketed ({} over 0 samples proves nothing)
-  sheetOnly?: boolean // design: "sheet frames" — no 60 s arm, K1–K3 n/a
   error?: string // the arm failed (init error): the run continues, the evidence is the error
 }
 
@@ -339,7 +324,7 @@ async function runArm(spec: ArmSpec, seconds: number): Promise<ArmResult> {
     armUploadMs.push(...camStat.ms.slice(ui)); ui = camStat.ms.length
     if (AGREE_ARMS.has(spec.name)) agreeSample(spec) // K7: the EMA mask at this clip moment (the 500 ms poll's cadence)
   }, 500)
-  log(`${spec.name}: ${seconds} s window (model ${spec.model ?? '—'} · ${spec.host ?? 'worker'} · ${spec.delegate ?? 'CPU'} · align ${spec.align ?? '—'})`)
+  log(`${spec.name}: ${seconds} s window (model ${spec.model ?? '—'} · ${spec.delegate ?? 'CPU'} · align ${spec.align ?? '—'})`)
   await sleep(seconds * 1000)
   clearInterval(poll)
   armTs.push(...camMask.ts.slice(ti))
@@ -352,8 +337,6 @@ async function runArm(spec: ArmSpec, seconds: number): Promise<ArmResult> {
     maskFps: spec.model ? { min1s: r1(minWindowFps(armTs)), med: medGap ? r1(1000 / medGap) : null } : null,
     inferMs: spec.model ? { p50: r1(p50(armWorkerMs)), p95: r1(p95(armWorkerMs)) } : null,
     mainMs: { p95: r2(p95(spec.model ? armMainMs : armUploadMs)) },
-    // M-* arms: the inference runs on the main thread — K2 (main ≤ 2 ms) grades the total per mask
-    mainTotalP95: spec.host === 'main' && armWorkerMs.length ? r2(p95(armWorkerMs.map((x, i) => x + armMainMs[i]))) : null,
     late: governor.drops - late0,
     frames: rafFrames - frames0,
     scale: +governor.scale.toFixed(4),
@@ -361,11 +344,6 @@ async function runArm(spec: ArmSpec, seconds: number): Promise<ArmResult> {
     initMs: info ? Math.round(info.initMs) : null,
     firstMaskMs: info ? Math.round(info.firstMaskMs) : null,
     align: spec.align,
-  }
-  if (spec.host === 'main' && spec.delegate === 'GPU' && camMask.glDiff) {
-    result.glDiff = { ...camMask.glDiff } // K5: the distinct GL state changes MediaPipe left in our context
-    result.glDiffSamples = camMask.glDiffSamples
-    log(`${spec.name}: K5 GL diff (${result.glDiffSamples} inference samples, ${Object.keys(result.glDiff).length} distinct states): ${JSON.stringify(result.glDiff)}`)
   }
   log(`${spec.name}: done — ${JSON.stringify(result)}`)
   return result
@@ -528,7 +506,7 @@ function texToCanvas(data: Uint8Array, w: number, h: number): HTMLCanvasElement 
   return c
 }
 
-async function sheetPass(specs: ArmSpec[], results: Record<string, ArmResult>): Promise<HTMLCanvasElement | null> {
+async function sheetPass(specs: ArmSpec[]): Promise<HTMLCanvasElement | null> {
   const cols = specs.filter((s) => s.camera)
   if (!cols.length || !MOMENTS.length) return null
   const CW = 320, CH = 180, GAP = 8, LB = 22
@@ -542,32 +520,7 @@ async function sheetPass(specs: ArmSpec[], results: Record<string, ArmResult>): 
   sctx.textBaseline = 'alphabetic'
   for (let c = 0; c < cols.length; c++) {
     const spec = cols[c]
-    // a sheet-only init failure loses one column (the raw frame still draws) but not the run; a measured
-    // arm failing again here is a real error
-    const info = await armSetup(spec).catch((e) => {
-      const msg = String(e instanceof Error ? e.message : e)
-      log(`sheet column ${spec.name}: init failed — ${msg}`)
-      if (!spec.sheetOnly) throw e
-      return null
-    })
-    if (spec.sheetOnly && !info) {
-      results[spec.name] = {
-        maskFps: null,
-        inferMs: null,
-        mainMs: null,
-        mainTotalP95: null,
-        late: 0,
-        frames: 0,
-        scale: +governor.scale.toFixed(4),
-        masks: 0,
-        initMs: null,
-        firstMaskMs: null,
-        align: spec.align,
-        sheetOnly: true,
-        error: 'init failed (see the run log)',
-      }
-      // no continue: the column still draws the raw frame (the source keeps playing)
-    }
+    await armSetup(spec) // a measured arm failing again here is a real error
     const x0 = GAP + c * (CW + GAP)
     for (let r = 0; r < MOMENTS.length; r++) {
       const sec = MOMENTS[r]
@@ -599,24 +552,6 @@ async function sheetPass(specs: ArmSpec[], results: Record<string, ArmResult>): 
       }
       sctx.fillStyle = '#8f8'
       sctx.fillText(`${spec.name} · t=${sec}s${t !== sec ? ` (mod ${video.duration.toFixed(1)})` : ''} · area ${(camMask.stats?.area ?? 0).toFixed(3)}`, x0, y0 + CH + 15)
-    }
-    if (spec.sheetOnly && info) {
-      // the sheet-only models run no 60 s arm (design: "sheet frames"): record what the column measured
-      results[spec.name] = {
-        maskFps: null,
-        inferMs: { p50: r1(p50(camMask.workerMs)), p95: r1(p95(camMask.workerMs)) },
-        mainMs: { p95: r2(p95(camMask.mainMs)) },
-        mainTotalP95: null,
-        late: 0,
-        frames: 0,
-        scale: +governor.scale.toFixed(4),
-        masks: 0,
-        initMs: Math.round(info.initMs),
-        firstMaskMs: Math.round(info.firstMaskMs),
-        align: spec.align,
-        sheetOnly: true,
-      }
-      log(`sheet-only ${spec.name}: ${JSON.stringify(results[spec.name])} (no 60 s arm — K1–K3 n/a)`)
     }
   }
   stopModel()
@@ -712,7 +647,6 @@ async function runner() {
             maskFps: null,
             inferMs: null,
             mainMs: null,
-            mainTotalP95: null,
             late: 0,
             frames: 0,
             scale: +governor.scale.toFixed(4),
@@ -726,9 +660,8 @@ async function runner() {
       }
       log('agreement: GPU vs CPU of the same clip frames, per model (K7)')
       json.agreement = computeAgreement()
-      log('sheet: moments × arms (+ the sheet-only models)')
-      const sheetSpecs = [...ARMS.map((n) => ARM_SPECS[n]), ...Object.values(ARM_SPECS).filter((s) => s.sheetOnly)]
-      sheet = await sheetPass(sheetSpecs, results)
+      log('sheet: moments × arms')
+      sheet = await sheetPass(ARMS.map((n) => ARM_SPECS[n]))
       const sh = sheet
       if (sh) await new Promise<void>((ok) => sh.toBlob((b) => b && (download(`${pfx}-sheet.png`, b), ok()), 'image/png'))
     }
