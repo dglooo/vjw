@@ -13,3 +13,5 @@
 - **Rave Lasers** (closed S7): Tier-2 follow-ups — quiet↔loud flapping in sparse intros; more chase-pattern types; creative numeric misses (I-1, waived by the user).
 - **Camera** (CP1 ✅, CP2 merged): CP2 close needs the user's Windows PC run (U2.1); UNKNOWNs B20 (GPU delegate loss), booth clip, live latency; dj-* MED tuning after the user's look.
 - **App:** after a real GPU context loss the show stops (reload → Start + reload the file by hand).
+- **MilkDrop sync** (`milk-sync`, `63ca394`): the drop burst gives 1–3 bright frames per drop; presets flash on their own (the app flash gate does not see a preset's luma); 2/25 presets ignore `sync`; gates were PASS by ruling under load (re-run at idle).
+- **Tests:** Shatter T-A10 runs ≈ 50 s under load (60 s simulated) → the slowest test; lighten the fixture.
