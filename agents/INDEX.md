@@ -64,3 +64,4 @@
 - `agents/tester/avqa_camera_cp1.md` — camera CP1 AV QA (2026-11-15): FAIL on §4.1 literal → PASS after the GPU-idle re-run. Current.
 - `agents/research/research_dnb_wave4.md` — DnB wave 4 S1 research (2026-11-15, 117 lines): Neuro Serpent (refs, tube techniques, cheap chrome, reuse; no depth buffer) + Amen Shatter (Amen rhythm, slicing techniques, history ring limit); signal gaps; reuse table + licences. Fresh.
 - `agents/research/_adhoc/scene_origins_2026-11-15.md` — editor library origin map (108 defs, 88 scenes → MilkDrop / TD / ISF donors / Ours / Camera) + the mechanical rule. Fresh.
+- `agents/planner/plan_editor_origins.md` — Tier-2 plan (2026-11-15): editor library grouped by origin (Mine · Ours · TouchDesigner · MilkDrop · ISF/Shadertoy · Camera), one coder step. Current.
