@@ -15,3 +15,4 @@
 - **App:** after a real GPU context loss the show stops (reload → Start + reload the file by hand).
 - **MilkDrop sync** (`milk-sync`, `63ca394`): the drop burst gives 1–3 bright frames per drop; presets flash on their own (the app flash gate does not see a preset's luma); 2/25 presets ignore `sync`; gates were PASS by ruling under load (re-run at idle).
 - **Tests:** Shatter T-A10 runs ≈ 50 s under load (60 s simulated) → the slowest test; lighten the fixture.
+- **Audio detectors (design items, `dsp_detector_2026-11-16.md` § Remaining):** no-dip drops (nothing arms while the bass stays through the build), bass stabs after breaks indistinguishable from drops at fire time, the fresh-lock tempo pick on two-step DnB (R1), the stuck grid under a wrong genre range (R4), T3 4/5 partner not shippable. Targets recall ≥ 75 % / false ≤ 3 not reachable by knobs → system-designer ruling later.
