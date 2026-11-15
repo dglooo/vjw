@@ -17,7 +17,7 @@ test('every preset file loads with its credit and a shader', () => {
 
 test('every MilkDrop scene is its preset alone, starred unless held back, and round-trips through JSON', () => {
   expect(MILK_SCENES).toHaveLength(PRESETS.length)
-  expect(MILK_SCENES.filter((d) => !d.star)).toHaveLength(13) // milk-new: 13 of its 25 wait in the Library (a typo in the list fails here)
+  expect(MILK_SCENES.filter((d) => !d.star)).toHaveLength(17) // milk-new: 13 of its 25 + 4 shipped wait in the Library (a typo in the list fails here)
   MILK_SCENES.forEach((d, i) => {
     const { slug, name } = PRESETS[i]
     expect(d).toMatchObject({ id: `builtin:milk-${slug}`, name, layers: [{ gen: { ref: `milk/${slug}` }, fx: [] }] })
