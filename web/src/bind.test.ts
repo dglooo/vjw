@@ -64,7 +64,7 @@ describe('sources', () => {
     out.drop = 0.2
     out.presence = 0.3 // presence: app.ts fills it (the camera, S1.1), not sources()/fill()
     expect(Object.keys(out).sort()).toEqual([...SOURCE_IDS].sort())
-    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 4 + 2 + 1)
+    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 5 + 2 + 1)
     for (const k of SOURCE_IDS) expect(Number.isFinite(out[k]), k).toBe(true)
   })
 })
