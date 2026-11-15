@@ -1,7 +1,9 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { SOURCE_IDS } from '../bind'
 import { BUILTIN } from '../scenes/builtin'
 import { pairsByTarget, parseIsf, sizeExpr } from './isf'
+
+vi.mock('../gl/engine', () => ({})) // scenes/camera's import takes the page's canvas + WebGL; the defs need neither
 
 const BODY = '\nvoid main() {\n  gl_FragColor = IMG_THIS_PIXEL(inputImage);\n}\n'
 const isf = (header: object, body = BODY) => `/*${JSON.stringify(header)}*/${body}`
@@ -217,6 +219,13 @@ describe('parseIsf', () => {
     const d = parseIsf(files[`./own/${stem}.fs`] as string, stem) // throws on a flash name that is not an input
     for (const b of Object.values(d.bind ?? {})) expect(SOURCE_IDS, stem).toContain(b.source)
     for (const n of d.flash ?? []) expect(d.bind?.[n]?.min, `${stem} ${n}`).toBe(0)
+  })
+
+  // camera S2.1 (matrix U4): the camera natives' defs, by the same rule.
+  test.each(['camera', 'outline'] as const)('native/%s binds only known sources, and binds every flash input from 0', async (k) => {
+    const d = (await import('../scenes/camera'))[k]
+    for (const b of Object.values(d.bind ?? {})) expect(SOURCE_IDS, k).toContain(b.source)
+    for (const n of d.flash ?? []) expect(d.bind?.[n]?.min, `${k} ${n}`).toBe(0)
   })
 
   test('own/rgb-contrast + color-threshold + dent: the S3.3 binds (the reversed cR, the sub tR, the kick width)', () => {

@@ -53,3 +53,57 @@ export const camera: NativeDef = {
     }
   },
 }
+
+// native/outline (S2.1, D4): the mask's .5 iso-line at a constant px width, through cam.xf as above; scenes follow it
+// with own/bloom. d = |m − .5| / |∇m| is the distance in px to the line; a flat mask (all-zero: Camera off, N-2; or a
+// flood) has no gradient and draws nothing. The gradient's length, not fwidth's |dx| + |dy| (√2 thinner at 45°). m is
+// a 3×3 tent over the mask texels (4 bilinear taps half a texel out): one tap's .5 contour of the near-binary mask is
+// a staircase of its texels (≈ 7 px at 1728 wide).
+const OUTLINE_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uMask;
+uniform vec2 uRes;
+uniform vec4 uXf;
+uniform float uWidth;
+uniform float uGlow;
+uniform float uHue;
+out vec4 outColor;
+void main() {
+  vec2 c = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uRes * uXf.xy + uXf.zw;
+  vec2 t = 0.5 / vec2(textureSize(uMask, 0));
+  float m = 0.25 * (texture(uMask, c - t).r + texture(uMask, c + t).r + texture(uMask, c + vec2(t.x, -t.y)).r + texture(uMask, c - vec2(t.x, -t.y)).r);
+  float g = length(vec2(dFdx(m), dFdy(m)));
+  float d = g > 1e-6 ? abs(m - 0.5) / g : 1e6;
+  float line = clamp(0.5 * uWidth + 0.5 - d, 0.0, 1.0); // width px, a 1 px antialiased edge
+  float halo = uGlow * exp(-d / (2.0 * uWidth)); // the kick's neon halo
+  vec3 hue = clamp(abs(fract(uHue + vec3(0.0, 2.0, 1.0) / 3.0) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+  outColor = vec4(mix(hue, vec3(1.0), 0.5 * line) * line + hue * halo, 1.0); // a white-hot core in a coloured glow
+}`
+
+export const outline: NativeDef = {
+  id: 'native/outline', name: 'Outline', kind: 'generator', credit: 'VeeJay Wizard', inputs: [
+    { name: 'width', type: 'float', min: 1, max: 8, default: 2 }, // px of the target it draws into
+    { name: 'glow', type: 'float', min: 0, max: 1, default: 0 },
+    { name: 'hueStep', type: 'bool', default: false }, // its rising edge turns the hue by the golden ratio
+  ],
+  flash: ['glow'],
+  bind: { // the CP2 contract
+    width: { source: 'sub', amount: 1, attack: 0.05, release: 0.4, min: 1.5, max: 4 },
+    glow: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 },
+    hueStep: { source: 'snare', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }, // on at y ≥ .5 (bind.ts level); the contract's 1.5 held it on between snares
+  },
+  create(_gl, size) {
+    const out = fullscreenProgram(OUTLINE_FS)
+    const release = users.use(!size) // a tile takes no camera user (K-11, N-4)
+    let hue = 0.5 // cyan
+    let held = false
+    return {
+      draw(f, v) {
+        if (v.hueStep && !held) hue = (hue + 0.618) % 1
+        held = !!v.hueStep
+        out({ uMask: cam.mask, uRes: [f.width, f.height], uXf: cam.xf, uWidth: v.width, uGlow: v.glow, uHue: hue })
+      },
+      dispose: release,
+    }
+  },
+}
