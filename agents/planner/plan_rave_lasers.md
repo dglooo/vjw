@@ -59,8 +59,8 @@ Merge the spike branch into `master` right after S5.4. If the merge is not clean
 2. T-SR5 verdict from the two `run` logs: latch-frame mean luma ≤ 0.24 + 0.76 × the pre-drop mean; 0 violations; one log row per fired drop.
 3. `rl-60s.mjs`: G-AUTO (dnb174-arr, dubstep140-arr, and `scratchpad/ed/dnb174-arr-stereo.wav` once: 0 late frames) and T-C10 (`__flash` ≤ 3 per 1 s window and = 1 in the 1 s after each drop; mode `flat` p95 ≤ 8 %, where the dnb174-arr 8.1 % stands by the lead's F9 ruling). Then T-C10 over the full length of the 3 real tracks in `truss`, plus one track each in `floor` and `full`.
 4. T-L2 and T-L3: mode `bench` on both fixtures in a slow-class session. A normal-class session leaves them UNKNOWN.
-5. `F3 check` (LR-2): `rl-60s.mjs` with `auto` on both fixtures: `__flash` ≤ 3 per 1 s window and 0 late frames across all scenes.
-6. Dispatch the `tester` (AV QA) with the evidence paths. Its brief names the app-wide flash decay: the `tester` checks one drop on 2 other flash-bound built-ins for an uncovered hard cut. Fill the gate record. A FAIL follows CLAUDE.md § Tier 3, failure routing.
+5. `F3 check` (LR-2) = T-F3: the G-AUTO auto runs on dnb174-arr and dubstep140-arr, read for `__flash` <= 3 per 1 s window and 0 late frames. Lasers scene only; the other flash-bound built-ins go to item 6 (T-F3m).
+6. Dispatch the `tester` (AV QA) with the evidence paths. Its brief names the app-wide flash decay: the `tester` checks one drop on 2 other flash-bound built-ins for an uncovered hard cut (T-F3m, manual). Fill the gate record. A FAIL follows CLAUDE.md § Tier 3, failure routing.
 ### S7 `[ ]` Accept (lead → user)
 Final stills: tiles S1–S8 of the S6 capture on `master` (`rl-stills.mjs`, `rl-sheet.mjs`), as a 1200-px sheet. The user says ok / not ok (T-C1; T-C16 is read again). ok: the lead updates STATE and INDEX, commits and tags. not ok: a fix step, or back to S3.
 ## Acceptance mapping
@@ -72,7 +72,7 @@ R1–R9, C1–C16, L-1…L-11, N-1…N-3 → test IDs: matrix §3 (L75), unchang
 | S5.2 (coder) | T-L11, T-LC, T-SH, T-CTX | L-11, R7, lifecycle, shader compile, context loss |
 | S5.3 (coder) | T-C11h, T-C12; the dubstep140-arr half of T-L4h, T-L2, T-L3 (dnb174-arr is green from the spike) | R5, R6, R7, R8, C11, C12, L-2, L-3, L-4 |
 | S5.4 (coder) | T-L8, T-C4, T-C5, T-C6, T-C7, T-C8, T-C9, T-C13 | R3, R4, R7, C4–C9, C13, L-8 |
-| M, S6 (lead) | G-GATE (M); T-SR5, T-C10, G-AUTO, `F3 check` (S6; the last has no matrix ID yet) | R5, R6, R7, C10, L-6, SR-5 note, the project gates, LR-2 |
+| M, S6 (lead) | G-GATE (M); T-SR5, T-C10, G-AUTO, T-F3 (S6 item 5), T-F3m (S6 item 6, tester) | R5, R6, R7, C10, L-6, SR-5 note, the project gates, LR-2 |
 | S7 (user) | T-C1, T-C16 | R1, C1, C15, C16: `user stills review` |
 Matrix drifts for the S4 coverage pass: the harness directory is `scratchpad/ed/rave-lasers/`; `rl-run.mjs` = `rl-bench.mjs` mode `run`; T-SH runs inside `rl-lifecycle.mjs`; the luma part of T-C10 = `rl-bench.mjs` mode `flat`; the port is the lane port; `silence-5s.wav` is not created (T-C11s is synthetic; no row uses the file).
 ## Gate record
@@ -83,7 +83,7 @@ The lead fills it. UNKNOWN is never PASS. The three PASS rows are the lead's sta
 | S2 design | PASS | `architecture-skeptic` recheck + lead ruling, 2026-11-15 | `agents/architecture-skeptic/skeptic_rave_lasers.md` L49–L81 (L-1…L-11 closed; N-1, N-2, N-3 new); `design_rave_lasers.md` L329–L335 (the lead adopts the skeptic's fixes; T-L1f, T-L1g, T-N3 green in the spike) | none |
 | S2 matrix | PASS | `test-architect`, 2026-11-15 | `agents/test-architect/matrix_rave_lasers.md` (46 tests) | — |
 | S3 spike + user | PASS | `creative-qa` REVISE → Fix 1 → user OK 2026-11-15 | `scratchpad/ed/rave-lasers/rl-spike.md`, `rl-sheet-v2-1200.png`; STATE HEAD "USER GATE S3" | lead ruling F9: flatness p95 8.1 % against ≤ 8 % |
-| S4 coverage | UNKNOWN | `test-architect` | | |
+| S4 coverage | PASS | `test-architect` 2026-11-15 + lead (E1–E3 applied, G1 ruled) | `matrix_rave_lasers.md` § Coverage (48 tests) | G1 lead ruling: flash-gated rows (kick → hit/pop under the ≤3/s gate) and the hats-dark row use r ≥ .60 (the Isobars hit←kick .64 precedent: the gate drops kicks by design); every ungated bind keeps r ≥ .80. T-C10 dnb174-arr flatness 8.1 % = waiver F9 (not PASS) |
 | S6 gates + harnesses | UNKNOWN | lead (runner) | | |
 | S6 AV QA | UNKNOWN | `tester` | | |
 | S7 user | UNKNOWN | user | | |
