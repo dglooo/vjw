@@ -71,3 +71,4 @@
 - `agents/system-designer/design_amen_shatter.md` — Amen Shatter architecture (2026-11-15, 234 lines): pure CPU core + shatterState; A one-pass inline plate (rec.), B HDR plate + blit stamps, C ring (rejected). Current.
 - `agents/system-designer/design_neuro_serpent.md` — Neuro Serpent architecture (2026-11-15, 237 lines): A tube mesh + depth in its own HDR FBO (rec.), B SDF raymarch (fails R2), C strip impostors; levers; SG1 reeseLevel. Current.
 - `agents/architecture-skeptic/skeptic_amen_shatter.md` — skeptic on Amen Shatter (2026-11-15): 3 HIGH (onset-confirm through kick dropouts, backward beat replay, drop cut / cold entry), 4 MED, 4 LOW. Current.
+- `agents/architecture-skeptic/skeptic_neuro_serpent.md` — skeptic on Neuro Serpent (2026-11-15): 1 HIGH (one-frame presence fires the drop cascade), 7 MED (MSAA resolve cost, overshading, clock, ripple strobe…), 4 LOW. Current.
