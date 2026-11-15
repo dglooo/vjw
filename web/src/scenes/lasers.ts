@@ -39,17 +39,18 @@ export const FIG = { sheet: 0, fan: 1, grid: 2, cage: 3, crowd: 4 } as const // 
 
 // Knobs ⚠️ (spike values, the S3 look; design SR-3 / SR-4 / SR-6).
 const L0_K = 0.45 // the frame's total light at power 1, per frame px² (rig units): a loud Fan skirt peak ≈ m .4, its core ≈ 1.1
-const SUM_RATE = 0.4 // /s, log: the light state's slew (≤ 7.1 % per 8th at 174 BPM)
+const SUM_RATE = 0.25 // /s, log: the light state's slew (≤ 4.4 % per 8th at 174 BPM; fix 1 F9: was .4, flatness p95 9.8 %)
 const EPS = 1e-3 // the light state's floor (N-2: the log step can leave 0)
 const W_MAX = 0.35 // a beam's relative weight cap (share ÷ lit beams): the capped regime (cage, Lone beams, thin Grid)
 const SHEET_W = 0.012 // a Sheet's weight: the plane spreads its emitter's power (the dimmest figure per px)
 const RAY_W = 0.25 // a Grating-burst ray's weight
 const DISC_W = 0.6 // an origin disc's weight
-const GLINT_W = 1.2 // a glint star's weight
+const GLINT_W = 1.2 // a 4-ray star's weight at full size: the origin flare (toward²) and the glint (≤ 50 ms, + .6)
+const STAR_S = 0.4 // a star ray's σ ÷ the disc radius (2 px at 1117 rows: it reads at sheet scale)
 const CORE_W = 1 // px at 1117 rows: the core half-width (2 px wide)
 export const SK = 9 // the skirt's half-support ÷ the core half-width (lever after L1: FWHM 9.7 w ≈ the creative's 5 × the core; was 11)
-const EXIT = 2 // w1 ÷ w0 = 1 + EXIT·toward (L1: exit growth 3×)
-const FWD = 1 // gain1 ÷ gain0 = 1 + FWD·toward (forward scatter)
+const EXIT = 3 // w1 ÷ w0 = 1 + EXIT·toward (creative §2.2: 3–4× at the exit toward the viewer; fix 1 F1: was 2)
+const FWD = 2 // gain1 ÷ gain0 = 1 + FWD·toward (forward scatter; fix 1 F1: was 1, the beams read equal along their length)
 const OPEN_LOUD = 0.4 // the sub above this is loud (creative §1: quiet = sub at rest and no kick for ≥ 2 bars)
 const SHOOT = 0.048, AFTER = 0.05, HIT_IGNORE = 1, DRUM_ARM = 0.7, BURST_LIFE = 0.11, BURST_GAP = 0.17, HOT_HOLD = 0.4
 export const SKIRT_A = 0.35, CORE_A = 1, SHEET_A = 1 // the cross-section peaks (shared with the FS)
@@ -62,7 +63,7 @@ const P_SHEET = 1.85 * SHEET_A // the flat-top wedge (smoothstep edge from .85 w
  *  state `sum` on every frame (T-L1e). */
 export function instLight(b: Float32Array, o: number): number {
   const kind = b[o + 10]
-  if (kind === 3) return b[o + 6] * (Math.PI / 3) * b[o + 4] * b[o + 4] + b[o + 7] * P_RAY * b[o + 5] // disc + glint (two tapered 1-px lines)
+  if (kind === 3) return b[o + 6] * (Math.PI / 3) * b[o + 4] * b[o + 4] + b[o + 7] * (4 / 3) * STAR_S * SQ2PI * b[o + 4] * b[o + 5] // disc + star (2 lines, σ STAR_S·w0, taper²)
   const len = Math.hypot(b[o + 2] - b[o], b[o + 3] - b[o + 1])
   const w0 = b[o + 4], w1 = b[o + 5], g0 = b[o + 6], g1 = b[o + 7]
   const gw = (g0 * w0 + g1 * w1) / 3 + (g0 * w1 + g1 * w0) / 6 // ∫₀¹ g(t)·w(t), both linear
@@ -214,7 +215,7 @@ export function createRig(seed = 1): Rig {
         glintAt.fill(t)
         burstT = t; burstRot = rnd() * 360
       } else if (mode === 'drop') {
-        if (dropPhase === 1 && barsSince(refBar, refT) >= 1 && climax < 0.5) { dropPhase = 2; refBar = x.bar; refT = t; build(FIG.fan, 1, flick); load = Math.max(load, 1) }
+        if (dropPhase === 1 && barsSince(refBar, refT) >= 1 && climax < 0.5) { dropPhase = 2; refBar = x.bar; refT = t; build(FIG.grid, 1, flick); load = Math.max(load, 1) } // bar 2: the Grid's cells, not the groove fan (fix 1 F7)
         else if (dropPhase === 2 && barsSince(refBar, refT) >= 1) { dropPhase = 0; mode = 'loud'; build(nextLoud(), Math.max(open, 0.3), flick); load = Math.max(load, 1); cutRef = lastCut }
       } else {
         const m = t - kickT <= 2 * barS || open >= OPEN_LOUD ? 'loud' : 'quiet'
@@ -303,7 +304,9 @@ export function createRig(seed = 1): Rig {
           const base = G === 'S' ? (left ? 0 : 180) : G === 'T' ? 90 + (0.5 - E.x) * 50 : -90 - (0.5 - E.x) * 50
           return (base + sweepDir * 18 * tri(t / 4 + 0.3 * e)) * DEG
         }
-        if (fig === FIG.cage) return (G === 'T' ? 90 : G === 'F' ? -90 : left ? 0 : 180) * DEG
+        // the cage tilts ±14° (fix 1 F5: a laser cage, not a ruled grid): at atan(2 S steps ÷ the tower gap) each right-tower
+        // bar lands on a left-tower bar's line 2 rows over, so the bars stay one square lattice; the sign flips per cut
+        if (fig === FIG.cage) return (G === 'T' ? 90 : G === 'F' ? -90 : left ? 0 : 180) * DEG + (cuts % 2 ? 1 : -1) * Math.atan2(2 * 0.185 * H, 0.94 * W)
         if (fig === FIG.grid) {
           if (G === 'S') return ((left ? 0 : 180) - shear + 6 * f) * DEG
           return ((G === 'T' ? 90 : -90) + shear + 8 * f * (1 - perp)) * DEG
@@ -366,11 +369,12 @@ export function createRig(seed = 1): Rig {
           }
         }
       }
-      // ---- the origins: a white disc on every lit emitter, the glint (4-ray star, ≤ 50 ms) ----
+      // ---- the origins: a white disc on every lit emitter + a 4-ray star: the flare (toward², fix 1 F2: small on a Fan,
+      // full at the drop's Beam-to-crowd) and the glint (≤ 50 ms, + .6) ----
       for (let e = 0; e < NE; e++) {
         if (!inLayout(e) || !(lit[e] > 0 || (e >= 21 && burstOn))) continue
-        const g = t - glintAt[e] < 0.05 ? GLINT_W : 0
-        put(EMITTERS[e].x * W, EMITTERS[e].y * H, EMITTERS[e].x * W, EMITTERS[e].y * H, 5 * hs, g ? 60 * hs : 0, DISC_W, g, 1, tint[e], 3, 0, 1)
+        const tw = towardOf(e), a = tw * tw + (t - glintAt[e] < 0.05 ? 0.6 : 0)
+        put(EMITTERS[e].x * W, EMITTERS[e].y * H, EMITTERS[e].x * W, EMITTERS[e].y * H, 5 * hs, (15 + 25 * a) * hs, DISC_W, GLINT_W * a, 1, tint[e], 3, 0, 1)
       }
 
       // ---- the light state (SR-3 + N-1 + N-2) ----
@@ -398,8 +402,10 @@ export function createRig(seed = 1): Rig {
 const f4 = (x: number) => x.toFixed(4)
 const HAZE_NEAR_DIV = 8 // the near halo: a 3×3 tent over the 1/8-res re-draw (≈ 140 rows, Isobars' level)
 const HAZE_FAR_N = 64 // the far haze: ≈ 64 rows, σ 3 texels ≈ 52 px (design P2–P3: a lone beam's haze < .1 % at 200 px)
-const HAZE_NEAR = 0.35 // knob ⚠️: the near halo per unit of `haze`
-const HAZE_FAR = 1.1 // knob ⚠️: the lit air between the beams per unit of `haze`
+const HAZE_NEAR = 0.6 // knob ⚠️: the near halo per unit of `haze` (fix 1 F1: was .35, the beams glow in the smoke)
+const HAZE_FAR = 3 // knob ⚠️: the lit air between the beams per unit of `haze` (fix 1 F1: was 1.1)
+const HAZE_CAP = 0.3 // knob ⚠️: the far haze's max channel saturates toward this (a dense drop never fogs the frame)
+const HAZE_SWIRL = 0.6 // the smoke's swing on the haze (fix 1 F1: was .35, the air read flat)
 const EXPOSURE = 1
 const SMOKE_DIV = 8 // the smoke field's resolution divisor
 // The colours (creative §2.5), skirt / hot core per tint: green · white · red. Green is the design's (.1, 1, .38)
@@ -453,11 +459,14 @@ void main() {
   int kind = int(vK.z + 0.5), ti = int(vK.y + 0.5);
   vec3 sk = SKIRT[ti], hc = mix(sk, HOTC[ti], 0.4 + 0.6 * vK.x); // a hot core is white
   vec2 q = vP - vSeg.xy;
-  if (kind == 3) { // the origin: a white disc + the glint (two tapered 1-px lines)
+  if (kind == 3) { // the origin: a white disc + the 4-ray star (two lines, σ STAR_S × the disc radius, taper², instLight's form)
     float u = length(q) / vW.x;
     float disc = u < 1.0 ? (1.0 - u * u) * (1.0 - u * u) : 0.0;
     float a = abs(q.x), b = abs(q.y), g = 0.0;
-    if (vW.y > 0.0) g = 0.71 * (exp(-1.39 * b * b) * max(0.0, 1.0 - a / vW.y) + exp(-1.39 * a * a) * max(0.0, 1.0 - b / vW.y));
+    if (vW.y > 0.0) {
+      float ss = ${f4(STAR_S)} * vW.x, sg = max(0.6, ss), ta = max(0.0, 1.0 - a / vW.y), tb = max(0.0, 1.0 - b / vW.y); // σ ≥ .6 px, its peak scaled down
+      g = ss / sg * (exp(-0.5 * b * b / (sg * sg)) * ta * ta + exp(-0.5 * a * a / (sg * sg)) * tb * tb);
+    }
     outColor = vec4(uLight * (vW.z * disc + vW.w * g) * HOTC[ti], 0.0);
     return;
   }
@@ -478,8 +487,10 @@ void main() {
   float core = exp(-0.5 * r * r / (sig * sig)) * (0.85 * w / sig); // σ ≥ .6 px, its peak scaled down by the same factor
   float u = r / (${SK.toFixed(1)} * w);
   float skirt = kind == 0 && u < 1.0 ? (1.0 - u * u) * (1.0 - u * u) : 0.0; // windowed to 0 at the support (L1)
-  float spk = 1.0 + uSpeckle * (2.0 * hash(uint(max(al, 0.0) / 2.5) * 747796405u + vId * 2891336453u + uFrame * 277803737u) - 1.0); // grain along the beam, new each frame
-  outColor = vec4(uLight * g * tip * spk * (${f4(SKIRT_A)} * skirt * sk + ${f4(CORE_A)} * uCore * core * hc), 0.0);
+  float n = hash(uint(max(al, 0.0) / 5.0) * 747796405u + vId * 2891336453u + uFrame * 277803737u);
+  float spk = 1.0 + uSpeckle * (2.0 * n - 1.0); // the grain along the beam, new each frame
+  float mote = n > 0.96 ? 16.0 * uSpeckle * sin(3.1416 * fract(max(al, 0.0) / 5.0)) : 0.0; // 4 % glitter motes on the core: a round bead (fix 1 F2)
+  outColor = vec4(uLight * g * tip * (spk * ${f4(SKIRT_A)} * skirt * sk + (spk + mote) * ${f4(CORE_A)} * uCore * (1.0 + vK.x) * core * hc), 0.0); // a hot core ×2: white-hot (F5)
 }`
 // P4: the smoke field (2 octaves of snoise; features 150–400 px, drift 20–60 px/s) at 1/8 res, on the layer clock.
 const SMOKE = `#version 300 es
@@ -518,8 +529,10 @@ void main() {
   vec4 b = textureLod(uSrc, uv, 0.0);
   float s = texture(uSmoke, uv).r * 2.0 - 1.0;
   float sh = clamp(b.a / max(max(b.r, max(b.g, b.b)), 1e-5), 0.0, 1.0);
-  vec3 haze = uGain.x * tent(uv) + uGain.y * texture(uFar, uv).rgb;
-  vec3 E = (b.rgb * (1.0 + s * (0.25 + 0.15 * sh)) + haze * (1.0 + 0.35 * s)) * ${f4(EXPOSURE)};
+  vec3 far = uGain.y * texture(uFar, uv).rgb;
+  far /= 1.0 + max(far.r, max(far.g, far.b)) / ${f4(HAZE_CAP)}; // a dense rig saturates the lit air (fix 1 F1: gap luma ≤ .18)
+  vec3 haze = uGain.x * tent(uv) + far;
+  vec3 E = (b.rgb * (1.0 + s * (0.25 + 0.45 * sh)) + haze * (1.0 + ${f4(HAZE_SWIRL)} * s)) * ${f4(EXPOSURE)}; // the Sheet ±70 % (F8)
   float m = max(max(E.r, E.g), max(E.b, 1e-4));
   vec3 o = mix(E / m, vec3(1.0), ${f4(TONE.W)} * smoothstep(${f4(TONE.K0)}, ${f4(TONE.K1)}, m)) * (1.0 - exp(-m));
   uint h = uint(gl_FragCoord.x) * 1973u + uint(gl_FragCoord.y) * 9277u + uFrame * 26699u;

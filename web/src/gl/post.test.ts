@@ -34,10 +34,11 @@ describe('postFor', () => {
     expect(gain(1, 3.25, 1)).toBe(gain(1, 0.25, 1))
   })
 
-  test('the drop flash peaks at 0.8 and decays with tau 0.2 s, whatever the heat', () => {
+  test('the drop flash peaks at 0.8 and decays with tau 0.1 s, whatever the heat', () => {
     expect(postFor(0, 0, 0, 0, 0)).toEqual({ gain: 1, flash: 0.8 })
-    expect(postFor(1, 0.2, 0, 0, 0).flash).toBeCloseTo(0.8 / Math.E, 12)
-    expect(postFor(0, 0.4, 0, 0, 0).flash).toBeCloseTo(0.8 / Math.E ** 2, 12)
+    expect(postFor(1, 0.1, 0, 0, 0).flash).toBeCloseTo(0.8 / Math.E, 12)
+    expect(postFor(0, 0.2, 0, 0, 0).flash).toBeCloseTo(0.8 / Math.E ** 2, 12) // .108: the Rave Lasers veil ≤ .25 at +200 ms
+    expect(postFor(0, 0.25, 0, 0, 0).flash).toBeLessThanOrEqual(0.1) // ≤ .10 at +250 ms (creative_rave_lasers.md drop recipe)
     expect(postFor(0, -0.1, 0, 0, 0).flash).toBe(0) // not yet
   })
 
