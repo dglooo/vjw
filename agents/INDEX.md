@@ -59,6 +59,7 @@
 - `agents/architecture-skeptic/skeptic_rave_lasers.md` — skeptic on the Rave Lasers design (2026-11-15): 1 HIGH (shared flick blanks 1-beam emitters → cage strobes), 6 MED (cost basis, drop bench, layer clock, tone-map crossings, burst gate slot, exit fade), 4 LOW. Current.
 - `agents/test-architect/matrix_rave_lasers.md` — Rave Lasers test strategy + matrix (2026-11-15, 46 tests; S3 spike minimum marked; bench holds the drop via climax-unbound doc). Current.
 - `agents/planner/plan_rave_lasers.md` — Rave Lasers build plan (2026-11-15, 88 lines): S5.1–S5.4 from the user-approved spike, M, S6, S7; lead rulings LR-1..LR-4; gate record. Current.
+- `agents/planner/plan_amen_shatter.md` — Amen Shatter build plan (2026-11-15, 88 lines): S5.1 merge-ready on the spike branch, M, S5.2 running-pass rows, S5.3 stills guards, S6, S7; LR-1..LR-8 + lead rulings 2026-11-15; gate record. Current.
 - `thoughts/spec_dnb_wave4.md` — DnB wave 4 epic spec (lead, 2026-11-15, Tier 3 S0): Neuro Serpent (reese chrome ribbon) + Amen Shatter (breakbeat slicing); lead default picks; R1–R7. Current.
 - `agents/tester/avqa_rave_lasers.md` — RL S6 AV QA (2026-11-15): FAIL literal 16/10/6; dispositions in STATE. Current.
 - `agents/tester/avqa_camera_cp1.md` — camera CP1 AV QA (2026-11-15): FAIL on §4.1 literal → PASS after the GPU-idle re-run. Current.
