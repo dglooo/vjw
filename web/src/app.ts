@@ -11,8 +11,9 @@ import { createTempoSource } from './audio/tempo'
 import { createStyle, styleIn, type StyleOut } from './audio/style'
 import { type Hit } from './audio/drums'
 import { createRemap, restyle, sources, type Sources } from './bind'
-import { camGate, tick as camTick } from './camera/camera'
+import { cam, camGate, camGpuMs, camMask, readCam, readMask, selectCamera, tick as camTick } from './camera/camera'
 import { presence } from './camera/smooth'
+import { count as camUsers } from './camera/users'
 import { createDirector } from './director'
 import { tiles } from './editor/tiles'
 import type { FrameInput } from './frame'
@@ -195,6 +196,10 @@ const features = createFeatures() // kick/snare/hats envelopes from the worklet'
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
 if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets }) // ?debug: the live binding sources, settings and the flash budget's onsets, for DevTools and browser checks
+// plan_camera CP1 (S1.2b): the camera's harness hooks — mask users, SegmentWorker constructions, frames posted to a
+// host; also on the probe and bench pages (their harnesses read it, camGpuMs under ?bench)
+if (DEBUG || /camprobe|bench/.test(location.search))
+  Object.assign(window, { __cam: { cam, users: camUsers, hosts: () => camMask.hosts, frames: () => camMask.frames, readCam, readMask, select: selectCamera, gpuMs: camGpuMs } })
 
 /** S2.5: the worklet's config for the active preset (T1: frame() moves `configured` to it, picked or detected). Sent
  * only when it really changed (ids + Hz, drums and floors too) — a sens or auto toggle must not re-send. `rev` grows

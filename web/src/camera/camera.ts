@@ -84,8 +84,9 @@ export const cam = {
   w: 0,
   h: 0,
 }
-/** Upload path A/B (D1): &upload=frame|video, per-frame ms of the last ~10 s, rVFC captureTime presence (env). */
-export const camStat = { path: 'video', ms: [] as number[], captureTime: false }
+/** Upload path A/B (D1): &upload=frame|video, per-frame ms of the last ~10 s, cam.tex upload times (the probe's
+ *  "the image holds"), rVFC captureTime presence (env). */
+export const camStat = { path: 'video', ms: [] as number[], at: [] as number[], captureTime: false }
 /** The active source, for the probe's env (camSettings/camCaps) and the overlay's status line. */
 export const camSource = { kind: 'off' as 'off' | 'camera' | 'clip', settings: null as MediaTrackSettings | null, caps: null as MediaTrackCapabilities | null }
 camStat.path = DOM && new URLSearchParams(location.search).get('upload') === 'frame' ? 'frame' : 'video'
@@ -100,12 +101,21 @@ export const camMask = {
   h: 0,
   floatEma: G?.float,
   workerMs: [] as number[], // the model's ms (worker clock)
-  mainMs: [] as number[], // tick's mask upload + EMA (main clock)
+  mainMs: [] as number[], // per camera frame: the rVFC callback + onMask + tick's camera part (K-9, main clock)
   ts: [] as number[], // mask-arrival times (main clock) — the probe's maskFps
   recycleCount: 0, // the make-before-break swaps performed (the soak JSON's `recycle`)
+  hosts: 0, // SegmentWorker constructions (__cam.hosts())
+  frames: 0, // frames posted to a host (__cam.frames())
 }
-/** The host's model, read at each spawn: the app's is the [R0] pick (Selfie, CPU); the probe sets it per arm. */
-export const camHost = { model: 'selfie' as ModelId, delegate: 'CPU' as 'CPU' | 'GPU', base: '/', recycleMs: RECYCLE_MS }
+/** The host's model, read at each spawn: the app's is the [R0] pick (Selfie, CPU); the probe sets it per arm, and its
+ *  &fault= (S1.2b) goes to the next spawn only (`dead` to every spawn). */
+export const camHost = { model: 'selfie' as ModelId, delegate: 'CPU' as 'CPU' | 'GPU', base: '/', recycleMs: RECYCLE_MS, fault: '' }
+// ?bench (K-9): one GL timer query around tick's camera GL → camGpuMs (ms, one per frame with camera GL; the D6 budget
+// is scene + this). ponytail: no GPU_DISJOINT_EXT check (reading it clears it for the engine's poll); a power-state
+// change can leave one bad sample.
+const timer = DOM && location.search.includes('bench') ? gl.getExtension('EXT_disjoint_timer_query_webgl2') : null
+const flight: WebGLQuery[] = []
+export const camGpuMs: number[] = []
 /** ALIGN (design D2): on = the image waits for its mask (the clone uploaded with the mask); off = the newest frame
  *  uploads at once, the mask lags one inference. The probe flips it per arm (S0.3). */
 export const camAlign = { on: true }
@@ -127,6 +137,7 @@ let nextId = 0
 let nextSpawnAt = -Infinity // tick spawns no host before this (K-1 rule 2)
 let lastRetryAt: number | null = null // the last granted respawn: retryAt's window (N-3); only fail() writes it
 let failAt: number | null = null // the serving host's last failure, until a good mask: STUCK_MS later → resetMask()
+let acc = 0 // main-thread ms of the camera frame in progress: the rVFC callback + onMask + tick (K-9's mainMs)
 let camFbo: WebGLFramebuffer | null = null // readCam's attachment of cam.tex
 
 function spawn(now: number): Host {
@@ -136,7 +147,9 @@ function spawn(now: number): Host {
     e.preventDefault() // fail() logs it once; uncancelled, it would also surface as the page's uncaught error
     onMsg(h, { type: 'error', msg: `crashed: ${e.message || 'worker error'}` })
   }
-  h.w.postMessage({ type: 'init', model: camHost.model, delegate: camHost.delegate, base: camHost.base } satisfies ToWorker)
+  h.w.postMessage({ type: 'init', model: camHost.model, delegate: camHost.delegate, base: camHost.base, fault: camHost.fault } satisfies ToWorker)
+  if (camHost.fault !== 'dead') camHost.fault = '' // a probe fault hits one host; `dead` hits every host (B3)
+  camMask.hosts++
   return h
 }
 
@@ -241,6 +254,7 @@ function onMsg(h: Host, m: FromWorker) {
 }
 
 function onMask(h: Host, m: MaskMsg) {
+  const t0 = performance.now()
   if (m.id !== h.inFlight) return
   h.inFlight = 0
   h.sentAt = null
@@ -252,16 +266,18 @@ function onMask(h: Host, m: MaskMsg) {
   fresh = { mask: m, frame: pending } // ALIGN (D2): the image waits for its mask
   pending = null
   camMask.workerMs.push(m.ms)
-  camMask.ts.push(performance.now())
+  camMask.ts.push(t0)
   // both keep the whole probe window (60 s × 60 fps + a 3 min soak): 20 000 — the 600 cap of S0.3 truncated the
   // soak's per-minute inferP95 after ~20 s (index-based polling + shift = empty slices)
   if (camMask.workerMs.length > 20000) camMask.workerMs.shift()
   if (camMask.ts.length > 20000) camMask.ts.shift()
+  acc += performance.now() - t0
 }
 
 function send(h: Host, f: VideoFrame) {
   h.inFlight = ++nextId
   h.sentAt = performance.now()
+  camMask.frames++
   h.w.postMessage({ type: 'frame', id: h.inFlight, frame: f } satisfies ToWorker, [f])
 }
 
@@ -300,9 +316,25 @@ function refPass(now: number) {
 /** Once per rAF in app.ts's frame, before render() (D1): the host's life, then the GL (the aligned frame + its mask,
  *  the EMA pass at the gate's k, cam.ref). app.ts reads presence(camGate.area) after it. */
 export function tick(now: number) {
-  hostLife(now)
+  if (!cam.live && !slot && !next && !leaving.size && !fresh && !imageFresh) return // no camera: one test per frame
+  const t0 = performance.now()
+  const gpu = fresh !== null || imageFresh
+  try {
+    hostLife(now)
+    if (gpu) timed(() => camGl(now))
+  } catch (e) {
+    console.error('cam: tick threw, the loop goes on (D7):', e)
+  }
+  acc += performance.now() - t0
+  if (gpu) {
+    if (camMask.mainMs.push(acc) > 20000) camMask.mainMs.shift() // one camera frame done
+    acc = 0
+  }
+}
+
+/** tick's GL: the aligned frame + its mask, the EMA pass, then cam.ref when the image changed. */
+function camGl(now: number) {
   if (fresh) {
-    const t0 = performance.now()
     const { mask: m, frame } = fresh
     fresh = null
     if (frame) {
@@ -312,13 +344,26 @@ export function tick(now: number) {
     uploadMask(m.w, m.h, m.data)
     emaPass(m.stats.area)
     cam.stats = m.stats
-    camMask.mainMs.push(performance.now() - t0)
-    if (camMask.mainMs.length > 20000) camMask.mainMs.shift()
   }
   if (imageFresh) {
     imageFresh = false
     refPass(now)
   }
+}
+
+/** fn inside a timer query under ?bench (one TIME_ELAPSED query at a time: tick runs before the engine's). */
+function timed(fn: () => void) {
+  while (flight.length && gl.getQueryParameter(flight[0], gl.QUERY_RESULT_AVAILABLE)) {
+    const q = flight.shift()!
+    if (camGpuMs.push(gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6) > 20000) camGpuMs.shift()
+    gl.deleteQuery(q)
+  }
+  if (!timer || flight.length >= 8) return fn() // results come frames late; 8 in flight at most, as the engine's RING
+  const q = gl.createQuery()
+  gl.beginQuery(timer.TIME_ELAPSED_EXT, q)
+  fn()
+  gl.endQuery(timer.TIME_ELAPSED_EXT)
+  flight.push(q)
 }
 
 function hiddenVideo() {
@@ -344,6 +389,7 @@ function uploadTex(src: TexImageSource, w: number, h: number) {
   }
   cam.xf.set(coverFit(stage.clientWidth, stage.clientHeight, cam.w, cam.h, mirror))
   imageFresh = true
+  if (camStat.at.push(performance.now()) > 20000) camStat.at.shift()
 }
 
 /** The rVFC callback: the raw upload, or the frame to the host (+ its ALIGN clone). */
@@ -376,8 +422,9 @@ function upload() {
       send(s, vf) // transferred
     }
   }
-  camStat.ms.push(performance.now() - t0)
-  if (camStat.ms.length > 600) camStat.ms.shift()
+  const ms = performance.now() - t0
+  acc += ms
+  if (camStat.ms.push(ms) > 600) camStat.ms.shift()
 }
 
 /** K-4: no source. resetMask() + every track stopped + srcObject null + cam.live false (the host retires at the next
