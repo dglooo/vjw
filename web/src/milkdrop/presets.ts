@@ -20,9 +20,18 @@ export const PRESETS: readonly (PresetFile & { slug: string })[] = Object.entrie
   })
   .sort((a, b) => (a.slug < b.slug ? -1 : 1))
 
-// One built-in scene per preset: the preset alone, starred (CP2 contract).
+// milk-new (Tier S, 2026-11-16): its 13 lowest-scoring presets start unstarred (in the Library, out of the autopilot),
+// so MilkDrop stays about a third of the playlist: 65 own + 37 milk without a camera. A user star plays them.
+const UNSTARRED = new Set([
+  'orb-pastel-primer', 'martin-shadow-harlequins-shape-code-fata-morgana', 'rovastar-flexi-hurricane-nightmare-moebius-mix',
+  'shifter-feathers-angel-wings-phat-remix-relief-2', 'mig-049', 'mig-085', 'martin-mucus-cervix',
+  'rovastar-geiss-hurricane-nightmare-relief-mix', 'milkdrop2077-r002', 'cope-flexi-colorful-marble-ghost-mix',
+  'cope-the-drain-to-heaven', 'va-ultramix-154-chaos', 'goody-the-wild-vort',
+])
+
+// One built-in scene per preset: the preset alone, starred unless held back above (CP2 contract).
 export const MILK_SCENES: readonly SceneDoc[] = PRESETS.map((p): SceneDoc => ({
-  v: 1, id: `builtin:milk-${p.slug}`, name: p.name, star: true,
+  v: 1, id: `builtin:milk-${p.slug}`, name: p.name, star: !UNSTARRED.has(p.slug),
   layers: [{ gen: { ref: `milk/${p.slug}` }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
 }))
 

@@ -186,31 +186,57 @@ Upstream work that a file names in a comment. The files state no license for it:
 - JSON has no comment header, so each file carries the credit (spec §6) as fields: `{ name, author, url, license, preset }`. `author` is the name before the first ` - ` (MilkDrop's "author - title").
 - The presets are the MilkDrop community's work; the package gives no license for their content, so it is recorded as unknown.
 - The set is picked by `agents/planner/plan_milkdrop.md` S3.1's rule from the CP1 probe. Adding a preset = one file + one row.
+- milk-new (Tier S, 2026-11-16) added 25 more from the base + extra packs, by measurement on two DnB tracks through the shipped path (`sync` .75): no load / GL / render error, billed GPU p95 within the slowest shipped preset's (two sessions), ≤ 3 luma steps > .10 per 1 s, not black / static, then the highest kick correlation (frame-to-frame luma change vs our kick), ≤ 2 per lead author, ≤ 1 per near-duplicate cluster. The 13 lowest-scoring of them start unstarred (`UNSTARRED` in `presets.ts`).
 
 | slug | name | author | license |
 |---|---|---|---|
 | `adam-eatit-fx-2-martin-disco-mix-lodus-geiss-ludicrous-speed-flexi-aderrasi-n-hexcollie` | adam eatit fx 2 martin - disco mix, lodus, geiss, ludicrous speed,flexi, aderrasi n hexcollie | adam eatit fx 2 martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `adamfx-mashup-2-martin-reflections-on-black-tile-raron-n-flexi` | AdamFX Mashup 2 Martin - reflections on black tile + Raron N Flexi  | AdamFX Mashup 2 Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `aderrasi-geiss-airhandler-kali-mix-painterly-tendrils-colorfast` | Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast | Aderrasi + Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `aderrasi-storm-of-the-eye-thunder-mash0000-quasi-pseudo-meta-concentrics` | Aderrasi - Storm of the Eye (Thunder) - mash0000 - quasi pseudo meta concentrics | Aderrasi | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `cope-alternative-energy-antimatter-mod-1-4z` | cope - alternative energy (antimatter mod_1)4z | cope | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `cope-flexi-colorful-marble-ghost-mix` | cope + flexi - colorful marble (ghost mix) | cope + flexi | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `cope-the-drain-to-heaven` | cope - the drain to heaven | cope | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `cope-the-neverending-explosion-of-red-liquid-fire` | Cope - The Neverending Explosion of Red Liquid Fire | Cope | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `eos-particle-storm-b-couldn-t-not` | EoS - particle storm B - couldn't not | EoS | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `eos-phat-dark-heart-nobal-cause-cpe-ap4` | EoS_Phat Dark_heart_nobal_cause cpe ap4+ | EoS_Phat Dark_heart_nobal_cause cpe ap4+ | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `fed-slowfast-1-1` | fed - slowfast 1.1 | fed | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `flexi-fishbrain-geiss-martin-tokamak-witchery` | Flexi, fishbrain, Geiss + Martin - tokamak witchery | Flexi, fishbrain, Geiss + Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `flexi-fishbrain-martin-witchery` | Flexi, fishbrain + Martin - witchery | Flexi, fishbrain + Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `flexi-martin-cascading-decay-swing` | Flexi + Martin - cascading decay swing | Flexi + Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `flexi-martin-geiss-dedicated-to-the-sherwin-maxawow` | Flexi, martin + geiss - dedicated to the sherwin maxawow | Flexi, martin + geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `flexi-martin-geiss-painterly-rogue-wave-strike-color-emboss-mix` | _Flexi, martin + geiss - painterly rogue wave strike (color emboss mix) | _Flexi, martin + geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `flexi-mom-why-the-sky-looks-different-today` | flexi - mom, why the sky looks different today | flexi | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `flexi-psychenapping` | Flexi - psychenapping | Flexi | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `flexi-swing-out-on-the-spiral` | flexi - swing out on the spiral | flexi | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `geiss-explosion-mod-2b` | _Geiss - Explosion Mod 2b | _Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `geiss-skin-dots-multi-layer-3` | Geiss - Skin Dots Multi-layer 3 | Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `geiss-tokamak-plus-2` | Geiss - Tokamak Plus 2 | Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `geiss-untitled` | _Geiss - untitled | _Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `goody-the-wild-vort` | Goody - The Wild Vort | Goody | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `martin-angel-flight` | martin - angel flight | martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `martin-liquid-arrows` | Martin - liquid arrows | Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `martin-mucus-cervix` | martin - mucus cervix | martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `martin-shadow-harlequins-shape-code-fata-morgana` | martin [shadow harlequins shape code] - fata morgana | martin [shadow harlequins shape code] | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `mig-049` | _Mig_049 | _Mig_049 | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `mig-085` | _Mig_085 | _Mig_085 | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `mig-colorful9` | _Mig_COLORFUL9 | _Mig_COLORFUL9 | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `milk-artist-at-our-best-fed-slowfast-ft-adamfx-n-martin-hd-cosmofx` | Milk Artist At our Best - FED - SlowFast Ft AdamFX n Martin - HD CosmoFX | Milk Artist At our Best | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `milkdrop2077-r002` | MilkDrop2077.R002 | MilkDrop2077.R002 | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `milkdrop2077-r033` | MilkDrop2077.R033 | MilkDrop2077.R033 | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `orb-magma-pool` | ORB - Magma Pool | ORB | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `orb-pastel-primer` | ORB - Pastel Primer | ORB | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `raron-a-grayish-blob-mash0000-pungent-gastric-automata-cloud-fumes` | raron - a grayish blob - mash0000 - pungent gastric automata cloud fumes | raron | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `rovastar-flexi-hurricane-nightmare-moebius-mix` | Rovastar + Flexi - Hurricane Nightmare (Moebius Mix) | Rovastar + Flexi | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `rovastar-geiss-hurricane-nightmare-relief-mix` | Rovastar + Geiss - Hurricane Nightmare (Relief Mix) | Rovastar + Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `rovastar-geiss-hyperspace-kaleidoscope` | Rovastar + Geiss - Hyperspace - kaleidoscope | Rovastar + Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `royal-mashup-307` | $$$ Royal - Mashup (307) | $$$ Royal | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `shifter-escape-sigur-ros` | shifter - escape (sigur ros) | shifter | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `shifter-feathers-angel-wings-phat-remix-relief-2` | shifter - feathers (angel wings)_phat_remix relief 2 | shifter | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `stahlregen-dots-layered-suksma-world-humanvirus-replication-killphreqs-mix` | stahlregen - dots (layered) - suksma world humanvirus replication killphreqs mix | stahlregen | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `suksma-vector-exp-1-couldn-t-not` | suksma - vector exp 1 - couldn′t not | suksma | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `va-ultramix-154-chaos` | va ultramix - 154 [chaos] | va ultramix | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `vovan-geiss-bass-with-flover-feedback-mix-2` | _Vovan + Geiss - Bass With Flover (Feedback Mix) 2 | _Vovan + Geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `waltra-square-orgy` | Waltra - Square Orgy | Waltra | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+| `zylot-paint-spill-music-reactive-paint-mix` | Zylot - Paint Spill (Music Reactive Paint Mix) | Zylot | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `zylot-true-visionary-final-mix` | Zylot - True Visionary (Final Mix) | Zylot | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
