@@ -41,7 +41,7 @@ function hits(pat: Pat, from: number, to: number, o: { bpm?: number; lag?: (n: n
 const merge = (...hs: Hits[]): Hits => ({ kick: hs.flatMap((h) => h.kick).sort((a, b) => a - b), snare: hs.flatMap((h) => h.snare).sort((a, b) => a - b), hats: hs.flatMap((h) => h.hats).sort((a, b) => a - b) })
 const drainF = (t: number, fps: number) => Math.ceil(t * fps - 1e-9)
 
-interface Snap { i: number; t: number; st: ShatterState; src: Uint8Array; bands: number[]; strips: number[]; stamps: number[]; moves: Move[]; swaps: number[]; edges: Uint8Array; rise: Record<Drum, boolean> }
+interface Snap { i: number; t: number; st: ShatterState; src: Uint8Array; bands: number[]; strips: number[]; stamps: number[]; moves: Move[]; swaps: number[]; edges: Uint8Array; stampP: Float32Array; rise: Record<Drum, boolean> }
 interface Opt { hits?: Hits; bpm?: number | ((t: number, i: number) => number); beat?: (t: number, i: number) => number; drop?: (t: number, i: number) => number; build?: (t: number, i: number) => number; seed?: number; fps?: number; now?: (i: number) => number; x?: (i: number, t: number) => Partial<ShatterIn> }
 /** Runs a fresh core `frames` frames; a snapshot per frame (the state's arrays copied). */
 function drive(frames: number, o: Opt = {}): Snap[] {
@@ -65,7 +65,7 @@ function drive(frames: number, o: Opt = {}): Snap[] {
       burst: 0, kickFlare: env.kick, snareFlare: env.snare, ...o.x?.(i, t),
     }
     const st = core.step(x, cells, edges, stampP)
-    out.push({ i, t, st: { ...st }, src: st.src.slice(), bands: [...st.bands], strips: [...st.strips], stamps: [...st.stamps], moves: [...st.moves], swaps: [...st.swaps], edges: edges.slice(), rise })
+    out.push({ i, t, st: { ...st }, src: st.src.slice(), bands: [...st.bands], strips: [...st.strips], stamps: [...st.stamps], moves: [...st.moves], swaps: [...st.swaps], edges: edges.slice(), stampP: stampP.slice(), rise })
   }
   return out
 }
@@ -360,6 +360,25 @@ describe('Amen Shatter core: the bar cycle (C2, C6–C9, C13, C14, V10–V12)', 
       const on = x.stamps.filter((s) => s >= 0)
       if (on.length > 1) expect(new Set(on).size).toBeGreaterThan(1) // never a whole-frame freeze
     }
+  })
+  test('F-2 / F-3 stamps at 16ths sit ¼ ring spacing apart (build .6 speeds the live rings); all clear on the frame the roll stops', () => {
+    const b1 = 8, f = drive(frames(b1 + 3), { hits: hits(TWO, 0, b1 + 3), build: (t) => (t >= slotT(16 * b1 - 0.5) && t < slotT(16 * b1 + 22) ? 0.6 : 0) })
+    const off = f.findIndex((x, i) => i > 0 && f[i - 1].st.roll === 16 && x.st.roll === 0), last = f[off - 1]
+    const cols = [...last.stamps.keys()].filter((c) => last.stamps[c] >= 0).sort((a, b) => last.stamps[a] - last.stamps[b])
+    expect(cols).toHaveLength(16)
+    for (let k = 1; k < 16; k++) expect(last.stampP[4 * cols[k]] - last.stampP[4 * cols[k - 1]]).toBeCloseTo(0.25, 6)
+    expect(f[off].stamps.every((s) => s < 0)).toBe(true)
+  })
+  test('F-1 the 2nd kick accent shoves set B (A right, B left), held to the slam; after a retract the next kick shoves set A', () => {
+    const f = drive(frames(10), { hits: hits(TWO, 0, 10, { skip: (b, s, d) => b === 8 && s === 0 && d === 'kick' }) })
+    const inBar = (b: number) => all(f).filter((m) => f[m.i].t >= slotT(16 * b - 0.5) && f[m.i].t < slotT(16 * b + 15.5))
+    const s7 = inBar(7).filter((m) => kickish(m) && m.kind === 'shove'), slam7 = inBar(7).find((m) => m.kind === 'slam')!
+    expect(s7).toHaveLength(2)
+    for (let i = s7[1].i; i < slam7.i; i++) expect(f[i].bands).toEqual([2, -2, 2, -2])
+    const b8 = inBar(8), k8 = b8.filter((m) => m.cause === 'kick' && m.kind === 'shove')
+    expect(b8.filter((m) => m.cause === 'retract')).toHaveLength(1)
+    expect(k8).toHaveLength(1)
+    expect(f[k8[0].i].bands).toEqual([2, 0, 2, 0])
   })
   test('T-C14 QUIET: 2 bars without kick and snare → home, 0 shoves, 0 cracks; same audio + seed → identical tables', () => {
     const o = { hits: merge(hits(TWO, 0, 6, { skip: (b, s, d) => b === 5 && s > 10 && d !== 'hats' }), hits({ hats: TWO.hats }, 6, 9)) }

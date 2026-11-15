@@ -452,6 +452,7 @@ export function createShatter(seed = S3_SEED): Shatter {
     b8 = x.build >= (b8 ? 0.1 : 0.15)
     b16 = x.build >= (b16 ? 0.35 : 0.4)
     st.roll = locked && st.tier !== 'quiet' && st.recipe === 'none' ? (b16 || last - densU <= 4 ? 16 : b8 ? 8 : 0) : 0
+    if (!st.roll) stamps.fill(-1) // F-3 (lead ruling): stamps clear to the live plate once the roll stops
     // (4) the crossing; the free hold on the wall clock
     if (st.crossed) onCrossing(x)
     if (st.recipe === 'hold' && holdFree && now - t0 >= HOLD_FREE) shatter(x)
@@ -495,7 +496,9 @@ export function createShatter(seed = S3_SEED): Shatter {
     st.hair += (hairTo - st.hair) * (1 - Math.exp(-dNow / (hairTo > st.hair ? 0.5 : 1)))
     if (st.recipe === 'hold') st.hair = 0
     st.shock = now - t0 < 2 ? now - t0 : -1
-    for (let c = 0; c < 16; c++) if (stamps[c] === st.frame) stampP.set([plate.phase, plate.sheen, plate.bright, plate.pal], 4 * c)
+    // F-2: a stamp's rings sit on the beat grid, ¼ spacing further out per 16th (creative §3.2), whatever `build` does
+    // to the live ring speed (§3 row 7); with the shader's bar ring (1 ring in 4) the 16 stamps of a bar all differ
+    for (let c = 0; c < 16; c++) if (stamps[c] === st.frame) stampP.set([(last - (st.rho ?? 0)) / 4, plate.sheen, plate.bright, plate.pal], 4 * c)
     tables(x, cells, edges)
     return st
   }
@@ -572,7 +575,7 @@ const PAL = [
 ]
 const arr = (k: (p: (typeof PAL)[number]) => string[]) => `vec3[9](${PAL.flatMap(k).map(v3).join(', ')})`
 const SEAM = { core: '#F4FBFF', band: '#FF8A1F', strip: '#39E6FF', cell: '#C6FF3D', hair: '#EAFBFF' }
-const LOOK = { ring: 1.5, tail: 0.5, sheen: 0.45, disc: 0.95, rim: 2.2, core: 2.6, halo: 0.55, haloTau: 7.0, shadow: 0.35, shadowTau: 8.0 } // ⚠️ spike look
+const LOOK = { ring: 1.5, tail: 0.4, sheen: 0.5, sheenF: 0.65, haze: 0.24, hazeR: 3.0, shade: 0.6, mark: 2.6, quiet: 0.5, disc: 0.95, rim: 2.2, core: 2.6, halo: 0.55, haloTau: 7.0, shadow: 0.35, shadowTau: 8.0 } // ⚠️ spike look
 const REACH = 40 // px: the seam halo's reach (e^(−40/7) ≈ .003); farther edges are neither fetched nor lit
 const f4 = (x: number) => x.toFixed(4)
 const FS = `#version 300 es
@@ -598,32 +601,34 @@ vec3 byPal(vec3 a, vec3 b, vec3 c, float p) { return p < 1.0 ? mix(a, b, p) : mi
 vec3 field(int k, float p) { return byPal(FIELD[k], FIELD[3 + k], FIELD[6 + k], p); }
 vec3 ring(int k, float p) { return byPal(RINGS[k], RINGS[3 + k], RINGS[6 + k], p); }
 // The plate (creative §2.4) at plate px q (y down): a disc at the seeded centre with an HDR rim, 7–9 rings in closed form
-// (ring index = log base 1.3 of the radius minus the phase: one spacing per beat, × 1.3 per ring), a bow-tie sheen,
-// a 3-stop field, grooves inside the sheen, grain. The smear widens each ring edge along the move's axis (analytic).
+// (ring index = log base 1.3 of the radius minus the phase: one spacing per beat, × 1.3 per ring; 1 ring in 4, the bar
+// ring, brighter: F-2), the core's haze over a 3-stop field (brighter toward the light, F-5), a bow-tie sheen over the
+// field and the rings with grooves inside it, grain. The smear widens each ring edge along the move's axis (analytic).
 vec3 plate(vec2 q, float phase, float sheen, float bright, float scale, float pal, float smear, vec2 axis) {
   vec2 C = uCentre * uRes, d = (q - C) / scale;
   float r = length(d), R0 = 1.2 * uRes.x / 16.0;
+  bright *= ${f4(LOOK.quiet)} + ${f4(1 - LOOK.quiet)} * min(pal, 1.0); // palette C (QUIET) dimmer: P4 QUIET ≤ .16
   vec2 n = r > 1e-3 ? d / r : vec2(1.0, 0.0);
-  float rr = clamp(r / (0.62 * length(uRes)), 0.0, 1.0);
+  float rr = clamp(r / (0.62 * length(uRes)), 0.0, 1.0), cl = dot(n, vec2(cos(sheen), sin(sheen))); // cos of the angle to the sheen axis
   vec3 col = mix(mix(field(0, pal), field(1, pal), smoothstep(0.0, 0.45, rr)), field(2, pal), smoothstep(0.45, 1.0, rr));
-  float c2 = dot(n, vec2(cos(sheen), sin(sheen))), c4; // cos² of the angle to the sheen axis, then ^7: two opposite lobes, ≈ 35° each
-  c2 *= c2;
-  c4 = c2 * c2;
-  float lobe = c2 * c4 * c4 * c4 * exp(-r / (6.0 * R0));
-  vec3 sc = byPal(SHEEN[0], SHEEN[1], SHEEN[2], pal);
+  float c2 = cl * cl, c4 = c2 * c2;
+  float lobe = (0.6 * c2 * c4 * c4 * c4 + 0.4 * c4) * exp(-r / (6.0 * R0)); // the bow-tie: two opposite lobes, cos^14 (≈ 35° wide) on a cos^4 shoulder
+  vec3 sc = byPal(SHEEN[0], SHEEN[1], SHEEN[2], pal), cc = byPal(CORE[0], CORE[1], CORE[2], pal);
   float w = 1.1 + 0.4 * smear * abs(dot(n, axis)); // edge σ px
   if (r < R0) {
-    vec3 cc = byPal(CORE[0], CORE[1], CORE[2], pal);
     float rim = exp(-0.5 * (r - R0) * (r - R0) / (w * w)) * (1.1 / w);
     col = cc * (${f4(LOOK.disc)} * (0.8 + 0.2 * (1.0 - r / R0)) * bright) * (1.0 + 0.06 * lobe * sin(6.2832 * r / 16.0)) + cc * ${f4(LOOK.rim)} * rim * bright + sc * lobe * ${f4(LOOK.sheen)} * bright;
   } else {
-    float t = log(r / R0) / LN13, f = fract(t - phase), sp = r * LN13, dIn = f * sp, dOut = (1.0 - f) * sp;
-    float edge = (exp(-0.5 * dIn * dIn / (w * w)) + exp(-0.5 * dOut * dOut / (w * w))) * (1.1 / w);
-    float tail = pow(max(0.0, 1.0 - (1.0 - f) / 0.6), 2.0); // fades inward from each edge over 60 % of the spacing
+    float t = log(r / R0) / LN13, id = floor(t - phase), f = t - phase - id, sp = r * LN13, dIn = f * sp, dOut = (1.0 - f) * sp;
+    float mIn = mod(id, 4.0) < 0.5 ? ${f4(LOOK.mark)} : 1.0, mOut = mod(id + 1.0, 4.0) < 0.5 ? ${f4(LOOK.mark)} : 1.0; // the inner edge is ring id's, the outer edge and the tail ring id + 1's
+    float edge = (mIn * exp(-0.5 * dIn * dIn / (w * w)) + mOut * exp(-0.5 * dOut * dOut / (w * w))) * (1.1 / w);
+    float tail = mOut * pow(max(0.0, 1.0 - (1.0 - f) / 0.6), 2.0); // fades inward from each edge over 60 % of the spacing
     float mask = 1.0 - smoothstep(7.5, 9.0, t);
     vec3 rc = t < 3.0 ? mix(ring(0, pal), ring(1, pal), t / 3.0) : mix(ring(1, pal), ring(2, pal), clamp((t - 3.0) / 3.0, 0.0, 1.0));
-    float groove = 1.0 + 0.06 * lobe * sin(6.2832 * r / 16.0); // ≥ 14 px apart, ≤ 6 %, only inside the sheen
-    col += rc * (${f4(LOOK.ring)} * edge + ${f4(LOOK.tail)} * tail) * mask * bright * groove + sc * lobe * ${f4(LOOK.sheen)} * bright * (0.4 + tail) * mask;
+    float groove = 1.0 + 0.1 * sin(6.2832 * r / 16.0); // grooves 16 px apart, only inside the sheen (≤ 6 % of the luma)
+    float lit = 1.0 - ${f4(LOOK.shade)} * (0.5 - 0.5 * cl); // lit from the sheen axis' + end: the far side sinks into shadow
+    col = (col + cc * ${f4(LOOK.haze)} * exp(-(r - R0) / (${f4(LOOK.hazeR)} * R0)) * bright + rc * (${f4(LOOK.ring)} * edge + ${f4(LOOK.tail)} * tail) * mask * bright) * lit; // + the core's light in the haze
+    col += sc * lobe * (${f4(LOOK.sheenF)} + ${f4(LOOK.sheen)} * tail) * groove * mask * bright;
   }
   if (uShock >= 0.0) for (int k = 0; k < 3; k++) { // the T0 shockwave: 3 bright rings leave the core
     float rs = R0 + 1100.0 * max(0.0, uShock - 0.07 * float(k)), ds = r - rs;
