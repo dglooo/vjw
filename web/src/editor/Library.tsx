@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { catalog } from '../fx/catalog'
+import { catalog, rawFs } from '../fx/catalog'
 import { library } from '../library'
 import { BUILTIN } from '../scenes/builtin'
-import { blocks, filterBlocks, type Block, type BlockKind } from './blocks'
+import { blocks, filterBlocks, ORIGINS, type Block, type BlockKind, type Origin } from './blocks'
 import { dragged, MIME } from './dnd'
 import { H, tiles, visible, W } from './tiles'
 
 const KINDS: readonly BlockKind[] = ['generator', 'effect', 'scene']
 const GROUPS: readonly Block['group'][] = ['feedback', 'geometry', 'liquid', 'retro', 'milkdrop', 'other']
+const ORDER = Object.keys(ORIGINS) as Origin[] // the sections, top down
 const KEY = 'vjw.lib' // sessionStorage: the filters and the search, kept over a reload (CP3 demo)
-interface Q { kind?: BlockKind; group?: string; tag?: string; text?: string; fav?: boolean }
+interface Q { kind?: BlockKind; group?: string; origin?: string; tag?: string; text?: string; fav?: boolean }
 let rev = 0 // +1 per library change (a scene, a favourite), as Panel.tsx's
 library.onChange(() => rev++)
 let wait = 0 // the hover delay (S3.4): a tile moves after 150 ms under the pointer, at once on a click
@@ -50,13 +51,14 @@ function stored(): Q {
   }
 }
 
-/** The editor's library (2b S3.1, design S5): kind, group and tag chips, the favourites and a search box, ANDed, over
- *  every block, each a grey name tile until its still lands (S3.3); the hovered one moves (S3.4). A tile's click tries its block (`trying`: marked until
+/** The editor's library (2b S3.1, design S5): origin, kind, group and tag chips, the favourites and a search box, ANDed,
+ *  over every block, in one folding section per origin (plan_editor_origins S1), each a grey name tile until its still
+ *  lands (S3.3); the hovered one moves (S3.4). A tile's click tries its block (`trying`: marked until
  *  Enter or another edit keeps it, or Esc takes it back), its `+` adds it for good, a drag onto the stack adds it there;
  *  a scene tile opens that scene. `pick` (Editor) does all of it. */
 export function Library({ trying, pick }: { trying?: string; pick: (b: Block, mark: boolean) => void }) {
   useSyncExternalStore(library.onChange, () => rev)
-  const all = blocks(catalog, [...BUILTIN.map((b) => library.get(b.id)!), ...library.all()])
+  const all = blocks(catalog, [...BUILTIN.map((b) => library.get(b.id)!), ...library.all()], rawFs)
   const favs = library.favs()
   useEffect(() => tiles.want(all)) // every block bakes, the listed or not
   useEffect(() => () => {
@@ -75,6 +77,7 @@ export function Library({ trying, pick }: { trying?: string; pick: (b: Block, ma
       {label}
     </button>
   )
+  const shown = filterBlocks(all, { ...q, favs: q.fav ? favs : undefined })
   return (
     <aside className="library">
       <div className="top">
@@ -83,47 +86,56 @@ export function Library({ trying, pick }: { trying?: string; pick: (b: Block, ma
           {KINDS.map((k) => chip(k, q.kind === k, { kind: q.kind === k ? undefined : k }))}
           {chip('★ favourites', !!q.fav, { fav: !q.fav })}
         </div>
+        <div className="chips">{ORDER.map((o) => chip(ORIGINS[o], q.origin === o, { origin: q.origin === o ? undefined : o }))}</div>
         <div className="chips">{GROUPS.map((g) => chip(g, q.group === g, { group: q.group === g ? undefined : g }))}</div>
         <div className="chips">{[...new Set(all.flatMap((b) => b.tags))].sort().map((t) => chip(t, q.tag === t, { tag: q.tag === t ? undefined : t }))}</div>
         {trying && <p className="hint">Enter keeps it · Esc takes it back</p>}
       </div>
-      <ul>
-        {filterBlocks(all, { ...q, favs: q.fav ? favs : undefined }).map((b) => (
-          <li
-            key={b.id}
-            className={b.id === trying ? 'tried' : undefined}
-            draggable={b.kind !== 'scene'}
-            onPointerEnter={() => (wait = window.setTimeout(() => tiles.hover(b.id), 150))}
-            onPointerLeave={() => {
-              clearTimeout(wait)
-              tiles.hover(null)
-            }}
-            onDragStart={(e) => {
-              e.dataTransfer.setData(MIME, b.id)
-              e.dataTransfer.effectAllowed = 'copy'
-              dragged.block = b
-            }}
-          >
-            <button className="pick" title={[b.credit, ...b.tags].filter(Boolean).join(' · ') || undefined} onClick={() => {
-                tiles.hover(b.id)
-                pick(b, true)
-              }}
-            >
-              <Still id={b.id} />
-              {b.name}
-              <small>{b.kind}</small>
-            </button>
-            <button className="fav" aria-pressed={favs.has(b.id)} aria-label="Favourite" onClick={() => library.setFav(b.id, !favs.has(b.id))}>
-              ★
-            </button>
-            {b.kind !== 'scene' && (
-              <button className="plus" aria-label="Add" title="Add, no try" onClick={() => pick(b, false)}>
-                +
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+      {ORDER.map((o) => {
+        const bs = shown.filter((b) => b.origin === o)
+        return bs.length > 0 && (
+          <details key={o} open>
+            <summary style={{ cursor: 'pointer', margin: '8px 0 6px' }}>{`${ORIGINS[o]} · ${bs.length}`}</summary>
+            <ul>
+              {bs.map((b) => (
+                <li
+                  key={b.id}
+                  className={b.id === trying ? 'tried' : undefined}
+                  draggable={b.kind !== 'scene'}
+                  onPointerEnter={() => (wait = window.setTimeout(() => tiles.hover(b.id), 150))}
+                  onPointerLeave={() => {
+                    clearTimeout(wait)
+                    tiles.hover(null)
+                  }}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(MIME, b.id)
+                    e.dataTransfer.effectAllowed = 'copy'
+                    dragged.block = b
+                  }}
+                >
+                  <button className="pick" title={[b.credit, ...b.tags].filter(Boolean).join(' · ') || undefined} onClick={() => {
+                      tiles.hover(b.id)
+                      pick(b, true)
+                    }}
+                  >
+                    <Still id={b.id} />
+                    {b.name}
+                    <small>{b.kind}</small>
+                  </button>
+                  <button className="fav" aria-pressed={favs.has(b.id)} aria-label="Favourite" onClick={() => library.setFav(b.id, !favs.has(b.id))}>
+                    ★
+                  </button>
+                  {b.kind !== 'scene' && (
+                    <button className="plus" aria-label="Add" title="Add, no try" onClick={() => pick(b, false)}>
+                      +
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )
+      })}
     </aside>
   )
 }

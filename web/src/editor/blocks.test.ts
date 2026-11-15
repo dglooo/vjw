@@ -2,7 +2,7 @@ import { expect, test } from 'vitest'
 import type { Binding } from '../bind'
 import type { LayerDoc, NodeDoc, SceneDoc } from '../doc'
 import type { EffectDef, Kind } from '../fx/types'
-import { blocks, filterBlocks } from './blocks'
+import { blocks, filterBlocks, ORIGINS } from './blocks'
 
 const B: Binding = { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 }
 const def = (id: string, kind: Kind, over: Partial<EffectDef> = {}): EffectDef =>
@@ -23,7 +23,7 @@ const SCENES = [scene('builtin:toy-plasma', 'Toy plasma', TOY), scene('builtin:t
 const all = blocks(CATALOG, SCENES)
 const get = (id: string) => all.find((b) => b.id === id)!
 
-test('every non-transition def exactly once, kind and group from the def; milk/* in milkdrop; by kind, then name', () => {
+test('every non-transition def exactly once, kind and group from the def; milk/* in milkdrop; by origin, then kind, then name', () => {
   expect(all.filter((b) => CATALOG.has(b.id)).map((b) => b.id).sort()).toEqual(['isf/Pixellate', 'milk/flexi-mindblob', 'native/spectrum', 'native/tunnel', 'own/bloom'])
   expect(new Set(all.map((b) => b.id)).size).toBe(all.length)
   expect(get('native/tunnel')).toMatchObject({ kind: 'generator', group: 'geometry', tags: [], credit: 'VeeJay Wizard' })
@@ -31,10 +31,41 @@ test('every non-transition def exactly once, kind and group from the def; milk/*
   expect(get('milk/flexi-mindblob')).toMatchObject({ kind: 'generator', group: 'milkdrop', credit: 'Flexi' })
   expect(get('own/bloom')).toMatchObject({ kind: 'effect', group: 'feedback', tags: ['Glow', 'Feedback'] })
   expect(all.map((b) => `${b.kind} ${b.name}`)).toEqual([
-    'generator Mindblob', 'generator Spectrum', 'generator Toy plasma', 'generator Tunnel',
-    'effect bloom', 'effect Pixellate',
-    'scene Mine', 'scene Toy plasma', 'scene Tunnel',
+    'scene Mine',
+    'generator Spectrum', 'generator Toy plasma', 'generator Tunnel', 'effect bloom', 'scene Toy plasma', 'scene Tunnel',
+    'generator Mindblob',
+    'effect Pixellate',
   ])
+})
+
+test('origin, first match wins: a def by its id or its .fs header, a scene by its nodes, a toy by its first scene; ORIGINS order; filterBlocks by origin', () => {
+  const raw = new Map([
+    ['own/line2', '/*{ "CREDIT": "VeeJay Wizard" }*/\n// Look: TD bloom (studied, rewritten)\n'],
+    ['own/style', '/*{}*/\n// Look: a TD-style cell mosaic\n'],
+    ['own/line4', '/*{\n}*/\n// VeeJay Wizard, 2026\n// Look: TD Palette checker\n'],
+    ['own/plain', '/*{}*/\n// VeeJay Wizard, 2026 (no Look: TD header)\n'],
+    ['isf/Donor', '// Look: TD, but a donor file\n'],
+  ])
+  const cat = new Map([
+    def('milk/a', 'generator'), def('native/camera', 'generator'), def('own/negative', 'filter'), def('native/orb', 'generator'), def('own/line2', 'filter'),
+    def('own/style', 'filter'), def('own/line4', 'generator'), def('own/plain', 'generator'), def('isf/Donor', 'generator'), def('native/tunnel', 'generator'),
+  ].map((d) => [d.id, d] as const))
+  const sc = (id: string, gen: NodeDoc, ...fx: string[]): SceneDoc => ({ ...scene(id, id), layers: [{ ...layer(gen), fx: fx.map((ref) => ({ ref })) }] })
+  const out = blocks(cat, [
+    sc('u-1', TOY, 'own/line2'), sc('builtin:cam', { ref: 'native/camera' }, 'own/line2'), sc('builtin:cam-fx', { ref: 'native/orb' }, 'own/negative'),
+    sc('builtin:milk-a', { ref: 'milk/a' }, 'own/line2'), sc('builtin:td', { ref: 'own/plain' }, 'own/style'), sc('builtin:isf', { ref: 'isf/Donor' }),
+    sc('builtin:mixed', { ref: 'native/tunnel' }, 'isf/Donor'),
+  ], raw)
+  expect(Object.fromEntries(out.map((b) => [b.id, b.origin]))).toEqual({
+    'milk/a': 'milkdrop', 'native/camera': 'camera', 'own/negative': 'camera', 'native/orb': 'td', 'own/line2': 'td', 'own/style': 'td', 'own/line4': 'td',
+    'own/plain': 'ours', 'isf/Donor': 'isf', 'native/tunnel': 'ours', 'toy/plasma': 'mine',
+    'u-1': 'mine', 'builtin:cam': 'camera', 'builtin:cam-fx': 'camera', 'builtin:milk-a': 'milkdrop', 'builtin:td': 'td', 'builtin:isf': 'isf', 'builtin:mixed': 'ours',
+  })
+  expect(Object.keys(ORIGINS)).toEqual(['mine', 'ours', 'td', 'milkdrop', 'isf', 'camera'])
+  expect([...new Set(out.map((b) => b.origin))]).toEqual(Object.keys(ORIGINS))
+  const ids = (q: Parameters<typeof filterBlocks>[1]) => filterBlocks(out, q).map((b) => b.id)
+  expect(ids({ origin: 'td' })).toEqual(['own/line4', 'native/orb', 'own/line2', 'own/style', 'builtin:td'])
+  expect(ids({ origin: 'td', kind: 'effect' })).toEqual(['own/line2', 'own/style'])
 })
 
 test("a def's node carries its VJW_BIND as a copy; its tile: a generator alone, an effect over native/tunnel", () => {
