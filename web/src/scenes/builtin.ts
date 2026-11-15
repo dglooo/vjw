@@ -974,25 +974,30 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
-  // Scene wave 3, S2.1 (CP2): the techno laser — four truss emitters, green + white eight-beam fans, a 16-step chase
-  // that moves the light without changing its amount (own/laser-grid's header: the odd-`hits` bijection). Brightness
-  // on a hit only through the ⚡ pair (the file's VJW_FLASH, gated ≤ 3/s). The binds repeat the file's VJW_BIND
-  // (⚠️ plan assumptions, confirm at the CP2 demo); the bass class rides `reese` (tilt).
+  // Scene wave 3, S2.1 rework (CP2, design_laser_rework.md Variant A; the old analytic ISF fan was rejected by
+  // the user 2026-11-14 — own/laser-grid.fs keeps its header note): the techno laser as traced beams — a per-frame
+  // 96² mirror-symmetric emitter-lattice field, the step-lookup into K bands, the marching-squares trace, and
+  // real-width additive ribbons (bright thin core, wide faint skirt) + the ⅛-res tent haze. The poses tick on
+  // the bar saw (4/bar); the level chase is light-neutral (P7: the same count of levels lit on every step, the
+  // light distributed ∝ q/(w·L) per frame), so the picture re-poses and chases while the frame never blinks as
+  // a whole. Brightness on a hit only through the ⚡ trio (gated ≤ 3/s). The binds repeat the def
+  // (scenes/laser.ts; ⚠️ row-6 assumptions, confirm at the CP2 demo); the bass class rides `reese` (scan).
   {
-    v: 1, id: 'builtin:laser-grid', name: 'Laser Grid', star: true, // techno · Auto: reese (tilt; wobble under Dubstep)
+    v: 1, id: 'builtin:laser-grid', name: 'Laser Grid', star: true, // techno · Auto: reese (scan; wobble under Dubstep)
     layers: [{
       gen: {
-        ref: 'own/laser-grid',
-        values: { hits: 5, hue: 0.36 }, // static: 10 of the 32 beams lit on every step; laser green
+        ref: 'native/laser',
+        values: { mode: 0, steps: 4, K: 5, haze: 0.5 }, // the grid regime; a pose per beat; 5 bands (the build ramps 3 → 6)
         bind: {
-          phase: { source: 'bar', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the bar runs the 16 steps, a pose per beat
-          spread: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.25, max: 0.6 }, // the sub opens the fans
-          tilt: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0, max: 0.5 }, // Auto-style's one: the bass scissors them
-          dash: { source: 'hats', amount: 1, attack: 0, release: 0.06, min: 0, max: 1 }, // hats dot the beams
-          swap: { source: 'snare', amount: 1, attack: 0, release: 0.25, min: 0, max: 1 }, // a snare exchanges green and white
-          haze: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.3, max: 0.9 }, // a build thickens the smoke
-          hit: { source: 'kick', amount: 1, attack: 0, release: 0.12, min: 0, max: 0.6 }, // ⚡ a kick lifts the cores
-          burst: { source: 'drop', amount: 1, attack: 0, release: 0.4, min: 0, max: 1 }, // ⚡ the drop lights all 32, white cores
+          phase: { source: 'bar', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the bar runs the poses: a tick per beat
+          K: { source: 'build', amount: 1, attack: 1, release: 0.3, min: 3, max: 6 }, // the build densifies the contours into the drop
+          amp: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0, max: 1 }, // the sub reaches the blobs
+          scan: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0, max: 1 }, // Auto-style's one: the moiré drift = the wall scan
+          dash: { source: 'hats', amount: 1, attack: 0, release: 0.06, min: 0, max: 1 }, // the hats run the light-neutral level chase
+          hue: { source: 'snare', amount: 1, attack: 0, release: 0.25, min: 0, max: 0.25 }, // a snare walks green → white
+          width: { source: 'kick', amount: 1, attack: 0, release: 0.12, min: 0, max: 0.6 }, // ⚡ a kick pops the beams
+          hit: { source: 'kick', amount: 1, attack: 0, release: 0.12, min: 0, max: 0.5 }, // ⚡ a kick lifts the light
+          burst: { source: 'drop', amount: 1, attack: 0, release: 0.4, min: 0, max: 1 }, // ⚡ the drop full-opens: all K levels, the widest pose, the chase stopped
         },
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
