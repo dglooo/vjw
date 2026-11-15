@@ -225,6 +225,11 @@ test('T-L6: the drop latch carries power 1, every beam, the light load; hot only
   }
   const fr = drive(2 * FPS, (t) => ({ v: { ...base(), open: 0.5, climax: t >= 1 ? 1 : 0, burst: env(t, [1], 0.4) } }))
   expect(fr.filter((f) => f.t >= 1 && f.t <= 1.4).every((f) => f.hot.length > 0 && f.hot.every((h) => h === 1))).toBe(true)
+  // a live drop (climax decays): bar 2 holds 75 % lit (truss: 8 × 6 + 6 × 4 = 72) even with the hats at rest (creative §3)
+  const live = drive(4 * FPS, (t) => ({ v: { ...base(), open: 0.5, climax: env(t, [1], 0.4), pop: env(t, beats(1, 4)) } }))
+  const bar2 = live.filter((f) => f.s.mode === 'drop' && f.s.figure === FIG.fan)
+  expect(bar2.length).toBeGreaterThan(BAR * FPS - 3)
+  expect(bar2.every((f) => sum(f.s.lit) === 72)).toBe(true)
 })
 
 test('T-L9: the clock fires each index once; re-bases on a jump back; latches the lock with hysteresis', () => {

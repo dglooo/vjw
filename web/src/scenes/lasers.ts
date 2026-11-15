@@ -47,7 +47,7 @@ const RAY_W = 0.25 // a Grating-burst ray's weight
 const DISC_W = 0.6 // an origin disc's weight
 const GLINT_W = 1.2 // a glint star's weight
 const CORE_W = 1 // px at 1117 rows: the core half-width (2 px wide)
-export const SK = 11 // the skirt's half-support ÷ the core half-width (L1: 2.2 × the skirt FWHM, 5 × the core's)
+export const SK = 9 // the skirt's half-support ÷ the core half-width (lever after L1: FWHM 9.7 w ≈ the creative's 5 × the core; was 11)
 const EXIT = 2 // w1 ÷ w0 = 1 + EXIT·toward (L1: exit growth 3×)
 const FWD = 1 // gain1 ÷ gain0 = 1 + FWD·toward (forward scatter)
 const OPEN_LOUD = 0.4 // the sub above this is loud (creative §1: quiet = sub at rest and no kick for ≥ 2 bars)
@@ -176,7 +176,7 @@ export function createRig(seed = 1): Rig {
     for (const r of rows) {
       if (r.kMin >= r.N) continue // never chased (cage S rows, all-lit)
       r.o = (r.o + dir + r.N) % r.N
-      r.k += Math.sign(clamp(Math.round(r.N * (1 - 0.6 * flick)), r.kMin, r.N) - r.k)
+      r.k += Math.sign(clamp(Math.round(r.N * (1 - 0.6 * flick)), r.kMin, dropPhase === 2 ? r.kMin : r.N) - r.k) // the drop's bar 2 holds 75 %
     }
     if (shoot) shootNow = true // the newly lit beams enter with `shoot` (only rising slots read it)
   }
@@ -396,7 +396,7 @@ export function createRig(seed = 1): Rig {
 
 // ---- the GL: Variant A (the Isobars pipeline) ----
 const f4 = (x: number) => x.toFixed(4)
-const HAZE_NEAR_N = 140 // the near halo: a 3×3 tent at the mip level of ≈ this many rows (Isobars')
+const HAZE_NEAR_DIV = 8 // the near halo: a 3×3 tent over the 1/8-res re-draw (≈ 140 rows, Isobars' level)
 const HAZE_FAR_N = 64 // the far haze: ≈ 64 rows, σ 3 texels ≈ 52 px (design P2–P3: a lone beam's haze < .1 % at 200 px)
 const HAZE_NEAR = 0.35 // knob ⚠️: the near halo per unit of `haze`
 const HAZE_FAR = 1.1 // knob ⚠️: the lit air between the beams per unit of `haze`
@@ -413,24 +413,25 @@ layout(location = 0) in vec4 aSeg; // x0 y0 x1 y1, px, y down
 layout(location = 1) in vec4 aW;   // w0 w1 gain0 gain1
 layout(location = 2) in vec4 aK;   // hot tint kind fade
 uniform vec2 uRes;
+uniform float uScale; // 1, or 1/8 for the haze's low-res re-draw (L3)
 flat out vec4 vSeg;
 flat out vec4 vW;
 flat out vec4 vK;
 flat out uint vId;
 out vec2 vP;
 void main() {
-  vSeg = aSeg; vW = aW; vK = aK; vId = uint(gl_InstanceID);
+  vSeg = aSeg * uScale; vW = vec4(aW.xy * uScale, aW.zw); vK = aK; vId = uint(gl_InstanceID);
   float t = float(gl_VertexID & 1), s = float(gl_VertexID >> 1) * 2.0 - 1.0;
-  vec2 p0 = aSeg.xy, p1 = aSeg.zw, p;
+  vec2 p0 = vSeg.xy, p1 = vSeg.zw, p;
   if (aK.z > 2.5) {
-    float R = max(1.5 * aW.x, aW.y) + 2.0;
+    float R = max(1.5 * vW.x, vW.y) + 2.0;
     p = p0 + vec2(t * 2.0 - 1.0, s) * R;
   } else {
     vec2 d = p1 - p0;
     float L = length(d);
     vec2 dir = L > 1e-3 ? d / L : vec2(1.0, 0.0), nrm = vec2(-dir.y, dir.x);
     float k = aK.z < 0.5 ? ${SK.toFixed(1)} : aK.z < 1.5 ? 1.2 : 4.0; // half-support ÷ w: beam, Sheet, ray
-    float h0 = k * aW.x + 1.0, h1 = k * aW.y + 1.0;
+    float h0 = k * vW.x + 1.0, h1 = k * vW.y + 1.0;
     p = t < 0.5 ? p0 - dir * h0 + nrm * s * h0 : p1 + dir * h1 + nrm * s * h1;
   }
   vP = p;
@@ -499,16 +500,17 @@ ${HASH}
 uniform sampler2D uSrc;
 uniform sampler2D uFar;
 uniform sampler2D uSmoke;
+uniform sampler2D uNear; // the 1/8-res re-draw (L3: no mip chain)
 uniform vec2 uRes;
-uniform float uLod;
+uniform vec2 uNd; // one uNear texel (uv)
 uniform vec2 uGain;
 uniform uint uFrame;
 out vec4 outColor;
-vec3 tent(vec2 uv, float lod) {
-  vec2 d = exp2(lod) / uRes;
-  vec3 c = 4.0 * textureLod(uSrc, uv, lod).rgb
-    + 2.0 * (textureLod(uSrc, uv + vec2(d.x, 0.0), lod).rgb + textureLod(uSrc, uv - vec2(d.x, 0.0), lod).rgb + textureLod(uSrc, uv + vec2(0.0, d.y), lod).rgb + textureLod(uSrc, uv - vec2(0.0, d.y), lod).rgb)
-    + textureLod(uSrc, uv + d, lod).rgb + textureLod(uSrc, uv - d, lod).rgb + textureLod(uSrc, uv + vec2(d.x, -d.y), lod).rgb + textureLod(uSrc, uv + vec2(-d.x, d.y), lod).rgb;
+vec3 tent(vec2 uv) {
+  vec2 d = uNd;
+  vec3 c = 4.0 * texture(uNear, uv).rgb
+    + 2.0 * (texture(uNear, uv + vec2(d.x, 0.0)).rgb + texture(uNear, uv - vec2(d.x, 0.0)).rgb + texture(uNear, uv + vec2(0.0, d.y)).rgb + texture(uNear, uv - vec2(0.0, d.y)).rgb)
+    + texture(uNear, uv + d).rgb + texture(uNear, uv - d).rgb + texture(uNear, uv + vec2(d.x, -d.y)).rgb + texture(uNear, uv + vec2(-d.x, d.y)).rgb;
   return c / 16.0;
 }
 void main() {
@@ -516,7 +518,7 @@ void main() {
   vec4 b = textureLod(uSrc, uv, 0.0);
   float s = texture(uSmoke, uv).r * 2.0 - 1.0;
   float sh = clamp(b.a / max(max(b.r, max(b.g, b.b)), 1e-5), 0.0, 1.0);
-  vec3 haze = uGain.x * tent(uv, uLod) + uGain.y * texture(uFar, uv).rgb;
+  vec3 haze = uGain.x * tent(uv) + uGain.y * texture(uFar, uv).rgb;
   vec3 E = (b.rgb * (1.0 + s * (0.25 + 0.15 * sh)) + haze * (1.0 + 0.35 * s)) * ${f4(EXPOSURE)};
   float m = max(max(E.r, E.g), max(E.b, 1e-4));
   vec3 o = mix(E / m, vec3(1.0), ${f4(TONE.W)} * smoothstep(${f4(TONE.K0)}, ${f4(TONE.K1)}, m)) * (1.0 - exp(-m));
@@ -560,9 +562,7 @@ export const lasers: NativeDef = {
     const buf = new Float32Array(MAX_INST * STRIDE)
     const beams = program(VS, FS) // the engine's cache: compiled once per source pair, never per prepare (T-L11)
     const blur = fullscreenProgram(BLUR), smoke = fullscreenProgram(SMOKE), composite = fullscreenProgram(COMPOSITE)
-    const tA = renderTarget(true), tH = renderTarget(true), tV = renderTarget(true), tS = renderTarget()
-    gl.bindTexture(gl.TEXTURE_2D, tA.attachments[0])
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR) // fit() keeps it (same texture)
+    const tA = renderTarget(true), tL = renderTarget(true), tH = renderTarget(true), tV = renderTarget(true), tS = renderTarget() // tL: the 1/8 re-draw (L3)
     const vao = gl.createVertexArray(), vbo = gl.createBuffer()
     gl.bindVertexArray(vao)
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo)
@@ -580,6 +580,7 @@ export const lasers: NativeDef = {
         frame = (frame + 1) >>> 0
         const r = rig.step({ v, bar: f.sync.bar, bpm: f.sync.bpm, conf: f.sync.confidence, time: performance.now() / 1000, width: f.width, height: f.height }, buf)
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
+        const lw = Math.max(1, Math.round(f.width / HAZE_NEAR_DIV)), lh = Math.max(1, Math.round(f.height / HAZE_NEAR_DIV))
         tA.fit(f.width, f.height)
         bindFramebufferInfo(gl, tA)
         gl.viewport(0, 0, f.width, f.height)
@@ -592,18 +593,24 @@ export const lasers: NativeDef = {
           gl.bufferSubData(gl.ARRAY_BUFFER, 0, buf, 0, r.n * STRIDE)
           gl.bindVertexArray(vao)
           gl.useProgram(beams.program)
-          setUniforms(beams, { uRes: [f.width, f.height], uLight: r.light, uCore: r.core, uSpeckle: r.speckle, uFrame: frame })
+          setUniforms(beams, { uRes: [f.width, f.height], uScale: 1, uLight: r.light, uCore: r.core, uSpeckle: r.speckle, uFrame: frame })
+          gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, r.n)
+        }
+        // L3: the haze reads a 1/8-res re-draw of the same instances (the box average of the light), not a mip chain
+        tL.fit(lw, lh)
+        bindFramebufferInfo(gl, tL)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        if (r.n) {
+          setUniforms(beams, { uRes: [lw, lh], uScale: lw / f.width, uSpeckle: 0 })
           gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, r.n)
           gl.bindVertexArray(null)
           gl.disable(gl.BLEND)
         }
-        gl.bindTexture(gl.TEXTURE_2D, tA.attachments[0])
-        gl.generateMipmap(gl.TEXTURE_2D)
         const L = Math.max(0, Math.round(Math.log2(f.height / HAZE_FAR_N))), hw = Math.max(1, f.width >> L), hh = Math.max(1, f.height >> L)
         tH.fit(hw, hh)
         tV.fit(hw, hh)
         bindFramebufferInfo(gl, tH)
-        blur({ uSrc: tA.attachments[0], uRes: [hw, hh], uStep: [1 / hw, 0], uLod: L })
+        blur({ uSrc: tL.attachments[0], uRes: [hw, hh], uStep: [1 / hw, 0], uLod: 0 })
         bindFramebufferInfo(gl, tV)
         blur({ uSrc: tH.attachments[0], uRes: [hw, hh], uStep: [0, 1 / hh], uLod: 0 })
         const sw = Math.max(1, Math.round(f.width / SMOKE_DIV)), sh = Math.max(1, Math.round(f.height / SMOKE_DIV))
@@ -612,10 +619,10 @@ export const lasers: NativeDef = {
         smoke({ uTime: f.time, uPx: (f.width / sw) * (1117 / f.height) })
         gl.bindFramebuffer(gl.FRAMEBUFFER, out)
         gl.viewport(0, 0, f.width, f.height)
-        composite({ uSrc: tA.attachments[0], uFar: tV.attachments[0], uSmoke: tS.attachments[0], uRes: [f.width, f.height], uLod: Math.max(0, Math.log2(f.height / HAZE_NEAR_N)), uGain: [HAZE_NEAR * r.haze, HAZE_FAR * r.haze], uFrame: frame })
+        composite({ uSrc: tA.attachments[0], uFar: tV.attachments[0], uSmoke: tS.attachments[0], uNear: tL.attachments[0], uNd: [1 / lw, 1 / lh], uRes: [f.width, f.height], uGain: [HAZE_NEAR * r.haze, HAZE_FAR * r.haze], uFrame: frame })
       },
       dispose() {
-        for (const t of [tA, tH, tV, tS]) {
+        for (const t of [tA, tL, tH, tV, tS]) {
           gl.deleteFramebuffer(t.framebuffer)
           gl.deleteTexture(t.attachments[0])
         }
