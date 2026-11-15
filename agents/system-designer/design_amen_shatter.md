@@ -232,3 +232,85 @@ Levers, in the order to pull:
 | R7 | `builtin:amen-shatter`: one layer, the native, no fx | `scenes/builtin.ts` |
 | C2, C3, C13, C15 | whole cells and lattice-line light only; `compose` is a permutation; P4's HDR share from `tone(1)` | Vitest + pixels |
 | C4, C6–C9, C14 | synthetic hit streams into `createShatter(seed).step`; C8 = the same with `beat` + 1, + 2, + 3 | Vitest |
+## Skeptic response
+- **rev 2, 2026-11-15, system-designer.** Reply to `agents/architecture-skeptic/skeptic_amen_shatter.md` §1. Verdicts: **accept 7 · accept-modified 4 · reject 0.** Variant A keeps its GPU shape. Every HIGH changes a core rule of design §2.0. The design file is not edited (brief). The rules below replace design L69, L71, L72, L74–L78, L80–L93 and the L94–L107 diagram where they differ.
+- Read: the skeptic file (all); design L20–L133 and L180–L234; creative L60–L93 and L127–L143; STATE HEAD. Code references are the skeptic's, at `638eb67`; this response did not re-read them. Lead rulings applied as fixed: D1, C3 at `seams` 0, wrap line = seam, the gated flash set, the fixed S3 seed, the wall clock.
+### HIGH findings
+| ID | Verdict | Core-rule change | Proof |
+|---|---|---|---|
+| A-1 | accept-modified | Only a kick rise confirms a predicted shove. The confirm window is the slot visit, not 50 ms. A retract undoes that shove only. A prediction pause allows 1 false shove per kick dropout. Rules K1–K5. | Vitest V1–V3; the S3 retract rates |
+| A-2 | accept | The core clock is the unwrapped slot index and never steps back. A frame fires at most 1 crossing. The break threshold is 1/8 beat. Rules M1–M4. | Vitest V4–V6 |
+| A-3 | accept | Every rise detector starts from 0. `step` runs in a fixed order. A slam rule covers a null rho. C10 and C11 name their run type. Rules E1–E6. | Vitest V7–V9; one S6 cut-in run |
+### A-1: kick prediction, rev 2 (deviation D2 from creative §3 signal 3 and C4)
+- A slot visit = the frames from the crossing into a slot to the next crossing.
+- **K1.** On the crossing into a learned, armed kick slot, with prediction not paused, the shove fires (cause `predicted`) and `pending` opens.
+- **K2.** A kick rise while `pending` is open confirms the shove and is absorbed. A broadband onset confirms nothing: `ShatterIn.onset` is removed.
+- **K3.** The next crossing with `pending` still open undoes the shove (cause `retract`). The retract subtracts that shove's band offsets and restores its A/B toggle. It touches no other move. The slot is disarmed until a kick rise lands on it. Prediction pauses.
+- **K4.** The next kick rise in any slot resumes prediction. That rise fires its own move (a shove or a ghost, cause `kick`) and is never absorbed. A second kick rise inside a confirmed visit is absorbed, as before.
+- **K5.** A home (slam, QUIET, T0) closes `pending` with no move. A grid break retracts an open `pending` at once.
+- **Why the slot visit.** `slotOf` gives the right slot to 98–100 % of kicks (STATE HEAD L16; dsp §5 a per design L72). The label of a kick is the slot of the frame that shows its rise (design L72). So 98–100 % of kick rises land inside their own visit: from 8.6 ms before the grid line to 77.6 ms after it at 174 BPM (skeptic §2 L33). The 50 ms window ends 41 ms after an on-grid onset. At 33 ms after it only 27 % (Kanine) and 39 % (Andy C) of rises have landed (design L186). The visit is not a timed window, so no clock skews it.
+- **Hats-only 8ths.** A hat gives no kick rise. A kick dropout shows 1 predicted shove and 1 retract; the pause blocks the other learned slot.
+- **Rejected: a low-band confirm.** No artifact in this brief states that a low-band value rises earlier than the kick rise. A new source is a detector change (design L20, a non-goal).
+- **Vitest.** V1: learn 8 bars of two-step, then run 2 bars with `onset` on every even slot, snares on and no kick rise → 1 `predicted`, 1 `retract` on the next crossing, 0 kept. V2: 8 bars with each kick rise 0–4 frames after its crossing (174 BPM, 60 fps) → 0 retracts; a rise in the next visit → 1 `retract` and 1 shove with cause `kick`. V3: a shove and its retract with no hit between them → `src` and `bands` equal the frame before the shove, and the next kick shove equals the same slot's shove one bar earlier (C6).
+### C4 bound (proposed; the lead rules it)
+- **Old:** "Every unconfirmed predicted shove retracts within 4 frames; ≤ 2 of them per kick dropout."
+- **New:** "Every unconfirmed predicted shove retracts on the next slot crossing, ≤ 1 slot after it fired. ≤ 1 retract between two kick rises." The clause "0 moves without a trigger" stays.
+- At 60 fps a false shove shows for 5–6 frames at 174 BPM (slot 86.2 ms) and for 6–7 frames at 140 BPM (107.1 ms). False-shove time per kick dropout falls from ≤ 8 frames (2 × 4) to ≤ 6 frames at 174 BPM and ≤ 7 at 140 BPM.
+- On a right grid 98–100 % of detected kicks on learned slots confirm their prediction (the label rate above). S3 reports per track: retracts per predicted shove, and the share of retracts that a kick rise follows within 1 slot (the false ones). ⚠️ Assumption, needs confirmation: false retracts ≤ 5 % on Kanine. C5 stays the acceptance row.
+- Costs. After a retract the next kick move fires on its rise, 27–38 ms late (STATE HEAD L16), once. A kick that the detector misses now retracts its shove; the broadband onset used to cover it. Lever L9 removes the pause: ≤ 2 retracts per kick dropout, as before.
+### A-2: the monotonic clock, rev 2
+- **M1.** `u` = round(4 · beat − 0.4), not wrapped. The core keeps `last`, the newest `u` that fired. A crossing = a frame with `u` > `last`. The core's slot is `last` mod 16, and a hit takes that slot as its label.
+- **M2.** `u` ≤ `last` (a backward step under the break threshold): the frame fires no crossing, no stamp and no clock move. `last` stays, so no slot fires twice.
+- **M3.** `u` > `last`: `last` = `u`, and the frame fires 1 crossing, into `u`. Skipped slots fire nothing (design L69 ran them in order; that rule is removed). So a frame makes ≤ 1 stamp and ≤ 1 predicted shove. At 60 fps and ≤ 180 BPM a slot lasts ≥ 5 frames, so a skip needs a frame gap > 83 ms. Every clock-driven transition compares slot indices (the hold end, QUIET after 32 slots, WIDE for 128, a tick's 1 slot), so a skipped slot loses only its own one-shot.
+- **M4.** Grid break: `bpm` 0 ↔ > 0, a tempo change > 2 %, or |Δbeat − Δ`f.audioNow` · bpm / 60| > 1/8 beat (was .25; every same-tempo relock exceeds 1/8 by construction, `sync.ts:30`). A break empties the histogram and the predictions and sets `last` = `u` with no crossing. So a backward seek never freezes the clock.
+- **Vitest.** V4: step `beat` by −0.03 on the frame after the crossing into slot 5 → 0 moves and 0 stamps until `beat` passes its old value; the crossing count of the run equals a control without the step. V5: a jump of −0.2 beat, then one of +0.2 beat → `hits` 0, `rho` null, no armed slot, 0 crossings and 0 stamps on that frame. V6: one frame that advances 3 slots with a matching Δ`f.audioNow` → 1 crossing, ≤ 1 stamp, `hits` kept; over a random walk of `beat` steps, ≤ 1 stamp per frame.
+### A-3: cold entry and the drop recipe, rev 2
+- **Scope.** In autopilot the recipe shows only on a cold cut-in (skeptic A-3: `arrange.ts:73`, `app.ts:368`). With LOCK (the app's scene lock) it shows on a run that stays on screen: the `drop` rise enters `hold` from `quiet`, `groove` or `wide` (design L80–L88, unchanged). No app rule changes.
+- **E1.** Every rise detector starts from `prev` = 0: `kick`, `snare`, `hats`, `drop`. So a first frame with `drop` ≥ .5 is a rise, and T0 = the entry frame. `drop` = conf · e^(−t) stays ≥ .5 for ≤ 0.69 s (`arrange.ts:149`), so an entry inside that tail runs the recipe too. Accepted: an entrance on the drop.
+- **E2.** Frame 1 has no previous frame: `last` = `u` with no crossing, and no break check.
+- **E3.** `step` order on every frame: (1) clock and break; (2) mode: `bpm` > 0 → `locked`, and `free` → `quiet` happens here; (3) the `drop` rise → `hold`; (4) the crossing: retract, hold end, predicted shove, stamp; (5) hits; (6) compose. So a cold frame 1 with a grid enters `hold` on the locked rule, not on the 350 ms rule.
+- **E4.** The mode at T0 fixes the hold end. Locked: the first beat crossing ≥ .75 beat after T0, kept as a slot index. Free: T0 + 350 ms on the wall clock. The push-in runs on the same measure. The histogram learns in every state.
+- **E5.** Slam while rho is null (creative §3.1 L82, now a core rule): the 2nd snare rise since the last slam, shatter or entry slams. After 16 slots with no slam, the next kick or snare rise slams. So on a cold cut-in over two-step, `shattered` → `wide` comes 8–12 slots after the shatter. With rho null the bar slot is the raw slot; only the slam rule differs.
+- **E6.** Run types for C10 and C11. Held run: LOCK on, the scene on screen and `locked` for ≥ 8 bars before T0; C10 and C11 as written. Cut-in run: a fresh scene at T0; C10 as written (frame 1 is whole); C11's "before" figure is the held run's, on the same fixture and seed.
+- **Vitest.** V7: a fresh core, frame 1 with `drop` .8 and `bpm` 174 → `mode` `locked` and `recipe` `hold` on frame 1; `shattered` on the first beat crossing ≥ .75 beat later; then 4 bars of two-step → `wide` at the 2nd snare rise after the shatter, with `rho` still null. V8: the same with `bpm` 0 → `shattered` after 350 ms of `now`. V9: a held run of 8 bars of two-step, a `drop` rise, then 5 more bars → C11's ratio ≥ 1.8.
+### A-4: the clock of every window, rev 2 (lead ruling: seconds run on the wall clock)
+- `ShatterIn` loses `dt` and gains `now` and `audioNow`. The native reads `now` = `performance.now() / 1000` and passes it in (the `RigIn.time` precedent, `skeptic_rave_lasers.md` L24). The core stays pure.
+- **Slot index (the audio clock, `f.sync.beat`):** the confirm window, a tick's life, the roll steps, QUIET after 2 bars, WIDE for 8 bars, the locked hold end and its push-in.
+- **Wall clock (`now`):** the free hold (350 ms) and its push-in, `shock`, the shatter release (400 ms), the fringe (50 ms = 3 frames at 60 fps), the hats flare (60 ms), the seam fade after a slam, the hairline 500 / 1000 ms.
+- **Δ`f.audioNow`:** the break residual only (M4). `beat` runs on that clock, so the residual is 0 across any frame gap: a 200 ms hitch no longer empties the histogram. ⚠️ Assumption, needs confirmation: the lead accepts this one non-wall clock. It is a consistency check, not a timed window.
+- **Engine bind stage (unchanged):** the releases of `kickFlare`, `snareFlare`, `build`, `bass`, `sub`. No C-row measures them. **Frames:** the smear (the move frame + 1).
+### MED findings
+| ID | Verdict | Change | Proof |
+|---|---|---|---|
+| A-4 | accept (lead ruling) | No layer-clock value enters the core: the clock list above. | V10: the free hold lasts 350 ms and the shatter release 400 ms of `now` at 60 fps, at 120 fps and across one 200 ms gap; the gap keeps `hits`. |
+| A-5 | accept | No core change. C12's tile rule takes the max step over the 4 grids offset by (0 or 216 px, 0 or 186 px). The harness runs C12 on 2 seeds: the S3 seed and one whose disc crosses the x = 864 border. The S3 sheet keeps the fixed seed. Risk 4 then counts a disc-band move at its full step, .09–.18. | The test-architect's C12 row; the S3 harness on both seeds |
+| A-6 | accept | `barPhase` returns null unless the best score beats the runner-up by a margin. The core adopts a new candidate (a rotation or null) only after it has led for 16 crossings in a row, and only on a crossing into bar slot 0 (at once while rho is null). A null rho runs rule E5, so Risk 7's fallback is reachable. ⚠️ Assumption, needs confirmation: margin .5 on the 0–4 score; `audio-dsp` sets it (G-2). | V11: 32 bars each of kick 0 / snare 8 and of kicks 0 + 8 / snares 4 + 12, with ± 1 seeded ghost per bar → `rho` null on every frame. Two-step with the same ghosts → 1 adoption, 0 later changes, 1 slam per bar after it. |
+| A-7 | accept-modified | A hit rise = a frame-to-frame increase ≥ .05 on `kick`, `snare` or `hats`. It replaces the .5 crossing: one rule, not two. Between hits the envelope only decays, and a drain 2 or more frames after the last one reads ≥ .13 above the frame before it (tau .12 s, `features.ts:14`; `sens` 1). `drop` keeps the .5 crossing (E1). | V12: `features.fill` with 2 snare hits 86.2 ms apart, 16 frame phases, `sens` 1.0 and 1.2 → 2 rises per pair in all 32 cases. |
+### LOW findings
+| ID | Verdict | Change | Proof |
+|---|---|---|---|
+| A-8 | accept-modified | Measure first: the S3 harness logs, per detected drop, the allowed onsets in [T0 − 1 s, T0] and `burst` on the shatter frame. If any drop reads `burst` 0, the fix stays in the core (lever L11): shatter seam level = max(scaled `burst`, the ungated cap .5), ≈ +.038 frame-mean (half of the figure in skeptic §2 L34). No slot reservation: it changes the shared budget of every scene (`live.ts:61–64`). | The S3 harness log |
+| A-9 | accept | The shader reads 8 edge texels (its own and 7 neighbours'; the upper-right cell holds no stub) and 1 cell texel: 9 `texelFetch`, was 4. The halo of an edge uses the true distance to its segment, so a seam end gets a round cap. The cost joins the spike's first number (G-1). | One GROOVE still with a lit seam that ends on a resting line: no halo step within 16 px of the vertex. The test-architect sets the step bound. |
+| A-10 | accept-modified | Risk 4 recount. A tick moves 1 cell = 7.5 % of a tile: its step is ≤ .075 + ≤ .018 of seam light (derived) < .10, so a tick makes no counted step. A retract is 1 opposing pair; K3 and K4 allow ≤ 1 between two kick rises. Predicted shoves keep moving the disc band: the alternative draws those kicks late (R6). Lever L10 if the count fails: ghosts skip the disc band. | CPU count on `shatterState()` and the seeded disc cells: opposing tile pairs per 1 s on two-step with a 1-bar kick fill, ≤ 3. |
+| A-11 | accept | C2's permutation clause moves to the CPU: `compose` returns a permutation of 0–159 after every `step`. The pixel check keeps "seams on lattice lines ± 1 px" and takes a per-cell mean tolerance of .02, not block equality. | Vitest on `compose`; the test-architect's C2 wording |
+### Research gaps
+- **G-2 (open, wider).** The `barPhase` margin, checked against the 86–97 % right-phase rate (STATE HEAD L16). Owner: `audio-dsp`, from `scratchpad/dsp/w4.log`, before the `barPhase` step.
+- **G-6.** The share of kick rises seen inside their own slot visit, per track. The 98–100 % figure reaches this response through STATE HEAD L16 and skeptic §2 L33; `dsp_dnb_wave4.md` was outside the brief. Owner: `audio-dsp`, same log. The S3 retract rates check it again.
+- **G-7.** `f.audioNow` on `FrameInput`, and the clock of the bind stage: skeptic A-4 cites both; this response did not verify them. Owner: the planner, at `frame.ts` and `gl/live.ts`.
+### Changes for the plan
+1. Core rules rev 2 (K1–K5, M1–M4, E1–E6, the A-4 clock list, the A-6 and A-7 rules) replace design §2.0 L69, L71, L72, L74–L78, L80–L93 and the L94–L107 diagram.
+2. Contracts: `ShatterIn` loses `dt` and `onset` and gains `now` and `audioNow`. `ShatterState.pending` = the slot of the open predicted shove, or −1 (was seconds).
+3. Vitest V1–V12 run on the core alone, before any shader work. The test-architect maps them to matrix IDs.
+4. Deviation D2 (creative §3 signal 3 and C4) is recorded with the lead's ruling on the C4 bound.
+5. Test-architect: C4 as ruled; C12 = the max over 4 offset grids, on 2 seeds (A-5); C2 = `compose` in Vitest + a per-cell tolerance on pixels (A-11); the C10 and C11 run types (E6).
+6. The S3 harness logs, per track: retracts per predicted shove and the false share (A-1); grid breaks per minute (M4); `burst` on the shatter frame with the allowed onsets in [T0 − 1 s, T0] (A-8).
+7. The S3 sheet adds one cold cut-in sequence (entry frame, hold, shatter) and one GROOVE still for the vertex scan (A-9).
+8. S6 adds one autopilot cut-in run (A-3) and the CPU tile-pair count on a kick-fill stream (A-10).
+9. Shader: 9 `texelFetch` and segment-distance halos (A-9). The spike's first cost number includes them (G-1).
+10. New levers after L8: **L9** no prediction pause; **L10** ghosts skip the disc band; **L11** the shatter seam floor at the ungated cap; **L12** rotate the histogram on a same-tempo relock, if the break log shows frequent resets.
+11. `audio-dsp` closes G-2 and G-6 before the `barPhase` and prediction steps. The planner closes G-7.
+
+## Lead rulings on the response (2026-11-15)
+- **C4 bound ACCEPTED:** every unconfirmed predicted shove retracts on the next slot crossing (≤ 1 slot after it fired); ≤ 1 retract between two kick rises. The prediction pause stays (lever L9 kept in reserve).
+- **Break residual on Δ`f.audioNow` ACCEPTED** (the audio clock is the right clock for beat phase; every other timed window stays on the wall clock).
+- G-2 / G-6 → audio-dsp at the spike pre-step; G-7 (`f.audioNow` on `FrameInput`) → the planner.
