@@ -1019,6 +1019,9 @@ const OUTLINE: LayerDoc = {
   } },
   fx: [{ ref: 'own/bloom', bind: BLOOM }], blend: 'add', opacity: 1, speed: 1, res: 1, bind: { opacity: PRESENCE },
 }
+// dj-ghost's bloom without level ⚡ ← drop: on the whole bright figure it floods white (S2.3 fix 1). Not a lower max:
+// the flash gate fires at .5, so a level under it never rises (post.ts flashGate).
+const GHOST_BLOOM: Record<string, Binding> = { threshold: BLOOM.threshold, glow: BLOOM.glow, rampShift: BLOOM.rampShift }
 const DJ: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:dj-over-tunnel', name: 'DJ over tunnel', star: true, // camera · Auto: reese (twirl; wobble under Dubstep)
@@ -1039,10 +1042,10 @@ const DJ: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:dj-ghost', name: 'DJ ghost', star: true, // camera · Auto: reese (edge, spread; wobble under Dubstep)
     layers: [
-      td('builtin:edge-rings'),
+      { ...td('builtin:edge-rings'), opacity: 0.6 }, // the rings dimmed: the screened ghost reads over them, not white
       { // negative before rgba-delay: the ring writes alpha 1, so a − rgb after it would turn the black outside white
         gen: { ref: 'native/camera', values: { cut: 1 } },
-        fx: [{ ref: 'own/negative', bind: { amount: { source: 'snare', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 } } }, td('builtin:rgba-delay').fx[0], { ref: 'own/bloom', bind: BLOOM }],
+        fx: [{ ref: 'own/negative', bind: { amount: { source: 'snare', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 } } }, td('builtin:rgba-delay').fx[0], { ref: 'own/bloom', bind: GHOST_BLOOM }],
         blend: 'screen', opacity: 1, speed: 1, res: 1, bind: { opacity: PRESENCE },
       },
     ],
