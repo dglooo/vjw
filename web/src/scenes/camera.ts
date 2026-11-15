@@ -56,7 +56,9 @@ export const camera: NativeDef = {
 
 // native/outline (S2.1, D4): the mask's .5 iso-line at a constant px width, through cam.xf as above; scenes follow it
 // with own/bloom. d = |m − .5| / |∇m| is the distance in px to the line; a flat mask (all-zero: Camera off, N-2; or a
-// flood) has no gradient and draws nothing. The gradient's length, not fwidth's |dx| + |dy| (√2 thinner at 45°).
+// flood) has no gradient and draws nothing. The gradient's length, not fwidth's |dx| + |dy| (√2 thinner at 45°). m is
+// a 3×3 tent over the mask texels (4 bilinear taps half a texel out): one tap's .5 contour of the near-binary mask is
+// a staircase of its texels (≈ 7 px at 1728 wide).
 const OUTLINE_FS = `#version 300 es
 precision highp float;
 uniform sampler2D uMask;
@@ -67,7 +69,9 @@ uniform float uGlow;
 uniform float uHue;
 out vec4 outColor;
 void main() {
-  float m = texture(uMask, vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uRes * uXf.xy + uXf.zw).r;
+  vec2 c = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uRes * uXf.xy + uXf.zw;
+  vec2 t = 0.5 / vec2(textureSize(uMask, 0));
+  float m = 0.25 * (texture(uMask, c - t).r + texture(uMask, c + t).r + texture(uMask, c + vec2(t.x, -t.y)).r + texture(uMask, c - vec2(t.x, -t.y)).r);
   float g = length(vec2(dFdx(m), dFdy(m)));
   float d = g > 1e-6 ? abs(m - 0.5) / g : 1e6;
   float line = clamp(0.5 * uWidth + 0.5 - d, 0.0, 1.0); // width px, a 1 px antialiased edge
@@ -86,7 +90,7 @@ export const outline: NativeDef = {
   bind: { // the CP2 contract
     width: { source: 'sub', amount: 1, attack: 0.05, release: 0.4, min: 1.5, max: 4 },
     glow: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 },
-    hueStep: { source: 'snare', amount: 1, attack: 0, release: 1.5, min: 0, max: 1 }, // on at y ≥ .5 (bind.ts level)
+    hueStep: { source: 'snare', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }, // on at y ≥ .5 (bind.ts level); the contract's 1.5 held it on between snares
   },
   create(_gl, size) {
     const out = fullscreenProgram(OUTLINE_FS)
