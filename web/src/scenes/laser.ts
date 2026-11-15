@@ -1,6 +1,6 @@
 // TD trace-beam as a CPU native (plan wave 3 S2.1 rework, CP2; design_laser_rework.md Variant A): per-frame
 // pattern field → step-lookup into K bands → marching-squares trace → real-width additive ribbon geometry +
-// ⅛-res tent haze. Mode 0 = the techno grid: a 4×3 mirror-symmetric emitter lattice of capsule "beams" whose
+// mip-chain haze. Mode 0 = the techno grid: a 4×3 mirror-symmetric emitter lattice of capsule "beams" whose
 // pose ticks on the bar saw (beat-locked re-pose, not a glide) — the beams are traced isobars with a beam
 // cross-section (thin bright core, wide faint skirt), NOT the per-pixel analytic fan the user rejected
 // 2026-11-14 (own/laser-grid.fs keeps its header note). Light is neutral by construction (P7): every frame a
@@ -13,7 +13,6 @@
 import { bindFramebufferInfo, createProgramInfo, setUniforms } from 'twgl.js'
 import { fullscreenProgram, renderTarget } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
-import { COMPOSITE_FS } from './particles'
 
 const TAU = 6.2831853
 
@@ -174,6 +173,28 @@ export function traceBands(bands: Float32Array, w: number, h: number, cap: numbe
   return out
 }
 
+/** The unit contour normal (scene units, y up) at (x, y) ∈ [0,1]² of a w×h band grid: the gradient, bilinear over
+ *  the nodes' central differences. A function of the point alone, so the two segments meeting at a traced
+ *  endpoint get the same normal and their ribbon quads share the joint's vertex pair (no hairline, no overlap).
+ *  Grid y runs down, scene y up; a cell is aspect:1 in scene units. Writes `out`; false when flat. */
+export function contourNormal(g: Float32Array, w: number, h: number, x: number, y: number, aspect: number, out: Float64Array): boolean {
+  const X = x * (w - 1), Y = y * (h - 1)
+  const i0 = Math.min(w - 2, Math.max(0, Math.floor(X))), j0 = Math.min(h - 2, Math.max(0, Math.floor(Y)))
+  const fx = X - i0, fy = Y - j0
+  let gx = 0, gy = 0
+  for (let k = 0; k < 4; k++) {
+    const i = i0 + (k & 1), j = j0 + (k >> 1)
+    const wt = (k & 1 ? fx : 1 - fx) * (k & 2 ? fy : 1 - fy)
+    gx += wt * (g[j * w + Math.min(i + 1, w - 1)] - g[j * w + Math.max(i - 1, 0)])
+    gy += wt * (g[Math.min(j + 1, h - 1) * w + i] - g[Math.max(j - 1, 0) * w + i])
+  }
+  const nx = (gx * (w - 1)) / aspect, ny = -gy * (h - 1), l = Math.sqrt(nx * nx + ny * ny)
+  if (!(l > 1e-9)) return false
+  out[0] = nx / l
+  out[1] = ny / l
+  return true
+}
+
 const GRID = 96 // knob: the field grid per frame on the main thread (the plan's lever, in order: 96 → 64 → K → cap)
 /** The tile (2b S3.2, design S6): half the grid (the swarm's ×.1 precedent, grid-shaped). */
 export const laserGrid = (size?: readonly [number, number]) => (size ? GRID / 2 : GRID)
@@ -187,8 +208,14 @@ const W_CORE = 0.006 // knob: the ribbon's half-width, scene units (the core, at
 const W_SKIRT = 0.02 // the skirt (the outer levels widen: the beam cross-section)
 const WIDTH_POP = 0.8 // ⚡ `width` (kick): the half-widths ×(1 + 0.8·width) — the beam pop (flash-gated)
 const HIT_POP = 0.5 // ⚡ `hit` (kick): the total light ×(1 + 0.5·hit) (flash-gated)
-const BURST_W = 0.5 // ⚡ `burst` (drop): full width — the half-widths ×(1 + 0.5·burst), all K levels, the widest pose, the chase stopped
-const HAZE_GAIN = 1.2 // the ⅛-res tent's gain per unit of `haze`
+const BURST_W = 0.5 // ⚡ `burst` (drop): full width — the half-widths ×(1 + 0.5·open), all K levels, the widest pose, the chase stopped
+const BURST_L = 0.5 // ⚡ `burst`: the light ×(1 + BURST_L·burst) — the drop's white burst (flash-gated, decays with the drop)
+const K_OPEN = 6 // the full open's band count: the build ramp's top (the K bind's max), held through the drop, not the build source's reset
+const HAZE_GAIN = 1.2 // the near haze (the beams' own halo, a mip level ≈ HAZE_NEAR_N texels over the height) per unit of `haze`
+const HAZE_FAR = 2.4 // knob: the far haze (the lit air between the beams) per unit of `haze`
+const HAZE_NEAR_N = 140 // the near haze's mip level: ≈ this many texels over the height (⅛ res at 1118 px)
+const HAZE_FAR_N = 32 // the far haze's grid: ≈ 32 texels over the height, blurred σ 3 texels (≈ 9 % of the height)
+const EXPOSURE = 1.2 // the tone map (particles' COMPOSITE_FS)
 const CHASE_SPEED = 2.2 // the chase's rotation, levels/s at dash 1 (the hats flutter it)
 
 const VS = `#version 300 es
@@ -229,26 +256,49 @@ void main() {
   vec3 col = mix(base, vec3(1.0), (0.45 + 0.55 * uBurst) * vLevel); // the core is whiter; the burst whitens the core, the skirt stays green
   outColor = vec4(col * cs * vA, 1.0);
 }`
-// The ⅛-res 3×3 tent (the halo precedent, S3.5's budget lever): (1 2 1 / 2 4 2 / 1 2 1) / 16.
-const TENT = `#version 300 es
+// The haze reads the beam pass's mip chain (box-filtered: the thin moving beams never alias). The far haze (the lit
+// air between the beams): a separable Gaussian, σ 3 texels, over the mip level of ≈ HAZE_FAR_N rows (a coarse mip
+// read directly shows box creases). The near halo: a 3×3 tent in the composite. Linear in the beams: P7 holds.
+const BLUR = `#version 300 es
 precision highp float;
 uniform sampler2D uSrc;
-uniform vec2 uRes;
+uniform vec2 uRes;  // the target size
+uniform vec2 uStep; // one source texel along the blur axis (uv)
+uniform float uLod;
 out vec4 outColor;
 void main() {
-  vec2 uv = gl_FragCoord.xy / uRes, px = 1.0 / uRes;
-  vec3 c = 4.0 * texture(uSrc, uv).rgb
-    + 2.0 * (texture(uSrc, uv + vec2(px.x, 0.0)).rgb + texture(uSrc, uv - vec2(px.x, 0.0)).rgb + texture(uSrc, uv + vec2(0.0, px.y)).rgb + texture(uSrc, uv - vec2(0.0, px.y)).rgb)
-    + texture(uSrc, uv + px).rgb + texture(uSrc, uv - px).rgb + texture(uSrc, uv + vec2(px.x, -px.y)).rgb + texture(uSrc, uv + vec2(-px.x, px.y)).rgb;
-  outColor = vec4(c / 16.0, 1.0);
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec3 c = vec3(0.0);
+  float ws = 0.0;
+  for (int i = -9; i <= 9; i++) {
+    float w = exp(-float(i * i) / 18.0);
+    c += w * textureLod(uSrc, uv + float(i) * uStep, uLod).rgb;
+    ws += w;
+  }
+  outColor = vec4(c / ws, 1.0);
 }`
-const HAZE_UP = `#version 300 es
+// The composite: the beams + the near halo (a 3×3 tent (1 2 1 / 2 4 2 / 1 2 1)/16 at its mip level) + the far haze,
+// tone-mapped.
+const COMPOSITE = `#version 300 es
 precision highp float;
 uniform sampler2D uSrc;
+uniform sampler2D uFar;
 uniform vec2 uRes;
-uniform float uGain;
+uniform float uLod; // the near halo's mip level
+uniform vec2 uGain; // the near / far haze gains
 out vec4 outColor;
-void main() { outColor = vec4(texture(uSrc, gl_FragCoord.xy / uRes).rgb * uGain, 1.0); }`
+vec3 tent(vec2 uv, float lod) {
+  vec2 d = exp2(lod) / uRes;
+  vec3 c = 4.0 * textureLod(uSrc, uv, lod).rgb
+    + 2.0 * (textureLod(uSrc, uv + vec2(d.x, 0.0), lod).rgb + textureLod(uSrc, uv - vec2(d.x, 0.0), lod).rgb + textureLod(uSrc, uv + vec2(0.0, d.y), lod).rgb + textureLod(uSrc, uv - vec2(0.0, d.y), lod).rgb)
+    + textureLod(uSrc, uv + d, lod).rgb + textureLod(uSrc, uv - d, lod).rgb + textureLod(uSrc, uv + vec2(d.x, -d.y), lod).rgb + textureLod(uSrc, uv + vec2(-d.x, d.y), lod).rgb;
+  return c / 16.0;
+}
+void main() {
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec3 c = textureLod(uSrc, uv, 0.0).rgb + uGain.x * tent(uv, uLod) + uGain.y * texture(uFar, uv).rgb;
+  outColor = vec4(1.0 - exp(-c * ${EXPOSURE.toFixed(2)}), 1.0);
+}`
 
 /** Bindings (row 6 of plan § Scenes; ⚠️ planner assumptions — the design §2 table, confirmed at the CP2
  *  demo). No bass-class default, so Auto-style moves `scan` (reese) to wobble under Dubstep. */
@@ -285,11 +335,13 @@ export const laser: NativeDef = {
     const G = laserGrid(size)
     const cap = size ? SEG_CAP / 2 : SEG_CAP
     const ribbon = createProgramInfo(gl, [VS, FS], { attribLocations: { aPos: 0, aDir: 1, aLevel: 2, aSide: 3 } })
-    const tent = fullscreenProgram(TENT)
-    const hazeUp = fullscreenProgram(HAZE_UP)
-    const composite = fullscreenProgram(COMPOSITE_FS)
-    const tA = renderTarget(true) // the beams (hdr: the overlaps add before the tone map)
-    const tB = renderTarget(true) // the ⅛-res haze
+    const composite = fullscreenProgram(COMPOSITE)
+    const blur = fullscreenProgram(BLUR)
+    const tH = renderTarget(true), tV = renderTarget(true) // the far haze: the horizontal pass, then the vertical
+    const tA = renderTarget(true) // the beams (hdr: the overlaps add before the tone map); its mip chain = the haze
+    gl.bindTexture(gl.TEXTURE_2D, tA.attachments[0])
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR) // fit() keeps it (same texture)
+    const N0 = new Float64Array(2), N1 = new Float64Array(2) // the endpoint normals (scratch)
     const field = new Float32Array(G * G) // the field → the bands (the step-lookup overwrites in place)
     const verts = new Float32Array(cap * 6 * 6) // de-indexed ribbon quads: 6 verts × 6 floats
     const lenL = new Float32Array(8) // the traced length per level (the light's bookkeeping)
@@ -315,13 +367,17 @@ export const laser: NativeDef = {
       draw(f, v) {
         const dt = Math.min(f.dt, 0.05)
         const aspect = f.width / f.height
-        const K = Math.min(8, Math.max(2, Math.round(v.K as number)))
+        const burst = v.burst as number
+        // The full open holds while the drop's level is over the flash ON line (½), then releases with it: K_OPEN
+        // bands (not the build source's reset), every level lit, full width, the widest pose, the chase stopped.
+        const open = Math.min(1, 2 * burst)
+        const kv = v.K as number
+        const K = Math.min(8, Math.max(2, Math.round(kv + Math.max(0, K_OPEN - kv) * open)))
         const steps = Math.min(8, Math.max(2, (v.steps as number) | 0))
         const amp = v.amp as number, scan = v.scan as number
-        const burst = v.burst as number
         // The stepped pose (the TD pattern_steps): floor(phase·steps)/steps — it ticks, it does not glide.
         let pose = Math.floor((v.phase as number) * steps) / steps
-        if (burst > 0) {
+        if (open > 0) {
           // the widest step: the candidate that maximizes the mean beam length, toward which a burst mixes
           let best = 0, bw = -1
           for (let k = 0; k < steps; k++) {
@@ -330,10 +386,10 @@ export const laser: NativeDef = {
             for (let id = 0; id < 6; id++) s += 0.7 + 0.3 * Math.sin(TAU * (p + id / 6))
             if (s > bw) { bw = s; best = p }
           }
-          pose += (best - pose) * burst
+          pose += (best - pose) * open
         }
         const M = Math.min(CHASE_LIT, K)
-        chaseT += (v.dash as number) * CHASE_SPEED * (1 - burst) * dt // the chase: the hats run it, a burst stops it
+        chaseT += (v.dash as number) * CHASE_SPEED * (1 - open) * dt // the chase: the hats run it, the full open stops it
         const o = ((Math.floor(chaseT) % K) + K) % K
         // The field → the K bands: the emitters' constants once, the interference precomputed per row/column.
         fillEmitters(f.time, pose, amp, scan)
@@ -372,6 +428,8 @@ export const laser: NativeDef = {
             field[row + G - 1 - i] = band // the mirror: the picture is symmetric to the last bit
           }
         }
+        const width = v.width as number
+        const wPop = 1 + WIDTH_POP * width + BURST_W * open
         // The trace → the ribbon vertices (scene units, y up) + the traced length per level.
         const segs = traceBands(field, G, G, cap)
         lenL.fill(0, 0, K)
@@ -384,28 +442,37 @@ export const laser: NativeDef = {
           const dx = x1 - x0, dy = y1 - y0
           const dl = Math.sqrt(dx * dx + dy * dy)
           if (dl < 1e-5) continue
-          const px = -dy / dl, py = dx / dl
+          // Per-endpoint normals (the field's gradient): the segments meeting at a joint share its vertex pair, so
+          // the ribbon is seamless. Flat (≈ never on a crossing), or a bend tighter than the half-width (a peak's tiny
+          // ring: the inner edge would fold into shards, half-width·|Δn| > length) → the segment's own normal.
+          const a = contourNormal(field, G, G, seg[0], seg[1], aspect, N0), b = contourNormal(field, G, G, seg[2], seg[3], aspect, N1)
+          const hw = (W_SKIRT + (W_CORE - W_SKIRT) * (K > 1 ? level / (K - 1) : 1)) * wPop
+          const ex = N0[0] - N1[0], ey = N0[1] - N1[1]
+          if (!a || !b || hw * hw * (ex * ex + ey * ey) > dl * dl) {
+            N0[0] = N1[0] = -dy / dl
+            N0[1] = N1[1] = dx / dl
+          }
+          const p0 = N0[0], q0 = N0[1], p1 = N1[0], q1 = N1[1]
           lenL[level] += dl
           const A = (n += 6) * 6 - 36
-          // [A, A, B, B, A, B] × (x y px py level side): two triangles
-          verts[A] = x0; verts[A + 1] = y0; verts[A + 2] = px; verts[A + 3] = py; verts[A + 4] = level; verts[A + 5] = 0
-          verts[A + 6] = x1; verts[A + 7] = y1; verts[A + 8] = px; verts[A + 9] = py; verts[A + 10] = level; verts[A + 11] = 0
-          verts[A + 12] = x1; verts[A + 13] = y1; verts[A + 14] = px; verts[A + 15] = py; verts[A + 16] = level; verts[A + 17] = 1
-          verts[A + 18] = x0; verts[A + 19] = y0; verts[A + 20] = px; verts[A + 21] = py; verts[A + 22] = level; verts[A + 23] = 0
-          verts[A + 24] = x0; verts[A + 25] = y0; verts[A + 26] = px; verts[A + 27] = py; verts[A + 28] = level; verts[A + 29] = 1
-          verts[A + 30] = x1; verts[A + 31] = y1; verts[A + 32] = px; verts[A + 33] = py; verts[A + 34] = level; verts[A + 35] = 1
+          // [A, A, B, B, A, B] × (x y nx ny level side): two triangles
+          verts[A] = x0; verts[A + 1] = y0; verts[A + 2] = p0; verts[A + 3] = q0; verts[A + 4] = level; verts[A + 5] = 0
+          verts[A + 6] = x1; verts[A + 7] = y1; verts[A + 8] = p1; verts[A + 9] = q1; verts[A + 10] = level; verts[A + 11] = 0
+          verts[A + 12] = x1; verts[A + 13] = y1; verts[A + 14] = p1; verts[A + 15] = q1; verts[A + 16] = level; verts[A + 17] = 1
+          verts[A + 18] = x0; verts[A + 19] = y0; verts[A + 20] = p0; verts[A + 21] = q0; verts[A + 22] = level; verts[A + 23] = 0
+          verts[A + 24] = x0; verts[A + 25] = y0; verts[A + 26] = p0; verts[A + 27] = q0; verts[A + 28] = level; verts[A + 29] = 1
+          verts[A + 30] = x1; verts[A + 31] = y1; verts[A + 32] = p1; verts[A + 33] = q1; verts[A + 34] = level; verts[A + 35] = 1
         }
         // The light (P7, by construction): a fixed total, distributed over the levels ∝ q·ρ·w·L — a level's
         // per-area light is LIGHT·q·ρ/S, so the chase's rotation, the pose's ticks and the K ramp move
         // the light without changing its amount (the total = LIGHT·hitPop·wPop, the ⚡ pair gated ≤ 3/s).
-        const width = v.width as number
-        const wPop = 1 + WIDTH_POP * width + BURST_W * burst
-        const hitPop = 1 + HIT_POP * (v.hit as number)
+        const hitPop = (1 + HIT_POP * (v.hit as number)) * (1 + BURST_L * burst)
         // q·ρ per level: the chase's lit share × the cross-section (ρ: the skirt faint → the core 1)
         let S = 0
         for (let l = 0; l < K; l++) {
           const c = K > 1 ? l / (K - 1) : 1
-          uLevelA[l] = (burst > 0 ? 1 : (((l - o) % K + K) % K < M ? 1 : DIM)) * (SKIRT_A + (1 - SKIRT_A) * c)
+          const lit = ((l - o) % K + K) % K < M ? 1 : DIM
+          uLevelA[l] = (lit + (1 - lit) * open) * (SKIRT_A + (1 - SKIRT_A) * c) // the full open lights every level
           S += uLevelA[l] * (W_SKIRT + (W_CORE - W_SKIRT) * c) * lenL[l] // the VS's width: mix(skirt, core, c)
         }
         for (let l = 0; l < K; l++) uLevelA[l] = S > 1e-6 ? (LIGHT * hitPop * uLevelA[l]) / S : 0
@@ -423,32 +490,31 @@ export const laser: NativeDef = {
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, verts.subarray(0, n * 6))
         gl.bindVertexArray(vao)
         gl.useProgram(ribbon.program)
-        setUniforms(ribbon, { uAspect: aspect, uK: K, uWCore: W_CORE, uWSkirt: W_SKIRT, uPop: wPop, uLevelA, uWhite: Math.min(1, (v.hue as number) / 0.25), uBurst: burst })
+        setUniforms(ribbon, { uAspect: aspect, uK: K, uWCore: W_CORE, uWSkirt: W_SKIRT, uPop: wPop, uLevelA, uWhite: Math.min(1, (v.hue as number) / 0.25), uBurst: open })
         gl.drawArrays(gl.TRIANGLES, 0, n)
         gl.bindVertexArray(null)
-        // The haze: a ⅛-res 3×3 tent of the beam pass, added back (internal to the native: the S1.3 bloom
+        // The haze: the beam pass's mip chain, read by the composite (internal to the native: the S1.3 bloom
         // ruling — own/bloom as a def pass billed +3.3 ms over the gate).
-        if ((v.haze as number) > 0) {
-          tB.fit(Math.max(1, f.width >> 3), Math.max(1, f.height >> 3))
-          bindFramebufferInfo(gl, tB)
-          gl.disable(gl.BLEND)
-          gl.viewport(0, 0, tB.width, tB.height)
-          tent({ uSrc: tA.attachments[0], uRes: [tB.width, tB.height] })
-          bindFramebufferInfo(gl, tA)
-          gl.enable(gl.BLEND)
-          gl.viewport(0, 0, f.width, f.height)
-          hazeUp({ uSrc: tB.attachments[0], uRes: [f.width, f.height], uGain: HAZE_GAIN * (v.haze as number) })
-        }
-        gl.bindFramebuffer(gl.FRAMEBUFFER, out) // the engine's target (a raw framebuffer, as plexus)
+        gl.bindTexture(gl.TEXTURE_2D, tA.attachments[0])
+        gl.generateMipmap(gl.TEXTURE_2D)
         gl.disable(gl.BLEND)
+        const L = Math.max(0, Math.round(Math.log2(f.height / HAZE_FAR_N))), hw = Math.max(1, f.width >> L), hh = Math.max(1, f.height >> L)
+        tH.fit(hw, hh)
+        tV.fit(hw, hh)
+        bindFramebufferInfo(gl, tH) // (sets the viewport)
+        blur({ uSrc: tA.attachments[0], uRes: [hw, hh], uStep: [1 / hw, 0], uLod: L })
+        bindFramebufferInfo(gl, tV)
+        blur({ uSrc: tH.attachments[0], uRes: [hw, hh], uStep: [0, 1 / hh], uLod: 0 })
+        gl.bindFramebuffer(gl.FRAMEBUFFER, out) // the engine's target (a raw framebuffer, as plexus)
         gl.viewport(0, 0, f.width, f.height)
-        composite({ uSrc: tA.attachments[0], uRes: [f.width, f.height] })
+        const haze = v.haze as number
+        composite({ uSrc: tA.attachments[0], uFar: tV.attachments[0], uRes: [f.width, f.height], uLod: Math.max(0, Math.log2(f.height / HAZE_NEAR_N)), uGain: [HAZE_GAIN * haze, HAZE_FAR * haze] })
       },
       dispose() {
-        gl.deleteFramebuffer(tA.framebuffer)
-        gl.deleteTexture(tA.attachments[0])
-        gl.deleteFramebuffer(tB.framebuffer)
-        gl.deleteTexture(tB.attachments[0])
+        for (const t of [tA, tH, tV]) {
+          gl.deleteFramebuffer(t.framebuffer)
+          gl.deleteTexture(t.attachments[0])
+        }
         gl.deleteBuffer(buf)
         gl.deleteVertexArray(vao)
       },

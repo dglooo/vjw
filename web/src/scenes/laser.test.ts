@@ -4,7 +4,7 @@
 import { expect, test, vi } from 'vitest'
 import { SOURCE_IDS } from '../bind'
 import { BUILTIN } from './builtin'
-import { laser, laserField, laserGrid, traceBands } from './laser'
+import { contourNormal, laser, laserField, laserGrid, traceBands } from './laser'
 
 vi.mock('../gl/engine', () => ({})) // takes the page's canvas + WebGL at import; the seams need neither
 
@@ -151,6 +151,23 @@ const ROW6 = {
   hit: { source: 'kick', amount: 1, attack: 0, release: 0.12, min: 0, max: 0.5 },
   burst: { source: 'drop', amount: 1, attack: 0, release: 0.4, min: 0, max: 1 },
 } as const
+
+test('contourNormal (fix 1, F6): the gradient normal at both ends of every traced segment is ⊥ it and points uphill', () => {
+  const w = 49, g = new Float32Array(w * w)
+  for (let j = 0; j < w; j++) for (let i = 0; i < w; i++) g[j * w + i] = 3 - Math.hypot(i - 24, j - 24) / 8 // a cone: rings at r 20, 12, 4
+  const n = new Float64Array(2)
+  const segs = traceBands(g, w, w, 1e9)
+  expect(segs.length).toBeGreaterThan(50)
+  for (const [x0, y0, x1, y1] of segs) {
+    const sx = x1 - x0, sy = y0 - y1, sl = Math.hypot(sx, sy) // scene orientation (y up), aspect 1
+    if (sl < 1e-6) continue // a corner-through crossing (the draw skips it too)
+    for (const [x, y] of [[x0, y0], [x1, y1]]) {
+      expect(contourNormal(g, w, w, x, y, 1, n)).toBe(true)
+      expect(Math.abs(n[0] * sx + n[1] * sy) / sl).toBeLessThan(0.3) // ⊥ the chord (a swapped axis reads ≈ 1)
+      expect(n[0] * (0.5 - x) + n[1] * (y - 0.5)).toBeGreaterThan(0) // uphill: toward the apex
+    }
+  }
+})
 
 test('builtin:laser-grid: mode 0 on native/laser, the row-6 bindings (the ⚡ pair bound from 0), starred', () => {
   const d = BUILTIN.find((x) => x.id === 'builtin:laser-grid')!
