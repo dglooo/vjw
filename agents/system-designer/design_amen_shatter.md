@@ -314,3 +314,10 @@ Levers, in the order to pull:
 - **C4 bound ACCEPTED:** every unconfirmed predicted shove retracts on the next slot crossing (≤ 1 slot after it fired); ≤ 1 retract between two kick rises. The prediction pause stays (lever L9 kept in reserve).
 - **Break residual on Δ`f.audioNow` ACCEPTED** (the audio clock is the right clock for beat phase; every other timed window stays on the wall clock).
 - G-2 / G-6 → audio-dsp at the spike pre-step; G-7 (`f.audioNow` on `FrameInput`) → the planner.
+
+## Lead pick + recheck rulings (2026-11-15)
+- Skeptic recheck PASS (`skeptic_amen_shatter.md` § Recheck): 10/11 closed; the lead accepts the closes that rest on the skeptic's own recommended fixes (A-2, A-3, A-5, A-6, A-9, A-11).
+- **A-7 (LOW, open):** record the ceiling — the ≥ .05 rise rule misses most 174-BPM 16ths at kick/snare sens > 1.66 (envelopes capped at 1 twice); V12 also runs at sens 1.6 and 2.0 and the result is recorded; an uncapped hit count is a Tier-2 follow-up only if the user raises sens.
+- **N-1 (MED) fix adopted:** `prev` = 0 for `drop` only (drums start from their current level on entry, so leftover levels are not hits on frame 1) + a move guard: no moves during `hold`, during `shattered` before its slam, or in the first 2 slots after entry; the skeptic's Vitest (a) and (b) join the spike.
+- **N-2 (LOW) fix adopted:** V1 feeds a hats rise on every even slot (not `onset`).
+- **VARIANT PICK: A** (one pass, inline analytic plate, the pure CPU core + `shatterState()`), B as the fallback with the same core. Lead pick per the never-ask rule; logged in `agents/STATE.md`.
