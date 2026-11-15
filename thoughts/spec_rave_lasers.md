@@ -2,7 +2,7 @@
 
 ## TL;DR
 - A real rave-stage laser show on screen: thin, hard, hyper-bright beams that shoot from fixed emitter points, sparkle, flicker, cross, and appear / vanish on the music. Several emitter positions, not one. Colours green / white / red, adjustable.
-- Replaces CP2 of `spec_scenes_wave3.md` §2 B (the two laser scenes). Two built-ins on one renderer: techno and rave / DnB (default).
+- Replaces CP2 of `spec_scenes_wave3.md` §2 B (the two laser scenes). One built-in: the rave / DnB scene (user 2026-11-15).
 - Tier 3, SDLC v1.2: S1 research → S2 creative-director → system-designer → architecture-skeptic → lead pick → test-architect → S3 spike + stills → user gate.
 - The trace look built in the last attempt is NOT a laser (user, 2026-11-15); it stays as the separate scene `builtin:isobars`.
 
@@ -44,4 +44,4 @@ Reading (lead): lines that blast across the frame and sparkle; origins at fixed 
 - **R6** Flash safety: full-frame `__flash` ≤ 3/s and the WCAG luma cap holds; beam flicker stays local.
 - **R7** The drop is the climax: brighter and wider than the build top (measured mean luma + beam count).
 - **R8** Live pass: every bound parameter correlates with its source (r per row, the wave-3 convention).
-- **R9** Two built-ins on one renderer: techno and rave / DnB (default; the design may argue for one).
+- **R9** ONE built-in: the rave / DnB scene (user 2026-11-15: «давай одну сцену днб»). No techno variant.
