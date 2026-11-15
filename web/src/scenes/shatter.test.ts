@@ -1,5 +1,5 @@
 // The pure core of native/amen-shatter (matrix_amen_shatter.md §2 unit rows, S3 spike set): synthetic hit streams at
-// 60 fps (now = audioNow = frame ÷ fps, never performance.now()), 174 BPM unless named, hits as features.ts envelopes
+// 60 fps (now = audioNow = frame ÷ fps, never performance.now(); T-V10 and T-G7 split the two), 174 BPM unless named, hits as features.ts envelopes
 // (1 on the drain frame, 1/e per τ: kick, snare .12 s, hats .06 s). Test names start with the matrix ID (-t <ID>).
 import { describe, expect, test, vi } from 'vitest'
 import type { Drum } from '../audio/drums'
@@ -42,7 +42,7 @@ const merge = (...hs: Hits[]): Hits => ({ kick: hs.flatMap((h) => h.kick).sort((
 const drainF = (t: number, fps: number) => Math.ceil(t * fps - 1e-9)
 
 interface Snap { i: number; t: number; st: ShatterState; src: Uint8Array; bands: number[]; strips: number[]; stamps: number[]; moves: Move[]; swaps: number[]; edges: Uint8Array; stampP: Float32Array; rise: Record<Drum, boolean> }
-interface Opt { hits?: Hits; bpm?: number | ((t: number, i: number) => number); beat?: (t: number, i: number) => number; drop?: (t: number, i: number) => number; build?: (t: number, i: number) => number; seed?: number; fps?: number; now?: (i: number) => number; x?: (i: number, t: number) => Partial<ShatterIn> }
+interface Opt { hits?: Hits; bpm?: number | ((t: number, i: number) => number); beat?: (t: number, i: number) => number; drop?: (t: number, i: number) => number; build?: (t: number, i: number) => number; seed?: number; fps?: number; now?: (i: number) => number; audioNow?: (i: number) => number; x?: (i: number, t: number) => Partial<ShatterIn> }
 /** Runs a fresh core `frames` frames; a snapshot per frame (the state's arrays copied). */
 function drive(frames: number, o: Opt = {}): Snap[] {
   const fps = o.fps ?? FPS, core = createShatter(o.seed ?? S3_SEED), out: Snap[] = []
@@ -51,7 +51,7 @@ function drive(frames: number, o: Opt = {}): Snap[] {
   const df = { kick: h.kick.map((t) => drainF(t, fps)), snare: h.snare.map((t) => drainF(t, fps)), hats: h.hats.map((t) => drainF(t, fps)) }
   const ptr = { kick: 0, snare: 0, hats: 0 }, lastD = { kick: -1e9, snare: -1e9, hats: -1e9 }
   for (let i = 0; i < frames; i++) {
-    const t = o.now ? o.now(i) : i / fps
+    const t = o.now ? o.now(i) : i / fps, a = o.audioNow ? o.audioNow(i) : t // the beat follows the audio clock
     const rise = { kick: false, snare: false, hats: false }
     const env = {} as Record<Drum, number>
     for (const d of ['kick', 'snare', 'hats'] as Drum[]) {
@@ -60,7 +60,7 @@ function drive(frames: number, o: Opt = {}): Snap[] {
     }
     const bpm = typeof o.bpm === 'function' ? o.bpm(t, i) : (o.bpm ?? BPM)
     const x: ShatterIn = {
-      beat: o.beat ? o.beat(t, i) : bpm > 0 ? (t * bpm) / 60 : 0, bpm, conf: bpm > 0 ? 0.6 : 0, now: t, audioNow: t,
+      beat: o.beat ? o.beat(t, i) : bpm > 0 ? (a * bpm) / 60 : 0, bpm, conf: bpm > 0 ? 0.6 : 0, now: t, audioNow: a,
       kick: env.kick, snare: env.snare, hats: env.hats, build: o.build?.(t, i) ?? 0, drop: o.drop?.(t, i) ?? 0, bass: 0.5, sub: 0, seams: 1,
       burst: 0, kickFlare: env.kick, snareFlare: env.snare, ...o.x?.(i, t),
     }
@@ -416,7 +416,7 @@ describe('Amen Shatter core: the bar cycle (C2, C6–C9, C13, C14, V10–V12)', 
       }
     }
   })
-  test('T-V10 free hold 350 ms and shatter release 400 ms of now at 60 and 120 fps; a 200 ms gap keeps hits', () => {
+  test('T-V10 free hold 350 ms and shatter release 400 ms of now at 60 and 120 fps; a 200 ms now gap keeps hits', () => {
     for (const fps of [60, 120]) {
       const f = drive(2 * fps, { fps, bpm: 0, drop: (_t, i) => (i === 0 ? 0.8 : 0), x: () => ({ burst: 1 }) })
       const sh = f.findIndex((x) => x.st.recipe === 'shattered')
@@ -425,10 +425,22 @@ describe('Amen Shatter core: the bar cycle (C2, C6–C9, C13, C14, V10–V12)', 
       const at = f.findIndex((x) => x.t >= f[sh].t + 0.4)
       expect(lvl(f[at]) / lvl(f[sh])).toBeCloseTo(Math.exp(-(f[at].t - f[sh].t) / 0.4), 1)
     }
-    const g = frames(8) + 2
-    const f = drive(frames(9), { hits: hits(TWO, 0, 9), now: (i) => i / FPS + (i >= g ? 0.2 : 0), beat: (t) => (t * BPM) / 60 })
-    expect(f[g].st.hits).toBeGreaterThanOrEqual(f[g - 1].st.hits)
+    const g = frames(8) + 2, real = (i: number) => i / FPS // M-10: audioNow (and the beat) on real time, the gap moves now only
+    const f = drive(frames(9), { hits: hits(TWO, 0, 9), now: (i) => real(i) + (i >= g ? 0.2 : 0), audioNow: real })
+    expect(f[g].st.hits).toBeGreaterThanOrEqual(f[g - 1].st.hits) // no break on the gap frame (a break zeroes the histogram)
     expect(f[g].st.rho).toBe(f[g - 1].st.rho)
+  })
+  test('T-G7 clocks, audioNow ≠ now: the break residual runs on ΔaudioNow, the 170 ms one-shot on now', () => {
+    const real = (i: number) => i / FPS, g = frames(8) + 2
+    const breaks = (f: Snap[]) => f.filter((x, i) => i > 0 && x.st.hits < f[i - 1].st.hits).length // only a break zeroes hits
+    expect(breaks(drive(frames(9), { hits: hits(TWO, 0, 9), now: (i) => real(i) + (i >= g ? 0.2 : 0), audioNow: real }))).toBe(0) // a 200 ms now gap
+    expect(breaks(drive(frames(9), { hits: hits(TWO, 0, 9), audioNow: (i) => real(i) - (i >= g ? 12 / BPM : 0), beat: (t) => (t * BPM) / 60 }))).toBe(1) // a −0.2 beat audioNow jump
+    // free mode: a kick one-shot 3 frames before the 200 ms now gap goes home on the first frame with now ≥ its now + 170 ms
+    const k = FPS, f = drive(k + 30, { bpm: 0, hits: { kick: [k / FPS], snare: [], hats: [] }, now: (i) => real(i) + (i >= k + 3 ? 0.2 : 0), audioNow: real })
+    const out = f.findIndex((x) => x.moves.some((m) => m.kind === 'shove' && m.cause === 'kick'))
+    const due = f.findIndex((x) => x.t >= f[out].t + 0.17), home = f.findIndex((x, i) => i > out && whole(x))
+    expect([out, due]).toEqual([k, k + 3]) // the gap falls inside the one-shot
+    expect(Math.abs(home - due)).toBeLessThanOrEqual(1)
   })
   test('T-V11 half-time streams keep rho null; two-step adopts once, never changes, then slams once per bar', () => {
     let seed = 3
