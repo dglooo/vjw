@@ -25,7 +25,7 @@ Reading (lead): lines that blast across the frame and sparkle; origins at fixed 
 - **L4 Sparkle and flicker.** Beams appear and vanish (blanking, chases, scanner flicker). Flicker is per beam, never a full-frame blink.
 - **L5 Haze.** Beams visible through smoke; the air between beams is not pure black where beams pass.
 - **L6 Colour control.** Green / white / red, selectable and mixable (a palette knob); default green + white. Not a rainbow by default.
-- **L7 Wild energy.** Fast, aggressive, rave / DnB tempo 170–175 and techno 125–135; the drop is the climax.
+- **L7 Wild energy.** Fast, aggressive, rave / DnB tempo 170–175 (one DnB scene, user 2026-11-15); the drop is the climax.
 
 ## §4 Audio triggers (suggested, the creative-director decides)
 - hats → chase / flicker rate; kick → fan pop or a figure step; snare → figure switch or a white accent; sub → spread / cone opening; reese → sweep speed; build → density and speed ramp; drop → every emitter opens, full spread, white burst (through `VJW_FLASH`).
