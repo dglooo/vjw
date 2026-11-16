@@ -1132,7 +1132,10 @@ const DJ: readonly SceneDoc[] = [
 // GPU3D capability demos (plan_gpu3d § Planner-fixed names): unstarred, so never in the autopilot (I-LIB1); after the
 // spread, so the autopilot's order stays as it was.
 const DEMOS: readonly SceneDoc[] = [
-  { v: 1, id: 'builtin:demo-fluid', name: 'Demo fluid', star: false, layers: [{ gen: { ref: 'native/fluid' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }] },
+  { // the sub pushes the kicks' and the drop's ink harder (plan_gpu3d LR-1: force ← sub, 0.4..1.6)
+    v: 1, id: 'builtin:demo-fluid', name: 'Demo fluid', star: false,
+    layers: [{ gen: { ref: 'native/fluid', bind: { force: { source: 'sub', amount: 1, attack: 0.02, release: 0.25, min: 0.4, max: 1.6 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
   { // builtin:particles' document at N*_shipped: 49 152 points at res .5 (Bench N*, plan_gpu3d S1.5, LR-2: p95 4.66 ms)
     v: 1, id: 'builtin:demo-particles', name: 'Demo particles', star: false,
     layers: [{ gen: { ref: 'native/particles', values: { count: 49152 }, bind: PARTICLES }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],

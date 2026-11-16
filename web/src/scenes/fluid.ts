@@ -85,7 +85,9 @@ export const inputs: Input[] = [
   { name: 'curl', type: 'float', min: 0, max: 50, default: 30 },
   { name: 'fade', type: 'float', min: 0, max: 4, default: 1 },
 ]
-export const SIM = 128, DYE = 1024, PRESSURE_ITER = 20
+// The design's lever (matrix G5): F-PERF1 billed p95 at DYE 1024 / PRESSURE_ITER 20 read 4.01 / 4.13 / 3.74 ms > 4.00
+// (plan_gpu3d S3.3, alone, slow class).
+export const SIM = 128, DYE = 512, PRESSURE_ITER = 12
 const PRESSURE = 0.8 // the port's: the share of last frame's pressure the solve starts from
 const VELOCITY_DISSIPATION = 0.2 // the port's
 const DYE_GAIN = 1.5 // knob: the dye at hue 1, the port's random splats (generateColor() 0.15 × 10)
@@ -303,7 +305,8 @@ export const fluid: NativeDef = {
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
         const [sw, sh] = grid(SIM, f.width, f.height)
         for (const t of [...velocity, ...pressure, divergence, curl]) t.fit(sw, sh)
-        for (const t of dye) t.fit(...grid(DYE, f.width, f.height))
+        // DYE on the short side, never more than the output's (a 320×180 Library tile baked 1820×1024: 14-16.5 ms slices)
+        for (const t of dye) t.fit(...grid(Math.min(DYE, f.width, f.height), f.width, f.height))
         const dt = Math.min(f.dt, DT_MAX), aspectRatio = f.width / f.height, texelSize = [1 / sw, 1 / sh]
 
         for (const p of splats(s, f, v, prev)) { // the port's splat(): velocity (none for a hat), then the dye
