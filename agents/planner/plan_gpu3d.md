@@ -326,7 +326,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Base / depends:** master / none. **New deps:** none.
 - **Changed during implementation:** RG-5 fact: the governor had no GPU cost input. It reads only the rAF delta (the late rule) and the JS time (the CPU-bound veto). `gpuMs` is the engine's per-scene map (`gl/engine.ts:144`); the panel hint and the benches read it, the governor never did. So the cost input is new: `frame(now, jsMs, gpuMs = 0)` + the read-out `governor.gpuCostMs` = gpuMs + webgpuMs. No rule reads it (item 3). The term call is the module export `noteWebgpuMs(ms)` in `quality.ts`. A native imports it with no change to `Native` and no import of `app.ts` (that would be a cycle: app → fx/catalog → scenes/particles). Reports in one frame add up (two splat layers). The read-out is `governor.webgpuMs`, per frame, beside the engine's `gpuMs` (unchanged). Open, not in this step's files: `app.ts:399` passes no `gpuMs` yet, so in the app `gpuCostMs` = `webgpuMs` until a step passes `gpuMs.get(id)`. The bench's billed figure (S2.4) needs no wire: it adds the two p95s.
 
-### S2.2 [ ] The splat module in the product tree
+### S2.2 [x] The splat module in the product tree
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the S1-W compute splat becomes `web/src/gpu/splat.ts` with CP2's contract.
 - **Files:** `web/src/gpu/splat.ts`, `scratchpad/gpu3d/g3-webgpu.mjs` (base `s1w-stage2.mjs`; modes `conserve`, `pile`), `web/package.json` only under the types rule.
@@ -343,6 +343,13 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** Vitest: none (GPU code; the pure path rule is S2.3's). `g3-webgpu.mjs conserve <port>` (P-B6) and `pile <port>` (P-B7). The harness loads the module with `import('/src/gpu/splat.ts')` on the dev server.
 - **Done:** Gates. Both lines pass. `npm run build` succeeds.
 - **Base / depends:** master + the file from `55d06ba` / S1.4. **New deps:** at most `@webgpu/types` (dev).
+- **Changed during implementation:**
+  - Types: `tsc` (TS 6.0.3 lib.dom) knows `GPUDevice`, so nothing is added: no `@webgpu/types`, `package.json` unchanged. The spike's two local declares (`GPUBufferUsage`, `GPUMapMode`) and its `getContext('webgpu')` cast stay in `splat.ts`.
+  - Item 3 also covers the count buffer: a new w x h schedules the same between-frames build (setTimeout 0, at most one pending). Until it runs, `frame()` runs min(n, capacity) at the built size (the canvas keeps that size; `copy()` scales it). Before the first build there is nothing to draw: the first `frame()` after `createSplat()` submits nothing and `index` stays 0. S2.3 draws TF for a frame whose `index` did not move.
+  - `webgpuMs()` = marker-pass end -> resolve end, p95 of the last 120 frames (the governor's window). It does not contain Chrome's canvas snapshot at `texImage2D` (s1w.md: 0.35 ms at 1 M, res 1), because the contract has no call after the copy. S2.4 decides whether the bill needs that term.
+  - `grownCapacity` is imported from `scenes/particles.ts`. When S2.3 imports `splat.ts` from `particles.ts`, the two modules form an import cycle. The cycle is safe at runtime (a function declaration, called only inside `frame()` work), but a dynamic `import()` in S2.3 avoids it. `SPRING` (40) and `DRAG` (3) are copied into the WGSL as literals: `particles.ts` keeps them private.
+  - The harness writes in this worktree's `scratchpad/gpu3d/` (the brief's evidence rule); the lead copies `g3-webgpu.mjs` to the main checkout.
+  - Coder runs (port 5175, private cacheDir, alone, adapter apple / metal-3; class n/a: exact-integer rows, no timing gate): P-B6 PASS (inside 29 216 = count sum 29 216 = canvas R + 256 G sum 29 216); P-B7 PASS (one lit texel = 65 535, count buffer 1 048 576 there, wraps 0). RED once each: clear after resolve -> count sum 0; `& 65535u` wrap -> lit 0.
 ### S2.3 [ ] The splat path inside `native/particles`
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** one particle native with two paths; TF is the fallback (design § Variant C rev 1).
