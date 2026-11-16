@@ -1094,19 +1094,28 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
-  // Donor synScenes (fx/syn.ts, research_donor_visual_system_2.md §3): the scene's own syn_* floats, each bound by
-  // SYN_BIND (fx/syn.test.ts: every one bound); ⚡ = the file's VJW_FLASH.
+  // Donor synScenes (fx/syn.ts, research_donor_visual_system_2.md §3): the scene's own bound syn_* floats, by SYN_BIND
+  // (fx/syn.test.ts: every one bound); ⚡ = the file's VJW_FLASH. res: the raymarch cost (billed p95 at res .5, M4
+  // 1728×1117 @2: beats 14.9, twister 9.6, kaleido 5.3 ms; the 5 ms budget of a starred scene).
   {
     v: 1, id: 'builtin:beats-in-4d', name: 'Beats in 4D', star: true, // dnb · mrange, CC0
-    layers: [{ gen: { ref: 'syn/beats_in_4d', bind: syn('syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }], // ⚡ syn_BassHits
+    layers: [{
+      gen: {
+        ref: 'syn/beats_in_4d',
+        values: { bass_mix: [0.5, 0.6] }, // B = .5·level³ + .6·hit³ (the donor's .7/.7): the exp(6·B) flash term less white
+        // the level's rise over ~.25 s: a drop's bass surge never steps the exp(6·B) light in a frame (I-FL1); ⚡ the hit
+        bind: { ...syn('syn_BassHits'), syn_BassLevel: { ...SYN_BIND.syn_BassLevel, attack: 0.25, release: 0.4 } },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25,
+    }],
   },
   {
     v: 1, id: 'builtin:dark-twister', name: 'Dark Twister', star: true, // dnb · mrange, CC0
-    layers: [{ gen: { ref: 'syn/dark_twister', bind: syn('syn_BassLevel', 'syn_BassHits', 'syn_Hits', 'syn_BassPresence', 'syn_MidPresence', 'syn_MidHighPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }], // ⚡ syn_BassHits
+    layers: [{ gen: { ref: 'syn/dark_twister', bind: syn('syn_BassLevel', 'syn_BassHits', 'syn_Hits', 'syn_BassPresence', 'syn_MidPresence', 'syn_MidHighPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }], // ⚡ syn_BassHits
   },
   {
-    v: 1, id: 'builtin:kaleidowhoa-man', name: 'KaleidoWHOA, MAN', star: true, // dnb · Meebs
-    layers: [{ gen: { ref: 'syn/kaleidowhoa_man', bind: syn('syn_BeatTime', 'syn_OnBeat', 'syn_BassLevel', 'syn_Presence', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    v: 1, id: 'builtin:kaleidowhoa-man', name: 'KaleidoWHOA, MAN', star: true, // dnb · Meebs (syn_BeatTime: the beat count, unbound)
+    layers: [{ gen: { ref: 'syn/kaleidowhoa_man', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Presence', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.4 }],
   },
 ]
 

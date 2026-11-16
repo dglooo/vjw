@@ -18,7 +18,7 @@ import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { pairsByTarget, sizeExpr } from '../fx/isf'
-import { tick } from '../fx/syn'
+import { clockStep } from '../clock'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
 import { store } from '../store'
@@ -193,7 +193,8 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       u[`_${name}_imgSize`] = AUDIO_SIZE
     }
     const at = pairsByTarget(passes) // passes naming one TARGET share a pair, built to its first pass's FLOAT/PERSISTENT
-    const pairs = passes.map((p, j) => (at[j] === j ? [renderTarget(p.float, p.persistent), renderTarget(p.float, p.persistent)] : null))
+    const tex = (p: PassDef) => ({ ...(p.filter && { minMag: gl.NEAREST }), ...(p.wrap && { wrap: gl.REPEAT }) }) // a synScene TARGET's sampling
+    const pairs = passes.map((p, j) => (at[j] === j ? [renderTarget(p.float, p.persistent, tex(p)), renderTarget(p.float, p.persistent, tex(p))] : null))
     return { def, info, u, events, passes: passes.map((p, j) => ({ p, pair: at[j] < 0 ? null : pairs[at[j]] })), w: 0, h: 0, frames: 0 }
   }
 
@@ -279,8 +280,9 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       n.u.TIMEDELTA = n.u.iTimeDelta = dt
       n.u.FRAMEINDEX = n.u.iFrame = n.frames++
       n.u.inputImage = src // the previous draw; unused by a generator
-      const { clocks } = n.def as ShaderDef
-      if (clocks) tick(n.u, clocks, dt) // a synScene's audio clocks, on the layer's clock
+      const { clocks, raws } = n.def as ShaderDef // a synScene's audio clocks (on the layer's clock) and frame values
+      if (clocks) for (const c of clocks) n.u[c.u] = clockStep((n.u[c.u] as number | undefined) ?? 0, c.rate, n.u, dt)
+      if (raws) for (const [k, read] of raws) n.u[k] = read(f)
       for (let j = 0; j < n.passes.length; j++) {
         const { p, pair } = n.passes[j]
         out = pair ? pair[1] : dst

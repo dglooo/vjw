@@ -46,7 +46,9 @@ const synFiles = import.meta.glob(['./syn/*.glsl', '!./syn/preamble.glsl'], { qu
 for (const [path, src] of Object.entries(synFiles)) {
   const id = path.slice('./'.length, -'.glsl'.length)
   try {
-    catalog.set(id, parseSyn(src as string, id))
+    const d = parseSyn(src as string, id)
+    if (d.unsupported) throw new Error(`${id}: unsupported: ${d.unsupported}`) // fx/syn.test.ts keeps the bundled ones clean
+    catalog.set(id, d)
   } catch (e) {
     console.error(e)
   }

@@ -76,7 +76,7 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 
 - `isf/`: [Vidvox/ISF-Files](https://github.com/Vidvox/ISF-Files). The author is the file's `CREDIT`. An ISF header has no license line, so the license is the repo's: MIT (its LICENSE reads "Copyright (c) 2018", with no holder named). Each file's first line records it: `// Source: … · MIT`.
 - `own/`: ours, MIT (the project's license, spec §6). Library code inlined in a file keeps its original header there, and the row names it.
-- `syn/`: scenes from the donor `donor/visual_system_2/` (a reverse-engineered commercial live-visual app, `research_donor_visual_system_2.md` §7), run by `src/fx/syn.ts`. Each file is the scene's `main.glsl` under a header built from its `scene.json`; its first lines name the source scene, the author (the scene's `CREDIT`) and the license (the CC0 dedication the mrange files carry; otherwise unknown, recorded per spec §6). The scene's `script.js` is never copied or run: its clocks are restated as data (`VJW_CLOCK`). `preamble.glsl` rewrites the app's GLSL helpers the scenes call.
+- `syn/`: scenes from the donor `donor/visual_system_2/` (a reverse-engineered commercial live-visual app, `research_donor_visual_system_2.md` §7), run by `src/fx/syn.ts`. Each file is the scene's `main.glsl` under a header built from its `scene.json`; its first lines name the source scene, the author (the scene's `CREDIT`) and the license (the CC0 dedication the mrange files carry; otherwise unknown, recorded per spec §6). The scene's `script.js` is never copied or run: its clocks are restated as data (`VJW_CLOCK`). `preamble.glsl` is the app's whole GLSL helper library (`glsl/01`–`05`), copied once with ES 3.00 literal fixes; its media and meta-control helpers are zero stubs.
 - `transitions/`: [gl-transitions](https://github.com/gl-transitions/gl-transitions) 2.0.0, the `glsl3/` sources. Author and license are the file's own `// Author:` and `// License:` lines (all 12 are MIT, as is the repo's LICENSE); the source is the upstream file its header names. `crossfade.glsl` is ours.
 
 ### isf (20)
@@ -168,7 +168,7 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `syn/beats_in_4d.glsl` | mrange (Mårten Rånge) | donor/visual_system_2/scenes/release/beats_in_4d.synScene | CC0 1.0 Universal (the dedication is kept below) |
 | `syn/dark_twister.glsl` | mrange (Mårten Rånge) | donor/visual_system_2/scenes/release/dark_twister.synScene | CC0 1.0 Universal (the dedication is kept below) |
 | `syn/kaleidowhoa_man.glsl` | Meebs | donor/visual_system_2/scenes/release/kaleidowhoa_man.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
-| `syn/preamble.glsl` | the donor app (anonymised in donor/visual_system_2/report.md); _hsv2rgb/_rgb2hsv: sam hocevar | donor/visual_system_2/glsl/01_preamble.txt | unknown (app resource strings; generic math rewritten by analogy); _hsv2rgb/_rgb2hsv WTFPL |
+| `syn/preamble.glsl` | the donor app (anonymised in donor/visual_system_2/report.md); _hsv2rgb/_rgb2hsv: sam hocevar (WTFPL, https://stackoverflow.com/a/17897228/418488) | donor/visual_system_2/glsl/01_preamble.txt | unknown (app resource strings, copied as text; recorded per spec §6); _hsv2rgb/_rgb2hsv WTFPL |
 
 ### Parser port
 
