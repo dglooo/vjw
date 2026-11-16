@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { diff, glState, label, restore } from './glstate'
+import { diff, glState, KEYS, label, PASS_LIST, restore } from './glstate'
 
 /** A fake context: every enum is its own name, so `TEXTURE0 + 3` is the key 'TEXTURE03'. State is a flat record; the
  *  setters glState/restore need for the checked fields write it, every other method is a no-op. */
@@ -60,5 +60,9 @@ describe('glstate (S1-T instrument 1)', () => {
     expect(label(t)).toMatch(/^WebGLTexture#\d+$/)
     expect(label([1, 2])).toEqual([1, 2])
     expect(label(null)).toBe(null)
+  })
+
+  it('I-GL2 PASS_LIST names instrument fields only (a misspelt key would restore nothing, silently)', () => {
+    expect(PASS_LIST.filter((k) => !KEYS.includes(k))).toEqual([])
   })
 })

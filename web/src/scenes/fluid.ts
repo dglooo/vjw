@@ -33,6 +33,7 @@ import type { Sources } from '../bind'
 import type { FrameInput } from '../frame'
 import type { Input, Value } from '../fx/types'
 import { draw, program, renderTarget, type Target } from '../gl/engine'
+import { glState, PASS_LIST, restore } from '../gl/glstate'
 import type { NativeDef } from '../gl/scene'
 
 /** x, y: the centre, uv 0..1 (the port's `splat(x, y, …)`); dx, dy: the velocity impulse, the port's units; rgb: the
@@ -298,6 +299,7 @@ export const fluid: NativeDef = {
 
     return {
       draw(f, v, _src, s = {}) {
+        const keep = glState(gl, PASS_LIST) // GPU3D I-GL2: the state its passes change, put back at the end
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
         const [sw, sh] = grid(SIM, f.width, f.height)
         for (const t of [...velocity, ...pressure, divergence, curl]) t.fit(sw, sh)
@@ -328,6 +330,7 @@ export const fluid: NativeDef = {
         gl.bindFramebuffer(gl.FRAMEBUFFER, out)
         gl.viewport(0, 0, f.width, f.height)
         draw(display, { texelSize: [1 / f.width, 1 / f.height], uTexture: tex(dye[0]) })
+        restore(gl, keep)
       },
       // The programs are the engine's cache (program()): shared by every instance and the warm-up, never deleted here.
       dispose() {
