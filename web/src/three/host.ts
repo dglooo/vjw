@@ -85,24 +85,25 @@ export async function load(gl: WebGL2RenderingContext, url: string, S: Spike) {
     return rt.texture
   })
   const glass = { value: 0 }, bodyAlpha = { value: 0.22 }
-  const material = new MeshStandardMaterial({ color: 0xf2f2f2, metalness: 1, roughness: 0.06, flatShading: true, transparent: true }) // the Fox has no normals: flat, as GLTFLoader does
+  const material = new MeshStandardMaterial({ color: 0xf2f2f2, metalness: 1, roughness: 0.06, flatShading: true, transparent: true }) // flat facets: the low-poly look in chrome
   material.onBeforeCompile = (sh: { uniforms: Record<string, unknown>; fragmentShader: string }) => {
     sh.uniforms.uGlass = glass
     sh.uniforms.uBodyAlpha = bodyAlpha
     sh.fragmentShader = `uniform float uGlass;\nuniform float uBodyAlpha;\n${sh.fragmentShader.replace('#include <opaque_fragment>', GLASS)}`
   }
-  const fox = gltf.scene
-  fox.traverse((o: { isMesh?: boolean; material: unknown; frustumCulled: boolean }) => {
+  const animal = gltf.scene
+  animal.traverse((o: { isMesh?: boolean; material: unknown; frustumCulled: boolean }) => {
     if (!o.isMesh) return
-    o.material = material // the fur texture is never uploaded: chrome and glass read the environment only
-    o.frustumCulled = false // a skinned bind-pose box culls a running fox wrongly
+    o.material = material // the model's own materials and textures are never uploaded: chrome and glass read the environment only
+    o.frustumCulled = false // a skinned bind-pose box culls a running animal wrongly
   })
-  scene.add(fox)
-  const box = new Box3().setFromObject(fox)
+  scene.add(animal)
+  const box = new Box3().setFromObject(animal)
   const centre = box.getCenter(new Vector3()), size = box.getSize(new Vector3()).length()
   const camera = new PerspectiveCamera(32, 16 / 10, size * 0.05, size * 10)
-  const mixer = new AnimationMixer(fox)
-  const clip = gltf.animations.find((a: { name: string }) => a.name === 'Run') ?? gltf.animations[0]
+  const mixer = new AnimationMixer(animal)
+  // A run cycle by name (the last `|` segment: exporters prefix the armature), else a walk, else the first clip.
+  const clip = ['Gallop', 'Run', 'Walk'].map((n) => gltf.animations.find((a: { name: string }) => a.name.split('|').pop() === n)).find(Boolean) ?? gltf.animations[0]
   mixer.clipAction(clip).play()
 
   /** The pose and the camera of one instance at its time t: instances share the scene graph (§ Model rev 1). */
