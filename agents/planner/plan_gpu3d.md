@@ -283,7 +283,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - **R1, TF part (for the R1 record):** line 1, N*_shipped = 49 152 at res 0.5, billed p95 4.67 ms (alone, slow class). Line 2, 1 048 576 is L-class: billed p95 14.9 ms at res 1 and 22.1 ms at res 0.5 (`s15-nstar-int.*`). The inversion (res 0.5 costs more than res 1 at 1 M only) has an unchecked cause. The full R1 claim waits for splat row B (S2.4, LR-2 part 2).
   - **`builtin:particles` (starred, 65 536 at res 0.5) bills 5.2-5.3 ms** (every pin since S1.1: 5.16-5.33; `s15-pin` 5.24). This overshoot of the 5.0 ms budget by about 0.3 ms is pre-existing. CP1 does not change it (R5: the pin stays inside its band). This epic has no fix for it. The header note in `particles.ts` records it.
 
-### S1.6 [ ] Run harnesses for the R1 record
+### S1.6 [x] Run harnesses for the R1 record
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the lead can run the 60 s, the cut and the 1 M records.
 - **Files (scratch only):** `scratchpad/gpu3d/g3-60s.mjs` (base `cp4-60s.mjs`; modes `particles`, `crossfade-1m`), `scratchpad/gpu3d/g3-cut.mjs`, `scratchpad/gpu3d/g3-bench.mjs` (mode `run tf`).
@@ -295,6 +295,23 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** Vitest: none. Rows: P-B2, P-B4, P-B10, P-B11. The coder runs each mode once and reports the numbers.
 - **Done:** Gates (tree unchanged). Each mode exits 0 and writes a JSON that passes `check`.
 - **Base / depends:** master / S1.5. **New deps:** none.
+- **Changed during implementation:**
+  - `g3-60s.mjs` and `g3-cut.mjs` are 2-line forwards into `g3-bench.mjs`, which holds the new modes `60s`, `cut` and `run`. All GPU3D benches share one page setup, the live-analysis check, the session reference and the P-REC record. The base `cp4-60s.mjs` gives the per-frame rAF recorder and the late rule (delta > 1.5 x the window's median delta). The matrix commands run as written.
+  - `pin` and `nstar` call the shared helpers `go`, `sample`, `probe` and `adapter`. Their procedure is unchanged: smoke `s16-smoke-pin` gives p95 5.05 and governed 0. A failed run now exits 1; before, a run that printed `FAILED` exited 0.
+  - Each new JSON has a top-level `rec`, so `check` applies. `refP95` comes from 3 rounds of `test:wireform+flash` after the window (the nstar procedure). `rec.scale` = the window's `minScale`. The cut JSON's `rec` = the shipped case; each case also has its own `rec`.
+  - RG-7: the cut call is `director.cut(director.peek())`, the app's autopilot drop cut to the prepared next scene. Playlist [`builtin:tunnel`, `builtin:spectrum`, demo], hold on. Prepare-ahead (`app.ts` L377) builds the demo at the cut to spectrum. The next cut draws it, and the cut after that frees it. A prepare = one `native/particles` `create()` call (wrapped). The growth = the `copyBufferSubData` calls (wrapped).
+  - P-B11 fades `builtin:tunnel` (the first starred built-in) into the demo and back with `director.next()` (the autopilot's fade), at 20 s and at 40 s. The demo at 1 048 576 keeps its shipped res .5. P-B4 runs at res 1 (matrix fixture); `px` 2 is in `rec.px`, with `pxApplied: false`.
+  - Results (coder runs; all alone; slow class, refP95 4.27-4.30; apple / metal-3; `1ffd511`; port 5175):
+    - P-B10 PASS: 0 late / 3 599, `minScale` 1, 0 governor steps.
+    - P-B11 record: 0 late / 3 601, `minScale` 1, 0 steps. The growth runs in the gap 1 frame after the fade-in, and that frame is 16.7 ms. The demo's gpuMs (no tail) is med 11.59 / p95 13.48.
+    - P-B2 PASS at both counts: 10 prepares each, 0 late per prepare, `minScale` 1. The lever (one grown buffer set per context) is not needed.
+    - P-B4 record: billed p95 14.69 / med 11.84 ms, 0 late / 3 599 at 1.00x, 1 048 576 drawn.
+  - Runs not used, kept as evidence:
+    - `s16-pb2-first9`: the first cut landed in row 0, which has no delta, so only 9 prepares were counted. Fixed: 0.5 s before the first cut.
+    - `s16-pb11-first`: its `gpu` field mixed in stale gpuMs from frames after the demo stopped. Now `gpuD` covers the demo's phase only.
+    - `s16-pb10-first`: alone, run before those two fixes; the same result.
+    - `s16-pb10-overlap`: OVERLAP, 4 Playwright Chromes from another lane.
+    - The first pin smoke failed on the cold Vite cache: the first load stepped the governor, and `pin` has no reset.
 ### S2.1 [x] The WebGPU term in the governor
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the governor and the billed figure see WebGPU work (N4).
