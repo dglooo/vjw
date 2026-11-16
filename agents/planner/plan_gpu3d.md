@@ -515,7 +515,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Bundle (Node gzip, `s44-bundle*.json`): entry 369 423 B against the base `e166f16` 368 406 B = +1 017 B (+116 B without the catalog line; the model module +901 B). Against S4.1's baseline 365 603 B: +3 820 B, of which +2 803 B was in the base already. Lazy `host-*.js` 641 773 B raw, 159 960 B gzip. `THREE.WebGLRenderer`: 0 in the entry, 8 in the lazy chunk.
   - The CP4 diff rule was not run: no material, model-file or host GL change.
 
-### S4.5 [ ] Instance checks: two instances at once, animation, lifecycle
+### S4.5 [x] Instance checks: two instances at once, animation, lifecycle
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** close the S1-T gap "two instances at once" (s1t.md L34): a Library tile and the stage share one loaded model, and each keeps its own pose.
 - **Files:** `scratchpad/gpu3d/g3-state.mjs` (modes `twopose`, `anim`, `life model`); `web/src/scenes/model.ts` and `web/src/three/host.ts` only for a root-cause fix.
@@ -527,6 +527,16 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** Vitest: none new, unless a fix adds pure logic. Rows: M-B6, M-B5, I-LC3.
 - **Done:** Gates. The three modes pass.
 - **Base / depends:** master / S4.4. **New deps:** none.
+- **Changed during implementation:**
+  - No product edit: no row proved a defect. three r187 recomputes the skeleton on every `render()` (`info.render.frame++` per call, WebGLRenderer.js:1710; `WebGLObjects.update`), and `host.ts` already applies the pose right before each render, so the design's assumption (L571) holds. The CP4 diff rule was not run (no host GL change).
+  - Harness: `g3-state.mjs` was extended in the worktree (`scratchpad/gpu3d/`, from the main checkout's copy of 07:08) and the lead copies it back. No product hook: the harness wraps model.ts's exported `loader` before the first load. That gives it the host: `render()` and `free()` mark a phase, and the renderer's `render()` hands over the shared scene (the skeleton). It also wraps `model.create` (instance counts) and `gl.create*` / `delete*` while `MODEL_SPIKE.entry > 0`. After a `web/src` edit the app imports model.ts with `?t=`, which gives a second module instance. The harness then stops with "restart Vite".
+  - Fixtures: `builtin:demo-model` lands in S4.7, so `life` cycles a one-layer native/model doc (the demo's planned shape: glass 0, samples 1). `twopose` and `anim` use [black toy, model].
+  - M-B6, "t differs" = the clip phase differs. Gallop loops every 0.5417 s (the GLB accessor max), so two clip times k × 0.5417 s apart show one pose by design. One run read Frobenius 2.6e-4 at dClip 1.083 s = 2 × the length and failed the literal raw-t reading. Pairs within 1 ms of k × the length are reported apart. "0 when t equal" = every capture against a probe: the host renders one stage-sized RT alone at that capture's own t and d.
+  - M-B6 values (`s45-twopose.*`): 141 frames with both; stage 153 captures (1 RT); tile 231 captures (2 RTs: the hovered tile and the bake). 230 phase-differing pairs: Frobenius min 31.8, med 251. 1 same-phase pair: 0.52 at a phase of 6.7e-5 s. 384/384 captures equal their probe (max 0).
+  - M-B6 RED (`s45-red-mb6-*`, the tile skips its pose: `if (w * h > 320 * 180) apply(...)`): 230/230 tile captures differ from their probe (max 1014). The same-frame Frobenius alone still read min 64.3, so the probe check is the half that catches a shared pose.
+  - M-B5 values (`s45-anim.*`): 19.37/255 over 60 frame pairs (1.03 s) in the model region (25.7 % of the quarter-size frame); the stage's bones move Frobenius 517 over the window (clip 0.933 to 1.933 s). Control at `speed` 0 (clip frozen, camera orbit on): 0.93/255. That is just under the 1/255 line, so the row separates a frozen clip from the orbit by a thin margin (information; threshold unchanged). RED (`apply(pose(0, 0), ...)`, time not applied to the pose): 0/255.
+  - I-LC3 values (`s45-life-model.*`): RT objects alive after each exit [0 x 10], at each enter [3 x 10] (texture, framebuffer, depth renderbuffer). These are equal at all 20 samples: the load-phase GL objects {Texture 7, Framebuffer 39, Buffer 24, Program 4, VertexArray 7} and three's info {geometries 5, textures beside the RT 3, programs 4}. Instances: 10 created, 10 disposed.
+  - I-LC3 REDs: (a) `dispose()` skips `host.free`: RT objects alive after the exits 3, 6, ... 30 (`s45-red-lc3-rtleak.log`). (b) `free` also disposes the geometries: after exit 1, Buffer 24 -> 4, VertexArray 7 -> 3, geometries 5 -> 1 (`s45-red-lc3-assetfreed.log`).
 ### S4.6 [ ] Alpha under the 7 blends, and the model as layer 0
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the model composites correctly under every blend (N3; matrix ruling G3) and on the direct path (s1t.md L34).
