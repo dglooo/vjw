@@ -241,7 +241,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** Vitest: none. Rows: P-B2, P-B4, P-B10, P-B11. The coder runs each mode once and reports the numbers.
 - **Done:** Gates (tree unchanged). Each mode exits 0 and writes a JSON that passes `check`.
 - **Base / depends:** master / S1.5. **New deps:** none.
-### S2.1 [ ] The WebGPU term in the governor
+### S2.1 [x] The WebGPU term in the governor
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the governor and the billed figure see WebGPU work (N4).
 - **Files:** `web/src/quality.ts`, `web/src/quality.test.ts`.
@@ -253,6 +253,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** P-U7, P-U8 (Vitest). One more plain test: a frame without a report reads 0.
 - **Done:** Gates.
 - **Base / depends:** master / none. **New deps:** none.
+- **Changed during implementation:** RG-5 fact: the governor had no GPU cost input. It reads only the rAF delta (the late rule) and the JS time (the CPU-bound veto). `gpuMs` is the engine's per-scene map (`gl/engine.ts:144`); the panel hint and the benches read it, the governor never did. So the cost input is new: `frame(now, jsMs, gpuMs = 0)` + the read-out `governor.gpuCostMs` = gpuMs + webgpuMs. No rule reads it (item 3). The term call is the module export `noteWebgpuMs(ms)` in `quality.ts`. A native imports it with no change to `Native` and no import of `app.ts` (that would be a cycle: app → fx/catalog → scenes/particles). Reports in one frame add up (two splat layers). The read-out is `governor.webgpuMs`, per frame, beside the engine's `gpuMs` (unchanged). Open, not in this step's files: `app.ts:399` passes no `gpuMs` yet, so in the app `gpuCostMs` = `webgpuMs` until a step passes `gpuMs.get(id)`. The bench's billed figure (S2.4) needs no wire: it adds the two p95s.
 
 ### S2.2 [ ] The splat module in the product tree
 Invoke the `ponytail` skill (full) before writing code.

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { badge, createGovernor, nextMode, outputFor, type Governor } from './quality'
+import { badge, createGovernor, nextMode, noteWebgpuMs, outputFor, type Governor } from './quality'
 
 const VSYNC = 1000 / 60
 
@@ -84,6 +84,32 @@ describe('governor', () => {
     expect(g.jsMs).toBe(4)
     run(g, t, 120, undefined, 12)
     expect(g.jsMs).toBe(12)
+  })
+
+  test('P-U7 the GPU cost input = gpuMs + the WebGPU term (N4): GL timer 1.0 ms + WebGPU p95 3.0 ms = 4.0 ms', () => {
+    const g = createGovernor()
+    const t = run(g, 0, 10)
+    noteWebgpuMs(3)
+    g.frame(t + VSYNC, 4, 1)
+    expect(Math.abs(g.gpuCostMs - 4)).toBeLessThanOrEqual(0.01)
+  })
+
+  test('P-U8 no WebGPU term (no timestamp-query): 5 late frames in 2 s still step down ×0.85 on late frames alone', () => {
+    const g = createGovernor()
+    run(g, run(g, 0, 121), 120, missing5) // 2 s clean warm-up, then 2 s with 5 late frames; no native reports a term
+    expect(g.webgpuMs).toBe(0)
+    expect(g.scale).toBeCloseTo(0.85, 9)
+  })
+
+  test('a frame without a WebGPU report reads 0: reports add up within a frame and never carry over', () => {
+    const g = createGovernor()
+    const t = run(g, 0, 10)
+    noteWebgpuMs(1.5)
+    noteWebgpuMs(1.5) // two WebGPU layers in one frame
+    g.frame(t + VSYNC, 4, 1)
+    expect([g.webgpuMs, g.gpuCostMs]).toEqual([3, 4])
+    g.frame(t + 2 * VSYNC, 4, 1)
+    expect([g.webgpuMs, g.gpuCostMs]).toEqual([0, 1])
   })
 })
 
