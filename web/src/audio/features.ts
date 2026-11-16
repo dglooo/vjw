@@ -1,6 +1,8 @@
 // Hit sources (design C1): kick, snare and hats, each an envelope that jumps to 1 on a hit and decays by 1/e every τ.
 // Sustained sources (plan S2.4, Variant B): sub, reese, wobble and wobbleDepth from the worklet's `feat` frames, worked
 // out per hop in at(), so they don't depend on the frame rate. Each is a ratio to a running average: level independent.
+// Body levels subBody, reeseBody (dsp_formula_review_2026-11-17 P1): the same held level against a 60 s mean, through
+// knee(): .5 = the track's mean, so a drop's body holds above its breakdown where sub and reese (4 s) have decayed to 0.
 // Custom bands u:<id> (plan S2.5): the band's e2 × gain, zeroed in the kick-gate gaps, one-poled at hop rate with the
 // user's attack/release. The level, not a ratio to an average: the band filter's own response is the value.
 // Pure, main thread: app.ts drains the worklet's hits (the T1 rule) into hit(), its `feat` batches into push(), then
@@ -20,7 +22,13 @@ const DEPTH = 1 // knob: s, wobbleDepth's EMA (C1)
 // ≈40 ms, too slowly to trip the sub band's own gate (S2.1), and rings there and in the reese band's skirt to ≈200 ms.
 // arrange.ts widens its drop window by it: a bass that returns on a kick reads this late.
 export const HOLD = 0.2
-const SUSTAINED = ['sub', 'reese', 'wobble', 'wobbleDepth'] as const
+const BODY = 60 // knob: s, the running mean subBody and reeseBody read against: a section, not a bar (P1)
+const SUSTAINED = ['sub', 'reese', 'wobble', 'wobbleDepth', 'subBody', 'reeseBody'] as const
+
+/** A ratio to a mean → 0..1: r / 2 up to the mean (.5), then a soft knee toward 1 with the same slope there, so the
+ *  2–3× of a drop's first seconds reads .82–.93, not a flat 1 (P1; the sim's ÷ 2.5 saturated 25–95 % of them).
+ *  arrange.ts's energy maps through it too. Ceiling: ≥ .98 past 4.2×, a track's first drop over its intro's mean. */
+export const knee = (r: number) => (r <= 1 ? r / 2 : 1 - 0.5 * Math.exp(1 - r))
 
 /** The user's × the preset's sens for `id` (missing = 1). */
 const sens = (s: AudioSettings, p: Preset, id: string) => (s.sens[id] ?? 1) * (p.sens[id] ?? 1)
@@ -47,11 +55,11 @@ export function createFeatures() {
   let until = -Infinity // worklet time: the levels hold until then
   let gated = false // the reese band's gate on the last hop
   let g = 0 // the wobble band's level
-  const rel = { sub: relative(), reese: relative(), wobble: relative() }
+  const rel = { sub: relative(), reese: relative(), wobble: relative(), subBody: relative(), reeseBody: relative() }
   const uE2: number[] = [] // per band slot (3 + i): the latest gated e2, the kick latch (held ≠ e2) zeroing it
   const uY = new Map<string, number>() // per band id: the one-pole level
   let uIds: string[] = [] // the u:* ids the last fill wrote, so a removed band reads 0, not a stale value
-  const v: Record<(typeof SUSTAINED)[number], number> = { sub: 0, reese: 0, wobble: 0, wobbleDepth: 0 } // before sens
+  const v: Record<(typeof SUSTAINED)[number], number> = { sub: 0, reese: 0, wobble: 0, wobbleDepth: 0, subBody: 0, reeseBody: 0 } // before sens
   /** For the classifier and the arrangement: sub and reese are the kick-gated band levels (linear, not normalised);
    *  wobbleDepth is the source before sens and the 0..1 cap. */
   const raw = { sub: 0, reese: 0, wobbleDepth: 0 }
@@ -70,6 +78,9 @@ export function createFeatures() {
     // The rise above the running average, as wobble: a steady bed reads 0, twice its average 1 (design ruling 2026-11-05)
     v.sub = Math.max(0, rel.sub(quiet ? 0 : raw.sub, k) - 1)
     v.reese = Math.max(0, rel.reese(quiet ? 0 : raw.reese, k) - 1)
+    const kb = 1 - Math.exp(-dt / BODY) // P1: the 60 s mean (relative()'s plain mean until then)
+    v.subBody = knee(rel.subBody(quiet ? 0 : raw.sub, kb))
+    v.reeseBody = knee(rel.reeseBody(quiet ? 0 : raw.reese, kb))
     const r = rel.wobble(quiet ? 0 : g, k)
     const d = r > 0 ? r - 1 : 0 // (g − ḡ)/ḡ of the gated wobble band; silence reads 0, not −1
     v.wobble = Math.max(0, d)
@@ -105,7 +116,7 @@ export function createFeatures() {
         hop = 0
       }
     },
-    /** kick, snare, hats = e^(−age/τ); sub, reese, wobble, wobbleDepth as at() left them; reeseLevel = raw.reese.
+    /** kick, snare, hats = e^(−age/τ); sub, reese, wobble, wobbleDepth, subBody, reeseBody as at() left them; reeseLevel = raw.reese.
      *  Each × the user's × the preset's sens (missing = 1), at most 1. The drums read before `dt` is added, so the frame
      *  a hit is drained on reads its peak and an `event` input (≥ 0.5, live.ts) fires on it. */
     fill(out: Sources, dt: number, s: AudioSettings, p: Preset) {

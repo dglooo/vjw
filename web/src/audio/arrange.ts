@@ -7,7 +7,7 @@
 // is the breakdown, since G is learned in a bass-less intro, so the intro never reads sparse. A track that opens on its
 // groove fires only after a deep cut (`ref`: ≥ 2 s). Ceiling: a full-level bass tease with a kick fires early, and its
 // refractory can swallow the real drop.
-import { HOLD } from './features'
+import { HOLD, knee } from './features'
 
 export interface ArrangeIn {
   low: number // sub + reese `held` (bands.ts): the sustained bass, kicks gated out. Any unit: only its ratios are used
@@ -22,6 +22,7 @@ export interface ArrangeOut {
   build: number // 0..1, the breakdown's tension
   drop: number // the last drop's confidence, decaying τ 1 s (a source)
   heat: number // build smoothed τ 0.5 s; 0 within 1 s of a drop
+  energy: number // 0..1, the section's level (P2): .5 = the track's mean, a drop's body above, a breakdown below
   sparse: boolean
   fired: number | null // a drop's confidence on the frame it fires, else null
   confirmed: number | null // that confidence again on the first frame `CONFIRM` s on, if low / G averaged ≥ `back` since: the autopilot cuts on it
@@ -78,6 +79,15 @@ const RELEASE = 1 // τ of build after sparse, and of the `drop` source
 const HEAT = 0.5 // τ of heat
 const COOL = 1 // heat reaches 0 this long after a drop
 const RATIO = 16 // a return this many × the sparse mean gives full confidence (log scale)
+// energy (dsp_formula_review_2026-11-17 P2): the τ ENERGY levels of `low` and `high`, each over its REF mean of music
+// frames (a plain mean until REF s), mixed 1 − HIGH : HIGH, through features.ts's knee(). The levels follow silence too:
+// a stopped deck falls to 0, the means hold. Sim (3 tracks, 7 drops; p50 body − break ≥ .2): HIGH .5 passes 3/7, as a
+// build's risers lift `high` 1.1–2× its mean; .2 passes 6/7; G (not REF) as `low`'s reference loses at every weight. A
+// reference under ≈ 60 s flattens the sections (the review's 10 s test). Ceiling: before REF s the mean is the intro's,
+// so a first drop's break reads high (Bicep 66.2: an intro with sub + bass, .70 → .75)
+const ENERGY = 3 // knob: s
+const REF = 60 // knob: s
+const HIGH = 0.2 // knob: high's share
 
 const ema = (dt: number, tau: number) => 1 - Math.exp(-dt / tau)
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
@@ -87,13 +97,14 @@ export const shouldCut = (fired: number | null, hold: boolean) => fired !== null
 
 export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: ArrangeIn): ArrangeOut } {
   const o = { ...DEFAULTS, ...opts }
-  const out: ArrangeOut = { build: 0, drop: 0, heat: 0, sparse: false, fired: null, confirmed: null } // update() returns this object
+  const out: ArrangeOut = { build: 0, drop: 0, heat: 0, energy: 0, sparse: false, fired: null, confirmed: null } // update() returns this object
   let last = NaN // previous `now`
   let music = 0 // s with `total` above silence
   let g = 0 // G
   let slow = 0
   let [cutLow, deep] = [0, 0] // `low` smoothed for the cut test; s of it under cut × G (music frames; silence neither counts nor resets it)
   let [hiFast, hiSlow] = [0, 0]
+  let [lowE, highE, lowRef, highRef] = [0, 0, 0, 0] // energy's levels and means
   let [dur, sum, peak] = [0, 0, 0] // the section (the last sparse run, or the intro): length, ∫low dt (sum / dur = its mean), build's peak
   let [run, runSum] = [0, 0] // the current (or last) sparse run: length, ∫low dt
   let intro = true // until the first drop or the first sparse run ≥ arm (7a)
@@ -115,6 +126,9 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
       if (isMusic) deep = cutLow < o.cut * g ? deep + dt : 0
       const sparse = isMusic && music >= o.warmup && slow < o.sparse * g
       if (isMusic && !sparse) g += ((x.low - g) * dt) / Math.min(o.groove, music) // a plain mean until `groove` s of music
+      if (isMusic) [lowRef, highRef] = [lowRef + ((x.low - lowRef) * dt) / Math.min(REF, music), highRef + ((x.high - highRef) * dt) / Math.min(REF, music)]
+      ;[lowE, highE] = [lowE + (x.low - lowE) * ema(dt, ENERGY), highE + (x.high - highE) * ema(dt, ENERGY)]
+      out.energy = knee((1 - HIGH) * (lowRef > 0 ? lowE / lowRef : 0) + HIGH * (highRef > 0 ? highE / highRef : 0))
       hiFast += (x.high - hiFast) * ema(dt, RISER[0])
       hiSlow += (x.high - hiSlow) * ema(dt, RISER[1])
       // drop v2 (2): a deep cut arms (a) as a full build (before the run below starts, so that run keeps the peak: 7b)
