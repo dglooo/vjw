@@ -1137,6 +1137,10 @@ const DEMOS: readonly SceneDoc[] = [
     v: 1, id: 'builtin:demo-particles', name: 'Demo particles', star: false,
     layers: [{ gen: { ref: 'native/particles', values: { count: 49152 }, bind: PARTICLES }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  { // native/model in chrome at 1 sample (plan_gpu3d S4.7, M-PERF2); the sub drives the clip's speed
+    v: 1, id: 'builtin:demo-model', name: 'Demo model', star: false,
+    layers: [{ gen: { ref: 'native/model', values: { glass: 0, samples: 1 }, bind: { speed: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.5, max: 2 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.

@@ -5,6 +5,7 @@
 // layer's clock (the clip at `speed` × it). The RT holds premultiplied linear colour; the composite un-premultiplies,
 // tone-maps, encodes sRGB and writes straight alpha under `normal`, premultiplied colour under every other blend (N3).
 // `alpha: 'straight'` keeps a bottom model layer off live.ts's direct path (LR-7).
+// Cost: `samples` 4 bills 4.85 ms p95 on the bare layer (S1T-3c), so builtin:demo-model ships `samples` 1.
 import type { Blend } from '../doc'
 import { fullscreenProgram, gl as stageGl } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
