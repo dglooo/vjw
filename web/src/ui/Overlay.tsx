@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { setEditor } from '../app'
+import { meter, setEditor } from '../app'
 import { allowDevices, selectDevice, start } from '../audio/input'
+import { FLOOR } from '../audio/meter'
 import { allowCameras, selectCamera, setVideo } from '../camera/camera'
 import { badge } from '../quality'
 import { store, type UiSnapshot } from '../store'
@@ -28,7 +29,32 @@ const camLine = (s: UiSnapshot) =>
         ? `▶ ${s.camera.name}`
         : ''
 
-/** Minimal overlay (spec §2.6). Reads the store snapshot only, never per-frame values. */
+/** The input meter (dsp_linein_2026-11-16 fix 5): app.ts `meter`'s held peak, written by one rAF loop with no React
+ *  state (as the Sources tab's meters). <meter>'s low/high/optimum colour it: green under −6 dBFS, amber to −3, red. */
+function Level() {
+  const bar = useRef<HTMLMeterElement>(null)
+  const num = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    let raf = 0
+    const loop = () => {
+      const db = Math.round(meter.db)
+      const t = `${db > 0 ? '+' : ''}${db} dBFS` // over full scale: a file's float, a resampled input's overs
+      bar.current!.value = meter.db
+      if (num.current!.textContent !== t) num.current!.textContent = t
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  return (
+    <span className="level">
+      <meter ref={bar} aria-label="Input level" min={FLOOR} max={0} low={-6} high={-3} optimum={FLOOR} />
+      <span ref={num} />
+    </span>
+  )
+}
+
+/** Minimal overlay (spec §2.6). Reads the store snapshot only, never per-frame values (but Level's own loop). */
 export function Overlay() {
   const s = useSyncExternalStore(store.subscribe, store.getSnapshot)
   const [shown, setShown] = useState(true)
@@ -76,7 +102,15 @@ export function Overlay() {
             </option>
           ))}
         </select>
-        <span className="hint">{s.source?.kind === 'file' ? `▶ ${s.source.name}` : 'Drop an audio file anywhere'}</span>
+        {s.source && <Level />}
+        {s.source && <span className={s.clip ? 'clip on' : 'clip'}>CLIP</span>}
+        {s.clipHint && s.source?.kind === 'device' ? (
+          <span className="hint warn" role="status">
+            input clipping — lower the mixer gain
+          </span>
+        ) : (
+          <span className="hint">{s.source?.kind === 'file' ? `▶ ${s.source.name}` : 'Drop an audio file anywhere'}</span>
+        )}
         <select
           aria-label="Camera"
           value={s.camera?.kind === 'device' ? s.camera.id : ''}

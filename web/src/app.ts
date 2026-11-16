@@ -3,6 +3,7 @@
 import { createArrangement, shouldCut, SILENT_RMS, type ArrangeOut } from './audio/arrange'
 import { BAND_COUNT, createEnergy, rms } from './audio/energy'
 import { createFeatures } from './audio/features'
+import { createMeter } from './audio/meter'
 import { analyser, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, inputLatency, odfQueue, onsetQueue, recDest } from './audio/input'
 import { PRESETS, snapOctave, type Band, type PresetId } from './audio/presets'
 import { activePreset, bandKey, createSettings, workletBands } from './audio/settings'
@@ -207,6 +208,7 @@ const src: Sources = {} // binding sources, refilled every frame
 const features = createFeatures() // kick/snare/hats envelopes from the worklet's hits (S1.4)
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
+const meter = createMeter() // the HUD's input meter (dsp_linein_2026-11-16 fix 5): the overlay reads it live
 if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets }) // ?debug: the live binding sources, settings and the flash budget's onsets, for DevTools and browser checks
 // plan_camera CP1 (S1.2b): the camera's harness hooks — mask users, SegmentWorker constructions, frames posted to a
 // host; also on the probe and bench pages (their harnesses read it, camGpuMs under ?bench)
@@ -282,6 +284,9 @@ function frame(now: number) {
   analyserR.getFloatTimeDomainData(waveR)
   setAudio(magDb, wave, waveL, waveR)
   const frameRms = rms(wave) // arrange's `total`
+  // ponytail: the first 512 of each analyser's 1024 samples, ≈ 64 % of a 60 fps frame's (32 % at 30): a lone over can
+  // slip by, a clipping feed cannot. Read all 1024 if a single over must light CLIP.
+  meter.update(waveL, waveR, f.time)
   quietFor = frameRms <= SILENT_RMS ? quietFor + f.dt : 0
   const paused = quietFor >= PAUSE
   f.energy = energy.update(magDb, 1 / f.dt, paused) // first frame: dt 0 → fps ∞ → averages hold
@@ -402,6 +407,8 @@ function frame(now: number) {
       gpuMs: ms === undefined ? null : Math.round(ms * 10) / 10, // the panel's GPU hint
       nodeErrors: errors.join('\n') === prev.join('\n') ? prev : [...errors], // a new array only when they changed
       style: { detected: styleOut.detected, confidence: styleOut.confidence }, // S4.3: the badge reads it at 4×/s
+      clip: meter.clip, // the input meter's CLIP light and hint (latched 1.5 s, so 4×/s never misses one)
+      clipHint: meter.hint,
     })
     if (DEBUG) {
       const o = offsets.slice().sort((a, b) => a - b)
@@ -416,4 +423,4 @@ function frame(now: number) {
   }
 }
 requestAnimationFrame(frame)
-export { director, src, settings } // ?bench drives the autopilot (bench.ts); the Sources tab reads `src`/`settings` live (S6.1)
+export { director, meter, src, settings } // ?bench drives the autopilot (bench.ts); the Sources tab reads `src`/`settings` live (S6.1), the overlay `meter`

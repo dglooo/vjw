@@ -14,7 +14,8 @@
   padding: 12px 18px 28px;
   pointer-events: auto;
 }
-/* The bar fades item by item, not as a group, so the REC dot can stay: a forgotten take is never invisible. */
+/* The bar fades item by item, not as a group, so the REC dot can stay: a forgotten take is never invisible. So does a
+   lit CLIP: the DJ trims the mixer without touching the mouse. */
 .bar::before {
   content: '';
   position: absolute;
@@ -30,7 +31,7 @@
   pointer-events: none;
 }
 .bar.hidden::before,
-.bar.hidden > :not(.rec) {
+.bar.hidden > :not(.rec, .clip.on) {
   opacity: 0;
 }
 :root:has(.bar.hidden) {
@@ -70,6 +71,55 @@
 }
 .bpm.unsure {
   opacity: 0.35; /* (c) not trusted: the scenes react to energy and onsets only */
+}
+
+/* The input meter (dsp_linein_2026-11-16 fix 5) */
+.level {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.level meter {
+  width: 96px;
+  height: 8px;
+}
+.level meter::-webkit-meter-bar {
+  background: #ffffff1f;
+  border: 0;
+  border-radius: 2px;
+}
+.level meter::-webkit-meter-optimum-value {
+  background: #3ddc84;
+}
+.level meter::-webkit-meter-suboptimum-value {
+  background: #f2c14e;
+}
+.level meter::-webkit-meter-even-less-good-value {
+  background: #ff4d4d;
+}
+.level span {
+  min-width: 8ch;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+.clip {
+  padding: 1px 7px;
+  transition: opacity 0.5s ease; /* not the bar's colour fade: the light comes on at once */
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: #ff4d4d66;
+  border: 1px solid #ff4d4d40;
+  border-radius: 4px;
+}
+.clip.on {
+  color: #fff;
+  background: #e5302f;
+  border-color: #e5302f;
+}
+.hint.warn {
+  opacity: 1;
+  color: #ff6b6b;
 }
 
 .lock {
