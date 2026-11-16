@@ -15,11 +15,23 @@ function fakeGl() {
     activeTexture: (u: string) => (st.ACTIVE_TEXTURE = u),
     bindTexture: (t: string, x: unknown) => (st[unitKey(`TEXTURE_BINDING_${t.replace('TEXTURE_', '')}`)] = x),
     viewport: (...v: number[]) => (st.VIEWPORT = v),
+    pixelStorei: (p: string, v: number) => (st[p] = v),
   }
   return new Proxy({}, { get: (_, k: string) => impl[k] ?? (/^[A-Z0-9_]+$/.test(k) ? k : () => {}) }) as unknown as WebGL2RenderingContext
 }
 
 describe('glstate (S1-T instrument 1)', () => {
+  it('I-GL1 diff keys are exact: identical snapshots give {}; a changed CULL_FACE or pixel-store field reports exactly it', () => {
+    const gl = fakeGl()
+    const a = glState(gl)
+    expect(diff(a, glState(gl))).toEqual({})
+    gl.enable(gl.CULL_FACE)
+    expect(Object.keys(diff(a, glState(gl)))).toEqual(['CULL_FACE'])
+    gl.disable(gl.CULL_FACE)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+    expect(Object.keys(diff(a, glState(gl)))).toEqual(['UNPACK_ALIGNMENT'])
+  })
+
   it('reports a mutation (line 0: an enabled cap, a texture left on a unit) and restore() undoes it', () => {
     const gl = fakeGl()
     const a = glState(gl)
