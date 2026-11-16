@@ -18,6 +18,7 @@ import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { pairsByTarget, sizeExpr } from '../fx/isf'
+import { tick } from '../fx/syn'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
 import { store } from '../store'
@@ -278,6 +279,8 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       n.u.TIMEDELTA = n.u.iTimeDelta = dt
       n.u.FRAMEINDEX = n.u.iFrame = n.frames++
       n.u.inputImage = src // the previous draw; unused by a generator
+      const { clocks } = n.def as ShaderDef
+      if (clocks) tick(n.u, clocks, dt) // a synScene's audio clocks, on the layer's clock
       for (let j = 0; j < n.passes.length; j++) {
         const { p, pair } = n.passes[j]
         out = pair ? pair[1] : dst

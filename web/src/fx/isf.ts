@@ -73,7 +73,7 @@ varying vec2 isf_FragNormCoord;
 `
 
 /** A GLSL identifier, or a readable throw: names go straight into the generated source. */
-function glslName(x: unknown, id: string, what: string): string {
+export function glslName(x: unknown, id: string, what: string): string {
   if (typeof x !== 'string' || !/^[A-Za-z_]\w*$/.test(x)) throw new Error(`${id}: ${what} ${JSON.stringify(x)} is not a GLSL name`)
   return x
 }

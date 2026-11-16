@@ -71,11 +71,12 @@ Besides `particles.ts` and `fluid.ts`, the only code and shaders ported from thi
 
 ## Shaders
 
-Every file under `src/fx/isf`, `src/fx/own` and `src/fx/transitions` has a row (spec §6); paths are relative to `web/src/fx/`.
-The three tables come from `node scripts/shaders.mjs`, which reads each file's header. After adding a shader, rerun it and paste the output over the tables.
+Every file under `src/fx/isf`, `src/fx/own`, `src/fx/transitions` and `src/fx/syn` has a row (spec §6); paths are relative to `web/src/fx/`.
+The four tables come from `node scripts/shaders.mjs`, which reads each file's header. After adding a shader, rerun it and paste the output over the tables.
 
 - `isf/`: [Vidvox/ISF-Files](https://github.com/Vidvox/ISF-Files). The author is the file's `CREDIT`. An ISF header has no license line, so the license is the repo's: MIT (its LICENSE reads "Copyright (c) 2018", with no holder named). Each file's first line records it: `// Source: … · MIT`.
 - `own/`: ours, MIT (the project's license, spec §6). Library code inlined in a file keeps its original header there, and the row names it.
+- `syn/`: scenes from the donor `donor/visual_system_2/` (a reverse-engineered commercial live-visual app, `research_donor_visual_system_2.md` §7), run by `src/fx/syn.ts`. Each file is the scene's `main.glsl` under a header built from its `scene.json`; its first lines name the source scene, the author (the scene's `CREDIT`) and the license (the CC0 dedication the mrange files carry; otherwise unknown, recorded per spec §6). The scene's `script.js` is never copied or run: its clocks are restated as data (`VJW_CLOCK`). `preamble.glsl` rewrites the app's GLSL helpers the scenes call.
 - `transitions/`: [gl-transitions](https://github.com/gl-transitions/gl-transitions) 2.0.0, the `glsl3/` sources. Author and license are the file's own `// Author:` and `// License:` lines (all 12 are MIT, as is the repo's LICENSE); the source is the upstream file its header names. `crossfade.glsl` is ours.
 
 ### isf (20)
@@ -160,6 +161,15 @@ The three tables come from `node scripts/shaders.mjs`, which reads each file's h
 | `transitions/Swirl.glsl` | Sergey Kosarevsky | https://github.com/gl-transitions/gl-transitions/blob/master/transitions/Swirl.glsl | MIT |
 | `transitions/crossfade.glsl` | VeeJay Wizard (own) | - | MIT (own) |
 
+### syn (4)
+
+| path | author | source | license |
+|---|---|---|---|
+| `syn/beats_in_4d.glsl` | mrange (Mårten Rånge) | donor/visual_system_2/scenes/release/beats_in_4d.synScene | CC0 1.0 Universal (the dedication is kept below) |
+| `syn/dark_twister.glsl` | mrange (Mårten Rånge) | donor/visual_system_2/scenes/release/dark_twister.synScene | CC0 1.0 Universal (the dedication is kept below) |
+| `syn/kaleidowhoa_man.glsl` | Meebs | donor/visual_system_2/scenes/release/kaleidowhoa_man.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/preamble.glsl` | the donor app (anonymised in donor/visual_system_2/report.md); _hsv2rgb/_rgb2hsv: sam hocevar | donor/visual_system_2/glsl/01_preamble.txt | unknown (app resource strings; generic math rewritten by analogy); _hsv2rgb/_rgb2hsv WTFPL |
+
 ### Parser port
 
 `src/fx/isf.ts` ports the header parse and the uniform prefix of `src/ISFParser.js` (npm package `interactive-shader-format` 2.8.0).
@@ -188,6 +198,7 @@ Upstream work that a file names in a comment. The files state no license for it:
 - `isf/ASCII Art.fs`: VIDVOX's port of Shadertoy `lssGDj`, https://www.shadertoy.com/view/lssGDj. No licence stated; CC BY-NC-SA 3.0 assumed (personal use; ⚠️ check before release); author per the Shadertoy page (neither the donor nor the VIDVOX repo names it).
 - `transitions/PerlinDissolve.glsl`: the `random` one-liner from http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/.
 - `transitions/GlitchMemories.glsl`: based on work from natewave. `transitions/Hexagonalize.glsl`: hex math from http://www.redblobgames.com/grids/hexagons/. `transitions/Swirl.glsl`: ported by gre from https://gist.github.com/corporateshark/cacfedb8cca0f5ce3f7c.
+- `syn/beats_in_4d.glsl`, `syn/dark_twister.glsl` (mrange, CC0): the helpers inside keep their own lines: `tanh_approx` (Claude Brezinski, license unknown, https://mathr.co.uk/blog/2017-09-06_approximating_hyperbolic_tangent.html), `hsv2rgb` (sam hocevar, WTFPL, https://stackoverflow.com/a/17897228/418488), `roundedX` and `raySphereDensity` (Inigo Quilez, MIT, https://iquilezles.org).
 - `own/domain-warp.fs`: the technique is after Inigo Quilez, https://iquilezles.org/articles/warp/ (named in its description).
 - `own/bloom.fs`: the dual filter is after Bjørge, "Bandwidth-Efficient Rendering" (ARM, SIGGRAPH 2015), via our `src/gl/bloom.ts`. `own/reaction-diffusion.fs`: the Gray-Scott step follows jsexp's grayscott (pmneila, https://github.com/pmneila/jsexp, BSD-3-Clause) as the algorithm reference only; no code copied.
 - The TD look files (`own/td-feedback.fs`, `edge-rings.fs`, `bloom.fs`, `light-tunnel.fs`, `radial-blur.fs`, `flow-smear.fs`, `reaction-diffusion.fs`): each header's `Look:` line names the TouchDesigner component it studies; rewritten, no TD code. `own/light-tunnel.fs` adds that TD's shader names Andrew Benson (Cycling '74) as its origin.

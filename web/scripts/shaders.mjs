@@ -1,4 +1,4 @@
-// Prints the per-file tables of THIRD_PARTY.md "Shaders" (plan S7.1): one row for every file under src/fx/{isf,own,transitions},
+// Prints the per-file tables of THIRD_PARTY.md "Shaders" (plan S7.1): one row for every file under src/fx/{isf,own,transitions,syn},
 // read from its header. Run: node scripts/shaders.mjs
 import { readdirSync, readFileSync } from 'node:fs'
 
@@ -16,7 +16,7 @@ const INLINE = [
   [/Use the code however you wish/, "Stars2D and PolkaDot2D from Brian Sharpe's Wombat", 'https://github.com/BrianSharpe', 'Wombat permissive ("use the code however you wish, credit"; no licence file in the in-repo TD extract; personal use)'],
 ]
 
-for (const dir of ['isf', 'own', 'transitions']) {
+for (const dir of ['isf', 'own', 'transitions', 'syn']) {
   const files = readdirSync(new URL(`${dir}/`, fx)).sort()
   console.log(`\n### ${dir} (${files.length})\n\n| path | author | source | license |\n|---|---|---|---|`)
   for (const f of files) {

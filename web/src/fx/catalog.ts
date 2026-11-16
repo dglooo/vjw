@@ -23,6 +23,7 @@ import { vortex } from '../scenes/vortex'
 import { wireform } from '../scenes/wireform'
 import { wrapToy, wrapTransition } from './glsl'
 import { parseIsf } from './isf'
+import { parseSyn } from './syn'
 import type { EffectDef, ShaderDef } from './types'
 
 const files = import.meta.glob(['./isf/*.fs', './own/*.fs'], { query: '?raw', import: 'default', eager: true })
@@ -35,6 +36,17 @@ for (const [path, src] of Object.entries(files)) {
   rawFs.set(id, src)
   try {
     catalog.set(id, parseIsf(src, id))
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+// Donor synScenes (fx/syn.ts): `syn/<stem>`, the preamble excluded.
+const synFiles = import.meta.glob(['./syn/*.glsl', '!./syn/preamble.glsl'], { query: '?raw', import: 'default', eager: true })
+for (const [path, src] of Object.entries(synFiles)) {
+  const id = path.slice('./'.length, -'.glsl'.length)
+  try {
+    catalog.set(id, parseSyn(src as string, id))
   } catch (e) {
     console.error(e)
   }
