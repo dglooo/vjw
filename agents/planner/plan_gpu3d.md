@@ -438,7 +438,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Diff rule (`s42-diff.*`): diff after restore = {} for ctor, pmrem, compileAsync, upload, dispose and render x33; spy `getProgramParameter` x1. Frozen pair 0.0023/255 (the mutation reads 14.4); line 4 5/5; line 5: glass 0 = 1 = 0.5 at 4 calls / 4 textures / 4 programs (4 meshes: the Fox had 1 call), checker corr 0.987.
   - Bench, run once (coder evidence; slow class, post wireform+flash p95 3.78): chrome 2.03 ms, glass 2.04 ms, samples 4 4.85 ms billed p95 (Fox: 2.07 / 2.07 / 4.85). Main thread per draw: median 1.9 ms, p95 2.4 ms. Load 133 ms; 0 late frames on lines 7 and 8.
 
-### S4.3 [ ] Unit rows on the model native
+### S4.3 [x] Unit rows on the model native
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** Vitest pins the model's pure logic and its lifecycle. The behaviour does not change.
 - **Files:** `web/src/scenes/model.ts`, `web/src/three/host.ts`, `web/src/scenes/model.test.ts`.
@@ -456,6 +456,17 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Risk:** if `GLTFLoader.parse` cannot run under Vitest within ~15 min (texture decode), keep the shared-scene half of M-U3 on a fake host and report. M-B5 covers the motion in the browser.
 - **Done:** Gates. The diff rule of CP4 (the host file changed).
 - **Base / depends:** master / S4.2. **New deps:** none.
+- **Changed during implementation:**
+  - `host.ts` keeps its GL calls; its GL-free part moves out of `load()` into exports: `rig(gltf)` (scene, the one material, camera, clip; `apply(pose, aspect, glass)` sets the mixer, the camera and `glass` right before a render), `makeMaterial()`, `setGlass(material, g)`, `pose(t, d)`, `fit(rt, w, h, samples)`. Vitest runs all of them on real three in Node: `GLTFLoader.parseAsync` reads the shipped `Wolf.glb` in ~14 ms (no textures), so the Risk line's fake host is not needed.
+  - Item 3: `makeMaterial()` has no `THREE` parameter: it lives in `host.ts`, the only importer of three (frozen contract). The `glass` uniform holder sits on `material.userData.glass`.
+  - Item 4: `pose(t, d)`, not `pose(s, v)`: the present mapping reads only the layer clock (clip time t, orbit yaw 0.9 + 0.12 t); no source drives the pose yet. `d` = the clip's lead that `speed` integrates per instance (`d += dt × (speed − 1)`), so the default speed 1 keeps the clip exactly on the layer clock (unchanged behaviour). The camera orbit stays on the layer clock.
+  - Item 1: model.ts passes `modelSamples()` (1 | 4) to the host; `fit()` maps 1 to three's `samples: 0` (three's 1 = a 1-sample MSAA buffer). `Math.round` is gone (3.6 now reads 1; the input is a 1 / 4 menu).
+  - Item 2: `export const loader = { load }` in model.ts. A first try with `vi.mock('../three/host')` leaked the real `load()` to concurrent dynamic imports after `vi.resetModules()` (the no-memo RED showed the real host failing on the fake GL), so the fetch count was not reliable through the mock.
+  - The warm-up render in `load()` now also sets `glass` 0 (through `apply`): uniforms only, on the discarded 16 × 16 shot.
+  - M-U3's shared half: both instances read the module-level host, so a per-instance load still draws one scene; the row asserts the load count (1) with the drawn-scene count (1). RED under the no-memo edit: `[3, 1]`.
+  - RED once per matrix bad input (temporary edits, reverted; logs `scratchpad/gpu3d/s43-red-*.log`): M-U1 transparent = g > 0 (false at 0), a new material per apply (4 objects), `needsUpdate` per glass (program key changed); M-U2 rebuild every frame ([1, 2, 3, 4]), samples 3 passed through ([1, 4, 4, 3]); M-U3 no `mixer.setTime` (Frobenius 0); M-U3/M-U4 no memo (3 loads); M-U4 no `!host` guard (TypeError on a draw before Ready), no `.catch` in `create()` (Vitest Unhandled Rejection `Error: 404`, exit 1; the row's own assertions pass).
+  - Values: M-U1 56 primitive material fields + `defines` + `customProgramCacheKey()` constant over glass 0 / 0.5 / 1, 1 material on the 4 meshes; M-U2 builds [1, 2, 2, 3] for samples 1, 4, 4, 3, the host receives [1, 4, 4, 1]; M-U3 Frobenius 379.99 over 51 bones (t 0 → 0.5 s); M-U4 loads 1, renders 0 before Ready, 1 console.error on Failed.
+  - Diff rule (`s43-diff.*`, port 5176, a private Vite `cacheDir` so lane 1's shared `node_modules/.vite` is not re-optimised): diff after restore = {} for ctor, pmrem, compileAsync, upload, dispose and render × 34; spy {}; line 2 pair 0.0128/255 (≤ 0.08; mutation 14.13); line 4 5/5; line 5 glass 0 = 0.5 = 1 at 4 calls / 4 textures / 4 programs, checker corr 0.987. Stills `s43-chrome.png`, `s43-glass-checker.png`.
 ### S4.4 [ ] Catalog entry, `samples` not bindable, tile bake waits for Ready
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** `native/model` is in the Library, and its tile is never a black bake (N7).

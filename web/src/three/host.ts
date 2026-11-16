@@ -46,6 +46,78 @@ const GLASS = `#ifdef ENVMAP_TYPE_PMREM
 #endif
 #include <opaque_fragment>`
 
+/** The one material of every mesh at every `glass` value (M-U1): transparent always (N5), so `glass` moves uniforms
+ *  only and the program never changes. */
+export function makeMaterial() {
+  const glass = { value: 0 }, bodyAlpha = { value: 0.22 }
+  const material = new MeshStandardMaterial({ color: 0xf2f2f2, metalness: 1, roughness: 0.06, flatShading: true, transparent: true }) // flat facets: the low-poly look in chrome
+  material.userData.glass = glass
+  material.onBeforeCompile = (sh: { uniforms: Record<string, unknown>; fragmentShader: string }) => {
+    sh.uniforms.uGlass = glass
+    sh.uniforms.uBodyAlpha = bodyAlpha
+    sh.fragmentShader = `uniform float uGlass;\nuniform float uBodyAlpha;\n${sh.fragmentShader.replace('#include <opaque_fragment>', GLASS)}`
+  }
+  return material
+}
+/** `glass` 0 (chrome) .. 1 (glass): uniforms only. */
+export function setGlass(material: InstanceType<typeof MeshStandardMaterial>, g: number) {
+  material.userData.glass.value = g
+  material.metalness = 1 - g
+  material.color.setScalar(0.95 * (1 - g))
+}
+
+/** The pure pose seam (design L183-L185), the S1-T mapping: at layer time t, the clip time (`d` s ahead: what `speed`
+ *  ≠ 1 integrated, so 0 keeps the clip on the layer clock) and the camera's orbit yaw. */
+export const pose = (t: number, d = 0) => ({ clip: t + d, yaw: 0.9 + 0.12 * t })
+
+const target = (w: number, h: number, samples: number) => new WebGLRenderTarget(w, h, { type: HalfFloatType, depthBuffer: true, samples })
+/** An instance's RT (M-U2): rebuilt only when `samples` changes; a size change resizes it in place. */
+export function fit(rt: InstanceType<typeof WebGLRenderTarget> | null, w: number, h: number, samples: 1 | 4) {
+  const n = samples === 4 ? 4 : 0 // three: 0 = no MSAA buffer (1 would be a 1-sample MSAA blit)
+  if (rt && rt.samples !== n) {
+    rt.dispose()
+    rt = null
+  }
+  rt ??= target(w, h, n)
+  rt.setSize(w, h)
+  return rt
+}
+
+/** The GL-free half of the load (Vitest runs it on the shipped model: M-U1, M-U3): the shared scene graph with the one
+ *  material, the camera framed on the model, and the clip playing. */
+export function rig(gltf: { scene: InstanceType<typeof Scene>; animations: { name: string }[] }) {
+  const scene = new Scene()
+  scene.environmentIntensity = 0.4 // the room's walls darker, its lights as bright: chrome reads by contrast
+  const material = makeMaterial()
+  const animal = gltf.scene
+  animal.traverse((o: { isMesh?: boolean; material: unknown; frustumCulled: boolean }) => {
+    if (!o.isMesh) return
+    o.material = material // the model's own materials and textures are never uploaded: chrome and glass read the environment only
+    o.frustumCulled = false // a skinned bind-pose box culls a running animal wrongly
+  })
+  scene.add(animal)
+  const box = new Box3().setFromObject(animal)
+  const centre = box.getCenter(new Vector3()), size = box.getSize(new Vector3()).length()
+  const camera = new PerspectiveCamera(32, 16 / 10, size * 0.05, size * 10)
+  const mixer = new AnimationMixer(animal)
+  // A run cycle by name (the last `|` segment: exporters prefix the armature), else a walk, else the first clip.
+  const clip = ['Gallop', 'Run', 'Walk'].map((n) => gltf.animations.find((a) => a.name.split('|').pop() === n)).find(Boolean) ?? gltf.animations[0]
+  mixer.clipAction(clip).play()
+
+  /** One instance's pose, camera and `glass`, right before its render: instances share the scene graph (§ Model rev 1). */
+  function apply(p: ReturnType<typeof pose>, aspect: number, g: number) {
+    mixer.setTime(p.clip)
+    camera.position.set(centre.x + Math.sin(p.yaw) * size * 1.5, centre.y + size * 0.3, centre.z + Math.cos(p.yaw) * size * 1.5)
+    camera.lookAt(centre)
+    if (camera.aspect !== aspect) {
+      camera.aspect = aspect
+      camera.updateProjectionMatrix()
+    }
+    setGlass(material, g)
+  }
+  return { scene, camera, material, apply }
+}
+
 export async function load(gl: WebGL2RenderingContext, url: string, S: Spike) {
   let renderer: InstanceType<typeof WebGLRenderer> | null = null
   /** Rule 1. `keys`: what this entry restores (load-time entries: every field, the cost is once). */
@@ -75,51 +147,15 @@ export async function load(gl: WebGL2RenderingContext, url: string, S: Spike) {
     r.setClearColor(0x000000, 0) // a GL call (instrument 2 caught it outside a guard)
     return r
   })
-  const gltf = await new GLTFLoader().loadAsync(url) // fetch + parse: no GL
-  const scene = new Scene()
-  scene.environmentIntensity = 0.4 // the room's walls darker, its lights as bright: chrome reads by contrast
+  const { scene, camera, apply } = rig(await new GLTFLoader().loadAsync(url)) // fetch + parse: no GL
   scene.environment = guard('pmrem', () => {
     const g = new PMREMGenerator(renderer)
     const rt = g.fromScene(new RoomEnvironment(), 0.04)
     g.dispose()
     return rt.texture
   })
-  const glass = { value: 0 }, bodyAlpha = { value: 0.22 }
-  const material = new MeshStandardMaterial({ color: 0xf2f2f2, metalness: 1, roughness: 0.06, flatShading: true, transparent: true }) // flat facets: the low-poly look in chrome
-  material.onBeforeCompile = (sh: { uniforms: Record<string, unknown>; fragmentShader: string }) => {
-    sh.uniforms.uGlass = glass
-    sh.uniforms.uBodyAlpha = bodyAlpha
-    sh.fragmentShader = `uniform float uGlass;\nuniform float uBodyAlpha;\n${sh.fragmentShader.replace('#include <opaque_fragment>', GLASS)}`
-  }
-  const animal = gltf.scene
-  animal.traverse((o: { isMesh?: boolean; material: unknown; frustumCulled: boolean }) => {
-    if (!o.isMesh) return
-    o.material = material // the model's own materials and textures are never uploaded: chrome and glass read the environment only
-    o.frustumCulled = false // a skinned bind-pose box culls a running animal wrongly
-  })
-  scene.add(animal)
-  const box = new Box3().setFromObject(animal)
-  const centre = box.getCenter(new Vector3()), size = box.getSize(new Vector3()).length()
-  const camera = new PerspectiveCamera(32, 16 / 10, size * 0.05, size * 10)
-  const mixer = new AnimationMixer(animal)
-  // A run cycle by name (the last `|` segment: exporters prefix the armature), else a walk, else the first clip.
-  const clip = ['Gallop', 'Run', 'Walk'].map((n) => gltf.animations.find((a: { name: string }) => a.name.split('|').pop() === n)).find(Boolean) ?? gltf.animations[0]
-  mixer.clipAction(clip).play()
-
-  /** The pose and the camera of one instance at its time t: instances share the scene graph (§ Model rev 1). */
-  function pose(t: number, aspect: number) {
-    mixer.setTime(t)
-    const yaw = 0.9 + 0.12 * t
-    camera.position.set(centre.x + Math.sin(yaw) * size * 1.5, centre.y + size * 0.3, centre.z + Math.cos(yaw) * size * 1.5)
-    camera.lookAt(centre)
-    if (camera.aspect !== aspect) {
-      camera.aspect = aspect
-      camera.updateProjectionMatrix()
-    }
-  }
-  const target = (w: number, h: number, samples: number) => new WebGLRenderTarget(w, h, { type: HalfFloatType, depthBuffer: true, samples })
   const shot = target(16, 16, 0)
-  pose(0, 16 / 10)
+  apply(pose(0), 16 / 10, 0)
   const compiled = guard('compileAsync', () => {
     renderer!.setRenderTarget(shot)
     return renderer!.compileAsync(scene, camera)
@@ -134,25 +170,17 @@ export async function load(gl: WebGL2RenderingContext, url: string, S: Spike) {
 
   return {
     renderer: R,
-    /** One instance's frame into its own RT (rebuilt on a size or samples change): returns the RT. */
-    render(rt: InstanceType<typeof WebGLRenderTarget> | null, w: number, h: number, samples: number, t: number, g: number) {
+    /** One instance's frame into its own RT (fit()) at layer time t, its clip `d` s ahead (pose()): returns the RT. */
+    render(rt: InstanceType<typeof WebGLRenderTarget> | null, w: number, h: number, samples: 1 | 4, t: number, d: number, g: number) {
       return guard('render', () => {
-        if (rt && rt.samples !== samples) {
-          rt.dispose()
-          rt = null
-        }
-        rt ??= target(w, h, samples)
-        rt.setSize(w, h)
+        rt = fit(rt, w, h, samples)
         R.setRenderTarget(rt)
         if (S.alpha > 0) {
           gl.clearColor(WHITE * S.alpha, WHITE * S.alpha, WHITE * S.alpha, S.alpha)
           gl.clear(gl.COLOR_BUFFER_BIT)
           return rt
         }
-        pose(t, w / h)
-        glass.value = g
-        material.metalness = 1 - g
-        material.color.setScalar(0.95 * (1 - g))
+        apply(pose(t, d), w / h, g)
         R.render(scene, camera)
         S.info = { calls: R.info.render.calls, triangles: R.info.render.triangles, textures: R.info.memory.textures, geometries: R.info.memory.geometries, programs: R.info.programs.length }
         return rt
