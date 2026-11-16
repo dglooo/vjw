@@ -1119,6 +1119,20 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:kaleidowhoa-man', name: 'KaleidoWHOA, MAN', star: true, // dnb · Meebs (syn_BeatTime: the beat count, unbound)
     layers: [{ gen: { ref: 'syn/kaleidowhoa_man', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Presence', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.4 }],
   },
+  // Donor port lane B1b (2026-11-17; the star rule of that run: I-FL1 ≤ 3 steps in 1 s AND billed p95 ≤ 7.5 ms with
+  // five lanes on the GPU). The donor's transition uniforms (cReg*, direction, sides, …) are panel sliders.
+  {
+    v: 1, id: 'builtin:nova', name: 'Nova', star: false, // dnb · Felix Woitzel
+    layers: [{ gen: { ref: 'syn/nova', bind: syn('syn_BassHits', 'syn_HighHits', 'syn_RandomOnBeat', 'syn_MidLevel', 'syn_OnBeat', 'syn_ToggleOnBeat', 'syn_HighLevel', 'syn_BassLevel', 'syn_HighPresence', 'syn_MidPresence', 'syn_BassPresence', 'syn_BPMTri2', 'syn_BPMConfidence', 'syn_Presence', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }], // ⚡ syn_HighHits
+  },
+  {
+    v: 1, id: 'builtin:pop', name: 'Pop', star: false, // dnb · Meebs
+    layers: [{ gen: { ref: 'syn/pop', bind: syn('syn_RandomOnBeat', 'syn_HighLevel', 'syn_HighPresence', 'syn_BPMTri2', 'syn_BassLevel', 'syn_BassPresence', 'syn_Presence', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:quicksand', name: 'Quicksand', star: false, // dnb · Meebs
+    layers: [{ gen: { ref: 'syn/quicksand', bind: syn('syn_MidHighHits', 'syn_Presence', 'syn_OnBeat', 'syn_BPMSin2', 'syn_HighHits', 'syn_Intensity') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }], // ⚡ syn_HighHits
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
