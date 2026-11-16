@@ -1103,9 +1103,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       gen: {
         ref: 'syn/beats_in_4d',
         values: { bass_mix: [0.4, 0.6] }, // B = .4·level³ + .6·hit³ (the donor's .7/.7): the exp(6·B) flash term less white
-        // the level's rise over ~.8 s: a build's bass ramp never steps the exp(6·B) light > .10 in a frame (I-FL1: .25 s
-        // still made 3 steps in a row at the drop); ⚡ the hit
-        bind: { ...syn('syn_BassHits'), syn_BassLevel: { ...SYN_BIND.syn_BassLevel, attack: 0.8, release: 0.8 } },
+        // I-FL1: the gate caps the hit's rises, not the falls of the exp(6·B) light. ⚡ The hit decays over .45 s (was .2:
+        // 3 falling steps > .10 in a row after a kick) and the level moves over .8 s, so neither steps a frame by > .10.
+        bind: { syn_BassHits: { ...SYN_BIND.syn_BassHits, release: 0.45 }, syn_BassLevel: { ...SYN_BIND.syn_BassLevel, attack: 0.8, release: 0.8 } },
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25,
     }],
