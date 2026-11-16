@@ -89,3 +89,4 @@
 - `agents/test-architect/matrix_neuro_serpent.md` — Neuro Serpent test matrix (2026-11-15, 59 tests; spike order in §1; gaps G1–G10). Current.
 - `agents/audio-dsp/dsp_serpent_replay.md` — Serpent replay pre-step (2026-11-15): knobs, lines a–h (d–g fail: no absence detector), reeseLevel §4 record. Current.
 - `agents/creative-qa/cqa_amen_shatter_spike.md` — CQA of the Amen Shatter spike sheet (2026-11-15): REVISE, 1 HIGH (set B not held), 6 MED (plate bullseye, stamps, veil…), 4 LOW. Current.
+- `agents/audio-dsp/dsp_formula_review_2026-11-17.md` — donor (visual_system_2) audio model vs ours (2026-11-17, 152 lines): Level/Hits/Presence + macros; our sub/reese fade in drop bodies; H0 regression = 11-05 retune + milk-sync; P1–P6 ranked; analysis-view spec §6. Current.
