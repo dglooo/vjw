@@ -213,7 +213,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - P-U2 at this step: a tile's 4 096-point capacity also caps the draw. So the matrix bad input (no tile cap in `particleCount`) turns the row RED on its pure line `particleCount(1048576, true)`; the two draw lines catch a draw that ignores `count`.
   - P-U4 also checks that `builtin:particles` binds nothing to `count` (a binding would move the drawn count) and that one fake-GL frame of its values draws 65 536.
 
-### S1.4 [ ] Growth between frames
+### S1.4 [x] Growth between frames
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** any `count` up to 1 048 576 draws, and no allocation runs inside a stage frame (C8, N6).
 - **Files:** `web/src/scenes/particles.ts`, `web/src/scenes/particles.test.ts`, `scratchpad/gpu3d/g3-state.mjs` (mode `grow`).
@@ -231,6 +231,17 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Report:** the real buffer count, format and bytes at 1 048 576 (the design's 33.5 MB is computed).
 - **Done:** Gates. The `grow` line passes.
 - **Base / depends:** master / S1.3. **New deps:** none.
+- **Changed during implementation:**
+  - `alloc()` passes `{ numElements: cap }` to twgl's `createBufferInfoFromArrays`. Without it, twgl reads `BUFFER_SIZE` back (`getBufferParameter`, 2 per allocation). That call is a sync wait on the GPU process, which zero-fills the new buffers: 3.0 to 21.9 ms of main thread per growth to 1 048 576 (`s14-diag.log`). With the argument the task takes 0 to 0.2 ms (`s14-diag-fix.log`). `create()` loses the same wait. It is margin, not the reason for the live result: `s14-live.mjs` reads 0 late frames at the growth also without the argument (`s14-live-nonum.log`), because the wait fits in the idle part of the frame in this session.
+  - The task copies both ping-pong pairs (4 `copyBufferSubData` calls, 8 B x old capacity each), so `cur` stays valid without a choice of the live pair.
+  - "Does nothing on a disposed instance" = `clearTimeout` in `dispose()`: the task never runs. P-U6 checks it.
+  - The task restores the frame's ARRAY_BUFFER binding (one `getParameter`). twgl's VAO setup leaves a TF buffer there. Between frames the binding is the engine's triangle buffer (P-B3 `before`: bound), so the `null` of `create()` would show in P-B3's diff.
+  - The task grows to `grownCapacity(capacity, n)`, n = the count of the frame that scheduled it. A higher count asked while it is pending grows in the next task.
+  - `grow` catches the growth callback (`window.setTimeout` wrapped during the draw) and runs it itself, so no app frame runs between its reads. P-U6 checks the scheduling (`vi.getTimerCount()` = 1).
+  - P-B1 also checks that the buffers read after growth are new and that the old ids keep their positions at dt 0 (no re-seed). Both matrix bad inputs read RED: copy skipped = 131 072 / 131 072 differing floats (pos / vel); `seeded` reset = 131 072 moved. P-B3 bad input (no COPY unbind): diff `["COPY_WRITE"]`, and the next draw gets INVALID_OPERATION (1282).
+  - The panel slider step for `count` (S1.3 note) is not changed: it needs an optional `step` on `Input` (CP1 effects contract) and a `Panel.tsx` change, outside this step's files. `particleCount()` rounds the 10 485.76 step.
+  - Buffers at 1 048 576: 4 (pos + vel of 2 ping-pong pairs), float32 vec2 = 8 B per point, 8 388 608 B each, 33 554 432 B total (the design's 33.5 MB). In a growth from 65 536 the old 4 x 524 288 B live until the same task frees them: peak 35 651 584 B.
+  - Harness files are in the worktree's `scratchpad/gpu3d/` (lane 2 edits the main `g3-state.mjs`: copy out the self-contained `if (MODE === 'grow') {...}` block, its header lines and the usage text). `s13-count.mjs` has the S1.4 cases (2 000 000 -> 1 048 576, 131 073 -> 131 073). `s14-live.mjs` is the brief's growth-to-1 M check on the app path.
 ### S1.5 [ ] `builtin:demo-particles` and Bench N*
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the particle demo ships at the measured N*_shipped (C2, N2).

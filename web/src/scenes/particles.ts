@@ -24,6 +24,10 @@ export function particleCount(count: number, tile: boolean): number {
   const n = Number.isNaN(count) ? COUNT_DEFAULT : Math.min(COUNT_MAX, Math.max(0, Math.round(count)))
   return tile ? Math.min(n, TILE_MAX) : n
 }
+/** max(capacity, next power of two >= n). Pure. Never shrinks. */
+export function grownCapacity(capacity: number, n: number): number {
+  return Math.max(capacity, 2 ** Math.ceil(Math.log2(n))) // n 0: 2 ** -Infinity = 0
+}
 
 /** Look knobs, read every frame; bindings and the panel drive them through `values`. */
 export const inputs: Input[] = [
@@ -110,21 +114,54 @@ export const particles: NativeDef = {
   credit: 'VeeJay Wizard, after Gregg Tavares (twgl.js)', inputs,
   create(gl, size) {
     const tile = !!size
-    const capacity = tile ? TILE_MAX : COUNT_DEFAULT // points the buffers hold; a tile's (2b S3.2, design S6): ≈.1 ms
+    let capacity = tile ? TILE_MAX : COUNT_DEFAULT // points the buffers hold (grow() raises it); a tile's (2b S3.2, design S6): ≈.1 ms
     const prog = (tfProgram ??= createProgramInfo(gl, [VS, FS], { transformFeedbackVaryings: ['posOut', 'velOut'] }))
     const composite = fullscreenProgram(COMPOSITE_FS)
     const bloom = createBloom(gl)
     const target = renderTarget(true)
     // Allocated by size (zero-filled, no CPU array): the TF pass seeds each id once, on the GPU (uSeeded).
-    const [a, b] = [0, 1].map(() => createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: 2 * capacity }, vel: { numComponents: 2, data: 2 * capacity } }))
     // Ping-pong: each set reads one pair of buffers through its VAO and writes the other pair through its TF object.
-    const sets = [[a, b], [b, a]].map(([src, dst]) => ({
-      vao: createVertexArrayInfo(gl, prog, src).vertexArrayObject!,
-      tf: createTransformFeedback(gl, prog, { posOut: dst.attribs!.pos, velOut: dst.attribs!.vel }),
-    }))
+    // numElements given: twgl reads no BUFFER_SIZE back, a sync GPU-process wait on the zero-fill (3-22 ms at 1 M, s14-diag).
+    const alloc = (cap: number) => {
+      const pairs = [0, 1].map(() => createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: 2 * cap }, vel: { numComponents: 2, data: 2 * cap } }, { numElements: cap }))
+      const sets = [pairs, [pairs[1], pairs[0]]].map(([src, dst]) => ({
+        vao: createVertexArrayInfo(gl, prog, src).vertexArrayObject!,
+        tf: createTransformFeedback(gl, prog, { posOut: dst.attribs!.pos, velOut: dst.attribs!.vel }),
+      }))
+      return { pairs, sets }
+    }
+    const free = ({ pairs, sets }: ReturnType<typeof alloc>) => {
+      for (const s of sets) {
+        gl.deleteVertexArray(s.vao)
+        gl.deleteTransformFeedback(s.tf)
+      }
+      for (const x of pairs) for (const at of Object.values(x.attribs!)) gl.deleteBuffer(at.buffer)
+    }
+    let bufs = alloc(capacity)
     gl.bindBuffer(gl.ARRAY_BUFFER, null) // as in the example: don't leave a TF buffer on a generic binding
     let cur = 0
     let seeded = 0 // high-water mark: the ids a pass has covered (each seeded once)
+    let growth: ReturnType<typeof setTimeout> | undefined // the pending growth task: at most one per instance
+
+    /** GPU3D C8, N6: a task between frames (no allocation inside a stage frame). New buffers by size, both pairs copied
+     *  on the GPU, then swapped; `seeded` stays, so the new ids take their hash seeds in the next pass. */
+    const grow = (n: number) => {
+      growth = undefined
+      const old = bufs, bytes = 2 * 4 * capacity, arrayBuffer = gl.getParameter(gl.ARRAY_BUFFER_BINDING) as WebGLBuffer | null
+      capacity = grownCapacity(capacity, n)
+      bufs = alloc(capacity)
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null) // copying a buffer of the bound TF object: INVALID_OPERATION (WebGL 2)
+      for (const [i, x] of old.pairs.entries())
+        for (const k of ['pos', 'vel']) {
+          gl.bindBuffer(gl.COPY_READ_BUFFER, x.attribs![k].buffer)
+          gl.bindBuffer(gl.COPY_WRITE_BUFFER, bufs.pairs[i].attribs![k].buffer)
+          gl.copyBufferSubData(gl.COPY_READ_BUFFER, gl.COPY_WRITE_BUFFER, 0, 0, bytes)
+        }
+      gl.bindBuffer(gl.COPY_READ_BUFFER, null)
+      gl.bindBuffer(gl.COPY_WRITE_BUFFER, null)
+      gl.bindBuffer(gl.ARRAY_BUFFER, arrayBuffer) // alloc() left a TF buffer there: the frame's binding back
+      free(old)
+    }
 
     return {
       draw(f, v) {
@@ -132,8 +169,10 @@ export const particles: NativeDef = {
         // at 4, so prominent hits burst fully and weak ones (hats) barely push.
         let kick = 0
         for (const o of f.onsets) kick = Math.max(kick, (o.strength - 1.5) / 2.5)
-        const n = Math.min(particleCount(v.count as number, tile), capacity)
-        const { vao, tf } = sets[cur]
+        const want = particleCount(v.count as number, tile)
+        if (want > capacity && !growth) growth = setTimeout(() => grow(want), 0) // this frame draws the capacity
+        const n = Math.min(want, capacity)
+        const { vao, tf } = bufs.sets[cur]
         cur ^= 1
 
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
@@ -166,14 +205,11 @@ export const particles: NativeDef = {
         composite({ uSrc: lit, uRes: [f.width, f.height] })
       },
       dispose() {
+        clearTimeout(growth) // a pending growth does nothing on a disposed instance
         bloom.dispose()
         gl.deleteFramebuffer(target.framebuffer)
         gl.deleteTexture(target.attachments[0])
-        for (const s of sets) {
-          gl.deleteVertexArray(s.vao)
-          gl.deleteTransformFeedback(s.tf)
-        }
-        for (const x of [a, b]) for (const at of Object.values(x.attribs!)) gl.deleteBuffer(at.buffer)
+        free(bufs)
       },
     }
   },

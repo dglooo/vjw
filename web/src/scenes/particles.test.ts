@@ -1,12 +1,12 @@
-// native/particles (matrix_gpu3d.md P-U2..P-U5). create() and draw() on a fake GL; the seed law on the GPU is the browser
-// check (`g3-state.mjs seeddist`, P-R5-2).
+// native/particles (matrix_gpu3d.md P-U1..P-U6). create() and draw() on a fake GL; the seed law on the GPU is the browser
+// check (`g3-state.mjs seeddist`, P-R5-2), the growth copy too (`g3-state.mjs grow`, P-B1, P-B3).
 import { expect, test, vi } from 'vitest'
 import { ZERO_SYNC } from '../audio/sync'
 import { defaults } from '../doc'
 import type { FrameInput } from '../frame'
 import type { Value } from '../fx/types'
 import { BUILTIN } from './builtin'
-import { particleCount, particles } from './particles'
+import { grownCapacity, particleCount, particles } from './particles'
 
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, renderTarget: () => ({ fit: () => {}, attachments: [{}] }) })) // takes the page's canvas + WebGL at import
 
@@ -27,13 +27,32 @@ function fakeGl() {
   return { gl, uploads, draws }
 }
 
+const F = { onsets: [], width: 1728, height: 1118, dt: 1 / 60, time: 0, energy: { att: { bass: 1 } }, sync: ZERO_SYNC } as unknown as FrameInput
+
 /** The drawArrays counts of one frame: create() (a tile when `size` is given), then one draw() with these values. */
 function drawn(values: Record<string, Value>, size?: readonly [number, number]) {
   const { gl, draws } = fakeGl()
-  const f = { onsets: [], width: 1728, height: 1118, dt: 1 / 60, time: 0, energy: { att: { bass: 1 } }, sync: ZERO_SYNC } as unknown as FrameInput
-  particles.create(gl, size).draw(f, { ...defaults(particles), ...values })
+  particles.create(gl, size).draw(F, { ...defaults(particles), ...values })
   return draws
 }
+
+test('P-U1 after the growth task, drawArrays draws count at res 1, res 0.5 and governor scale 0.6: 65536 and 1048576 (N1)', () => {
+  vi.useFakeTimers()
+  try {
+    for (const count of [65536, 1048576])
+      for (const [width, height] of [[1728, 1118], [864, 559], [1037, 671]]) { // the layer target at res 1, res .5, scale .6
+        const { gl, draws } = fakeGl()
+        const p = particles.create(gl)
+        const at = () => p.draw({ ...F, width, height }, { ...defaults(particles), count })
+        at()
+        vi.runAllTimers() // the growth task, when the count asked for one
+        at()
+        expect(draws.at(-1), `count ${count} at ${width}×${height}`).toBe(count)
+      }
+  } finally {
+    vi.useRealTimers()
+  }
+})
 
 test('P-U2 a tile draws min(count, 4096): 4096 for count 1048576, 1000 for count 1000 (N1)', () => {
   expect(particleCount(1048576, true)).toBe(4096)
@@ -59,4 +78,33 @@ test('P-U5 create() at the default count uploads no data array; the TF buffers g
   particles.create(gl)
   expect(uploads.filter((d) => ArrayBuffer.isView(d) && d.byteLength > 0), 'data arrays uploaded at create').toHaveLength(0)
   expect(uploads).toEqual(Array(4).fill(65536 * 2 * 4)) // pos + vel of the two ping-pong sets, a float vec2 per point
+})
+
+test('P-U6 grownCapacity: n 1000000 -> 1048576, then n 65536 keeps 1048576; powers of two; one growth task (C8)', () => {
+  expect(grownCapacity(65536, 1000000)).toBe(1048576)
+  expect(grownCapacity(1048576, 65536), 'never shrinks').toBe(1048576)
+  expect([0, 65536, 65537, 131072, 131073].map((n) => grownCapacity(65536, n))).toEqual([65536, 65536, 131072, 131072, 262144])
+  const grown = (uploads: unknown[]) => uploads.filter((b) => b === 1048576 * 2 * 4) // a buffer by size at 1048576 points
+  vi.useFakeTimers()
+  try {
+    const { gl, uploads, draws } = fakeGl()
+    const p = particles.create(gl)
+    const at = (count: number) => p.draw(F, { ...defaults(particles), count })
+    at(1000000)
+    at(1000000) // a second frame before the task runs: still one task (at most one pending per instance)
+    expect(vi.getTimerCount()).toBe(1)
+    vi.runAllTimers()
+    at(65536)
+    expect(vi.getTimerCount(), 'no growth after it').toBe(0)
+    expect(grown(uploads), 'one growth: pos + vel of the two ping-pong sets').toHaveLength(4)
+    expect(draws).toEqual([65536, 65536, 65536]) // the capacity until the task ran, then the count
+
+    const q = particles.create(gl)
+    q.draw(F, { ...defaults(particles), count: 1048576 })
+    q.dispose!()
+    vi.runAllTimers()
+    expect(grown(uploads), 'a growth pending at dispose() does nothing').toHaveLength(4)
+  } finally {
+    vi.useRealTimers()
+  }
 })
