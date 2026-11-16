@@ -44,6 +44,10 @@ export const sourceGroups = (custom: readonly { id: string; name: string }[] = [
 
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
 
+/** Whether a binding may drive input `x` (GPU3D RG-2): any but one declared `bindable: false` (native/model's `samples`:
+ *  a render-target rebuild per change). live.ts refuses such a binding; the panel draws no bind dot for it. */
+export const bindable = (x: { bindable?: boolean }) => x.bindable !== false
+
 /** Fills `out` with this frame's sources, no allocation. Silence (log 0 = −∞) clamps to 0. */
 export function sources(f: FrameInput, out: Sources): Sources {
   const { att, bands } = f.energy

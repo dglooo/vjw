@@ -9,7 +9,7 @@
 // into the library (E4), where `live` finds every scene.
 import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { ctx } from '../audio/input'
-import { evaluate, level, type Binding, type BindState, type Sources } from '../bind'
+import { bindable, evaluate, level, type Binding, type BindState, type Sources } from '../bind'
 import { cam } from '../camera/camera'
 import * as users from '../camera/users' // users.use(): a bare use() reads as React's hook to the rules-of-hooks lint
 import { CODE_MAX, defaults, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
@@ -44,6 +44,9 @@ export interface Live {
   mute(layer: number, on: boolean): void
   /** A bound input's last evaluated value (`key`: `name`, or `name.i` for one component); undefined when unbound. */
   read(p: edit.NodePath, key: string): number | undefined
+  /** GPU3D N7: every layer's generator is hidden (native/model loading, native/camera without a picture), so a render
+   *  draws black. The tile bake waits on it. */
+  hidden(): boolean
 }
 
 /** A built node: a native, or a shader program and its passes; `u` holds its values (+ the ISF uniforms). The passes
@@ -203,7 +206,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       const i = idx === undefined ? -1 : Number(idx)
       const v = u[name]
       const input = inputs.find((x) => x.name === name)
-      const ok = input && v !== undefined && (i < 0 ? !Array.isArray(v) : Array.isArray(v) && i < v.length)
+      const ok = input && bindable(input) && v !== undefined && (i < 0 ? !Array.isArray(v) : Array.isArray(v) && i < v.length)
       if (!ok) {
         fail(`${ref}: cannot bind ${key}`)
         continue
@@ -450,6 +453,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       const u = p.node === 'layer' ? l.v : l.nodes[p.node === 'gen' ? 0 : p.node + 1]?.u
       return bound.find((x) => x.u === u && x.name === name && x.i === i)?.y
     },
+    hidden: () => layers.every((l) => !!l.nodes[0]?.native?.hidden?.()),
   }
 }
 

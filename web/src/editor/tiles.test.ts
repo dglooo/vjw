@@ -1,11 +1,13 @@
 // 2b S3.3: the bake's pure scheduler (design S6): K per tile, the per-rAF slice, a re-queue. S3.4: the hovered tile, on
-// a fake GL whose readbacks never land.
+// a fake GL whose readbacks never land. GPU3D S4.4 (N7): a tile whose native is hidden waits for its warm().
 import { expect, test, vi } from 'vitest'
 import type { Sources } from '../bind'
 import type { NodeDoc, SceneDoc } from '../doc'
 import type { FrameInput } from '../frame'
+import { catalog } from '../fx/catalog'
 import type { EffectDef, ShaderDef } from '../fx/types'
 import { tile, type Live } from '../gl/live'
+import type { NativeDef } from '../gl/scene'
 import { bakeFrames, nextSlice, requeue, SLICE, tiles, type Job } from './tiles'
 
 const gl = vi.hoisted(() => ({
@@ -14,7 +16,8 @@ const gl = vi.hoisted(() => ({
 }))
 // The real engine takes the page's canvas + WebGL at import; the catalog's natives reach for WebGL and Butterchurn.
 vi.mock('../gl/engine', () => ({ gl, renderTarget: () => ({ fit() {} }) }))
-vi.mock('../gl/live', () => ({ tile: vi.fn((doc: SceneDoc) => ({ doc, render: vi.fn(), dispose: vi.fn() })) }))
+const hidden = vi.hoisted(() => new Set<string>()) // the docs (by id) whose tile instance reads hidden (N7)
+vi.mock('../gl/live', () => ({ tile: vi.fn((doc: SceneDoc) => ({ doc, render: vi.fn(), dispose: vi.fn(), hidden: () => hidden.has(doc.id) })) }))
 vi.mock('../fx/catalog', () => ({ catalog: new Map() }))
 vi.mock('twgl.js', () => ({ bindFramebufferInfo() {} }))
 
@@ -108,4 +111,69 @@ test('hover: read back on every 3rd frame (20 fps), from its first', () => {
   for (let i = 0; i < 7; i++) tiles.frame(at(10 + i), S)
   expect(gl.readPixels.mock.calls.length - n).toBe(3) // its frames 0, 3, 6
   tiles.hover(null)
+})
+
+let now = 100
+/** `k` rAFs 1/60 s apart (none late), on from the last one. */
+const run = (k: number) => {
+  for (let i = 0; i < k; i++) tiles.frame(at((now += 1 / 60)), S)
+}
+const flush = () => new Promise((r) => setTimeout(r))
+const reads = () => gl.readPixels.mock.calls.length
+/** Block `id`: one native/<id> layer (in the catalog, so K = 90) whose instances read hidden until `hidden` loses `id`,
+ *  and whose warm() is one memoised load (as native/model's), resolved by done(). lives(): its tile instances so far. */
+function hiddenNative(id: string) {
+  let done = () => {}
+  const load = new Promise<void>((r) => (done = r))
+  const def: NativeDef = { id: `native/${id}`, name: id, kind: 'generator', credit: '', inputs: [], create: () => ({ draw() {} }), warm: () => load }
+  catalog.set(def.id, def)
+  const doc = { ...scene(`native/${id}`), id }
+  hidden.add(id)
+  tiles.want([{ id, scene: doc }])
+  return { done: () => done(), lives: () => vi.mocked(tile).mock.results.map((r) => r.value as Live).filter((l) => l.doc === doc) }
+}
+
+test('M-U5 a tile whose native is hidden (loading): 0 stills while hidden, then exactly 1 once warm() resolves (N7)', async () => {
+  run(2) // the tiles queued above bake out first
+  const n0 = reads()
+  const m = hiddenNative('m')
+  await flush() // no shaders to compile: ready
+  run(30) // twice the 15 rAFs a 90-frame bake takes
+  expect(reads() - n0, 'bakes while hidden').toBe(0)
+  const [parked] = m.lives()
+  expect(m.lives()).toHaveLength(1)
+  expect(parked.render, 'a disposed native is not baked').not.toHaveBeenCalled()
+  expect(parked.dispose).toHaveBeenCalledOnce()
+  tiles.hover('m') // the hovered tile draws, but reads nothing back while hidden
+  run(6)
+  tiles.hover(null)
+  expect(reads() - n0, 'hover read-backs while hidden').toBe(0)
+  hidden.delete('m')
+  m.done() // Ready
+  await flush()
+  run(30)
+  expect(reads() - n0, 'bakes after ready').toBe(1)
+  const lives = m.lives()
+  expect(lives).toHaveLength(3) // the parked one, the hovered one, the bake
+  expect(lives[2].render).toHaveBeenCalledTimes(90)
+  expect(parked.render).not.toHaveBeenCalled()
+})
+
+test('N7: still hidden after warm() resolved (a failed load): the job leaves the queue, no still, no third instance', async () => {
+  const n0 = reads()
+  const f = hiddenNative('f')
+  await flush()
+  run(2) // the first look: hidden, so it waits for warm()
+  f.done() // resolved, still hidden
+  await flush()
+  for (let i = 0; i < 6; i++) {
+    run(1)
+    await flush() // a rAF is its own task: a re-arm would land before the next one
+  }
+  expect(reads() - n0).toBe(0)
+  expect(f.lives()).toHaveLength(2)
+  for (const l of f.lives()) {
+    expect(l.render).not.toHaveBeenCalled()
+    expect(l.dispose).toHaveBeenCalledOnce()
+  }
 })

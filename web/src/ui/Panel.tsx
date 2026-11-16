@@ -3,7 +3,7 @@ import { director, settings } from '../app'
 import { activePreset } from '../audio/settings'
 import { PRESETS } from '../audio/presets'
 import { BAND_COUNT } from '../audio/energy'
-import { BIND_DEFAULTS, sourceGroups, type Binding, type Shape } from '../bind'
+import { BIND_DEFAULTS, bindable, sourceGroups, type Binding, type Shape } from '../bind'
 import { defaults, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
 import type { Kind, Value } from '../fx/types'
@@ -172,7 +172,8 @@ export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove
       {def?.inputs.map((x) => {
         const label = x.label ?? x.name
         const set = (y: Value) => panel.setValue(path, x.name, y)
-        const bind = (k: string, lo: number, hi: number): Bindable => ({ path, k, lo, hi, init: n.bind?.[k], gate: x.type === 'bool' || x.type === 'event' })
+        const bind = (k: string, lo: number, hi: number): Bindable | undefined =>
+          bindable(x) ? { path, k, lo, hi, init: n.bind?.[k], gate: x.type === 'bool' || x.type === 'event' } : undefined
         const val = v[x.name]
         switch (x.type) {
           case 'float': {
