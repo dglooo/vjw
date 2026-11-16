@@ -73,6 +73,11 @@ const FIELDS: Field[] = [
   { key: 'ACTIVE_TEXTURE', get: (gl) => p(gl, 'ACTIVE_TEXTURE'), set: (gl, v) => gl.activeTexture(n(v)) }, // last: the unit reads move it
 ]
 export const KEYS: readonly string[] = FIELDS.map((f) => f.key)
+/** What our own passes change on every draw (the engine's program + twgl's sampler units and attribute buffer, bloom's
+ *  blendFunc, a clear's colour): a native that restores these leaves the GL state as it found it (GPU3D I-GL2,
+ *  plan_gpu3d S5.1; the field list `g3-state.mjs leak` reported). ponytail: units 0-1, as our passes sample at most two
+ *  textures; a pass with a third sampler touches unit 2: re-run the leak mode. */
+export const PASS_LIST: readonly string[] = ['blendFunc', 'COLOR_CLEAR_VALUE', 'CURRENT_PROGRAM', 'ARRAY_BUFFER_BINDING', 'unit0.TEXTURE_2D', 'unit1.TEXTURE_2D', 'ACTIVE_TEXTURE']
 
 /** The state of `keys` (default: every field). Leaves ACTIVE_TEXTURE as it found it. */
 export function glState(gl: GL, keys: readonly string[] = KEYS): GLState {

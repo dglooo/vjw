@@ -19,6 +19,7 @@ import { pulse } from '../audio/sync'
 import type { Input } from '../fx/types'
 import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, renderTarget } from '../gl/engine'
+import { glState, PASS_LIST, restore } from '../gl/glstate'
 import type { NativeDef } from '../gl/scene'
 import type { SplatPath } from '../gpu/splat'
 import { noteWebgpuMs } from '../quality'
@@ -223,6 +224,7 @@ export const particles: NativeDef = {
 
     return {
       draw(f, v) {
+        const keep = glState(gl, PASS_LIST) // GPU3D I-GL2: the state its passes change, put back at the end
         // Onsets new this frame (a file's once audible, T1). The detector fires above strength 1.5 (its threshold) and caps
         // at 4, so prominent hits burst fully and weak ones (hats) barely push.
         let kick = 0
@@ -289,12 +291,13 @@ export const particles: NativeDef = {
           gl.bindVertexArray(null) // fullscreen passes set their attributes on the default VAO
         }
         wasSplat = drew
-        if (bare) return
+        if (bare) return restore(gl, keep)
 
         const lit = bloom.apply(target.attachments[0], f.width, f.height, v.glow as number)
         gl.bindFramebuffer(gl.FRAMEBUFFER, out)
         gl.viewport(0, 0, f.width, f.height)
         composite({ uSrc: lit, uRes: [f.width, f.height] })
+        restore(gl, keep)
       },
       dispose() {
         clearTimeout(growth) // a pending growth does nothing on a disposed instance

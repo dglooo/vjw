@@ -659,7 +659,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Not done, for the lead: matrix § Amendments assigns I-FL1's `flash` mode of `g3-60s.mjs` to "frontend-coder at S4.7"; the S4.7 text and the brief do not name it.
   - Base: S3.3, a listed dependency, is not in master `52beaf1`. No S4.7 row needs it.
   - Observation, not fixed: `s1t.mjs` instrument 2 matches three's stack frames with `/\.vite\/deps\/three/`. Under a private `cacheDir`, three is served from `/@fs/tmp/vite-cache-*/deps/three.js`, so the spy cannot match ("spy {}" in S4.3 and S4.6 ran under private caches). `/deps\/three/` matches both paths.
-### S5.1 [ ] Integration A: particles and fluid hygiene
+### S5.1 [x] Integration A: particles and fluid hygiene
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the R4 hygiene rows of the two plain natives.
 - **Files (scratch only):** `scratchpad/gpu3d/g3-state.mjs` (modes `leak`, `life`), `scratchpad/gpu3d/g3-px.mjs` (mode `fxafter-pf`).
@@ -671,8 +671,21 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** Vitest: none (no product code). Rows: I-GL2, I-LC1, I-LC2, I-B2. A row that is RED for a product reason follows the RED rule.
 - **Done:** Gates (tree unchanged). Each mode prints its row result.
 - **Base / depends:** master / S4.1, S3.3, S2.3. **New deps:** none.
-
-### S5.2 [ ] Integration B: blends, compile, binding r
+- **Coder evidence (port 5176, private cacheDir `/tmp/vite-cache-s51`, base `9ceaa0b`; harnesses in the worktree's `scratchpad/gpu3d/`, prefix `s51-`):**
+  - I-GL2 `leak` PASS after the fix: diff = {} over 146 fields for particles TF (12 draws, 1 POINTS draw each), particles splat (12 draws, 0 POINTS + 1 canvas upload each), fluid (13 draws); GL errors 0. The mutation (TF object + RASTERIZER_DISCARD + VAO left bound) reads exactly those 3 fields. RED before the fix (`s51-leak-red.log`): TF {CURRENT_PROGRAM, unit0/unit1 TEXTURE_2D, ARRAY_BUFFER_BINDING, blendFunc, COLOR_CLEAR_VALUE}, splat {CURRENT_PROGRAM, unit0/unit1 TEXTURE_2D, blendFunc}, fluid {CURRENT_PROGRAM, unit0/unit1 TEXTURE_2D}. **Finding (control, not an exemption):** native/spectrum leaves blendFunc, CURRENT_PROGRAM, unit0/unit1 TEXTURE_2D, ACTIVE_TEXTURE, COLOR_CLEAR_VALUE; every shipped native that ends with a twgl pass is expected to do the same (not measured).
+  - I-LC1 `life particles` PASS: 30 exits over cycles 1-10 (the demo TF 49 152, a TF growth case 131 072, the splat path 1 M) = the post-warm-up baseline for every GL kind; at enter +4 buffers, +2 VAOs, +2 TF objects, +7 FBOs, +7 textures (+8 on the splat path); instances 34 = 34; requestDevice 1 (requestAdapter 1).
+  - I-LC2 `life fluid` PASS: 10 exits = the baseline (programs 108 constant after the warm-up: the engine's cache); at enter +8 FBOs, +8 textures; instances 11 = 11.
+  - I-B2 `fxafter-pf` PASS: max |B - (255 - A)| = 0 for particles (tile, 51 239 lit texels) and fluid (one kick splat, 100 732 lit texels).
+- **Changed during implementation:**
+  - **RED rule fix (I-GL2):** the row reads every field of S1T-1's list, and the three new-native draws left the fields their own passes set (the engine's program, twgl's sampler units 0-1 and attribute buffer, bloom's blendFunc, a clear colour). Root-cause fix in the natives, as `host.ts` does for three: `glstate.ts` exports `PASS_LIST` (those 7 fields); `native/particles` and `native/fluid` take `glState(gl, PASS_LIST)` at the start of `draw` and `restore()` it at the end (the DEV `vjwBare` early return too). Not "tree unchanged". New Vitest pin `I-GL2 PASS_LIST names instrument fields only` (RED on a misspelt key, `s51-igl2-vitest-red.log`). `glstate.ts` now sits on the entry path (particles imports it); the I-BUNDLE1 size row excludes particle-step growth (lead ruling), not measured.
+  - `leak` adds a sentinel pass (4 frames): inert fields (blend func / equation / colour, clear values, depth func, cull mode, front face, scissor box, polygon offset) are set to values no pass uses right before the snapshot. Without it, particles' blendFunc ONE, ONE read as unchanged after an `add` composite.
+  - `life particles` covers three scenes (the demo as shipped, a growth case, the splat path) so the matrix bad input "the growth buffers" and the `requestDevice` count are exercised; cycle 0 warms the program cache and the device and is not counted.
+  - `g3-px.mjs`: the frozen `f` gains `energy` (particles reads `att.bass`); `shot()` takes the sources (the fluid needs one kick rise).
+  - Base: S3.3 (a listed dependency) is not in master `9ceaa0b`; `life fluid` and `fxafter-pf` ran on the S3.2 fluid. The lead re-runs them after S3.3 merges.
+- **Lead-routed items:**
+  - Harness merge: `g3-bench.mjs` = S2.4 (splat-a, splat-b, 60s splat) + S4.7 (model, 60s model, `lateAt`, model records `M_REC`); `g3-60s.mjs` lists particles, crossfade-1m, model, splat. The `.s47` copies are deleted in the worktree.
+  - Spy regex (`s1t.mjs`): `/deps\/three/` + a non-blind check (`seen` = the first three call inside a host entry). `s1t.mjs diff` under the private cacheDir: spy {getProgramParameter: 1} (line 1's allowed call; `seen` = getContextAttributes at `/@fs/tmp/vite-cache-s51/deps/three.module-*.js`); line 1 diff after restore = {} for ctor, pmrem, compileAsync, upload, dispose, render x35; line 4 7/7. The S4.3 / S4.6 "spy {}" lines were blind; re-proven here as "getProgramParameter x1 only".
+  - G11 floor: source of 0.08/255 = TD wave-2 S0.1 (STATE TAIL), a cross-session pair of builtin:spectrum frozen at 13.50 s (FFT-quantum jitter between page loads), not a two-read floor. Re-measured (`s51-floor.mjs stage`, 10 repeats of two reads 10 frames apart, builtin:spectrum frozen at 13.5 s, layer speed 0): 0/255 in all 10 repeats after a 150-frame settle; after 30 frames it decays 0.244 → 0.044 → 0.008 → ... → 0 by repeat 7 (the S1-T line-2 "floor" 0.34 / S4.6's 0.61 are this transient). Threshold source for S5.2: this measurement.
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the R4 rows that need all three layers.
 - **Files (scratch only):** `scratchpad/gpu3d/g3-px.mjs` (mode `blends-layers`), `scratchpad/gpu3d/g3-state.mjs` (modes `compile`, `binding-r`).
