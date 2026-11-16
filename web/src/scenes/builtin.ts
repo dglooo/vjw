@@ -1119,6 +1119,69 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:kaleidowhoa-man', name: 'KaleidoWHOA, MAN', star: true, // dnb · Meebs (syn_BeatTime: the beat count, unbound)
     layers: [{ gen: { ref: 'syn/kaleidowhoa_man', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Presence', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.4 }],
   },
+  // Lane B1a (2026-11-17, the bulk import): 10 more. A hit that lights the frame rides the snare or the kick, never the
+  // hats (⚡ lets 3 onsets/s through: hats would pass at random). res .5 on the feedback scenes = the donor's own pass
+  // sizes on a 3456-wide stage (their patterns are sized in texels).
+  {
+    v: 1, id: 'builtin:plus', name: 'PLUS', star: false, // dnb · Meebs
+    layers: [{ gen: { ref: 'syn/PLUS', bind: { ...syn('syn_Level'), syn_HighHits: SYN_BIND.syn_Hits } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }], // ⚡ syn_HighHits ← snare
+  },
+  {
+    v: 1, id: 'builtin:alien-cavern', name: 'Alien Cavern', star: false, // dnb · aiekick, CC BY-NC-SA 3.0
+    layers: [{
+      gen: { ref: 'syn/alien_cavern', values: { flashing: 1 }, bind: { ...syn('syn_Presence', 'syn_BPMSin4', 'syn_BassLevel', 'syn_Level'), syn_HighHits: SYN_BIND.syn_Hits } }, // ⚡ syn_HighHits ← snare: the ridges light up
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:canvas', name: 'Canvas', star: false, // dnb · ⚡ syn_OnBeat (the kick), syn_BPMTri
+    layers: [{
+      gen: {
+        ref: 'syn/canvas',
+        // the kick's whole-frame light: short (.08 s: black again before the next kick) and at .55 (the feedback takes
+        // 17 % of it per frame: a luma step under .10; .5 is the flash gate's on-line)
+        bind: { ...syn('syn_BPMTri', 'syn_BPMConfidence', 'syn_RandomOnBeat', 'syn_BassLevel', 'syn_Level'), syn_OnBeat: { ...SYN_BIND.syn_OnBeat, release: 0.08, max: 0.55 } },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:churning', name: 'Churning', star: false, // dnb · Victor S.
+    layers: [{
+      gen: { ref: 'syn/churning', values: { colRegSel: 0.1 }, bind: { ...syn('syn_HighLevel', 'syn_BassLevel', 'syn_BassHits', 'syn_ToggleOnBeat', 'syn_RandomOnBeat', 'syn_BPMTri2', 'syn_Level', 'syn_HighPresence', 'syn_BassPresence'), syn_HighHits: SYN_BIND.syn_Hits } }, // syn_HighHits ← snare
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:compound-iris', name: 'Compound Iris', star: false, // dnb · Meebs
+    layers: [{ gen: { ref: 'syn/compound_iris', bind: syn('syn_BassPresence', 'syn_MidPresence', 'syn_BPMSin2', 'syn_HighPresence', 'syn_HighHits', 'syn_Level', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:dispersion', name: 'Dispersion', star: false, // dnb · cornusammonis
+    layers: [{ gen: { ref: 'syn/dispersion', bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_HighLevel', 'syn_Level'), syn_HighHits: SYN_BIND.syn_BassHits } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }], // syn_HighHits ← kick: the stripes pump
+  },
+  {
+    v: 1, id: 'builtin:fluid-body', name: 'Fluid Body', star: false, // dnb · Victor S.
+    layers: [{ gen: { ref: 'syn/fluid_body', bind: syn('syn_BassHits', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_HighHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:glassier', name: 'Glassier', star: false, // dnb · Felix Woitzel
+    layers: [{
+      gen: { ref: 'syn/glassier', bind: { ...syn('syn_BassHits', 'syn_RandomOnBeat', 'syn_OnBeat', 'syn_ToggleOnBeat', 'syn_HighLevel', 'syn_BassLevel', 'syn_BassPresence', 'syn_Level'), syn_HighHits: SYN_BIND.syn_Hits } }, // syn_HighHits ← snare: the brush's push
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:glob', name: 'Glob', star: false, // dnb · Nimitz
+    layers: [{ gen: { ref: 'syn/glob', bind: { ...syn('syn_BassHits', 'syn_Level'), syn_HighHits: SYN_BIND.syn_Hits } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }], // ⚡ syn_HighHits ← snare, syn_BassHits (the kick)
+  },
+  {
+    v: 1, id: 'builtin:milk-honey-smoke-bile', name: 'Milk, Honey, Smoke, Bile', star: false, // dnb · Victor S.
+    layers: [{
+      gen: { ref: 'syn/milk_honey_smoke_bile', bind: syn('syn_HighLevel', 'syn_HighPresence', 'syn_MidLevel', 'syn_BassHits', 'syn_MidPresence', 'syn_MidHighLevel', 'syn_MidHighPresence', 'syn_RandomOnBeat', 'syn_OnBeat', 'syn_Level') },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+    }],
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
