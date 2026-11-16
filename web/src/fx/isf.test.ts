@@ -266,9 +266,13 @@ describe('parseIsf', () => {
     }
   })
 
-  test('own/bars: a persistent float 128×1 levels pass, then the draw (2b S4.1)', () => {
+  test('own/bars: a persistent float 128×1 levels pass, the 1×1 hot texel (I-FL1 fa2-), then the draw (2b S4.1)', () => {
     const src = import.meta.glob('./own/bars.fs', { query: '?raw', import: 'default', eager: true })['./own/bars.fs'] as string
-    expect(parseIsf(src, 'bars').passes).toEqual([{ target: 'levels', persistent: true, float: true, width: '128', height: '1' }, { persistent: false, float: false }])
+    expect(parseIsf(src, 'bars').passes).toEqual([
+      { target: 'levels', persistent: true, float: true, width: '128', height: '1' },
+      { target: 'hot', persistent: true, float: true, width: '1', height: '1' },
+      { persistent: false, float: false },
+    ])
   })
 
   test('isf/Pixellate: the Pixel tag and a cell jump on the kick (2b S4.2)', () => {

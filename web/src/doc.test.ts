@@ -22,7 +22,7 @@ describe('parseScene', () => {
     for (const d of own) expect(sources(d).filter((s) => s === 'onset' || s === 'treb'), d.id).toEqual([])
     const tally: Record<string, number> = {} // the own scenes before the TD look's, which were bound by the policy from the start
     for (const s of own.slice(0, own.findIndex((d) => d.id === 'builtin:td-feedback')).flatMap(sources)) tally[s] = (tally[s] ?? 0) + 1
-    expect(tally).toEqual({ kick: 28, snare: 5, sub: 6, reese: 8, build: 3, hats: 1, beat: 1, lfo: 2 }) // bass, onset, treb: 0; kick +2 = particles' ⚡ hit, +12 = the tunnel's, spectrum's and glitch's (I-FL1)
+    expect(tally).toEqual({ kick: 28, snare: 5, sub: 6, reese: 8, build: 3, hats: 1, bar: 1, lfo: 2 }) // bass, onset, treb: 0; kick +2 = particles' ⚡ hit, +12 = the tunnel's, spectrum's and glitch's; pixel-strobe beat → bar (I-FL1)
   })
 
   test('every built-in ref is a native or a file under fx/isf or fx/own', () => {
