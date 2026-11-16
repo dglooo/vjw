@@ -1,12 +1,12 @@
 // native/particles (matrix_gpu3d.md P-U1..P-U6). create() and draw() on a fake GL; the seed law on the GPU is the browser
 // check (`g3-state.mjs seeddist`, P-R5-2), the growth copy too (`g3-state.mjs grow`, P-B1, P-B3).
-import { expect, test, vi } from 'vitest'
+import { beforeAll, expect, test, vi } from 'vitest'
 import { ZERO_SYNC } from '../audio/sync'
 import { defaults } from '../doc'
 import type { FrameInput } from '../frame'
 import type { Value } from '../fx/types'
 import { BUILTIN } from './builtin'
-import { grownCapacity, particleCount, particles } from './particles'
+import { grownCapacity, particleCount, particles, shouldSplat, SPLAT_MIN } from './particles'
 
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, renderTarget: () => ({ fit: () => {}, attachments: [{}] }) })) // takes the page's canvas + WebGL at import
 
@@ -28,6 +28,15 @@ function fakeGl() {
 }
 
 const F = { onsets: [], width: 1728, height: 1118, dt: 1 / 60, time: 0, energy: { att: { bass: 1 } }, sync: ZERO_SYNC } as unknown as FrameInput
+
+/** The splat path's device ask (S2.3): a draw at >= SPLAT_MIN asks once per module, and in Node (no WebGPU) the device
+ *  resolves null after the dynamic import and splatDevice() settle. */
+async function settled(p: typeof particles) {
+  p.create(fakeGl().gl).draw(F, { ...defaults(p), count: SPLAT_MIN })
+  await vi.dynamicImportSettled()
+  await new Promise((ok) => setTimeout(ok, 0))
+}
+beforeAll(() => settled(particles)) // so every row below sees the TF rules of S1.4 (S2.3 item 3)
 
 /** The drawArrays counts of one frame: create() (a tile when `size` is given), then one draw() with these values. */
 function drawn(values: Record<string, Value>, size?: readonly [number, number]) {
@@ -104,6 +113,35 @@ test('P-U6 grownCapacity: n 1000000 -> 1048576, then n 65536 keeps 1048576; powe
     q.dispose!()
     vi.runAllTimers()
     expect(grown(uploads), 'a growth pending at dispose() does nothing').toHaveLength(4)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test('S2.3 shouldSplat(n, ready): the splat path from SPLAT_MIN = 262144 with a ready device; else TF, and a tile always TF', () => {
+  const cases: [number, boolean][] = [[SPLAT_MIN, true], [SPLAT_MIN - 1, true], [1048576, false], [particleCount(1048576, true), true]]
+  expect(SPLAT_MIN).toBe(262144)
+  expect(cases.map(([n, ready]) => shouldSplat(n, ready))).toEqual([true, false, false, false])
+})
+
+test('S2.3 while the device is pending, TF draws its capacity with no growth task; once it resolves null, the S1.4 growth applies', async () => {
+  vi.resetModules()
+  const { particles: fresh } = await import('./particles') // its device not asked yet
+  const { gl, draws } = fakeGl()
+  const p = fresh.create(gl)
+  const at = () => p.draw(F, { ...defaults(fresh), count: 1048576 })
+  vi.useFakeTimers()
+  at() // asks; pending
+  expect(vi.getTimerCount(), 'no growth task while pending').toBe(0)
+  vi.useRealTimers()
+  await settled(fresh) // null: no WebGPU in Node
+  vi.useFakeTimers()
+  try {
+    at()
+    expect(vi.getTimerCount(), 'one growth task').toBe(1)
+    vi.runAllTimers()
+    at()
+    expect(draws).toEqual([65536, 65536, 1048576])
   } finally {
     vi.useRealTimers()
   }

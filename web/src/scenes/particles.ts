@@ -12,14 +12,15 @@
 // points in the same pass. Original header: "twgl.js Copyright (c) 2015, Gregg Tavares All Rights Reserved.
 // Available via the MIT license. see: http://github.com/greggman/twgl.js for details"
 import {
-  bindFramebufferInfo, createBufferInfoFromArrays, createProgramInfo, createTransformFeedback, createVertexArrayInfo,
-  setUniforms, type ProgramInfo,
+  bindFramebufferInfo, createBufferInfoFromArrays, createProgramInfo, createTexture, createTransformFeedback,
+  createVertexArrayInfo, setUniforms, type ProgramInfo,
 } from 'twgl.js'
 import { pulse } from '../audio/sync'
 import type { Input } from '../fx/types'
 import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, renderTarget } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
+import type { SplatPath } from '../gpu/splat'
 
 export const COUNT_DEFAULT = 65536, COUNT_MAX = 1048576, TILE_MAX = 4096
 /** Points drawn (GPU3D N1: the value as is, at any layer res and governor scale). NaN -> COUNT_DEFAULT; else Math.round,
@@ -31,6 +32,12 @@ export function particleCount(count: number, tile: boolean): number {
 /** max(capacity, next power of two >= n). Pure. Never shrinks. */
 export function grownCapacity(capacity: number, n: number): number {
   return Math.max(capacity, 2 ** Math.ceil(Math.log2(n))) // n 0: 2 ** -Infinity = 0
+}
+export const SPLAT_MIN = 262144 // points from which the WebGPU splat path draws (GPU3D CP2); S2.4 sets it from row B
+/** GPU3D CP2 path rule: the splat path when its device is ready and n >= SPLAT_MIN, else TF. A tile (n <= TILE_MAX)
+ *  stays on TF. Pure. */
+export function shouldSplat(n: number, deviceReady: boolean): boolean {
+  return deviceReady && n >= SPLAT_MIN
 }
 
 /** Look knobs, read every frame; bindings and the panel drive them through `values`. */
@@ -117,10 +124,36 @@ uniform sampler2D uSrc;
 uniform vec2 uRes;
 out vec4 outColor;
 void main() { outColor = vec4(1.0 - exp(-texture(uSrc, gl_FragCoord.xy / uRes).rgb * ${EXPOSURE.toFixed(2)}), 1.0); }`
+// The splat path's stand-in for the POINTS draw (GPU3D CP2): the canvas holds each pixel's particle count as data
+// (R = count & 255, G = count >> 8, top row first: gpu/splat.ts), read NEAREST by texelFetch (S2.2 ruling: no blend of
+// two counts) and scaled while a resize is pending. A count gets the calm colour at uGain = one TF sprite's energy.
+const DECODE_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uSrc;
+uniform vec2 uRes;
+uniform float uGain;
+out vec4 outColor;
+void main() {
+  ivec2 s = textureSize(uSrc, 0);
+  ivec2 p = ivec2(gl_FragCoord.xy * vec2(s) / uRes);
+  vec2 rg = round(texelFetch(uSrc, ivec2(p.x, s.y - 1 - p.y), 0).rg * 255.0);
+  outColor = vec4(vec3(0.06, 0.125, 0.5) * uGain * (rg.r + 256.0 * rg.g), 1.0);
+}`
 
 // Compiled once and shared: instances differ only in their buffers, and every draw sets all the uniforms. Kept here
 // because the engine's program() cache takes no transform feedback varyings.
 let tfProgram: ProgramInfo | undefined
+
+// The splat path's device, once per page (GPU3D CP2): asked the first time a draw wants >= SPLAT_MIN points, through a
+// dynamic import (no WebGPU code before it; no import cycle with gpu/splat.ts). undefined = not asked yet, or pending;
+// null = no WebGPU, or lost (dead for the page, no retry: every instance draws TF from its next frame).
+let newSplat: (() => SplatPath) | null | undefined
+let asked: Promise<void> | undefined
+const ask = () => (asked ??= import('../gpu/splat').then(async ({ splatDevice, createSplat }) => {
+  const dev = await splatDevice()
+  newSplat = dev && (() => createSplat(dev))
+  void dev?.lost.then(() => (newSplat = null))
+}).catch(() => { newSplat = null }))
 
 export const particles: NativeDef = {
   id: 'native/particles', name: 'Particles', kind: 'generator', category: 'geometry',
@@ -130,6 +163,7 @@ export const particles: NativeDef = {
     let capacity = tile ? TILE_MAX : COUNT_DEFAULT // points the buffers hold (grow() raises it); a tile's (2b S3.2, design S6): ≈.1 ms
     const prog = (tfProgram ??= createProgramInfo(gl, [VS, FS], { transformFeedbackVaryings: ['posOut', 'velOut'] }))
     const composite = fullscreenProgram(COMPOSITE_FS)
+    const decode = fullscreenProgram(DECODE_FS)
     const bloom = createBloom(gl)
     const target = renderTarget(true)
     // Allocated by size (zero-filled, no CPU array): the TF pass seeds each id once, on the GPU (uSeeded).
@@ -155,6 +189,10 @@ export const particles: NativeDef = {
     let cur = 0
     let seeded = 0 // high-water mark: the ids a pass has covered (each seeded once)
     let growth: ReturnType<typeof setTimeout> | undefined // the pending growth task: at most one per instance
+    let splat: SplatPath | undefined // this instance's splat path while the path rule says so (its own state and seeds)
+    let wasSplat = false // the last frame drew the splat path: TF reseeds when it takes over (no state crosses paths)
+    let tex: WebGLTexture | undefined // the splat canvas, uploaded as milkdrop/native.ts's copy() does
+    let tw = 0, th = 0
 
     /** GPU3D C8, N6: a task between frames (no allocation inside a stage frame). New buffers by size, both pairs copied
      *  on the GPU, then swapped; `seeded` stays, so the new ids take their hash seeds in the next pass. */
@@ -183,34 +221,62 @@ export const particles: NativeDef = {
         let kick = 0
         for (const o of f.onsets) kick = Math.max(kick, (o.strength - 1.5) / 2.5)
         const want = particleCount(v.count as number, tile)
-        if (want > capacity && !growth) growth = setTimeout(() => grow(want), 0) // this frame draws the capacity
-        const n = Math.min(want, capacity)
-        const { vao, tf } = bufs.sets[cur]
-        cur ^= 1
+        if (want >= SPLAT_MIN) void ask() // the first time only, never before; draw never awaits it
+        const on = shouldSplat(want, !!newSplat)
+        if (!on && splat) { // lost, or below SPLAT_MIN: TF from this frame
+          splat.dispose()
+          splat = undefined
+        }
+        if (on) splat ??= newSplat!()
+        // TF grows only where the splat path can never take the count (no WebGPU, lost, below SPLAT_MIN). While the device
+        // is pending, and on the splat path, it draws its capacity.
+        if (want > capacity && !growth && !shouldSplat(want, newSplat !== null)) growth = setTimeout(() => grow(want), 0) // this frame draws the capacity
+        const u = { dt: Math.min(f.dt, 0.05), time: f.time, kick: kick * (v.burst as number), bass: Math.min(3, f.energy.att.bass), pulse: pulse(f.sync), swirl: v.swirl as number }
+        const index = splat?.index
+        splat?.frame(want, f.width, f.height, u)
+        const drew = !!splat && splat.index !== index // TF on a frame whose index did not move: before the first build (S2.2 ruling)
 
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
         target.fit(f.width, f.height)
         bindFramebufferInfo(gl, target)
         gl.viewport(0, 0, f.width, f.height) // the points at the target's px: the viewport is what the last pass left (the canvas' by default)
-        gl.clearColor(0, 0, 0, 1)
-        gl.clear(gl.COLOR_BUFFER_BIT)
-        gl.useProgram(prog.program)
-        gl.bindVertexArray(vao)
-        setUniforms(prog, {
-          uDt: Math.min(f.dt, 0.05), uTime: f.time, uKick: kick * (v.burst as number),
-          uBass: Math.min(3, f.energy.att.bass), uPulse: pulse(f.sync),
-          uAspect: f.width / f.height, uSize: v.size, uScale: f.height / 1000, uSwirl: v.swirl, uSeeded: seeded,
-        })
-        gl.enable(gl.BLEND)
-        gl.blendFunc(gl.ONE, gl.ONE)
-        gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf)
-        gl.beginTransformFeedback(gl.POINTS)
-        gl.drawArrays(gl.POINTS, 0, n)
-        seeded = Math.max(seeded, n)
-        gl.endTransformFeedback()
-        gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null)
-        gl.disable(gl.BLEND)
-        gl.bindVertexArray(null) // fullscreen passes set their attributes on the default VAO
+        if (drew) {
+          const c = splat!.canvas // this frame's: read in the task that submitted it (P-B5)
+          gl.bindTexture(gl.TEXTURE_2D, (tex ??= createTexture(gl, { minMag: gl.NEAREST, wrap: gl.CLAMP_TO_EDGE, auto: false })))
+          if (c.width === tw && c.height === th) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, c)
+          else {
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c)
+            tw = c.width
+            th = c.height
+          }
+          // uGain: a TF sprite's energy, ∫(1 − q²)² over its disc = (π/12) s², s = its mean px size (E[(.5 + r1)²] = 1.08)
+          const s = (v.size as number) * (f.height / 1000) * (0.6 + 0.4 * u.bass + 0.4 * u.pulse)
+          decode({ uSrc: tex, uRes: [f.width, f.height], uGain: (Math.PI / 12) * 1.08 * s * s })
+        } else {
+          if (wasSplat) seeded = 0 // the switch reseeds
+          const n = Math.min(want, capacity)
+          const { vao, tf } = bufs.sets[cur]
+          cur ^= 1
+          gl.clearColor(0, 0, 0, 1)
+          gl.clear(gl.COLOR_BUFFER_BIT)
+          gl.useProgram(prog.program)
+          gl.bindVertexArray(vao)
+          setUniforms(prog, {
+            uDt: u.dt, uTime: u.time, uKick: u.kick, uBass: u.bass, uPulse: u.pulse,
+            uAspect: f.width / f.height, uSize: v.size, uScale: f.height / 1000, uSwirl: u.swirl, uSeeded: seeded,
+          })
+          gl.enable(gl.BLEND)
+          gl.blendFunc(gl.ONE, gl.ONE)
+          gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf)
+          gl.beginTransformFeedback(gl.POINTS)
+          gl.drawArrays(gl.POINTS, 0, n)
+          seeded = Math.max(seeded, n)
+          gl.endTransformFeedback()
+          gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null)
+          gl.disable(gl.BLEND)
+          gl.bindVertexArray(null) // fullscreen passes set their attributes on the default VAO
+        }
+        wasSplat = drew
 
         const lit = bloom.apply(target.attachments[0], f.width, f.height, v.glow as number)
         gl.bindFramebuffer(gl.FRAMEBUFFER, out)
@@ -219,6 +285,8 @@ export const particles: NativeDef = {
       },
       dispose() {
         clearTimeout(growth) // a pending growth does nothing on a disposed instance
+        splat?.dispose()
+        gl.deleteTexture(tex ?? null)
         bloom.dispose()
         gl.deleteFramebuffer(target.framebuffer)
         gl.deleteTexture(target.attachments[0])
