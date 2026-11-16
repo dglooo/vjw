@@ -4,6 +4,8 @@ import { expect, test, vi } from 'vitest'
 import type { FrameInput } from '../frame'
 import { RING_N, V_MAX, splats, type Splat } from './fluid'
 
+vi.mock('../gl/engine', () => ({})) // takes the page's canvas + WebGL at import; the seam needs neither
+
 const v = { force: 1, radius: 0.25 } // the defaults (plan § Planner-fixed names)
 const W = 1280, H = 720
 const frame = (time: number) => ({ time, width: W, height: H }) as FrameInput

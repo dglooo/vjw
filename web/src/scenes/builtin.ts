@@ -1129,5 +1129,11 @@ const DJ: readonly SceneDoc[] = [
   },
 ]
 
+// GPU3D capability demos (plan_gpu3d § Planner-fixed names): unstarred, so never in the autopilot (I-LIB1); after the
+// spread, so the autopilot's order stays as it was.
+const DEMOS: readonly SceneDoc[] = [
+  { v: 1, id: 'builtin:demo-fluid', name: 'Demo fluid', star: false, layers: [{ gen: { ref: 'native/fluid' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }] },
+]
+
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
-export const BUILTIN: readonly SceneDoc[] = spread([...OWN, ...DJ], MILK_SCENES)
+export const BUILTIN: readonly SceneDoc[] = [...spread([...OWN, ...DJ], MILK_SCENES), ...DEMOS]
