@@ -4,7 +4,7 @@ import { createFeatures } from './audio/features'
 import { PRESETS } from './audio/presets'
 import { parseSettings } from './audio/settings'
 import { ZERO_SYNC } from './audio/sync'
-import { bindable, createRemap, evaluate, level, restyle, sourceGroups, sources, sourcesFor, SOURCE_IDS, type Binding, type Sources } from './bind'
+import { bindable, createRemap, evaluate, gain, level, restyle, sourceGroups, sources, sourcesFor, SOURCE_IDS, type Binding, type Clocked, type Sources } from './bind'
 import type { FrameInput } from './frame'
 import type { EffectDef } from './fx/types'
 import { model } from './scenes/model'
@@ -288,5 +288,58 @@ describe('bindable (GPU3D S4.4, RG-2)', () => {
     expect(bindable(input(particles, 'count'))).toBe(true)
     const b = bind({ min: -5, max: 2_000_000 }) // out of range at both ends
     expect([0, 1].map((x) => particleCount(once(b, { bass: x }), false))).toEqual([0, 1048576])
+  })
+})
+
+describe('clock bindings (audio clocks, user 2026-11-17)', () => {
+  const clock = (c: Partial<Clocked> = {}, over: Partial<Binding> = {}) => bind({ clock: { base: 0, k: 1, wrap: true, ...c }, ...over })
+  /** The value after each frame at dt 0.1 s, `bass` at xs[i]. */
+  const run = (b: Binding, xs: number[], state = { y: 0 }) => xs.map((bass) => evaluate(b, { bass }, state, 0.1))
+  const near = (a: number[], b: number[]) => a.forEach((v, i) => expect(v, `#${i}`).toBeCloseTo(b[i], 12))
+
+  test('runs at base + k · source ranges per s; wrap goes past max back to min (both ways), clamp holds at the ends', () => {
+    near(run(clock(), [0.5, 0.5, 1]), [0.05, 0.1, 0.2]) // k 1: half a range per s at .5
+    near(run(clock({ base: 0.25 }), Array(9).fill(1)).slice(-2), [0, 0.125]) // 1.25 ranges per s: max is min again at the 8th frame
+    expect(run(clock({ base: 0.25, wrap: false }), Array(9).fill(1)).at(-1)).toBe(1) // clamp: held at max
+    near(run(clock({ base: -0.25, k: 0 }), [0]), [0.975]) // backwards past min
+    expect(run(clock({ base: -1, k: 0, wrap: false }), [0, 0])).toEqual([0, 0]) // a drain held at min
+  })
+
+  test('the range maps the position (min > max runs backwards); amount, shape and smoothing do not apply', () => {
+    near(run(clock({}, { min: 2, max: 4 }), [0.5]), [2.1])
+    near(run(clock({}, { min: 4, max: 2 }), [0.5]), [3.9])
+    near(run(clock({ k: 2 }, { amount: 4, attack: 1, release: 1, shape: 'square' }), [0.5, 0.5]), [0.1, 0.2])
+  })
+
+  test('a muted source stops the clock where it is; a base keeps it running; a NaN restarts it at min', () => {
+    const state = { y: 0 }
+    const s: Sources = { bass: 0.5 }
+    const b = clock({ k: 2 })
+    for (let i = 0; i < 3; i++) evaluate(b, s, state, 0.1)
+    gain(s, { sens: {}, mute: ['bass'] })
+    near([evaluate(b, s, state, 0.1), evaluate(b, s, state, 0.1)], [0.3, 0.3])
+    near([evaluate(clock({ base: 0.1, k: 2 }), s, state, 0.1)], [0.31])
+    expect(evaluate(clock({}, { source: 'constructor' }), {}, state, 0.1)).toBe(0) // the prototype's: NaN, so 0
+  })
+
+  test('the position is the state, so a switch between the modes never jumps', () => {
+    const state = { y: 0 }
+    expect(evaluate(bind(), { bass: 0.7 }, state, 0.1)).toBe(0.7)
+    near([evaluate(clock({ k: 0 }), { bass: 0.7 }, state, 0.1)], [0.7])
+  })
+})
+
+describe('gain (the Sources tab, user 2026-11-17)', () => {
+  test('× sens: a level capped at 1, a count scaled (its shapes run faster); an absent source stays absent', () => {
+    const s: Sources = { bass: 0.4, kick: 0.8, beat: 10.5, lfo: 3 }
+    expect(gain(s, { sens: { bass: 0.5, kick: 2, beat: 2, nope: 2 }, mute: [] })).toBe(s)
+    expect(s).toEqual({ bass: 0.2, kick: 1, beat: 21, lfo: 3 })
+  })
+
+  test('a muted source reads 0 whatever its gain: a binding on it falls to min, the others keep theirs', () => {
+    const s: Sources = { bass: 0.6, mid: 0.6 }
+    gain(s, { sens: { bass: 2 }, mute: ['bass'] })
+    expect(s).toEqual({ bass: 0, mid: 0.6 })
+    expect([once(bind({ min: 2, max: 3 }), s), once(bind({ source: 'mid' }), s)]).toEqual([2, 0.6])
   })
 })

@@ -5,7 +5,7 @@ import { describe, expect, test, vi } from 'vitest'
 import type { Drum } from '../audio/drums'
 import { createFeatures } from '../audio/features'
 import { PRESETS } from '../audio/presets'
-import type { Sources } from '../bind'
+import { gain, type Sources } from '../bind'
 import { BUILTIN } from './builtin'
 import { barPhase, CELLS, COLS, compose, createShatter, LAYOUTS, rose, ROWS, S3_SEED, shatter, slotOf, type Move, type ShatterIn, type ShatterState } from './shatter'
 
@@ -459,15 +459,17 @@ describe('Amen Shatter core: the bar cycle (C2, C6–C9, C13, C14, V10–V12)', 
       expect(bar.flatMap((x) => x.moves).filter((m) => m.kind === 'slam')).toHaveLength(1)
     }
   })
-  /** Rises (the core's rule) of a drum over a pair of hits `gap` s apart, the first at frame phase p/16, through features.fill. */
+  /** Rises (the core's rule) of a drum over a pair of hits `gap` s apart, the first at frame phase p/16, through
+   *  features.fill and the user's sens (bind.ts gain(), as app.ts runs them). */
   function pairRises(drum: Drum, sens: number, p: number, gap = slotT(1)) {
-    const f = createFeatures(), out: Sources = {}, s = { v: 1 as const, auto: false, pick: null, sens: { [drum]: sens }, custom: [] }
+    const f = createFeatures(), out: Sources = {}, s = { v: 1 as const, auto: false, pick: null, sens: { [drum]: sens }, mute: [], custom: [] }
     const h = [0.1 + p / 16 / FPS, 0.1 + p / 16 / FPS + gap]
     let prev = 0, n = 0
     for (let i = 0; i < 30; i++) {
       const t = i / FPS
       while (h.length && h[0] <= t) f.hit({ drum, t: h.shift()!, strength: 4 })
       f.fill(out, 1 / FPS, s, PRESETS.default)
+      gain(out, s)
       if (i > 0 && rose(prev, out[drum])) n++
       prev = out[drum]
     }

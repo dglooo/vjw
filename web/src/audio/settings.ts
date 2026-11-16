@@ -1,4 +1,4 @@
-// The audio settings (design C7), pure: the preset pick, Auto-style, the user's sensitivity per source and up to 8 custom
+// The audio settings (design C7), pure: the preset pick, Auto-style, the user's gain and mute per source and up to 8 custom
 // bands, kept as JSON under localStorage `vjw.audio`. The browser side is one seam (`Kv`, as in library.ts), so the logic
 // runs in Vitest without a browser. `parseSettings` is the trust boundary for whatever was stored.
 import type { BandSpec } from './bands'
@@ -7,8 +7,9 @@ import { PRESETS, type Band, type Genre, type PresetId } from './presets'
 
 /** `id` is `u:` + 6 random hex chars: the band's binding source id, fixed for life (a rename only changes `name`). */
 export interface CustomBand { id: string; name: string; lo: number; hi: number; gain: number; gate: number; attack: number; release: number }
-// pick: a preset chosen by hand (null = follow the detected genre); sens: the user's factor per source id, 0..2, missing = 1
-export interface AudioSettings { v: 1; auto: boolean; pick: PresetId | null; sens: Record<string, number>; custom: CustomBand[] }
+// pick: a preset chosen by hand (null = follow the detected genre); sens: the user's gain per source id, 0..2, missing = 1;
+// mute: the source ids that read 0 (bind.ts gain() applies both, in every scene)
+export interface AudioSettings { v: 1; auto: boolean; pick: PresetId | null; sens: Record<string, number>; mute: string[]; custom: CustomBand[] }
 type Kv = Pick<Storage, 'getItem' | 'setItem'>
 type Obj = Record<string, unknown>
 
@@ -25,7 +26,7 @@ const MAX_RATE = 96_000
 // gain, gate (the UI says threshold), attack and release run from 0 up to their max
 const LIMITS = [['gain', 'gain', 4], ['gate', 'threshold', 1], ['attack', 'attack (s)', 2], ['release', 'release (s)', 2]] as const
 
-const defaults = (): AudioSettings => ({ v: 1, auto: true, pick: null, sens: {}, custom: [] })
+const defaults = (): AudioSettings => ({ v: 1, auto: true, pick: null, sens: {}, mute: [], custom: [] })
 const isObj = (x: unknown): x is Obj => typeof x === 'object' && x !== null && !Array.isArray(x)
 const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
 const within = (x: unknown, lo: number, hi: number): x is number => finite(x) && x >= lo && x <= hi
@@ -51,6 +52,7 @@ export function parseSettings(x: unknown): AudioSettings {
   if (typeof x.auto === 'boolean') s.auto = x.auto
   if (typeof x.pick === 'string' && Object.hasOwn(PRESETS, x.pick)) s.pick = x.pick as PresetId
   if (isObj(x.sens)) for (const [k, v] of Object.entries(x.sens)) if (finite(v)) s.sens[k] = Math.min(2, Math.max(0, v))
+  if (Array.isArray(x.mute)) s.mute = [...new Set(x.mute.filter((k): k is string => typeof k === 'string'))]
   for (const c of Array.isArray(x.custom) ? x.custom : []) {
     if (s.custom.length >= MAX_BANDS) break
     if (isObj(c) && typeof c.id === 'string' && ID.test(c.id) && !bandError(c, TOP * MAX_RATE) && !s.custom.some((b) => b.id === c.id)) {
@@ -82,8 +84,8 @@ export function createSettings(kv: Kv, sampleRate = RATE) {
   return {
     /** The settings in force: a snapshot, replaced (never edited) by every change, so it can feed `useSyncExternalStore`. */
     get: () => state,
-    /** Changes the named fields (`sens` is replaced as a whole) and re-checks the result, so a slider's NaN or a bad pick is repaired. */
-    patch: (p: Partial<Pick<AudioSettings, 'auto' | 'pick' | 'sens'>>) => commit(parseSettings({ ...state, ...p })),
+    /** Changes the named fields (`sens` and `mute` are replaced as a whole) and re-checks the result, so a slider's NaN or a bad pick is repaired. */
+    patch: (p: Partial<Pick<AudioSettings, 'auto' | 'pick' | 'sens' | 'mute'>>) => commit(parseSettings({ ...state, ...p })),
     /** Adds a custom band under a new id. Returns an error message, or null once added (the band is `get().custom.at(-1)`). */
     addBand(b: Omit<CustomBand, 'id'>): string | null {
       const err = state.custom.length >= MAX_BANDS ? `at most ${MAX_BANDS} custom bands` : bandError(b, TOP * Math.min(sampleRate, MAX_RATE))
@@ -100,18 +102,6 @@ export function createSettings(kv: Kv, sampleRate = RATE) {
       return () => subs.delete(cb)
     },
   }
-}
-
-/** The Sources tab's meter groups (S6.1), in order: the fixed ones, plus Custom only when there are bands. Pure: takes
- * a settings snapshot, no store access. */
-export const meterGroups = (s: AudioSettings): { title: string; ids: string[] }[] => {
-  const g = [
-    { title: 'Drums', ids: ['kick', 'snare', 'hats'] },
-    { title: 'Bass', ids: ['sub', 'reese', 'wobble'] },
-    { title: 'Arrangement', ids: ['build', 'drop'] },
-  ]
-  if (s.custom.length) g.push({ title: 'Custom', ids: s.custom.map((b) => b.id) })
-  return g
 }
 
 /** The preset in force (design C4): a hand pick wins, else the detected genre while Auto is on, else Default. */

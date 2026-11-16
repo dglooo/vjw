@@ -1,7 +1,7 @@
 // The scene format (design E4), pure: what the library stores and `live` renders. `parseScene`/`parseLibrary` are the
 // trust boundary for imported JSON: they check shapes and numbers, clamp ranges, drop unknown keys and return fresh
 // objects. `values` holds only overrides of the effect's defaults.
-import type { Binding, Shape } from './bind'
+import { PHASES, type Binding, type Shape } from './bind'
 import type { EffectDef, Input, InputType, Value } from './fx/types'
 
 export type SceneId = string // 'builtin:<slug>' | crypto.randomUUID()
@@ -49,6 +49,11 @@ function binding(x: unknown, at: string): Binding {
   const b: Binding = { source: str(o.source, `${at}.source`), amount: n('amount'), attack: n('attack'), release: n('release'), min: n('min'), max: n('max') }
   if (o.shape !== undefined) b.shape = oneOf(o.shape, SHAPES, `${at}.shape`) as Shape
   if (o.rate !== undefined) b.rate = n('rate')
+  // A clock in the panel's ranges (≤ 3 ranges per s at a full source, the WCAG cap); none on a count, which would run away.
+  if (o.clock !== undefined && !PHASES.includes(b.source)) {
+    const c = obj(o.clock, `${at}.clock`)
+    b.clock = { base: clamp(num(c.base, `${at}.clock.base`), -1, 1), k: clamp(num(c.k, `${at}.clock.k`), -2, 2), wrap: c.wrap === true }
+  }
   return b
 }
 

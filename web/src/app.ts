@@ -11,7 +11,7 @@ import { createSync, ZERO_SYNC } from './audio/sync'
 import { createTempoSource } from './audio/tempo'
 import { createStyle, styleIn, type StyleOut } from './audio/style'
 import { type Hit } from './audio/drums'
-import { createRemap, restyle, sources, type Sources } from './bind'
+import { createRemap, gain, restyle, sources, type Sources } from './bind'
 import { cam, camGate, camGpuMs, camMask, readCam, readMask, selectCamera, startCamera, tick as camTick } from './camera/camera'
 import { presence } from './camera/smooth'
 import { count as camUsers } from './camera/users'
@@ -229,6 +229,9 @@ function sendConfig() {
 }
 sendConfig() // start: the first config wakes the band bank (one drum restart blip, contract 3)
 settings.onChange(sendConfig) // custom-band edits and preset switches; sens/auto leave the key untouched
+const muted = () => store.patch({ muted: settings.get().mute }) // the Calibration tiles dim a muted source
+muted()
+settings.onChange(muted)
 // S4.3: the classifier runs every frame; its pick drives the active preset, the tempo band and the Auto-style remap.
 const style = createStyle()
 // S5.3: the arrangement detector (build/drop/heat) runs every frame; its output drives the post pass, the frame's
@@ -377,7 +380,6 @@ function frame(now: number) {
   // S4.3: Auto-style. The built-ins' bindings are remapped through the active preset's map with a 2 s crossfade;
   // Auto off (or Default) is a fade back to {} — their own sources.
   const [rmFrom, rmTo, rmW] = remap.frame(st.auto ? PRESETS[active].map : {}, f.dt)
-  const styled = restyle(src, rmFrom, rmTo, rmW, styledOut)
   src.build = arrangeOut.build // S5.3: expose the arrangement as binding sources (the UI lists them in S6.3)
   src.drop = arrangeOut.drop
   src.energy = arrangeOut.energy // P2: the section level (dsp_formula_review_2026-11-17)
@@ -389,6 +391,8 @@ function frame(now: number) {
   // S5.3: the live heat post pass (postFor at rest = identity: the engine skips it).
   const post = postFor(arrangeOut.heat, dropAt > 0 ? f.time - dropAt : Infinity, f.sync.beat, f.sync.bpm, f.sync.confidence)
   sources(f, src)
+  gain(src, st) // the Sources tab's gain and mute, on every source once all are in, before anything reads them
+  const styled = restyle(src, rmFrom, rmTo, rmW, styledOut) // after gain(): the built-ins read the muted sources too
   if (store.getSnapshot().editor) tiles.frame(f, src) // the library's bake (2b S3.3), its GPU work ahead of this frame's
   render(shot, f, src, styled, post) // sets f.width/height to the internal size
   const id = shot.to ?? shot.from // the incoming scene as soon as a fade starts: the name shown, the scene edited

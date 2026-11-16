@@ -42,6 +42,7 @@ export interface UiSnapshot {
   // hint (clips spread over > 1 s). The level itself never goes through React: the overlay reads app.ts `meter` per frame.
   clip: boolean
   clipHint: boolean
+  muted: readonly string[] // the Sources tab's muted source ids (audio settings), for the Calibration tiles
 }
 
 let snap: UiSnapshot = {
@@ -49,7 +50,7 @@ let snap: UiSnapshot = {
   hold: false, recording: false, quality: '60-adaptive', scale: 1, drops: 0, compiling: null, debug: null, debugSync: null,
   panel: false, editRev: 0, edited: '', gpuMs: null, nodeErrors: [], style: { detected: null, confidence: 0 },
   editor: false, cameras: [], camera: null, camLive: false, camVideo: true, camError: null, camFail: null,
-  clip: false, clipHint: false,
+  clip: false, clipHint: false, muted: [],
 }
 const subs = new Set<() => void>()
 

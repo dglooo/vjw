@@ -219,6 +219,7 @@ export const calib: NativeDef = {
           c.lineTo(g.sx + g.sw, g.ay + g.ah)
         }
         c.stroke()
+        const { muted } = store.getSnapshot() // the Sources tab's mute: such a tile reads 0, dimmed and labelled
         for (let i = 0; i < st.length; i++) {
           const t = TILES[i]
           const q = st[i]
@@ -226,7 +227,8 @@ export const calib: NativeDef = {
           const col = v[t.color] as readonly number[]
           const rgb = (byte(col[0]) << 16) | (byte(col[1]) << 8) | byte(col[2])
           if (rgb !== q.rgb) q.css = `#${(q.rgb = rgb).toString(16).padStart(6, '0')}`
-          const a = col[3]
+          const off = muted.includes(t.id)
+          const a = off ? 0.3 * col[3] : col[3]
           const base = g.ay + g.ah
           c.fillStyle = c.strokeStyle = q.css
           // The history: the source's last 4 s as a line over its area, the newest at the right edge.
@@ -296,7 +298,7 @@ export const calib: NativeDef = {
           c.fillText(t.id, g.lx, g.ly)
           c.textAlign = 'right'
           c.fillStyle = INK
-          c.fillText(q.text, g.vx, g.ly)
+          c.fillText(off ? 'muted' : q.text, g.vx, g.ly)
         }
         copy(cv, w, h)
       },

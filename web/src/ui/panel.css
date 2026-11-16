@@ -86,7 +86,7 @@
 }
 .sources .row {
   display: grid;
-  grid-template-columns: 80px 1fr 40px;
+  grid-template-columns: 80px 1fr 40px 22px;
   align-items: center;
   gap: 8px;
   min-height: 22px;
@@ -95,13 +95,31 @@
   grid-column: 3;
   width: auto;
 }
-/* A custom-band row carries both a sens slider and its remove button. */
+/* A custom-band row carries its gain, its mute and its remove button. */
 .sources .row:has(> button.x) {
-  grid-template-columns: 80px 1fr 40px 24px;
+  grid-template-columns: 80px 1fr 40px 22px 24px;
 }
 .sources .row > button.x {
-  grid-column: 4;
+  grid-column: 5;
   justify-self: end;
+}
+/* The mute (M): a source's in its row, a group's in its title row. Muted: lit red, the row's name and meter dimmed. */
+.sources button.mute {
+  padding: 0 4px;
+  font-size: 10px;
+  opacity: 0.45;
+}
+.sources button.mute.on {
+  opacity: 1;
+  color: #ff6b6b;
+  border-color: #ff6b6b66;
+}
+.sources .row.muted > :is(span, meter) {
+  opacity: 0.3;
+}
+.sources details > summary {
+  cursor: pointer;
+  opacity: 0.55;
 }
 .sources .band-form {
   margin-top: 10px;

@@ -166,7 +166,7 @@ test('§4.1 DnB test mix (kick + snare + reese + hats): kick, snare and hats eac
 /** features.ts's `kick` at 60 fps, the hits drained as app.ts does (T1): its median over the frames in [a, b) s. */
 function kickP50(kicks: readonly number[], a: number, b: number) {
   const f = createFeatures()
-  const [out, s]: [Sources, AudioSettings] = [{}, { v: 1, auto: false, pick: null, sens: {}, custom: [] }]
+  const [out, s]: [Sources, AudioSettings] = [{}, { v: 1, auto: false, pick: null, sens: {}, mute: [], custom: [] }]
   const v: number[] = []
   for (let now = 1 / FPS_APP, k = 0; now < b; now += 1 / FPS_APP) {
     for (; k < kicks.length && kicks[k] <= now; k++) f.hit({ drum: 'kick', t: kicks[k], strength: 1 })

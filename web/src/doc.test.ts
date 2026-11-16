@@ -91,6 +91,14 @@ describe('parseScene', () => {
     expect(parseScene(x)).toStrictEqual(x)
   })
 
+  test('a clock binding round-trips; base and k clamp to the panel ranges, wrap is true or not; no clock on a count', () => {
+    const x = withLayer({ gen: { ref: 'a', bind: { hue: { ...B, clock: { base: 0.1, k: -0.5, wrap: true } } } } })
+    expect(parseScene(x)).toStrictEqual(x)
+    const odd = { hue: { ...B, clock: { base: 5, k: -9, wrap: 'yes' } }, spin: { ...B, source: 'lfo', clock: { base: 0, k: 1, wrap: true } } }
+    expect(parseScene(withLayer({ gen: { ref: 'a', bind: odd } })).layers[0].gen.bind).toStrictEqual({ hue: { ...B, clock: { base: 1, k: -2, wrap: false } }, spin: { ...B, source: 'lfo' } })
+    expect(() => parseScene(withLayer({ gen: { ref: 'a', bind: { k: { ...B, clock: { base: 'x', k: 1 } } } } }))).toThrow(/\.clock\.base: /)
+  })
+
   test('unknown keys are dropped and the result is a fresh object', () => {
     const k = { ...B, junk: 2 }
     const x = withLayer({ extra: 1, gen: { ref: 'a', junk: true, bind: { k } }, bind: { opacity: B, blend: B } })
