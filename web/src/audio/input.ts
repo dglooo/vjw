@@ -89,6 +89,10 @@ function setSource(next: AudioNode, source: UiSnapshot['source'], nextStream: Me
   store.patch({ source })
 }
 
+/** Line-in: the capture path's latency, s, as the device reports it (MediaTrackSettings.latency, absent from TS's DOM
+ *  lib); 0 for a file or with no report. */
+export const inputLatency = () => (stream?.getAudioTracks()[0]?.getSettings() as { latency?: number } | undefined)?.latency ?? 0
+
 /** Audio-clock time now, s (contract: FrameInput.audioNow). */
 export function audioNow() {
   const ot = ctx.getOutputTimestamp()

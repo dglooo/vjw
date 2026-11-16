@@ -27,7 +27,7 @@ const sens = (s: AudioSettings, p: Preset, id: string) => (s.sens[id] ?? 1) * (p
 
 /** x ÷ its running average. The average is the mean of every frame since the sound started, until an EMA with rate
  *  `k` is the slower: an EMA from 0 would read ≥ 2× for the first 0.7 AVG of every track. Digital silence (exactly 0,
- *  a paused file) restarts it. */
+ *  a paused file, a paused input: frame()'s `quiet`) restarts it. */
 function relative() {
   let avg = 0
   let n = 0
@@ -56,8 +56,10 @@ export function createFeatures() {
    *  wobbleDepth is the source before sens and the 0..1 cap. */
   const raw = { sub: 0, reese: 0, wobbleDepth: 0 }
 
-  /** One hop's frame, `x[i…]` = [e2, held] per band; bands 0–2 are sub, reese and wobble (each config sends them first). */
-  function frame(x: Float32Array, i: number, t: number, dt: number) {
+  /** One hop's frame, `x[i…]` = [e2, held] per band; bands 0–2 are sub, reese and wobble (each config sends them first).
+   *  `quiet`: the input is paused (app.ts: ≥ 1 s at or under −60 dBFS RMS, a line-in's noise floor), so the three read
+   *  0 as digital silence does, and their averages restart on the next sound (dsp_linein_2026-11-16 fix 2). */
+  function frame(x: Float32Array, i: number, t: number, dt: number, quiet: boolean) {
     const k = 1 - Math.exp(-dt / AVG)
     // The cross-band kick trigger: the reese band's own gate (bands.ts holds `held` ≠ e2) catches every kick, the
     // FFT detector's misses too, on this frame's clock. ponytail: a bass note that starts on a kick shows HOLD late.
@@ -66,9 +68,9 @@ export function createFeatures() {
     gated = trip
     if (t >= until) [raw.sub, raw.reese, g] = [x[i + 1], x[i + 3], x[i + 5]]
     // The rise above the running average, as wobble: a steady bed reads 0, twice its average 1 (design ruling 2026-11-05)
-    v.sub = Math.max(0, rel.sub(raw.sub, k) - 1)
-    v.reese = Math.max(0, rel.reese(raw.reese, k) - 1)
-    const r = rel.wobble(g, k)
+    v.sub = Math.max(0, rel.sub(quiet ? 0 : raw.sub, k) - 1)
+    v.reese = Math.max(0, rel.reese(quiet ? 0 : raw.reese, k) - 1)
+    const r = rel.wobble(quiet ? 0 : g, k)
     const d = r > 0 ? r - 1 : 0 // (g − ḡ)/ḡ of the gated wobble band; silence reads 0, not −1
     v.wobble = Math.max(0, d)
     raw.wobbleDepth += (Math.abs(d) - raw.wobbleDepth) * (1 - Math.exp(-dt / DEPTH))
@@ -90,13 +92,14 @@ export function createFeatures() {
     push(m: Extract<WorkletMsg, { kind: 'feat' }>) {
       queue.push(m)
     },
-    /** Works through every queued hop up to `t`: the heard time for a file (audioNow), Infinity (the newest) for line-in. */
-    at(t: number) {
+    /** Works through every queued hop up to `t`: the heard time for a file (audioNow), Infinity (the newest) for line-in.
+     *  `quiet`: the input is paused (frame()). */
+    at(t: number, quiet = false) {
       for (let m = queue[0]; m; m = queue[0]) {
         for (; hop < FEAT_HOPS; hop++) {
           const th = m.t0 + hop * m.hop
           if (th > t) return
-          frame(m.values, (hop * m.values.length) / FEAT_HOPS, th, m.hop)
+          frame(m.values, (hop * m.values.length) / FEAT_HOPS, th, m.hop, quiet)
         }
         queue.shift()
         hop = 0

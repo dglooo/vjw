@@ -241,3 +241,38 @@ describe('setRange and families (design C3)', () => {
     expect(d).toBeGreaterThanOrEqual(t)
   })
 })
+
+// dsp_linein_2026-11-16 fix 1: the bands' slow followers sit near 0 after silence, so the first ODF values of a signal
+// spike (38–55 on a line-in picked mid-music) and the early ACF picked its octave from them (Kanine line-in: 87, not 174).
+describe('the start settle', () => {
+  const beat = (k: number) => 0.5 + (k * 60) / 174
+  /** 7 s of ODF: 13 on each beat at 174 BPM from 0.5 s, none in `gap` (which holds `fill`); `spikes` [t, v] on top. A
+   *  spike on a beat skews the ACF peak, so it moves the reading. */
+  function odf(spikes: [number, number][] = [], gap = [0, 0], fill = 0) {
+    const x = new Float32Array(Math.round(7 / HOP))
+    for (let k = 0; beat(k) < 7; k++) if (beat(k) < gap[0] || beat(k) >= gap[1]) x[Math.round(beat(k) / HOP)] = 13
+    x.fill(fill, Math.round(gap[0] / HOP), Math.round(gap[1] / HOP))
+    for (const [t, v] of spikes) x[Math.round(t / HOP)] += v
+    return x
+  }
+  /** The first reading, fed in 8-hop batches as app.ts does: its window still holds the start. */
+  function first(x: Float32Array) {
+    const src = createTempoSource()
+    for (let i = 0; i + 8 <= x.length; i += 8) {
+      src.pushOdf(x.subarray(i, i + 8), i * HOP, HOP)
+      if (src.read()) return src.read()
+    }
+    return null
+  }
+
+  test('the first 0.3 s of signal read 0: at the stream start, and after ≥ 1 s of silent ODF (≤ .05)', () => {
+    expect(first(odf([[beat(0), 50], [0.6, 40], [0.75, 30]]))).toEqual(first(odf())) // the start counts as silence
+    const pause = [2, 3.2] // beats 5–7 out: 1.38 s from beat 4 to beat 8, the gap at .04
+    expect(first(odf([[beat(8), 50], [3.4, 30]], pause, 0.04))).toEqual(first(odf([], pause, 0.04)))
+  })
+
+  test('a gap shorter than 1 s settles nothing: a spike after it reaches the ACF', () => {
+    const gap = [2, 2.5] // beat 5 out: 0.69 s from beat 4 to beat 6
+    expect(first(odf([[beat(6), 50]], gap))).not.toEqual(first(odf([], gap)))
+  })
+})

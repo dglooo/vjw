@@ -168,6 +168,21 @@ describe('sustained sources (design C1)', () => {
     }
   })
 
+  test('a paused input (at(t, true): app.ts, ≥ 1 s at or under −60 dBFS RMS) reads as digital silence: the averages restart', () => {
+    // dsp_linein_2026-11-16 fix 2: a line-in's noise floor is > 0, so nothing restarted and the bed back after 30 s read
+    // ≥ .9 for ≈ 2 s. Here 30 s at a −90 dB floor, paused from its second second (app.ts's hold) until the bed is back.
+    const f = createFeatures()
+    const out: Sources = {}
+    const maxed: Record<string, number> = { sub: 0, reese: 0, wobble: 0 } // s at ≥ .9 after the return
+    for (const m of feats(70, (t) => Array(3).fill(t >= 20 && t < 50 ? 3e-5 : 1))) {
+      f.push(m)
+      f.at(Infinity, m.t0 >= 21 && m.t0 < 50)
+      f.fill(out, 2 * HOP, settings(), preset())
+      if (m.t0 >= 50) for (const id in maxed) if (out[id] >= 0.9) maxed[id] += 2 * HOP
+    }
+    for (const id in maxed) expect(maxed[id], id).toBeLessThanOrEqual(0.2)
+  })
+
   test("sens: the user's × the preset's factor per id (missing = 1), capped at 1", () => {
     const step = (t: number) => (t < 10 ? 1 : 2) // sub and reese read ≈ .44 at 11.95 s
     const at = (s: AudioSettings, p = preset()) => near(play(feats(12, (t) => [step(t), step(t), t < 10 ? 1 : (t * 10) % 2 < 1 ? 1.5 : 0.5]), s, p), 11.95)

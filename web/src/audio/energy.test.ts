@@ -64,6 +64,19 @@ test('sound after digital silence seeds fast again instead of reading hundreds �
   expect(run(en, spike(100), 60).level.bass).toBeLessThan(1.2)
 })
 
+test('a paused input (quiet: app.ts, ≥ 1 s at or under −60 dBFS RMS) reads as digital silence: levels 0, then sound seeds fast', () => {
+  // dsp_linein_2026-11-16 fix 2: a line-in's noise floor is > 0, so the seed never restarted and the bass level read ≥ 4×
+  // for 1.2 s after a 30 s pause
+  const en = createEnergy(SR, N)
+  run(en, spike(100), 20 * 60)
+  const floor = new Float32Array(N / 2).fill(-90)
+  for (let i = 0; i < 30 * 60; i++) en.update(floor, 60, true)
+  expect(en.update(floor, 60, true).level).toEqual({ bass: 0, mid: 0, treb: 0 })
+  let loud = 0 // frames at ≥ 4× after the return
+  for (let i = 0; i < 5 * 60; i++) if (en.update(spike(100), 60).level.bass >= 4) loud++
+  expect(loud / 60).toBeLessThanOrEqual(0.1) // digital silence: 0.08 s
+})
+
 test('rms of a unit sine is 1/√2', () => {
   const sine = Float32Array.from({ length: 256 }, (_, i) => Math.sin((2 * Math.PI * 5.3 * i) / 256))
   expect(rms(sine)).toBeCloseTo(Math.SQRT1_2, 2)
