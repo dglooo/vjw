@@ -154,7 +154,7 @@ S1-T rev 1 passed lines 0-9 (`scratchpad/gpu3d/s1t.md` @ `334631f`): chrome 2.07
 ## Steps
 Status: `[ ]` open, `[x]` merged by the lead.
 
-### S1.1 [ ] Bench harness and pre-change baselines
+### S1.1 [x] Bench harness and pre-change baselines
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the bench exists, and both baselines are captured before any product edit.
 - **Files (scratch only):** `scratchpad/gpu3d/g3-bench.mjs` (base `s1p-bench.mjs`), `scratchpad/gpu3d/g3-state.mjs` (new).
@@ -167,6 +167,13 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** Vitest: none (no product code). Rows: P-REC and R6-PRE (the `check` mode; show exit 1 on a copy with one field deleted), P-R5-1 (the baseline half; the lead runs `pin` again at the CP1 close and at SDLC S6).
 - **Done:** Gates (tree unchanged). Both JSON files written. `check` exits 0 on `pin-pre.out.json`. The session class is in the report.
 - **Base / depends:** master / none. **New deps:** none.
+- **Changed during implementation:**
+  - `sessionClass` is the string `'slow'` or `'normal'`. `check` accepts it only when it matches `refP95` (>= 3.33 = slow). The plan's literal rule ("numeric") would fail every record.
+  - `check` exits 2 when the class is UNKNOWN (adapter not apple / `metal-3`, or no WebGPU adapter). The plan gives no exit code for that case. Exit 0 = PASS line, exit 1 = a field is missing.
+  - The record also has `countFrom`. Before S1.3 the native has no `count` input, so `count` = `pointsDrawn` (`'drawn (no count input)'`). After S1.3 it reads the value (`'value'`).
+  - `seeddist capture` wraps `bufferData` around one `create(gl)` call at the stage size. It records the first non-zero `Float32Array` that the call uploads. It does not go through the app's scene path.
+  - Files are in the worktree's `scratchpad/gpu3d/` (the lead copies them out). The port is 5175 (the lead's brief).
+  - Between-session noise is larger than the within-run band. Three `pin` sessions on `f6b482d` gave pooled p95 5.29 / 5.32 / 5.18 ms (spread 0.14) and round bands 0.13 / 0.09 / 0.05. P-R5-1 against `pin-pre` (band 0.09) would fail `pin-pre2` with no code change. The lead rules on the band; the threshold is not edited here.
 
 ### S1.2 [ ] GPU-hash seeding, allocation by size
 Invoke the `ponytail` skill (full) before writing code.
