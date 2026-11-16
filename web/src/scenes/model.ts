@@ -2,8 +2,8 @@
 // P1gU3Qkr9r; public/models/manifest.json, web/THIRD_PARTY.md) through three r187 on OUR context.
 // create() starts (or joins) the memoised load of three/host.ts; hidden() is true until it is ready, and stays true
 // after a failed load (one console error). An instance owns its RT (1 sample + depth, or `samples` 4) and draws on its
-// layer's clock. The RT holds premultiplied linear colour; the composite un-premultiplies, tone-maps, encodes sRGB and
-// writes straight alpha under `normal`, premultiplied colour under every other blend (lead ruling N3).
+// layer's clock (the clip at `speed` × it). The RT holds premultiplied linear colour; the composite un-premultiplies,
+// tone-maps, encodes sRGB and writes straight alpha under `normal`, premultiplied colour under every other blend (N3).
 import type { Blend } from '../doc'
 import { fullscreenProgram, gl as stageGl } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
@@ -15,9 +15,10 @@ export const MODEL_SPIKE: Spike = { entry: 0, skipCtorReset: false, diff: false,
 type Host = Awaited<ReturnType<typeof import('../three/host').load>>
 let loading: Promise<Host> | undefined
 let host: Host | null = null
+/** The host's load, injectable (M-U4: a test resolves it, rejects it or leaves it pending). */
+export const loader = { load: (gl: WebGL2RenderingContext): Promise<Host> => import('../three/host').then((m) => m.load(gl, MODEL, MODEL_SPIKE)) }
 /** The memoised load: the host once, the GLB once (one context, one URL). `ponytail:` session cache, no eviction. */
-const load = (gl: WebGL2RenderingContext) => (loading ??= import('../three/host')
-  .then((m) => m.load(gl, MODEL, MODEL_SPIKE))
+const load = (gl: WebGL2RenderingContext) => (loading ??= loader.load(gl)
   .then((h) => ((MODEL_SPIKE.readyAt = performance.now()), (host = h)), (e: unknown) => {
     console.error('native/model: the load failed', e)
     throw e
@@ -37,6 +38,8 @@ void main() {
   outColor = vec4(d * mix(1.0, c.a, uPremul), c.a);
 }`
 let composite: ReturnType<typeof fullscreenProgram> | undefined
+/** `samples` (C4, M-U2): 4 = 4× MSAA, anything else 1 sample (3 -> 1, NaN -> 1). */
+export const modelSamples = (v: number): 1 | 4 => (v >= 4 ? 4 : 1)
 
 export const model: NativeDef = {
   id: 'native/model', name: 'Model', kind: 'generator', category: 'geometry',
@@ -44,19 +47,22 @@ export const model: NativeDef = {
   inputs: [
     { name: 'glass', type: 'float', min: 0, max: 1, default: 0 },
     { name: 'samples', type: 'long', values: [1, 4], labels: ['1', '4'], default: 1 },
+    { name: 'speed', type: 'float', min: 0, max: 4, default: 1 }, // the clip's speed gain
   ],
   warm: () => load(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden
   create(gl) {
     void load(gl).catch(() => {}) // logged once in load()
     composite ??= fullscreenProgram(COMPOSITE)
     let rt: ReturnType<Host['render']> | null = null
+    let d = 0 // the clip's lead on the layer clock: what `speed` ≠ 1 integrated (three/host.ts pose())
     const u = { uSrc: null as WebGLTexture | null, uRes: [0, 0], uPremul: 0 }
     return {
       hidden: () => !host,
       draw(f, v, _src, _s, blend?: Blend) {
         if (!host) return
         const t0 = performance.now()
-        rt = host.render(rt, f.width, f.height, Math.round(v.samples as number) >= 4 ? 4 : 0, f.time, v.glass as number) // restores dst + viewport
+        d += f.dt * ((v.speed as number) - 1)
+        rt = host.render(rt, f.width, f.height, modelSamples(v.samples as number), f.time, d, v.glass as number) // restores dst + viewport
         u.uSrc = host.texture(rt)
         u.uRes = [f.width, f.height]
         u.uPremul = blend && blend !== 'normal' ? 1 : 0
