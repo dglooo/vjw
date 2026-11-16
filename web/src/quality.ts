@@ -2,12 +2,22 @@
 export type QualityMode = '60-adaptive' | '60-full' | '30'
 
 export interface Governor {
-  frame(now: number, jsMs: number): void // now = the rAF timestamp, ms; jsMs = this frame's JS time, ms
+  frame(now: number, jsMs: number, gpuMs?: number): void // now = the rAF timestamp, ms; jsMs = this frame's JS time, ms; gpuMs = its GL timer ms (0 if none)
   reset(): void // on a mode change
   readonly scale: number
   readonly drops: number // late frames since the last reset: the spec §7.5 counter
   readonly refreshMs: number // the median of the last 120 deltas, never a hard-coded 16.67
   readonly jsMs: number // the median of the last 120 JS times (the step-down test's), 0 before 120 samples
+  readonly webgpuMs: number // the last frame's WebGPU term (noteWebgpuMs), ms; 0 when no native reported one
+  readonly gpuCostMs: number // the last frame's GPU cost (GPU3D N4) = gpuMs + webgpuMs. A read-out: no step rule reads it
+}
+
+let webgpuTerm = 0 // the WebGPU ms reported since the last governor frame
+/** GPU3D N4: a native's WebGPU ms this frame (its timestamp-query p95). WebGPU work runs outside the GL timer, so gpuMs
+ *  misses it (scratchpad/gpu3d/s1w.md). Reports in one frame add up; the next governor frame takes them, and a frame with
+ *  none reads 0. A plain export, so a native reports with no change to `Native` and no import of app.ts (a cycle). */
+export function noteWebgpuMs(ms: number) {
+  webgpuTerm += ms
 }
 export interface GovernorOpts {
   min: number // scale range (design S4; Q9 floor)
@@ -51,10 +61,15 @@ export function createGovernor(opts?: Partial<GovernorOpts>): Governor {
     scale: o.max,
     drops: 0,
     refreshMs: 0,
+    webgpuMs: 0,
+    gpuCostMs: 0,
     get jsMs() {
       return n < N ? 0 : median(js)
     },
-    frame(now: number, jsMs: number) {
+    frame(now: number, jsMs: number, gpuMs = 0) {
+      g.webgpuMs = webgpuTerm // taken on every frame, the first too: a report never leaks into the next frame
+      g.gpuCostMs = gpuMs + webgpuTerm
+      webgpuTerm = 0
       if (last === null) {
         last = calmSince = now
         return
