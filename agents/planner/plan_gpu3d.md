@@ -175,7 +175,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Files are in the worktree's `scratchpad/gpu3d/` (the lead copies them out). The port is 5175 (the lead's brief).
   - Between-session noise is larger than the within-run band. Three `pin` sessions on `f6b482d` gave pooled p95 5.29 / 5.32 / 5.18 ms (spread 0.14) and round bands 0.13 / 0.09 / 0.05. P-R5-1 against `pin-pre` (band 0.09) would fail `pin-pre2` with no code change. The lead rules on the band; the threshold is not edited here.
 
-### S1.2 [ ] GPU-hash seeding, allocation by size
+### S1.2 [x] GPU-hash seeding, allocation by size
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** `create()` fills no CPU array (C8), and the start distribution stays the same.
 - **Files:** `web/src/scenes/particles.ts`, `web/src/scenes/particles.test.ts`, `scratchpad/gpu3d/g3-state.mjs` (mode `seeddist`).
@@ -189,6 +189,12 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Waiver:** the frozen-pair gate does not apply to `builtin:particles` (matrix ruling G1).
 - **Done:** Gates. P-R5-2 prints D. One headless still of `builtin:particles`.
 - **Base / depends:** master / S1.1. **New deps:** none.
+- **Changed during implementation:**
+  - The GLSL uniform is `uSeeded` (int), after the shader's `u` prefix. The JS high-water mark in `create()` is `seeded`.
+  - A tile instance keeps its 4 096-point buffers (the existing rule `size ? 4096 : N`). Capacity 65 536 applies to the stage instance, which is P-U5's fixture "create() at the default count". S1.3 owns the tile cap.
+  - The seed reuses the shader's `hash()` with two new streams (angle, radius). They are independent of `r1` / `r2`, so a point starts away from its home radius, as with the CPU seed (the start-up settle stays).
+  - `seeddist <port>`: one `create()` at the stage size, then one `draw()` at dt 0. The first pass seeds and moves nothing, so its TF output (`posOut`, index 0) is the start disc; `getBufferSubData` reads it back. It does not go through the app's scene path (as `seeddist capture`). `capture` finds no non-zero upload on this build (n 0, exit 1): it is for pre-change builds only.
+  - For S1.4 (P-B1): the GPU sample's rMin is 0.0599999937 (float32 0.06 × |(cos a, sin a)|), 6e-9 under the domain floor 0.06. A strict P-B1 check reads such a point as out of domain; a float tolerance (about 1e-6) does not. The lead rules; nothing is edited here.
 ### S1.3 [ ] The `count` value and the pure count rule
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** n = `count` (N1), with the tile cap.
