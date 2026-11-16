@@ -30,8 +30,8 @@ const SUSTAINED = ['sub', 'reese', 'wobble', 'wobbleDepth', 'subBody', 'reeseBod
  *  arrange.ts's energy maps through it too. Ceiling: ≥ .98 past 4.2×, a track's first drop over its intro's mean. */
 export const knee = (r: number) => (r <= 1 ? r / 2 : 1 - 0.5 * Math.exp(1 - r))
 
-/** The user's × the preset's sens for `id` (missing = 1). */
-const sens = (s: AudioSettings, p: Preset, id: string) => (s.sens[id] ?? 1) * (p.sens[id] ?? 1)
+/** The preset's sens for `id` (missing = 1). The user's gain is bind.ts gain(), on every source after the fill. */
+const sens = (p: Preset, id: string) => p.sens[id] ?? 1
 
 /** x ÷ its running average. The average is the mean of every frame since the sound started, until an EMA with rate
  *  `k` is the slower: an EMA from 0 would read ≥ 2× for the first 0.7 AVG of every track. Digital silence (exactly 0,
@@ -117,18 +117,18 @@ export function createFeatures() {
       }
     },
     /** kick, snare, hats = e^(−age/τ); sub, reese, wobble, wobbleDepth, subBody, reeseBody as at() left them; reeseLevel = raw.reese.
-     *  Each × the user's × the preset's sens (missing = 1), at most 1. The drums read before `dt` is added, so the frame
+     *  Each × the preset's sens (missing = 1), at most 1. The drums read before `dt` is added, so the frame
      *  a hit is drained on reads its peak and an `event` input (≥ 0.5, live.ts) fires on it. */
     fill(out: Sources, dt: number, s: AudioSettings, p: Preset) {
       for (const d of DRUMS) {
-        out[d] = Math.min(1, sens(s, p, d) * Math.exp(-age[d] / TAU[d]))
+        out[d] = Math.min(1, sens(p, d) * Math.exp(-age[d] / TAU[d]))
         age[d] += dt
       }
-      for (const id of SUSTAINED) out[id] = Math.min(1, sens(s, p, id) * v[id])
+      for (const id of SUSTAINED) out[id] = Math.min(1, sens(p, id) * v[id])
       // reeseLevel (W4 Serpent presence): raw.reese itself, the kick-gated reese-band amplitude (linear, ≈ .15–.30 on a
       // mastered DnB drop), not a ratio: a steady bass reads its level where `reese` reads 0. Ceiling: snare bodies and
       // rolls in the band pass (the gate catches kicks only).
-      out.reeseLevel = Math.min(1, sens(s, p, 'reeseLevel') * raw.reese)
+      out.reeseLevel = Math.min(1, sens(p, 'reeseLevel') * raw.reese)
       // u:* — e2 × gain through a dt one-pole (bind.ts's evaluate() shape: attack up, release down, 0 = instant).
       // A renamed band keeps its id; a removed one drops from the settings and reads 0 here.
       for (const id of uIds)
@@ -143,7 +143,7 @@ export function createFeatures() {
         const tau = y > l ? b.attack : b.release
         const n = l + (y - l) * (tau > 0 ? 1 - Math.exp(-dt / tau) : 1)
         uY.set(b.id, n)
-        out[b.id] = Math.min(1, sens(s, p, b.id) * n)
+        out[b.id] = Math.min(1, sens(p, b.id) * n)
       })
     },
   }

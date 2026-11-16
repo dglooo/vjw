@@ -3,7 +3,7 @@ import { director, settings } from '../app'
 import { activePreset } from '../audio/settings'
 import { PRESETS } from '../audio/presets'
 import { BAND_COUNT } from '../audio/energy'
-import { BIND_DEFAULTS, bindable, sourceGroups, type Binding, type Shape } from '../bind'
+import { BIND_DEFAULTS, bindable, PHASES, sourceGroups, type Binding, type Shape } from '../bind'
 import { defaults, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
 import type { Input, Kind, Value } from '../fx/types'
@@ -18,7 +18,8 @@ const GPU_BUDGET = 5 // ms per scene (CP4's bench gate): the hint turns amber ab
 export const LAYERS_MAX = 4 // doc.ts's limit
 const BLENDS: readonly Blend[] = ['normal', 'add', 'screen', 'multiply', 'max', 'difference', 'dodge']
 const SHAPES: readonly Shape[] = ['sine', 'tri', 'saw', 'square', 'random']
-const PHASES = ['beat', 'bar', 'lfo'] // counts, not levels: bound through a shape
+/** A float input whose range is one turn (a hue, an angle, a phase): a clock bound to it wraps; any other clamps. */
+const TURN = /hue$|angle$|^rotation$|^phase$|^yaw$/i
 const PASTE = 'toy/' // the "+ layer" entry that opens the Shadertoy paste
 const byName = (k: Kind) => [...catalog.values()].filter((d) => d.kind === k).sort((a, b) => a.name.localeCompare(b.name))
 const GENERATORS = byName('generator')
@@ -43,6 +44,13 @@ function withSource({ shape, rate, ...b }: Binding, source: string): Binding {
   if (!PHASES.includes(source)) return { ...b, source }
   return { ...b, source, shape: shape ?? (source === 'lfo' ? 'sine' : 'saw'), rate: rate ?? 1 }
 }
+/** A binding switched to a clock (`wrap` given: its default) or back to a level (none). A clock reads a level as it is:
+ *  a phase source becomes bass and the shape goes; base 0, so the clock stops while its source is silent or muted. */
+function withClock(b: Binding, wrap?: boolean): Binding {
+  const level = { ...b }
+  delete level.clock
+  return wrap === undefined ? level : { ...withSource(level, PHASES.includes(b.source) ? 'bass' : b.source), clock: { base: 0, k: 0.5, wrap } }
+}
 /** A binding as the edited scene's doc holds it now. */
 function bindingAt({ layer, node }: NodePath, k: string): Binding {
   const l = live(store.getSnapshot().edited).doc.layers[layer]
@@ -60,8 +68,9 @@ const slider = (lo: number, hi: number, v: number, set: (v: number) => void, ste
   <input type="range" min={lo} max={hi} step={step} defaultValue={v} onInput={(e) => set(e.currentTarget.valueAsNumber)} />
 )
 
-/** `gate`: a bool or event, on at .5 (bind.ts `level`): its block has amount, release and invert, no attack/min/max. */
-interface Bindable { path: NodePath; k: string; lo: number; hi: number; init?: Binding; gate?: boolean }
+/** `gate`: a bool or event, on at .5 (bind.ts `level`): its block has amount, release and invert, no attack/min/max.
+ *  `wrap` (a float only): the block offers a clock, and this is whether it wraps (TURN). */
+interface Bindable { path: NodePath; k: string; lo: number; hi: number; init?: Binding; gate?: boolean; wrap?: boolean }
 /** The bound rows' meters, written from `Live.read` by `Meters`' one rAF loop: nothing re-renders per frame. */
 const meters = new Map<HTMLMeterElement, Bindable>()
 
@@ -90,6 +99,13 @@ export function Param({ label, bind, children }: { label: string; bind?: Bindabl
       {slider(lo, hi, b![f] ?? 1, (y) => send({ ...now(), [f]: y }), step)}
     </label>
   )
+  /** A clock's base or k, in ranges per s (bind.ts evaluate). */
+  const clockKnob = (f: 'base' | 'k', lo: number, hi: number) => (
+    <label>
+      <span>{f}</span>
+      {slider(lo, hi, b!.clock![f], (y) => send({ ...now(), clock: { ...now().clock!, [f]: y } }), 0.01)}
+    </label>
+  )
   return (
     <>
       <label className="row">
@@ -107,19 +123,22 @@ export function Param({ label, bind, children }: { label: string; bind?: Bindabl
       {b && bind && (
         <div className="bind">
           <div className="src">
-            <select aria-label="Source" defaultValue={b.source} onChange={(e) => send(withSource(now(), e.target.value), true)}>
+            {/* keyed by the mode: a clock lists no phase source, and turning one on may move the source to bass */}
+            <select key={b.clock ? 'clock' : 'level'} aria-label="Source" defaultValue={b.source} onChange={(e) => send(withSource(now(), e.target.value), true)}>
               {sourceGroups(s.custom).map((g) => (
                 <optgroup key={g.label} label={g.label}>
-                  {g.ids.map((sid, i) => (
-                    <option key={sid} value={sid}>
-                      {g.label === 'band' ? `${i} · ${hz(i)}` : g.label === 'custom' ? s.custom.find((c) => c.id === sid)?.name ?? sid : sid}
-                    </option>
-                  ))}
+                  {g.ids.map((sid, i) =>
+                    b.clock && PHASES.includes(sid) ? null : (
+                      <option key={sid} value={sid}>
+                        {g.label === 'band' ? `${i} · ${hz(i)}` : g.label === 'custom' ? s.custom.find((c) => c.id === sid)?.name ?? sid : sid}
+                      </option>
+                    ),
+                  )}
                 </optgroup>
               ))}
             </select>
             <AutoHint source={b.source} />
-            {b.shape && (
+            {b.shape && !b.clock && (
               <select aria-label="Shape" defaultValue={b.shape} onChange={(e) => send({ ...now(), shape: e.target.value as Shape })}>
                 {SHAPES.map((s) => <option key={s}>{s}</option>)}
               </select>
@@ -134,9 +153,28 @@ export function Param({ label, bind, children }: { label: string; bind?: Bindabl
               }}
             />
           </div>
-          {knob('amount', 0, 4)}
-          {!bind.gate && knob('attack', 0, 1)}
-          {knob('release', 0, 1)}
+          {bind.wrap !== undefined && (
+            <label>
+              <span>clock</span>
+              <input type="checkbox" defaultChecked={!!b.clock} onChange={(e) => send(withClock(now(), e.target.checked ? bind.wrap : undefined), true)} />
+            </label>
+          )}
+          {b.clock ? (
+            <>
+              {clockKnob('base', -1, 1)}
+              {clockKnob('k', -2, 2)}
+              <label>
+                <span>wrap</span>
+                <input type="checkbox" defaultChecked={b.clock.wrap} onChange={(e) => send({ ...now(), clock: { ...now().clock!, wrap: e.target.checked } })} />
+              </label>
+            </>
+          ) : (
+            <>
+              {knob('amount', 0, 4)}
+              {!bind.gate && knob('attack', 0, 1)}
+              {knob('release', 0, 1)}
+            </>
+          )}
           {bind.gate ? (
             <label>
               <span>invert</span>
@@ -148,7 +186,7 @@ export function Param({ label, bind, children }: { label: string; bind?: Bindabl
               {knob('max', bind.lo, bind.hi)}
             </>
           )}
-          {b.shape && knob('rate', 0.05, 4, 0.05)}
+          {b.shape && !b.clock && knob('rate', 0.05, 4, 0.05)}
         </div>
       )}
     </>
@@ -187,15 +225,15 @@ export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove
       {fold(def?.inputs ?? [], (x) => {
         const label = x.label ?? x.name
         const set = (y: Value) => panel.setValue(path, x.name, y)
-        const bind = (k: string, lo: number, hi: number): Bindable | undefined =>
-          bindable(x) ? { path, k, lo, hi, init: n.bind?.[k], gate: x.type === 'bool' || x.type === 'event' } : undefined
+        const bind = (k: string, lo: number, hi: number, wrap?: boolean): Bindable | undefined =>
+          bindable(x) ? { path, k, lo, hi, init: n.bind?.[k], gate: x.type === 'bool' || x.type === 'event', wrap } : undefined
         const val = v[x.name]
         switch (x.type) {
           case 'float': {
             const lo = (x.min as number | undefined) ?? 0
             const hi = (x.max as number | undefined) ?? 1
             return (
-              <Param key={x.name} label={label} bind={bind(x.name, lo, hi)}>
+              <Param key={x.name} label={label} bind={bind(x.name, lo, hi, TURN.test(x.name))}>
                 {slider(lo, hi, val as number, set)}
               </Param>
             )
@@ -241,7 +279,7 @@ export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove
               const lo = (x.min as number[] | undefined)?.[j] ?? 0
               const hi = (x.max as number[] | undefined)?.[j] ?? 1
               return (
-                <Param key={`${x.name}.${j}`} label={`${label} ${c}`} bind={bind(`${x.name}.${j}`, lo, hi)}>
+                <Param key={`${x.name}.${j}`} label={`${label} ${c}`} bind={bind(`${x.name}.${j}`, lo, hi, false)}>
                   {slider(lo, hi, xy[j], (y) => {
                     xy[j] = y
                     set([...xy])
@@ -311,10 +349,10 @@ export function LayerParams({ i, l }: { i: number; l: LayerDoc }) {
   const set = (k: string) => (y: number) => panel.setValue(at, k, y)
   return (
     <>
-      <Param label="opacity" bind={{ path: at, k: 'opacity', lo: 0, hi: 1, init: l.bind?.opacity }}>
+      <Param label="opacity" bind={{ path: at, k: 'opacity', lo: 0, hi: 1, init: l.bind?.opacity, wrap: false }}>
         {slider(0, 1, l.opacity, set('opacity'))}
       </Param>
-      <Param label="layer speed" bind={{ path: at, k: 'speed', lo: 0, hi: 4, init: l.bind?.speed }}>
+      <Param label="layer speed" bind={{ path: at, k: 'speed', lo: 0, hi: 4, init: l.bind?.speed, wrap: false }}>
         {slider(0, 4, l.speed, set('speed'))}
       </Param>
       <Param label="res">{slider(0.25, 1, l.res, set('res'), 0.05)}</Param>

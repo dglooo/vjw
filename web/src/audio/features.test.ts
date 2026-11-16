@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { SOURCE_IDS, type Sources } from '../bind'
+import { gain, SOURCE_IDS, type Sources } from '../bind'
 import { createAnalysis } from './analysis'
 import type { Drum, Hit } from './drums'
 import { createFeatures, knee } from './features'
@@ -9,7 +9,7 @@ import { workletBands, type AudioSettings, type CustomBand } from './settings'
 import { mix, pattern, reese, SR, sub, wobble } from './synth'
 
 const DRUMS: Drum[] = ['kick', 'snare', 'hats']
-const settings = (sens: Record<string, number> = {}): AudioSettings => ({ v: 1, auto: false, pick: null, sens, custom: [] })
+const settings = (sens: Record<string, number> = {}): AudioSettings => ({ v: 1, auto: false, pick: null, sens, mute: [], custom: [] })
 const preset = (sens: Record<string, number> = {}): Preset => ({ ...PRESETS.default, sens })
 const hit = (drum: Drum, t = 0): Hit => ({ drum, t, strength: 4 })
 const close = (a: number[], b: number[]) => {
@@ -17,13 +17,15 @@ const close = (a: number[], b: number[]) => {
   a.forEach((v, i) => expect(v, `#${i}`).toBeCloseTo(b[i], 12))
 }
 
-/** `drum`'s value at each fill after one hit; fill i passes dts[i], so fill 0 is the hit's frame (age 0). */
+/** `drum`'s value at each fill after one hit; fill i passes dts[i], so fill 0 is the hit's frame (age 0). Then the
+ *  user's gain, as app.ts runs them (this file's sens tests read the two together). */
 function after(drum: Drum, dts: number[], s = settings(), p = preset()) {
   const f = createFeatures()
   const out: Sources = {}
   f.hit(hit(drum))
   return dts.map((dt) => {
     f.fill(out, dt, s, p)
+    gain(out, s)
     return out[drum]
   })
 }
@@ -50,7 +52,12 @@ describe('hit sources (design C1)', () => {
     expect(out.snare).toBe(1)
   })
 
-  test("sens: the user's × the preset's factor for that id (missing = 1), capped at 1", () => {
+  test("sens: the user's (bind.ts gain()) × the preset's (fill) factor for that id (missing = 1), capped at 1", () => {
+    const f = createFeatures()
+    const out: Sources = {}
+    f.hit(hit('kick'))
+    f.fill(out, 0, settings({ kick: 0 }), preset())
+    expect(out.kick).toBe(1) // fill reads the preset's factor only: the user's gain moved to gain() (2026-11-17)
     const kick = (s: AudioSettings, p = preset()) => after('kick', [0.12, 0], s, p) // ages 0 and τ
     close(kick(settings({ kick: 0 })), [0, 0])
     close(kick(settings({ kick: 1 })), [1, Math.exp(-1)])
@@ -110,6 +117,7 @@ function play(batches: Feat[], s = settings(), p = preset(), f = createFeatures(
     f.push(m)
     f.at(Infinity)
     f.fill(out, 2 * HOP, s, p)
+    gain(out, s) // the user's sens, as app.ts runs it after the fill
     const row: Sources = { ...out, rawSub: f.raw.sub, rawReese: f.raw.reese, rawDepth: f.raw.wobbleDepth }
     return [m.t0 + HOP, row] as const
   })
@@ -252,11 +260,12 @@ function uCurve(cus: [number, number][], b = uBand(), s: AudioSettings = uSet(b)
     f.push(uFeats(k * 2 * HOP, cu))
     f.at(Infinity)
     f.fill(out, dt, s, p)
+    gain(out, s) // the user's sens, as app.ts runs it after the fill
     return out[U_ID] ?? 0
   })
 }
 const E = (x: number) => Math.exp(-x)
-const uSet = (b: CustomBand, sens: Record<string, number> = {}): AudioSettings => ({ v: 1, auto: false, pick: null, sens, custom: [b] })
+const uSet = (b: CustomBand, sens: Record<string, number> = {}): AudioSettings => ({ v: 1, auto: false, pick: null, sens, mute: [], custom: [b] })
 
 describe('custom bands u:<id> (design C1)', () => {
   test('gate: held ≠ e2 (the kick latch) reads 0 in the gap; e2 × gain otherwise (gain 0 = instant, attack 0 = instant)', () => {

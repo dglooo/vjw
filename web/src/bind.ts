@@ -1,10 +1,15 @@
 // Bindings (design E3): the per-frame source numbers in an open registry, and the source → shape → amount →
 // attack/release → range chain that drives one parameter. Pure, so Vitest runs it in Node.
 import { BAND_COUNT } from './audio/energy'
+import type { AudioSettings } from './audio/settings'
+import { clockRate, clockStep, type Rate } from './clock'
 import type { FrameInput } from './frame'
 
 export type Shape = 'sine' | 'tri' | 'saw' | 'square' | 'random'
-export interface Binding { source: string; amount: number; attack: number; release: number; min: number; max: number; shape?: Shape; rate?: number }
+/** `clock` (audio clocks, user 2026-11-17): the value runs at base + k · source ranges per s instead of following the
+ *  source; `wrap` wraps it past max back to min (a hue, an angle), else it holds at min / max (a level that charges). */
+export interface Binding { source: string; amount: number; attack: number; release: number; min: number; max: number; shape?: Shape; rate?: number; clock?: Clocked }
+export interface Clocked { base: number; k: number; wrap: boolean }
 /** Open ids (lead's note): one object, refilled every frame. Later epics add keys; bindings never enumerate it. */
 export type Sources = Record<string, number>
 /** `y`: the smoothed 0..1 value; `held`: a bound bool's or event's last level (`level`), kept across a rebind with it. */
@@ -20,6 +25,8 @@ const ONSET_LO = 1.5
 const ONSET_SPAN = 2.5
 const ONSET_TAU = 0.12 // s
 const GATED = ['beat', 'bar'] // phase sources × confidence (pilot S8); lfo is not
+/** Counts, not levels: the grid's beat and bar, lfo the time. Shapes take their fract; a clock never reads one. */
+export const PHASES: readonly string[] = ['beat', 'bar', 'lfo']
 
 const BANDS = Array.from({ length: BAND_COUNT }, (_, i) => `band${i}`)
 /** The keys `sources()` and features.ts's `fill()` fill, for the panel's list. */
@@ -61,6 +68,15 @@ export function sources(f: FrameInput, out: Sources): Sources {
   out.bar = f.sync.bar
   out.confidence = f.sync.confidence
   out.lfo = f.time
+  return out
+}
+
+/** The user's gain and mute per source (the Sources tab), in place: app.ts runs it once per frame after every source is
+ *  filled, before Auto-style, a binding, a clock or a scene reads one. × `sens` (missing = 1): a level stays ≤ 1, a
+ *  count speeds up. A muted source reads 0, so a binding on it falls to `min` and a clock on it runs at its base. */
+export function gain(out: Sources, { sens, mute }: Pick<AudioSettings, 'sens' | 'mute'>): Sources {
+  for (const id in sens) if (Object.hasOwn(out, id)) out[id] = PHASES.includes(id) ? sens[id] * out[id] : Math.min(1, sens[id] * out[id])
+  for (const id of mute) out[id] = 0
   return out
 }
 
@@ -116,8 +132,19 @@ function shape(s: Shape, t: number): number {
   }
 }
 
-/** The bound value this frame. An unknown source reads 0; the one-pole is fps-independent; min > max inverts. */
+const rates = new WeakMap<Binding, Rate>() // a clock binding's rate, built on its first frame: an edit makes a new binding
+
+/** The bound value this frame. An unknown source reads 0; the one-pole is fps-independent; min > max inverts. A clock
+ *  keeps its position in `state.y` (0..1 of the range: switching modes never jumps) and steps it by clock.ts with the
+ *  source as it is: no amount, shape or smoothing. */
 export function evaluate(b: Binding, s: Sources, state: BindState, dt: number): number {
+  if (b.clock) {
+    let r = rates.get(b)
+    if (!r) rates.set(b, (r = clockRate({ source: b.source, ...b.clock })))
+    const y = clockStep(state.y, r, s, dt)
+    state.y = (b.clock.wrap ? y - Math.floor(y) : clamp(y)) || 0 // || 0: a NaN (a garbage source name) restarts it
+    return b.min + (b.max - b.min) * state.y
+  }
   let x = Object.hasOwn(s, b.source) ? s[b.source] : 0
   if (b.shape) {
     x = shape(b.shape, x * (b.rate ?? 1))

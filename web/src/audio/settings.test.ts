@@ -3,7 +3,7 @@ import { PRESETS, type Band, type Genre, type PresetId } from './presets'
 import { activePreset, bandKey, createSettings, parseSettings, workletBands, type AudioSettings, type CustomBand } from './settings'
 
 const KEY = 'vjw.audio'
-const DEFAULTS: AudioSettings = { v: 1, auto: true, pick: null, sens: {}, custom: [] }
+const DEFAULTS: AudioSettings = { v: 1, auto: true, pick: null, sens: {}, mute: [], custom: [] }
 type NewBand = Omit<CustomBand, 'id'>
 const BAND: NewBand = { name: 'sub', lo: 40, hi: 60, gain: 1, gate: 0.2, attack: 0.01, release: 0.2 }
 const stored = (i = 0, over: Partial<CustomBand> = {}): CustomBand => ({ ...BAND, id: `u:00000${i}`, ...over })
@@ -57,8 +57,13 @@ test('parseSettings: anything but version 1 settings gives the defaults', () => 
 
 test('parseSettings: an invalid field falls back alone, the valid ones stay', () => {
   const x = { v: 1, auto: 'yes', pick: 'techno', sens: { kick: 5, snare: -1, hats: 0.5, sub: 'x', reese: NaN, wobble: null }, custom: 'no' }
-  expect(parseSettings(x)).toEqual({ v: 1, auto: true, pick: 'techno', sens: { kick: 2, snare: 0, hats: 0.5 }, custom: [] })
+  expect(parseSettings(x)).toEqual({ v: 1, auto: true, pick: 'techno', sens: { kick: 2, snare: 0, hats: 0.5 }, mute: [], custom: [] })
   expect(parseSettings({ v: 1, auto: false, pick: 'jazz', sens: [1, 2] })).toEqual({ ...DEFAULTS, auto: false })
+})
+
+test('parseSettings: mute keeps the string ids once each; anything else falls back to none', () => {
+  expect(parseSettings({ v: 1, mute: ['bass', 'sub', 'bass', 5, null, 'u:ab12cd'] }).mute).toEqual(['bass', 'sub', 'u:ab12cd'])
+  for (const mute of ['bass', { bass: true }, null]) expect(parseSettings({ v: 1, mute }).mute, String(mute)).toEqual([])
 })
 
 test('parseSettings: a pick must be one of the presets', () => {
@@ -116,7 +121,7 @@ test('a refused write keeps the settings for the session and still announces', (
 test('round trip: every field comes back after a reload, as JSON under vjw.audio', () => {
   const { m, kv } = storage()
   const a = createSettings(kv)
-  a.patch({ auto: false, pick: 'dubstep', sens: { kick: 1.5, wobble: 0.5 } })
+  a.patch({ auto: false, pick: 'dubstep', sens: { kick: 1.5, wobble: 0.5 }, mute: ['bass', 'sub'] })
   expect(a.addBand(BAND)).toBeNull()
   expect(a.addBand({ ...BAND, name: 'air', lo: 8000, hi: 12000, gain: 4, gate: 1, attack: 2, release: 0 })).toBeNull()
   const [b0, b1] = a.get().custom
@@ -125,6 +130,7 @@ test('round trip: every field comes back after a reload, as JSON under vjw.audio
     auto: false,
     pick: 'dubstep',
     sens: { kick: 1.5, wobble: 0.5 },
+    mute: ['bass', 'sub'],
     custom: [
       { ...BAND, id: b0.id },
       { name: 'air', lo: 8000, hi: 12000, gain: 4, gate: 1, attack: 2, release: 0, id: b1.id },
@@ -139,7 +145,7 @@ test('patch: changes the named fields, re-checks them, replaces sens as a whole,
   s.addBand(BAND)
   const bands = s.get().custom
   s.patch({ pick: 'dnb', sens: { kick: 9, hats: NaN } })
-  expect(s.get()).toEqual({ v: 1, auto: true, pick: 'dnb', sens: { kick: 2 }, custom: bands }) // clamped, NaN dropped
+  expect(s.get()).toEqual({ v: 1, auto: true, pick: 'dnb', sens: { kick: 2 }, mute: [], custom: bands }) // clamped, NaN dropped
   s.patch({ sens: { snare: 0.5 } })
   expect(s.get().sens).toEqual({ snare: 0.5 }) // not merged: the caller spreads get().sens
   s.patch({ pick: null, auto: false })
