@@ -232,7 +232,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done:** Gates. The `grow` line passes.
 - **Base / depends:** master / S1.3. **New deps:** none.
 - **Changed during implementation:**
-  - `alloc()` passes `{ numElements: cap }` to twgl's `createBufferInfoFromArrays`. Without it, twgl reads `BUFFER_SIZE` back (`getBufferParameter`, 2 per allocation). That call is a sync wait on the GPU process, which zero-fills the new buffers: 3.0 to 21.9 ms of main thread per growth to 1 048 576 (`s14-diag.log`). With the argument the task takes 0 to 0.2 ms (`s14-diag-fix.log`). `create()` loses the same wait.
+  - `alloc()` passes `{ numElements: cap }` to twgl's `createBufferInfoFromArrays`. Without it, twgl reads `BUFFER_SIZE` back (`getBufferParameter`, 2 per allocation). That call is a sync wait on the GPU process, which zero-fills the new buffers: 3.0 to 21.9 ms of main thread per growth to 1 048 576 (`s14-diag.log`). With the argument the task takes 0 to 0.2 ms (`s14-diag-fix.log`). `create()` loses the same wait. It is margin, not the reason for the live result: `s14-live.mjs` reads 0 late frames at the growth also without the argument (`s14-live-nonum.log`), because the wait fits in the idle part of the frame in this session.
   - The task copies both ping-pong pairs (4 `copyBufferSubData` calls, 8 B x old capacity each), so `cur` stays valid without a choice of the live pair.
   - "Does nothing on a disposed instance" = `clearTimeout` in `dispose()`: the task never runs. P-U6 checks it.
   - The task restores the frame's ARRAY_BUFFER binding (one `getParameter`). twgl's VAO setup leaves a TF buffer there. Between frames the binding is the engine's triangle buffer (P-B3 `before`: bound), so the `null` of `create()` would show in P-B3's diff.
