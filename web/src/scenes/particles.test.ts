@@ -6,7 +6,7 @@ import { defaults } from '../doc'
 import type { FrameInput } from '../frame'
 import type { Value } from '../fx/types'
 import { BUILTIN } from './builtin'
-import { grownCapacity, particleCount, particles, shouldSplat, SPLAT_MIN } from './particles'
+import { grownCapacity, heatStep, particleCount, particles, shouldSplat, SPLAT_MIN } from './particles'
 
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, renderTarget: () => ({ fit: () => {}, attachments: [{}] }) })) // takes the page's canvas + WebGL at import
 
@@ -145,4 +145,14 @@ test('S2.3 while the device is pending, TF draws its capacity with no growth tas
   } finally {
     vi.useRealTimers()
   }
+})
+
+test('I-FL1 light on a hit only through ⚡ hit: def.flash = [hit], every built-in particles layer binds it to kick from 0, the heat rises <= 35 % of a step per 60 fps frame', () => {
+  expect(particles.flash).toEqual(['hit'])
+  const gens = BUILTIN.flatMap((d) => d.layers.map((l) => l.gen)).filter((g) => g.ref === 'native/particles')
+  expect(gens.length).toBeGreaterThanOrEqual(3) // builtin:particles, particles-over-tunnel, demo-particles
+  for (const g of gens) expect(g.bind?.hit, 'flashGate rests below its ON line at min 0').toMatchObject({ source: 'kick', min: 0 })
+  expect(heatStep(0, 1, 1 / 60)).toBeGreaterThan(0.3) // still a hit: a third of the heat in the first frame
+  expect(heatStep(0, 1, 1 / 60)).toBeLessThanOrEqual(0.35) // the full step (≈ +.11 luma) never lands in one frame
+  expect(heatStep(0.8, 0.2, 1 / 60)).toBe(0.2) // falls with the gated value at once
 })

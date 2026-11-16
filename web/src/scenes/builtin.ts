@@ -10,10 +10,12 @@ const BLOOM: Record<string, Binding> = {
   rampShift: { source: 'bar', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, // the tint turns once a bar
 }
 
-// native/particles in its two scenes (S4.1): its onsets and bass live in its code; these add the bass class and a build.
+// native/particles in its scenes (S4.1): its onsets and bass live in its code (motion only); these add the bass class, a
+// build and the kick's heat (⚡ = its flash input, ≤3 onsets/s: the only light a hit adds, I-FL1).
 const PARTICLES: Record<string, Binding> = {
   swirl: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 1.5, max: 3.5 }, // the bass spins the disc
   glow: { source: 'build', amount: 1, attack: 1, release: 2, min: 2, max: 4 }, // a build heats the bloom
+  hit: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 }, // ⚡ a kick heats the points
 }
 
 // Built-in scenes (design E4): JSON-compatible literals, so tsc checks them and doc.test.ts round-trips them. Immutable:
