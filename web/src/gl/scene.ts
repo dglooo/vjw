@@ -14,4 +14,9 @@ export interface Native { draw(f: FrameInput, v: Readonly<Record<string, Value>>
 // warm?() (CP2, milkdrop): Start awaits it instead of a throwaway create() (live.ts warm()).
 // size (2b S3.2, design S6): the stage it draws for, px; default the drawing buffer. A tile (live.ts tile()) passes its
 // own, so the heavy natives shrink to it: the ring, scatter's grid, the point counts. Every other native ignores it.
-export interface NativeDef extends EffectDef { create(gl: WebGL2RenderingContext, size?: readonly [number, number]): Native; warm?(): Promise<void> }
+// alpha (GPU3D LR-7, 2026-11-16): 'straight' = the generator writes straight alpha under normal (native/model, N3). Its
+// layer never takes live.ts's direct path: the normal composite premultiplies it, so as layer 0 it reads d·a over
+// black. Every other generator keeps the direct path (R5).
+export interface NativeDef extends EffectDef { create(gl: WebGL2RenderingContext, size?: readonly [number, number]): Native; warm?(): Promise<void>; alpha?: 'straight' }
+/** LR-7: a straight-alpha generator, kept off the direct path. A shader or any other native: false. */
+export const straight = (def: EffectDef | undefined) => (def as NativeDef | undefined)?.alpha === 'straight'

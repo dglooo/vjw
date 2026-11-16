@@ -2,7 +2,7 @@
 // generator draws (at size × res), then each effect reads the previous texture as `inputImage`, ping-ponging the two
 // engine temps; an ISF file runs its PASSES through its own TARGETs; a pasted Shadertoy (`toy/…`) is a generator. Each
 // layer is composited onto `acc` with its blend and opacity, except the fast path: a bottom layer at normal, opacity 1,
-// res 1 draws straight into `acc`.
+// res 1 draws straight into `acc`, unless its generator writes straight alpha (native/model, LR-7).
 // Every layer runs its own clock (`speed`). Bindings write the nodes' uniforms and the layers' opacity/speed per frame.
 // The panel (design E6) edits the current scene through `panel`: values and bindings in place, structure by the same one
 // op on the built layers (every other node keeps running), each with its inverse recorded for undo (design S3); it saves
@@ -24,7 +24,7 @@ import { store } from '../store'
 import { edits } from '../undo'
 import { audioTex, copy, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
 import { flashGate, type FlashState } from './post'
-import type { Native, NativeDef } from './scene'
+import { straight, type Native, type NativeDef } from './scene'
 
 export { docs, type NodePath } from '../edit'
 
@@ -347,8 +347,9 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
         const ok = !l.muted && !l.nodes.includes(null) && !l.nodes[0]?.native?.hidden?.() // not ok: black (layer 0 still clears acc); a hidden gen adds nothing (N-1)
         const last = l.nodes[l.nodes.length - 1]
         const small = l.v.res < 1 ? (l.small ??= renderTarget()) : null // the panel may lower res after the build
-        // The fast path (design E1): its last pass draws straight into acc, unless that pass writes an ISF TARGET.
-        const direct = i === 0 && ok && l.blend === 'normal' && l.v.opacity === 1 && !small && !last?.passes.at(-1)?.pair && !l.mask
+        // The fast path (design E1): its last pass draws straight into acc, unless that pass writes an ISF TARGET or the
+        // generator writes straight alpha (LR-7: only the normal composite premultiplies it).
+        const direct = i === 0 && ok && l.blend === 'normal' && l.v.opacity === 1 && !small && !last?.passes.at(-1)?.pair && !l.mask && !straight(l.nodes[0]?.def)
         if (i === 0 && !direct) {
           bindFramebufferInfo(gl, acc)
           gl.clearColor(0, 0, 0, 1)
