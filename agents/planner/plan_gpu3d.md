@@ -353,7 +353,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done:** Gates. The JSON files pass `check`. The report states the constants that ship.
 - **Base / depends:** master / S3.2, S1.6. **New deps:** none.
 
-### S4.1 [ ] Merge the S1-T spike
+### S4.1 [x] Merge the S1-T spike
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the passed spike is in `master` with no change in behaviour: the three host, `native/model` (not in the catalog yet), the GL-state instrument and the `blend` argument.
 - **Source:** in a fresh worktree from `master`: `git merge 334631f` (branch `worktree-agent-afd1458d462044d4c`, base `badc76d`). Keep the entries of both sides in `package.json`, the lock file and the THIRD_PARTY file.
@@ -368,6 +368,8 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done:** Gates. `npm run build` succeeds. Record the gzip size of the entry chunk before and after the merge (the I-BUNDLE1 baseline). The diff line passes.
 - **Base / depends:** master + the merge of `334631f` / none.
 - **New deps:** `three` 0.187.0, MIT (`agents/STATE.md` HEAD, "GPU/3D research"). Its types are local (`three.d.ts`).
+- **Changed during implementation:** the merge was `git merge --no-ff` of the branch (clean: master changed no `web/` file after `badc76d`). Items 1 and 2 were already true in `334631f` (the exact pin; both COPY bindings in `FIELDS`), so no edit. Item 3: I-GL1 is a new test next to the spike's three; it also checks a pixel-store field (UNPACK_ALIGNMENT), the other half of the matrix `bad_input` (the fake GL gains `pixelStorei`). Item 4: no spike-only page exists (`s1t.mjs` boots `/?debug` and imports `/src/...` from the dev server). Nothing is deleted: every `MODEL_SPIKE` field is read by an `s1t.mjs` mode that the plan still runs (`diff` = lines 1, 2, 4, 5; `inst` = line 0; `bench` = S4.2). The hooks ship inert: no app code sets them.
+- **I-BUNDLE1 baseline (S4.1):** entry gzip (Node `zlib.gzipSync`, default level) 365 603 B before (master `2692601`), 365 605 B after the merge (Vite prints 368.44 kB for both). The merged build has no three chunk, because nothing imports `scenes/model.ts` before S4.4. A probe build (model in the catalog, temporary edit, reverted): entry 366 368 B (+765 B); lazy chunk `host-*.js` 641 413 B raw, 159 801 B gzip. The marker `THREE.WebGLRenderer` survives the minifier: 0 in the entry, 8 in the lazy chunk.
 ### S4.2 [ ] The Quaternius CC0 animal in place of Fox
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the shipped model is one animated CC0 animal with recorded provenance (matrix ruling G4). `Fox.glb` leaves the tree.
