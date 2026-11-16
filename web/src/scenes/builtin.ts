@@ -1207,6 +1207,17 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:hills-eels', name: 'Hills, Eels', star: true, // dnb · Victor S. · I-FL1 1/s · billed p95 3.29 ms
     layers: [{ gen: { ref: 'syn/hills_eels', bind: syn('syn_BassLevel', 'syn_MidPresence', 'syn_MidHighPresence', 'syn_HighPresence', 'syn_Intensity', 'syn_BassHits', 'syn_MidHits', 'syn_MidHighHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // Adapter step 2's proofs (IMAGES, the media stub, syn_Spectrum), res .25, I-FL1 PASS both. Billed p95 with other lanes
+  // on the GPU (it only adds time: the lower run bounds the cost): geode 5.5 ms (≤ 7.5: starred), hexagons 7.7 / 12.6 ms
+  // (Library-only until a solo run).
+  {
+    v: 1, id: 'builtin:voronoi-geode', name: 'Voronoi Geode', star: true, // dnb · Shane (IMAGES: agate1/agate2)
+    layers: [{ gen: { ref: 'syn/voronoi_geode', bind: syn('syn_HighHits', 'syn_Presence', 'syn_BassHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }], // ⚡ syn_BassHits
+  },
+  {
+    v: 1, id: 'builtin:bouncy-hexagons', name: 'Bouncy Hexagons', star: false, // dnb · mrange, CC0 (syn_Spectrum, IMAGES t_fbm)
+    layers: [{ gen: { ref: 'syn/bouncy_hexagons', bind: syn('syn_BassPresence', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
