@@ -22,6 +22,7 @@ import type { Input } from '../fx/types'
 import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, renderTarget } from '../gl/engine'
 import { glState, PASS_LIST, restore } from '../gl/glstate'
+import { heatStep } from '../gl/post'
 import type { NativeDef } from '../gl/scene'
 import type { SplatPath } from '../gpu/splat'
 import { noteWebgpuMs } from '../quality'
@@ -62,12 +63,6 @@ export const inputs: Input[] = [
 const SPRING = 40 // knob: 1/s², pull back to the rest radius: a burst returns within ~¼ s, and frequent onsets
 // (≈4/s with hats) only push the disc out by their mean impulse / SPRING
 const DRAG = 3 // knob: 1/s, velocity damping (bouncy, settles in ~1 s)
-// knob: s, the heat's rise time constant: a frame takes 1 - e^(-dt/HOT_RISE) of the step (34 % at 60 fps), so an allowed
-// kick's full heat step (≈ +.11 frame-mean luma at 65 536 points) never makes a luma step > .10 in one frame (I-FL1)
-const HOT_RISE = 0.04
-/** The heat drawn this frame: rises toward the gated `hit` with HOT_RISE, falls with it at once (its binding's release
- *  smooths the fall). Pure. */
-export const heatStep = (hot: number, hit: number, dt: number) => (hit > hot ? hot + (hit - hot) * (1 - Math.exp(-dt / HOT_RISE)) : hit)
 const EXPOSURE = 1.2 // knob: tone map
 
 // Scene units: y −1..1, x scaled by the aspect. One pass integrates (written back by transform feedback) and draws.

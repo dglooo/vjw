@@ -6,7 +6,8 @@ import { defaults } from '../doc'
 import type { FrameInput } from '../frame'
 import type { Value } from '../fx/types'
 import { BUILTIN } from './builtin'
-import { grownCapacity, heatStep, particleCount, particles, shouldSplat, SPLAT_MIN } from './particles'
+import { heatStep } from '../gl/post'
+import { grownCapacity, particleCount, particles, shouldSplat, SPLAT_MIN } from './particles'
 
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, renderTarget: () => ({ fit: () => {}, attachments: [{}] }) })) // takes the page's canvas + WebGL at import
 

@@ -56,3 +56,11 @@ export function flashGate(y: number, s: FlashState, onsets: number[], t: number)
   }
   return (s.prev = Math.min(y, s.prev))
 }
+
+// knob: s, a native's ⚡ hit's rise time constant as drawn: a frame takes 1 - e^(-dt/HOT_RISE) of the step (34 % at
+// 60 fps), so an allowed hit's full light step (particles: ≈ +.11 frame-mean luma at 65 536 points) never makes a luma
+// step > .10 in one frame (I-FL1)
+const HOT_RISE = 0.04
+/** A native's ⚡ `hit` as drawn this frame (particles, tunnel, spectrum): rises toward the gated `hit` with HOT_RISE,
+ *  falls with it at once (its binding's release smooths the fall). Pure. */
+export const heatStep = (hot: number, hit: number, dt: number) => (hit > hot ? hot + (hit - hot) * (1 - Math.exp(-dt / HOT_RISE)) : hit)

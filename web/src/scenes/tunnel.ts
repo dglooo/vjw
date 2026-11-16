@@ -1,10 +1,12 @@
 // Tunnel: polar tunnel. Bass swells the radius (energy.att.bass), treble adds sparks (energy.level.treb),
-// the 32 bands light the stripes around the wall, onsets flash the walls and the light at the end, and the (c) beat
-// pulses the light and surges the flight forward.
+// the 32 bands light the stripes around the wall, and the (c) beat surges the flight forward.
+// Light on a hit only through ⚡ `hit` (flashGate <= 3/s, WCAG 2.3.1; I-FL1): a kick flashes the walls and the light at
+// the end. Before, every onset and the beat pulse lit them: frame-mean luma steps > .10 up to 8 per 1 s.
 import { BAND_COUNT } from '../audio/energy'
 import { pulse } from '../audio/sync'
 import type { Input } from '../fx/types'
 import { fullscreenProgram } from '../gl/engine'
+import { heatStep } from '../gl/post'
 import type { NativeDef } from '../gl/scene'
 
 /** Look knobs, read as uniforms every frame; bindings and the panel drive them through `values`. */
@@ -12,9 +14,9 @@ export const inputs: Input[] = [
   { name: 'speed', type: 'float', min: 0, max: 2, default: 0.6 },
   { name: 'twist', type: 'float', min: 0, max: 0.5, default: 0.12 },
   { name: 'glow', type: 'float', min: 0, max: 3, default: 1 },
+  { name: 'hit', type: 'float', min: 0, max: 1, default: 0 }, // ⚡ the kick's flash: the one input that adds light on a hit
 ]
 const BAND_RELEASE = 0.85 // per 60 Hz frame: a stripe lights at once and fades ≈1.4 dB/frame (raw bands flicker)
-const FLASH_TAU = 0.12 // s: onset flash decay
 const SURGE = 2 // knob: flight speed × (1 + SURGE) on the beat
 
 const FS = `#version 300 es
@@ -27,8 +29,7 @@ uniform float uTreb;                  // level.treb, 1 ≈ average
 uniform float uBands[${BAND_COUNT}];  // mean linear magnitude per band
 uniform float uTwist;
 uniform float uGlow;
-uniform float uFlash;                 // onset strength (1.5–4) × age decay
-uniform float uPulse;                 // (c) beat envelope × confidence: 1 on the beat
+uniform float uHot;                   // ⚡ input hit, gated by live.ts (flashGate), its rise slewed (heatStep)
 out vec4 outColor;
 
 const float TAU = 6.2831853;
@@ -56,31 +57,29 @@ void main() {
   float spark = step(hash(floor(g) + floor(uTime * 15.0)), 0.015 * clamp(uTreb - 0.5, 0.0, 4.0));
   col += spark * (1.0 - smoothstep(0.1, 0.5, length(fract(g) - 0.5))) * vec3(1.0, 0.95, 0.9);
 
-  float fl = 0.25 * uFlash;
-  col *= (1.0 + 1.5 * fl + 0.5 * uPulse) * smoothstep(0.02, 0.5, r);   // walls light up on a hit and the beat; fog
-  col += palette(uTime * 0.05) * uGlow * 0.04 * (1.0 + 6.0 * fl + 3.0 * uPulse) / r; // the end light bursts too
+  // Walls light up on a kick, the end light bursts too; fog. Half the old onset flash's gains (1.5, 6): a full hit's
+  // ≈ +.35 frame-mean luma rose > .10 in one frame even through heatStep (I-FL1 fa- diagnostic).
+  col *= (1.0 + 0.75 * uHot) * smoothstep(0.02, 0.5, r);
+  col += palette(uTime * 0.05) * uGlow * 0.04 * (1.0 + 3.0 * uHot) / r;
   outColor = vec4(col, 1.0);
 }`
 
 export const tunnel: NativeDef = {
-  id: 'native/tunnel', name: 'Tunnel', kind: 'generator', category: 'geometry', credit: 'VeeJay Wizard', inputs,
+  id: 'native/tunnel', name: 'Tunnel', kind: 'generator', category: 'geometry', credit: 'VeeJay Wizard', inputs, flash: ['hit'],
   create() {
     const draw = fullscreenProgram(FS)
     const bands = new Float32Array(BAND_COUNT)
     let travel = 0
+    let hot = 0 // the hit as drawn (heatStep)
     return {
       draw(f, v) {
-        const beat = pulse(f.sync)
-        travel += f.dt * (v.speed as number) * (1 + SURGE * beat)
+        travel += f.dt * (v.speed as number) * (1 + SURGE * pulse(f.sync))
         const fall = BAND_RELEASE ** (f.dt * 60)
         for (let i = 0; i < BAND_COUNT; i++) bands[i] = Math.max(f.energy.bands[i], bands[i] * fall)
-        // Decay by age, so a 30 fps frame still shows the right envelope. Clamped at 0: a line-in onset's t is ahead of
-        // audioNow by about the output latency when it arrives (R9: ≈43 ms on the M4). File onsets arrive audible (T1).
-        const o = f.lastOnset
-        const flash = o ? o.strength * Math.exp(-Math.max(0, f.audioNow - o.t) / FLASH_TAU) : 0
+        hot = heatStep(hot, v.hit as number, f.dt)
         draw({
           uRes: [f.width, f.height], uTime: f.time, uTravel: travel, uBass: f.energy.att.bass,
-          uTreb: f.energy.level.treb, uBands: bands, uTwist: v.twist, uGlow: v.glow, uFlash: flash, uPulse: beat,
+          uTreb: f.energy.level.treb, uBands: bands, uTwist: v.twist, uGlow: v.glow, uHot: hot,
         })
       },
     }
