@@ -1,9 +1,9 @@
 // The rAF loop (Variant A): read (a) → drain (b) → (c) phase → director → engine.render. Per-frame data never goes
 // through React: the store hears about scene and lock changes, and gets the badge and the BPM at most 4×/s.
-import { createArrangement, shouldCut, type ArrangeOut } from './audio/arrange'
+import { createArrangement, shouldCut, SILENT_RMS, type ArrangeOut } from './audio/arrange'
 import { BAND_COUNT, createEnergy, rms } from './audio/energy'
 import { createFeatures } from './audio/features'
-import { analyser, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, odfQueue, onsetQueue, recDest } from './audio/input'
+import { analyser, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, inputLatency, odfQueue, onsetQueue, recDest } from './audio/input'
 import { PRESETS, snapOctave, type Band, type PresetId } from './audio/presets'
 import { activePreset, bandKey, createSettings, workletBands } from './audio/settings'
 import { createSync, ZERO_SYNC } from './audio/sync'
@@ -32,6 +32,10 @@ const STALE = 1 // s: older onsets are dropped on drain (a stalled or hidden tab
 const BADGE_MS = 250 // the quality badge and the BPM update at most 4×/s
 const HIT_WINDOW_S = 8 // S4.3: the classifier's kick/hat counts span (design C4)
 const SILENCE = 0.02 // S4.3 knob: all three levels below this = silence → the classifier freezes
+// dsp_linein_2026-11-16 fix 2: the input at or under SILENT_RMS (−60 dBFS) this long, s, is a pause (a line-in's noise
+// floor), and energy, features and the tempo ODF read it as digital silence, as a paused file. Not a stop in the music:
+// Rumble's quiet runs last ≤ .83 s, and a restart in those just before its drops (21, 117 s) would flatten the drop's sub.
+const PAUSE = 1
 const CONFIDENT = 0.6 // knob (Q4 default): (c) is trusted above this, for bar lines and the overlay's BPM alike
 const NUDGE_MS = 10 // `,` / `.`
 const DEBUG = location.search.includes('debug')
@@ -90,8 +94,10 @@ function watchDpr() {
 }
 watchDpr()
 
-/** Audio-clock time of what the room hears now: a file through our speakers, line-in live at capture (as T1). */
-const heard = (t = audioNow()) => t + (store.getSnapshot().source?.kind === 'file' ? 0 : ctx.baseLatency + ctx.outputLatency)
+/** Audio-clock time of what the room hears now: a file through our speakers (audioNow); line-in live at capture, so the
+ *  context's time plus the capture path's latency. Never the output's: a Bluetooth output misreports it, and it reads 0
+ *  for the first ≈ 0.3 s (dsp_linein_2026-11-16 fix 4). */
+const heard = (t = audioNow()) => (store.getSnapshot().source?.kind === 'file' ? t : ctx.currentTime + inputLatency())
 
 let holdBefore = false // the hold when the panel or the editor opened (never both: the editor closes the panel)
 /** The panel holds the autopilot while open, so the edited scene stays; closing restores the hold from before (E6). */
@@ -237,6 +243,7 @@ const styledOut: Sources = {} // restyle's output, allocated once
 const hits8: Hit[] = [] // recent hits, newest last: the classifier's 8 s kick/hat counts
 if (DEBUG) Object.assign(window, { __styled: styledOut, __style: () => styleOut }) // ?debug: the styled overlay and detection (S4.3)
 let last = 0
+let quietFor = 0 // s the input has sat at or under SILENT_RMS (PAUSE)
 let scale = 0 // the applied internal scale
 let tick = 0
 let badgeAt = -Infinity
@@ -274,7 +281,10 @@ function frame(now: number) {
   analyserL.getFloatTimeDomainData(waveL)
   analyserR.getFloatTimeDomainData(waveR)
   setAudio(magDb, wave, waveL, waveR)
-  f.energy = energy.update(magDb, 1 / f.dt) // first frame: dt 0 → fps ∞ → averages hold
+  const frameRms = rms(wave) // arrange's `total`
+  quietFor = frameRms <= SILENT_RMS ? quietFor + f.dt : 0
+  const paused = quietFor >= PAUSE
+  f.energy = energy.update(magDb, 1 / f.dt, paused) // first frame: dt 0 → fps ∞ → averages hold
   f.audioNow = audioNow()
   f.onsets = drain(onsetQueue)
   f.lastOnset = f.onsets.at(-1) ?? f.lastOnset
@@ -288,7 +298,7 @@ function frame(now: number) {
   // S2.4: work the feat batches through every hop up to the heard time (a file's audioNow, line-in the newest) before
   // fill() reads the sustained sources and the u:* bands.
   for (const m of featQueue.splice(0)) features.push(m)
-  features.at(store.getSnapshot().source?.kind === 'file' ? f.audioNow : Infinity)
+  features.at(store.getSnapshot().source?.kind === 'file' ? f.audioNow : Infinity, paused)
   // S4.3: the classifier runs every frame; its pick (or a manual pick) sets the active preset, which drives the tempo
   // band (S3.2) and the band configs (features.fill). f.sync here is the previous frame's grid — fine for a smoothed score.
   const st = settings.get()
@@ -307,7 +317,7 @@ function frame(now: number) {
   // total = the frame's RMS (the −60 dBFS silence floor lives in arrange.ts), cuts = the previous frame's preset's.
   let high = 0
   for (let i = highStart; i < BAND_COUNT; i++) high += eb[i]
-  arrangeOut = arrangement.update({ low: features.raw.sub + features.raw.reese, high, total: rms(wave), kick: kickThisFrame, beat: f.sync.confidence >= 0.3 ? f.sync.beat : null, cuts: PRESETS[configured].cuts !== false, now: f.time })
+  arrangeOut = arrangement.update({ low: features.raw.sub + features.raw.reese, high, total: frameRms, kick: kickThisFrame, beat: f.sync.confidence >= 0.3 ? f.sync.beat : null, cuts: PRESETS[configured].cuts !== false, now: f.time })
   const freeze = (lvl.bass < SILENCE && lvl.mid < SILENCE && lvl.treb < SILENCE) || arrangeOut.sparse
   styleOut = style.update(styleIn({ kick8, hat8, bpm: f.sync.bpm, confidence: f.sync.confidence, wobble: features.raw.wobbleDepth, bass: total > 0 ? (features.raw.sub + features.raw.reese) / total : 0, families: { dnb: fdn, dubstep: fdu, techno: fte }, freeze }), now / 1000)
   // A manual pick (incl. the ?preset= dev hook) locks the classifier; else Auto follows `detected`.
@@ -331,7 +341,8 @@ function frame(now: number) {
   features.fill(src, f.dt, st, PRESETS[active])
   const t = heard(f.audioNow)
   const { beat: b0, bpm: bpm0 } = f.sync // last frame's grid, before this frame's onsets correct it
-  for (const b of odfQueue.splice(0)) tempo.pushOdf(b.values, b.t0, b.hop)
+  // paused: silent ODF, so the tempo's start settle (tempo.ts) arms on a line-in's noise floor too (its ODF is level-free)
+  for (const b of odfQueue.splice(0)) tempo.pushOdf(paused ? b.values.fill(0) : b.values, b.t0, b.hop)
   for (const o of f.onsets) {
     if (DEBUG && bpm0) {
       const x = b0 + ((o.t - lastHeard) * bpm0) / 60

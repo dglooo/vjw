@@ -52,8 +52,9 @@ export interface ArrangeOpts {
 // .3–.35, cutMin 1.5–1.8. Not "drums running": `total` doesn't separate a cut from a stutter. Ceiling: a
 // techno 1-bar fill (1.875 s) passes. Off under Dubstep, whose bass stops are its groove (Rumble's 108–110 s cut fires
 // 110.1 and its refractory would swallow 117.0)
+export const SILENT_RMS = 1e-3 // −60 dBFS: `silence`'s default; app.ts's pause floor too
 const DEFAULTS: ArrangeOpts = {
-  groove: 20, sparse: 0.6, arm: 6, ret: 4, back: 0.6, sustain: 0.1, near: HOLD + 0.15, refractory: 20, minConf: 0.56, warmup: 20, silence: 1e-3,
+  groove: 20, sparse: 0.6, arm: 6, ret: 4, back: 0.6, sustain: 0.1, near: HOLD + 0.15, refractory: 20, minConf: 0.56, warmup: 20, silence: SILENT_RMS,
   cut: 0.3, cutMin: 1.5,
 }
 // knobs (C6 defaults), s unless noted

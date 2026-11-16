@@ -42,6 +42,14 @@ const MARGIN = 1.1 // knob (default): a range's candidates reach this factor pas
 const SUBS = [1.5, 1.25]
 const SUB_TOL = 0.03
 const SUB_FLOOR = 0.2 // knob: the DnB window caps the others only with this much evidence of its own
+// Start settle (dsp_linein_2026-11-16 fix 1): after silence the bands' slow followers sit near 0, so a signal's first ODF
+// values spike (38–55 on a line-in picked mid-music) and the early ACF picked its octave from them (Kanine line-in: 87,
+// not 174, in 3 of 4 runs). The first SETTLE s of signal after ≥ SILENT s of no-signal ODF (the stream's start counts)
+// read 0: 19-track replay line-in DnB tempo-at-ref 69 → 77 %, file 72 → 74 %, +1 false drop per path (Bad Co 16.3);
+// 0.3–1 s read the same.
+const QUIET = 0.05 // knob: an ODF value at or under this is no signal
+const SILENT = 1
+const SETTLE = 0.3
 
 const prior = (bpm: number, centre: number) => Math.exp(-0.5 * (Math.log2(bpm / centre) / PRIOR_OCTAVES) ** 2)
 /** A range's candidate: `bpm` in [lo/MARGIN, hi·MARGIN] × {½, 1, 2}. DnB 160–185 leaves out the two-step's ⅔ lag (116). */
@@ -58,6 +66,8 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
   let hop = 0
   let tEnd = 0 // time of the newest ODF value
   let due = 0 // hops since the last update
+  let quiet = Infinity // s of no-signal ODF up to the newest value
+  let settle = -Infinity // ODF values before this time read 0
   const onsets: number[] = [] // onset times, oldest first
   let reading: TempoReading | null = null
   let range: Band | null = null
@@ -154,10 +164,13 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
         hi = Math.ceil(120 / o.minBpm / h)
         acf = new Float64Array(hi + 1)
       }
-      for (const v of values) {
-        ring[pos] = v
+      values.forEach((v, i) => {
+        const t = t0 + i * h
+        if (v > QUIET && quiet >= SILENT) settle = t + SETTLE
+        quiet = v > QUIET ? 0 : quiet + h
+        ring[pos] = t < settle ? 0 : v
         pos = (pos + 1) % ring.length
-      }
+      })
       filled += values.length
       tEnd = t0 + (values.length - 1) * h
       due += values.length

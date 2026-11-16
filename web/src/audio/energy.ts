@@ -38,16 +38,17 @@ export function createEnergy(sampleRate: number, fftSize: number) {
   let frames = 0
 
   return {
-    /** magDb = AnalyserNode.getFloatFrequencyData output. Returns the same Energy object every call. */
-    update(magDb: Float32Array, fps: number): Energy {
-      for (let i = 0; i < magDb.length; i++) lin[i] = 10 ** (magDb[i] / 20) // -Infinity dB → 0
+    /** magDb = AnalyserNode.getFloatFrequencyData output; `quiet`: the input is paused (app.ts: ≥ 1 s at or under −60
+     *  dBFS RMS, a line-in's noise floor), read as digital silence. Returns the same Energy object every call. */
+    update(magDb: Float32Array, fps: number, quiet = false): Energy {
+      for (let i = 0; i < magDb.length; i++) lin[i] = quiet ? 0 : 10 ** (magDb[i] / 20) // -Infinity dB → 0
       for (let b = 0; b < BAND_COUNT; b++) {
         const [start, end] = edges[b]
         e.bands[b] = sum(lin, start, end) / (end - start)
       }
       let total = 0
       for (const k of KEYS) total += imm[k] = sum(lin, ranges[k][0], ranges[k][1])
-      // Digital silence (no source, paused file) restarts the fast seed, so sound after silence doesn't
+      // Digital silence (no source, paused file, a paused input) restarts the fast seed, so sound after silence doesn't
       // read as hundreds × the average for seconds.
       if (total === 0) frames = 0
       const longRate = (++frames <= SEED_FRAMES ? SEED : LONG) ** (30 / fps)
