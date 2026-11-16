@@ -90,3 +90,4 @@
 - `agents/audio-dsp/dsp_serpent_replay.md` — Serpent replay pre-step (2026-11-15): knobs, lines a–h (d–g fail: no absence detector), reeseLevel §4 record. Current.
 - `agents/creative-qa/cqa_amen_shatter_spike.md` — CQA of the Amen Shatter spike sheet (2026-11-15): REVISE, 1 HIGH (set B not held), 6 MED (plate bullseye, stamps, veil…), 4 LOW. Current.
 - `agents/audio-dsp/dsp_formula_review_2026-11-17.md` — donor (visual_system_2) audio model vs ours (2026-11-17, 152 lines): Level/Hits/Presence + macros; our sub/reese fade in drop bodies; H0 regression = 11-05 retune + milk-sync; P1–P6 ranked; analysis-view spec §6. Current.
+- `agents/research/research_donor_visual_system_2.md` — donor scan of visual_system_2 (2026-11-17, 235 lines): 87 .synScene GLSL 330 scenes (table), top 15 port candidates, 43 syn_* uniforms → our sources, helpers / post chain / Shadertoy rules, audio_indicators layout, provenance. Current.
