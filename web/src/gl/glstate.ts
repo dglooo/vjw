@@ -79,8 +79,10 @@ export const KEYS: readonly string[] = FIELDS.map((f) => f.key)
  *  textures; a pass with a third sampler touches unit 2: re-run the leak mode. */
 export const PASS_LIST: readonly string[] = ['blendFunc', 'COLOR_CLEAR_VALUE', 'CURRENT_PROGRAM', 'ARRAY_BUFFER_BINDING', 'unit0.TEXTURE_2D', 'unit1.TEXTURE_2D', 'ACTIVE_TEXTURE']
 
-/** The state of `keys` (default: every field). Leaves ACTIVE_TEXTURE as it found it. */
+/** The state of `keys` (default: every field). Leaves ACTIVE_TEXTURE as it found it. Empty on a lost context, where
+ *  getParameter reads null and restore() of the empty snapshot sets nothing (GPU3D I-CL1: frames run until the reload). */
 export function glState(gl: GL, keys: readonly string[] = KEYS): GLState {
+  if (gl.isContextLost()) return new Map()
   const unit = gl.getParameter(gl.ACTIVE_TEXTURE)
   const s: GLState = new Map()
   for (const f of FIELDS) if (keys.includes(f.key)) s.set(f.key, f.get(gl))
