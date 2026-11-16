@@ -628,7 +628,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Values (`s46-final-*`, the same in `s46-flag-*`): M-B1 255 (max error 0). M-B2: 42 cells, max error 0.5 (P = 0.5 stores as 127). M-B3 min edge luma 255 at samples 1 (3 661 edge texels) and at samples 4 (3 661, of them 2 893 partial). M-B4 max error 0 (221 974 opaque texels, 0 partial, 658 617 channels changed).
   - REDs (temporary edits, reverted; Vite restarted after each): premultiplied under `normal` and straight elsewhere (`s46-red-premul-*`): M-B1 191; M-B2 7/7 modes fail; M-B3 min edge luma 191 at samples 4 (2 893 texels < 254; samples 1 unchanged). The fx reads the raw RT (`live.ts` `run()` returns the model's RT texture to a following node, `s46-red-rawrt-fxafter.*`): M-B4 max error 101. M-B7: RED before the ruling and with the flag ignored (above).
 
-### S4.7 [ ] `builtin:demo-model`, the bundle rows and the R3 bench
+### S4.7 [x] `builtin:demo-model`, the bundle rows and the R3 bench
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the third demo ships, and R3 / R5 are measured on it.
 - **Files:** `web/src/scenes/builtin.ts`, `web/src/library.test.ts`, `web/src/scenes/model.ts` (header note only), `scratchpad/gpu3d/g3-bench.mjs` (mode `model`), `scratchpad/gpu3d/g3-60s.mjs` (mode `model`), `scratchpad/gpu3d/g3-state.mjs` (mode `bundle`).
@@ -643,6 +643,22 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** I-LIB1 final (Vitest). Rows: M-PERF2, I-GOV1, I-BUNDLE1, I-BUNDLE2.
 - **Done:** Gates. The JSON files pass `check`.
 - **Base / depends:** master / S4.4, S4.5, S4.6, S3.3. **New deps:** none.
+- **Result (coder evidence; code commit `17754eb`, port 5176, a private Vite `cacheDir`, headless; evidence `scratchpad/gpu3d/s47-*` in the worktree, harness copies there too):**
+  - `builtin:demo-model` (`scenes/builtin.ts`, after `builtin:demo-particles`): one `native/model` layer, values `glass` 0 and `samples` 1, `speed` ← `{ source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.5, max: 2 }`, `star: false`, res 1, layer speed 1. I-LIB1 lists the 3 ids (`toEqual`: exactly 3). RED with the demo starred (`s47-red-ilib1-starred.log`: `false` -> `true`).
+  - M-PERF2 (`s47-bench-model.*`, `g3-bench.mjs model 5176 3`, alone, slow class: wireform+flash p95 3.47, apple / metal-3): billed p95 per round, chrome 2.43 / 2.50 / 2.57 (all 2.56), glass 1 2.19 / 2.63 / 2.63 (all 2.61). The model drew in every sampled frame (181 draws / 181 samples per round). No lever needed. `check` PASS.
+  - I-GOV1, model half (`g3-60s.mjs model dnb174-arr 5176`): r4 alone PASS, 0 late / 3599, minScale 1, 0 governor steps, slow class (ref 4.17; `s47-60s-model-r4.*`). r3 the same values but OVERLAP (lane 1's Chrome). r1 alone FAIL, 6 late / 3576 (33-167 ms), minScale 0.85: macOS daemons (triald, axassetsd, MTLAssetUpgraderD, mds) started during it, load average 76.8 (`s47-60s-model.log`). `check` PASS on all three JSON files.
+  - I-BUNDLE1 (`s47-bundle-build.json`, `s47-bundle-probe.log`; Node gzip): `THREE.WebGLRenderer` 0 in the entry, 8 in the lazy `host-BA1-iqzl.js` (641 773 B raw, 159 960 B gzip, the S4.4 chunk unchanged). Entry 369 853 B. Size row (lead ruling): the model module + the demo doc = the entry minus a probe build without both (`s47-probe.mjs`, edits reverted) = 369 853 - 368 914 = **+939 B <= 2 KB** (S4.4: +901 B for the module). Against `e166f16` (368 406 B, S4.4's build; no build-config change since): +1 447 B, of which +508 B is not the model layer. Against S4.1's baseline 365 603 B: +4 250 B. RED (a static `three` import in `model.ts`, reverted): 8 markers in the entry, entry 514 405 B (`s47-red-ibundle1-static.json`).
+  - I-BUNDLE2 (`s47-bundle.*`, `g3-state.mjs bundle 5176`, alone): 0 three-side requests in 60 s from Start; the playlist (101 scenes) has no model layer; 3 scenes shown; music 45.6 s. RED with the demo starred (Start's `warm()` loads it): 6 requests, `src/three/host.ts`, three and its addons, `Wolf.glb` (`s47-red-ibundle2-starred.log`).
+  - M-B5 control (`s47-anim.*`, information, LR S4.5): as shipped 19.50/255; `speed` 0 (clip frozen, orbit on) **0.88/255**, under the 1/255 line (S4.5: 0.93). `host.ts` is unchanged, so the orbit and the framing are unchanged.
+  - M-V1 stills (information): `s47-still-chrome-1200.png` (the demo as shipped, over black) and `s47-still-glass-1200.png` (glass 1 over a 96 px checker), 1200 x 775; full size `s47-still-*.png`. Track: Kanine "Feel The Vibration" at 56.2 s, sub 0.31.
+  - Gates exit 0: 678 tests (base 678).
+- **Changed during implementation:**
+  - The binding's attack 0.05 / release 0.3 are the file's common `sub` shape; the plan names the range only.
+  - `g3-bench.mjs`: a model record has `kind: 'model'` with `glass` and `samples` in place of `pointsDrawn` and `count` (a model draws no points); `check` reads the field list of the record's kind (`M_REC`). The `model` rows also gate on the model's draws per sample window (0 while the load hides the layer). `stats()` gains `lateAt` (s into the window per late frame).
+  - `g3-state.mjs bundle`: "the three chunk" on the dev server = a URL with `/three/` (`src/three/host.ts`), `/deps/three` (Vite's optimised three and addons), `/assets/host-` (the build's lazy chunk) or `.glb`. My first sanity rule, "music > 50 s", failed a valid run: the music starts ~14 s after Start, after the compile-all of 101 scenes (`s47-bundle-r1-musicrule.*`, the same values). The rule is now ">= 2 scenes shown, the music playing".
+  - Not done, for the lead: matrix § Amendments assigns I-FL1's `flash` mode of `g3-60s.mjs` to "frontend-coder at S4.7"; the S4.7 text and the brief do not name it.
+  - Base: S3.3, a listed dependency, is not in master `52beaf1`. No S4.7 row needs it.
+  - Observation, not fixed: `s1t.mjs` instrument 2 matches three's stack frames with `/\.vite\/deps\/three/`. Under a private `cacheDir`, three is served from `/@fs/tmp/vite-cache-*/deps/three.js`, so the spy cannot match ("spy {}" in S4.3 and S4.6 ran under private caches). `/deps\/three/` matches both paths.
 ### S5.1 [ ] Integration A: particles and fluid hygiene
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the R4 hygiene rows of the two plain natives.
