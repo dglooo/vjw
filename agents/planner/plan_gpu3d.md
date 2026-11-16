@@ -257,6 +257,28 @@ Invoke the `ponytail` skill (full) before writing code.
   - P-PERF1: the coder's run sets the count; the lead's run is the record.
 - **Done:** Gates. The `nstar` JSON passes `check`.
 - **Base / depends:** master / S1.4, S1.1. **New deps:** none.
+- **Changed during implementation:**
+  - **Stopped at behaviour 4: no candidate row passes.** The step stays `[ ]` for the lead's ruling. Final code (integer hash, below), `s15-nstar-int.*`, alone, slow class (refP95 3.72), apple / metal-3, billed p95 per round:
+
+    | count | res | points drawn | round p95 (ms) | all p95 / med | row |
+    |---|---|---|---|---|---|
+    | 65 536 | 1 | 65 536 | 6.19 / 4.84 / 5.86 | 5.89 / 3.87 | FAIL |
+    | 65 536 | 0.5 | 65 536 | 5.35 / 5.08 / 5.29 | 5.29 / 4.55 | FAIL |
+    | 131 072 | 1 | 131 072 | 9.22 / 7.91 / 7.56 | 8.32 / 6.67 | FAIL |
+    | 131 072 | 0.5 | 131 072 | 7.00 / 6.89 / 7.14 | 7.10 / 6.28 | FAIL |
+    | 196 608 | 1 | 196 608 | 10.85 / 10.41 / 10.22 | 10.64 / 8.36 | FAIL |
+    | 196 608 | 0.5 | 196 608 | 8.74 / 8.36 / 8.60 | 8.67 / 7.46 | FAIL |
+    | 1 048 576 | 1 | 1 048 576 | 14.58 / 14.93 / 15.46 | 14.93 / 11.71 | L-class record |
+    | 1 048 576 | 0.5 | 1 048 576 | 22.13 / 22.18 / 20.77 | 22.13 / 19.40 | L-class record |
+
+    The run before the hash switch (`s15-nstar.*`, refP95 3.72) reads the same: 65 536 at res 0.5 = 5.26 / 4.97 / 5.27. 65 536 at res 0.5 is `builtin:particles` itself, which bills 5.16-5.33 in every pin since S1.1. The demo keeps the placeholder (65 536, res 0.5). The `nstar` JSON has a top-level `rec` only for an N*_shipped, so `check` exits 1 on it by design. Each row carries its own P-REC record; `check` on a row gives PASS.
+  - Diagnostic outside the plan's N set (`COUNTS=32768,49152`, `s15-nstar-int-diag.*`, refP95 3.80): 32 768 at res 1 = 4.61 / 4.44 / 4.39, at res 0.5 = 3.94 / 3.85 / 3.89; 49 152 at res 1 = 5.35 / 5.24 / 5.18 (FAIL), at res 0.5 = 4.64 / 4.67 / 4.75. With the set extended, N*_shipped = 49 152 at res 0.5 (all p95 4.66), and `check` gives PASS.
+  - At 1 048 576, res 0.5 bills more than res 1 (p95 22.1 against 14.9; median 19.4 against 11.7), in every round of both runs. Up to 196 608, res 0.5 is the cheaper one. ⚠️ The cause is not verified (one guess: the half-size target holds 4x the points per GPU tile).
+  - Harness `nstar`: env `COUNTS` (default: the plan's 3 counts + 1 048 576 as the L-class record row). `governor.reset()` 2 s after each cut and 0.5 s before the samples, so the samples start at the pin's music time (governed = 0 in every row). `pin` keeps its procedure and its output shape. The harness writes `nstar-<tag>.out.json`; the evidence files are renamed `s15-*`.
+  - Ring check (lead ruling S1.2): the 1 M still in the break (t 29.5 s, `s15-1m-calm-crop.png`) shows a sharp bright ring at the disc's inner edge. Cause: in float32 the sin hash puts 65 % of ids on a 1/256 grid, and 0.25 % get r1 = 0 exactly; those sit on the home-radius floor (2 602 ids at 1 M, against about 8 under the smooth law; `s15-ring-cpu.log`). **The 4 per-id streams (r1, r2, seed angle, seed radius) now use an integer hash, `idHash()` (PCG, Jarzynski & Olano 2020).** The respawn is keyed by `uTime` and keeps `hash()`. This touches the shader, outside the step's file note ("header note only"); the S1.2 ruling orders it.
+  - After the switch: the ring is gone (`s15-1m-calm-int-crop.png`). The seed's grid share falls from 64.80 % to 0.16 % (CPU pre-change sample: 0.18 %). P-R5-2: KS D 0.00609 before, 0.00626 after, both <= 0.011 (PASS). Pin (coder run): p95 5.24, luma 0.3617, against pin-pre 5.32 / 0.3661, inside the 0.17 ms / 0.01 bands.
+  - `g3-state.mjs seeddist` also prints the 1/256 grid share (information, no threshold).
+  - I-LIB1's list is `['builtin:demo-fluid', 'builtin:demo-particles']`: S3.2 ran first.
 
 ### S1.6 [ ] Run harnesses for the R1 record
 Invoke the `ponytail` skill (full) before writing code.

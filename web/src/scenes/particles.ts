@@ -2,6 +2,9 @@
 // disc and the point size, the (c) beat swells the disc and the points, a spring pulls each point back to its rest
 // radius, and points flung off-screen respawn at the centre.
 // Bursting points (radial speed) glow hot through the bloom; the calm swirl stays cool blue.
+// A `count` above N*_shipped is L-class (GPU3D Bench N*, plan_gpu3d S1.5): a built-in that sets one is never starred.
+// Billed p95 as shipped + own/flash, alone, slow class (M4, 1728×1118): 65 536 points 5.3 ms at res .5 (5.9 at res 1),
+// 1 048 576 points 14.9 ms at res 1 (22.1 at res .5).
 //
 // Adapted from twgl.js examples (MIT, https://github.com/greggman/twgl.js), examples/transform-feedback-particles-va.html
 // by Gregg Tavares: ping-pong vertex arrays + transform feedback objects, and the update shader also rasterises the
@@ -59,14 +62,23 @@ uniform float uSize;   // px at a 1000 px tall target
 uniform float uScale;  // target height / 1000
 uniform float uSwirl;
 uniform int uSeeded;   // ids below it hold a state; the others are new (GPU3D C8: no CPU seed array)
-float hash(float n) { return fract(sin(n) * 43758.5453); }
+float hash(float n) { return fract(sin(n) * 43758.5453); } // the respawn's (time-keyed, so no fixed pattern)
+// A point's own values: pcg_hash (Jarzynski & Olano 2020, "Hash Functions for GPU Rendering", JCGT 9(3),
+// https://jcgt.org/published/0009/03/02/), 24-bit uniform in [0, 1). hash() puts 65 % of ids on a 1/256 grid in float32, 0.25 % of them at exactly 0: at 1 M points those sat on
+// the home-radius floor as a sharp ring (GPU3D S1.5 still).
+float idHash(uint n) {
+  n = n * 747796405u + 2891336453u;
+  n = ((n >> ((n >> 28u) + 4u)) ^ n) * 277803737u;
+  return float(((n >> 22u) ^ n) >> 8u) * (1.0 / 16777216.0);
+}
 void main() {
   float id = float(gl_VertexID);
-  float r1 = hash(id * 0.1031 + 0.11), r2 = hash(id * 0.0973 + 0.37);
+  uint k = uint(gl_VertexID) * 4u; // 4 streams per id
+  float r1 = idHash(k), r2 = idHash(k + 1u);
   vec2 p = pos, v = vel;
   if (gl_VertexID >= uSeeded) { // a new id: a random point of the disc, at rest (the CPU law it replaced)
-    float a = 6.2831853 * hash(id * 0.0617 + 0.71);
-    p = (0.06 + 0.66 * sqrt(hash(id * 0.0859 + 0.23))) * vec2(cos(a), sin(a));
+    float a = 6.2831853 * idHash(k + 2u);
+    p = (0.06 + 0.66 * sqrt(idHash(k + 3u))) * vec2(cos(a), sin(a));
     v = vec2(0.0);
   }
   float d = length(p);

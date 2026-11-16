@@ -236,7 +236,7 @@ test('corrupt built-in stars in localStorage: the built-ins keep their own', asy
 })
 
 test('I-LIB1: the GPU3D demos are built-ins, all unstarred, none in the playlist (with or without a camera)', async () => {
-  const DEMOS = ['builtin:demo-fluid'] // plan_gpu3d: S3.2; S1.5 and S4.7 append theirs (3 at the close)
+  const DEMOS = ['builtin:demo-fluid', 'builtin:demo-particles'] // plan_gpu3d: S3.2, S1.5; S4.7 appends its own (3 at the close)
   expect(BUILTIN.filter((d) => d.id.startsWith('builtin:demo-')).map((d) => [d.id, d.star])).toEqual(DEMOS.map((id) => [id, false]))
   const lib = await loaded()
   for (const cam of [true, false]) expect(lib.playlist(cam).filter((id) => DEMOS.includes(id))).toEqual([])
