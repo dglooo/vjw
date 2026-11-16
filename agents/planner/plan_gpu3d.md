@@ -379,7 +379,7 @@ Invoke the `ponytail` skill (full) before writing code.
   4. Point `native/model` at the new file. Delete `Fox.glb` and its THIRD_PARTY rows.
   5. If the source needs a login or a manual click, stop and report (LR-6). Report the file size; above 5 MB, ask before committing.
 - **Tests:**
-  - M-U6 (Vitest, Node `fs`): every `.glb` / `.gltf` in `web/public/models/` has exactly one manifest entry with a non-empty `licence` and `source`.
+  - M-U6 (Vitest, Node `fs`): every `.glb` / `.gltf` in `web/public/models/` has exactly one manifest entry whose `licence` equals the CC0 1.0 string exactly and whose `source` is an https URL; the test runs after `Fox.glb` and its THIRD_PARTY rows are deleted (coverage B2, LR-5 i).
   - Browser: the diff rule of CP4 on the new model. `node scratchpad/gpu3d/s1t.mjs bench <port>` once: chrome and glass at 1 sample (S1-T read 2.07 ms on Fox).
 - **Done:** Gates. The diff line passes. One headless still: the animal in chrome.
 - **Base / depends:** master / S4.1. **New deps:** none. **Asset:** Quaternius pack, CC0.
@@ -602,3 +602,9 @@ Count: 1 + 12 + 26 (P) + 9 (F) + 13 (M without M-V1) + 16 (I) + 1 (R6-PRE) + 5 m
 - **LR-6 ACCEPTED:** coders fetch the fluid upstream file and the Quaternius pack from their official sources with licences recorded; a source that needs a login or a manual click goes to the lead.
 - **LR-7 ACCEPTED:** if `layer0` reads RED and the fix needs an engine change on the direct path, the step stops and routes to the lead.
 - **Gate record wording:** S1-P "FAIL on its pass line; done and routed" is correct as written.
+
+## Lead rulings — S4 coverage (2026-11-16)
+- **Coverage FAIL (B1–B3) → closed by the lead:** B1 row I-FL1 (flash ≤ 3/s + WCAG luma cap on the three demo layers, run at S6, owner lead) and B3 row M-B7 appended to the matrix (§ Amendments); B2 M-U6 tightened in S4.2 (CC0 1.0 exact, https source, after Fox is deleted). **S4 coverage = PASS by lead ruling.**
+- **M-V1:** information only; the S3/S7 user gate is waived for GPU3D (non-visual architecture, unstarred demos, the user's «no video checks now»); stills still go to the user as information.
+- **User order «пока никакие сцены не делаем»:** the three `builtin:demo-*` are capability demos (spec_gpu3d §3), unstarred, outside the autopilot → consistent with the order. Go.
+- **Non-blocking notes (coverage §E):** P-R5-1's post-change comparison = the lead's S6 rerun; I-LIB1 closes at S4.7; add one before/after frozen pair on `builtin:spectrum` to S4.1's checks (the `blend` arg touches every native); G11 (the 0.08/255 floor source) is cited or re-measured before S5.2.
