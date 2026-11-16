@@ -154,7 +154,7 @@ describe('parseIsf', () => {
     for (const x of BUILTIN.flatMap((s) => s.layers.flatMap((l) => [l.gen, ...l.fx])).filter((x) => x.ref.startsWith('own/')))
       for (const k of parseIsf(files[`./${x.ref}.fs`] as string, x.ref).flash ?? []) if (x.bind?.[k]) expect(x.bind[k].min, `${x.ref} ${k}`).toBe(0)
     const refs = BUILTIN.flatMap((s) => s.layers.flatMap((l) => [l.gen, ...l.fx])).map((n) => n.ref)
-    for (const r of refs.filter((r) => !/^(native|toy|milk)\//.test(r))) expect(ids, r).toContain(r) // a toy's code is inline
+    for (const r of refs.filter((r) => !/^(native|toy|milk|syn)\//.test(r))) expect(ids, r).toContain(r) // a toy's code is inline; syn/: syn.test.ts
   })
 
   test('isf/Solarize: the build and drop binds, the donor header kept (wave-2 S3.1)', () => {

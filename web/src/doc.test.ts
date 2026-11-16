@@ -25,8 +25,8 @@ describe('parseScene', () => {
     expect(tally).toEqual({ kick: 28, snare: 5, sub: 6, reese: 8, build: 3, hats: 1, bar: 1, lfo: 2 }) // bass, onset, treb: 0; kick +2 = particles' ⚡ hit, +12 = the tunnel's, spectrum's and glitch's; pixel-strobe beat → bar (I-FL1)
   })
 
-  test('every built-in ref is a native or a file under fx/isf or fx/own', () => {
-    const files = Object.keys(import.meta.glob(['./fx/isf/*.fs', './fx/own/*.fs'])).map((p) => p.slice('./fx/'.length, -'.fs'.length))
+  test('every built-in ref is a native or a file under fx/isf, fx/own or fx/syn', () => {
+    const files = Object.keys(import.meta.glob(['./fx/isf/*.fs', './fx/own/*.fs', './fx/syn/*.glsl'])).map((p) => p.slice('./fx/'.length).replace(/\.(fs|glsl)$/, ''))
     const refs = BUILTIN.flatMap((d) => d.layers.flatMap((l) => [l.gen, ...l.fx].map((n) => n.ref)))
     expect(refs.filter((r) => !/^(native|toy|milk)\//.test(r) && !files.includes(r))).toEqual([])
   })

@@ -1,5 +1,6 @@
 import type { Binding } from '../bind'
 import type { LayerDoc, SceneDoc } from '../doc'
+import { SYN_BIND } from '../fx/syn'
 import { MILK_SCENES, spread } from '../milkdrop/presets'
 
 // own/bloom's VJW_BIND (plan_td_look.md S1.4), for the two scenes that end on it; ⚡ = VJW_FLASH, ≤3 onsets/s
@@ -21,6 +22,9 @@ const PARTICLES: Record<string, Binding> = {
 // native/tunnel, native/spectrum and native/glitch in every scene (I-FL1): ⚡ hit = their flash input (≤3 onsets/s), the
 // only light a hit adds (their onsets and the beat pulse lit them before).
 const KICK_HIT: Record<string, Binding> = { hit: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 } }
+
+/** A synScene's bindings: SYN_BIND's, by name. */
+const syn = (...names: string[]): Record<string, Binding> => Object.fromEntries(names.map((n) => [n, SYN_BIND[n]]))
 
 // Built-in scenes (design E4): JSON-compatible literals, so tsc checks them and doc.test.ts round-trips them. Immutable:
 // edits go to a copy. The order is the autopilot's: the natives, then the combinations, with the MilkDrop scenes
@@ -1089,6 +1093,31 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
+  },
+  // Donor synScenes (fx/syn.ts, research_donor_visual_system_2.md §3): the scene's own bound syn_* floats, by SYN_BIND
+  // (fx/syn.test.ts: every one bound); ⚡ = the file's VJW_FLASH. res: the raymarch cost, billed p95 on M4 1728×1117 @2
+  // (the 5 ms budget of a starred scene): beats 14.9 → 10.8 ms (res .5 → .25), twister 9.6 → 7.5, kaleido 5.3 → 3.5 (.4).
+  {
+    // Library-only (unstarred, the flash-audit rule): I-FL1 4–5 luma steps in 1 s at dnb174-arr's drop (the frame
+    // falls from luma .86 over 3 frames; the hit's own ⚡ stays ≤ 2/s) and billed p95 10.8 ms at the res floor.
+    v: 1, id: 'builtin:beats-in-4d', name: 'Beats in 4D', star: false, // dnb · mrange, CC0
+    layers: [{
+      gen: {
+        ref: 'syn/beats_in_4d',
+        values: { bass_mix: [0.4, 0.6] }, // B = .4·level³ + .6·hit³ (the donor's .7/.7): the exp(6·B) flash term less white
+        // the level moves over .8 s: a build's bass ramp steps the exp(6·B) light less (I-FL1 8 → 4 steps in 1 s); ⚡ the hit
+        bind: { ...syn('syn_BassHits'), syn_BassLevel: { ...SYN_BIND.syn_BassLevel, attack: 0.8, release: 0.8 } },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25,
+    }],
+  },
+  {
+    v: 1, id: 'builtin:dark-twister', name: 'Dark Twister', star: true, // dnb · mrange, CC0
+    layers: [{ gen: { ref: 'syn/dark_twister', bind: syn('syn_BassLevel', 'syn_BassHits', 'syn_Hits', 'syn_BassPresence', 'syn_MidPresence', 'syn_MidHighPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }], // ⚡ syn_BassHits
+  },
+  {
+    v: 1, id: 'builtin:kaleidowhoa-man', name: 'KaleidoWHOA, MAN', star: true, // dnb · Meebs (syn_BeatTime: the beat count, unbound)
+    layers: [{ gen: { ref: 'syn/kaleidowhoa_man', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Presence', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.4 }],
   },
 ]
 

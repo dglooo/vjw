@@ -5,7 +5,7 @@
 import type { Input } from './types'
 
 /** `gl/engine.ts` VS, duplicated so this module stays pure (glsl.test.ts pins the two together). */
-const VS = `#version 300 es
+export const VS = `#version 300 es
 in vec2 position;
 void main() { gl_Position = vec4(position, 0.0, 1.0); }`
 const HEAD = `#version 300 es

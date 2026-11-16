@@ -1,4 +1,6 @@
 import type { Binding } from '../bind'
+import type { Rate } from '../clock'
+import type { FrameInput } from '../frame'
 
 // Effect definitions (frozen contract CP1, plan_effects.md): ISF files, natives and later Shadertoy/gl-transitions all
 // describe their parameters with the same `inputs`.
@@ -12,6 +14,13 @@ export interface Input { name: string; type: InputType; label?: string; default?
 /** `flash`: the inputs that brighten on a hit, gated by live.ts through flashGate (WCAG 2.3.1); ISF header `VJW_FLASH`.
  *  `tags`: an ISF file's raw CATEGORIES, beside the reduced `category` (the library's tag filter, 2b S3.1). */
 export interface EffectDef { id: string; name: string; kind: Kind; category?: Category; tags?: readonly string[]; credit: string; inputs: readonly Input[]; bind?: Readonly<Record<string, Binding>>; flash?: readonly string[] }
-export interface PassDef { target?: string; persistent: boolean; float: boolean; width?: string; height?: string }
-/** `unsupported` names what our runtime lacks (custom .vs, IMPORTED, extra images); such files are left out at curation. */
-export interface ShaderDef extends EffectDef { glsl: 100 | 300; vs: string; fs: string; passes: readonly PassDef[]; unsupported?: string }
+/** `filter`/`wrap`: a synScene TARGET's sampling (fx/syn.ts); linear and clamp without. */
+export interface PassDef { target?: string; persistent: boolean; float: boolean; width?: string; height?: string; filter?: 'nearest'; wrap?: 'repeat' }
+/** A synScene clock (fx/syn.ts): uniform `u` stepped by clock.ts each frame, its rate read from the node's values. */
+export interface Clock { u: string; rate: Rate }
+/** `unsupported` names what our runtime lacks (custom .vs, IMPORTED, extra images); such files are left out at curation.
+ *  A synScene's `clocks` and `raws` (uniforms read from the frame) are set by live.ts before its passes. */
+export interface ShaderDef extends EffectDef {
+  glsl: 100 | 300; vs: string; fs: string; passes: readonly PassDef[]; unsupported?: string
+  clocks?: readonly Clock[]; raws?: readonly (readonly [uniform: string, read: (f: FrameInput) => number])[]
+}
