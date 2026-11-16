@@ -1133,6 +1133,10 @@ const DJ: readonly SceneDoc[] = [
 // spread, so the autopilot's order stays as it was.
 const DEMOS: readonly SceneDoc[] = [
   { v: 1, id: 'builtin:demo-fluid', name: 'Demo fluid', star: false, layers: [{ gen: { ref: 'native/fluid' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }] },
+  { // builtin:particles' document at N*_shipped: 49 152 points at res .5 (Bench N*, plan_gpu3d S1.5, LR-2: p95 4.66 ms)
+    v: 1, id: 'builtin:demo-particles', name: 'Demo particles', star: false,
+    layers: [{ gen: { ref: 'native/particles', values: { count: 49152 }, bind: PARTICLES }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
