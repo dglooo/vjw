@@ -46,11 +46,17 @@ uniform float uAspect;
 uniform float uSize;   // px at a 1000 px tall target
 uniform float uScale;  // target height / 1000
 uniform float uSwirl;
+uniform int uSeeded;   // ids below it hold a state; the others are new (GPU3D C8: no CPU seed array)
 float hash(float n) { return fract(sin(n) * 43758.5453); }
 void main() {
   float id = float(gl_VertexID);
   float r1 = hash(id * 0.1031 + 0.11), r2 = hash(id * 0.0973 + 0.37);
   vec2 p = pos, v = vel;
+  if (gl_VertexID >= uSeeded) { // a new id: a random point of the disc, at rest (the CPU law it replaced)
+    float a = 6.2831853 * hash(id * 0.0617 + 0.71);
+    p = (0.06 + 0.66 * sqrt(hash(id * 0.0859 + 0.23))) * vec2(cos(a), sin(a));
+    v = vec2(0.0);
+  }
   float d = length(p);
   vec2 dir = d > 1e-5 ? p / d : vec2(cos(id), sin(id));
   float home = (0.06 + 0.66 * sqrt(r1)) * (0.8 + 0.2 * uBass + 0.1 * uPulse); // rest radius: breathes with bass and beat
@@ -100,15 +106,8 @@ export const particles: NativeDef = {
     const composite = fullscreenProgram(COMPOSITE_FS)
     const bloom = createBloom(gl)
     const target = renderTarget(true)
-    const start = new Float32Array(2 * n) // a random disc, at rest
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * 2 * Math.PI
-      const r = 0.06 + 0.66 * Math.sqrt(Math.random())
-      start[2 * i] = r * Math.cos(a)
-      start[2 * i + 1] = r * Math.sin(a)
-    }
-    const a = createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: start }, vel: { numComponents: 2, data: 2 * n } })
-    const b = createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: 2 * n }, vel: { numComponents: 2, data: 2 * n } })
+    // Allocated by size (zero-filled, no CPU array): the TF pass seeds each id once, on the GPU (uSeeded).
+    const [a, b] = [0, 1].map(() => createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: 2 * n }, vel: { numComponents: 2, data: 2 * n } }))
     // Ping-pong: each set reads one pair of buffers through its VAO and writes the other pair through its TF object.
     const sets = [[a, b], [b, a]].map(([src, dst]) => ({
       vao: createVertexArrayInfo(gl, prog, src).vertexArrayObject!,
@@ -116,6 +115,7 @@ export const particles: NativeDef = {
     }))
     gl.bindBuffer(gl.ARRAY_BUFFER, null) // as in the example: don't leave a TF buffer on a generic binding
     let cur = 0
+    let seeded = 0 // high-water mark: the ids a pass has covered (each seeded once)
 
     return {
       draw(f, v) {
@@ -137,13 +137,14 @@ export const particles: NativeDef = {
         setUniforms(prog, {
           uDt: Math.min(f.dt, 0.05), uTime: f.time, uKick: kick * (v.burst as number),
           uBass: Math.min(3, f.energy.att.bass), uPulse: pulse(f.sync),
-          uAspect: f.width / f.height, uSize: v.size, uScale: f.height / 1000, uSwirl: v.swirl,
+          uAspect: f.width / f.height, uSize: v.size, uScale: f.height / 1000, uSwirl: v.swirl, uSeeded: seeded,
         })
         gl.enable(gl.BLEND)
         gl.blendFunc(gl.ONE, gl.ONE)
         gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf)
         gl.beginTransformFeedback(gl.POINTS)
         gl.drawArrays(gl.POINTS, 0, n)
+        seeded = Math.max(seeded, n)
         gl.endTransformFeedback()
         gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null)
         gl.disable(gl.BLEND)
