@@ -1,7 +1,9 @@
 // Particles: `count` GPU points (65 536 by default) in a swirling disc. Onsets burst them outward, bass breathes the
 // disc and the point size, the (c) beat swells the disc and the points, a spring pulls each point back to its rest
 // radius, and points flung off-screen respawn at the centre.
-// Bursting points (radial speed) glow hot through the bloom; the calm swirl stays cool blue.
+// Light on a hit only through ⚡ `hit` (flashGate <= 3/s, WCAG 2.3.1; I-FL1): a kick heats the points through the bloom,
+// the burst's fast ones most; the calm swirl stays cool blue. The size breathing adds no light (a sprite's colour / m²,
+// m = its audio size factor): before, bass, beat and the onsets' radial speed stepped the frame-mean luma up to 12/s.
 // N*_shipped = 49 152 points at res .5 (GPU3D Bench N*, plan_gpu3d S1.5, LR-2). A `count` above it is L-class: a new
 // built-in that sets one is never starred. Billed p95 as shipped + own/flash, alone, slow class (M4, 1728×1118): 49 152
 // at res .5 4.7 ms; 65 536 5.3 ms at res .5 (5.9 at res 1), so builtin:particles (starred before GPU3D, kept as is: R5)
@@ -55,10 +57,17 @@ export const inputs: Input[] = [
   { name: 'size', type: 'float', min: 1, max: 16, default: 6 },
   { name: 'glow', type: 'float', min: 0, max: 8, default: 2 },
   { name: 'count', type: 'float', min: 0, max: COUNT_MAX, default: COUNT_DEFAULT }, // points drawn: particleCount()
+  { name: 'hit', type: 'float', min: 0, max: 1, default: 0 }, // ⚡ the kick's heat: the one input that adds light on a hit
 ]
 const SPRING = 40 // knob: 1/s², pull back to the rest radius: a burst returns within ~¼ s, and frequent onsets
 // (≈4/s with hats) only push the disc out by their mean impulse / SPRING
 const DRAG = 3 // knob: 1/s, velocity damping (bouncy, settles in ~1 s)
+// knob: s, the heat's rise time constant: a frame takes 1 - e^(-dt/HOT_RISE) of the step (34 % at 60 fps), so an allowed
+// kick's full heat step (≈ +.11 frame-mean luma at 65 536 points) never makes a luma step > .10 in one frame (I-FL1)
+const HOT_RISE = 0.04
+/** The heat drawn this frame: rises toward the gated `hit` with HOT_RISE, falls with it at once (its binding's release
+ *  smooths the fall). Pure. */
+export const heatStep = (hot: number, hit: number, dt: number) => (hit > hot ? hot + (hit - hot) * (1 - Math.exp(-dt / HOT_RISE)) : hit)
 const EXPOSURE = 1.2 // knob: tone map
 
 // Scene units: y −1..1, x scaled by the aspect. One pass integrates (written back by transform feedback) and draws.
@@ -77,6 +86,7 @@ uniform float uAspect;
 uniform float uSize;   // px at a 1000 px tall target
 uniform float uScale;  // target height / 1000
 uniform float uSwirl;
+uniform float uHot;    // ⚡ input hit, gated by live.ts (flashGate): the heat
 uniform int uSeeded;   // ids below it hold a state; the others are new (GPU3D C8: no CPU seed array)
 float hash(float n) { return fract(sin(n) * 43758.5453); } // the respawn's (time-keyed, so no fixed pattern)
 // A point's own values: pcg_hash (Jarzynski & Olano 2020, "Hash Functions for GPU Rendering", JCGT 9(3),
@@ -112,9 +122,10 @@ void main() {
   }
   posOut = p;
   velOut = v;
-  float heat = clamp(abs(dot(v, dir)) * 0.5, 0.0, 1.0); // radial speed: bursting = hot, the calm swirl stays cool
-  vColor = mix(vec3(0.12, 0.25, 1.0), vec3(1.0, 0.55, 0.2), heat) * (0.5 + 0.5 * heat);
-  gl_PointSize = uSize * uScale * (0.6 + 0.4 * uBass + 0.4 * uPulse) * (0.5 + r1);
+  float heat = uHot * (0.35 + r2) / 1.35; // the kick's heat, spread per point as the burst is
+  float m = 0.6 + 0.4 * uBass + 0.4 * uPulse; // the audio size factor
+  vColor = mix(vec3(0.12, 0.25, 1.0), vec3(1.0, 0.55, 0.2), heat) * (0.5 + 0.5 * heat) / (m * m); // / m²: a sprite's light (∝ size²) stays
+  gl_PointSize = uSize * uScale * m * (0.5 + r1);
   gl_Position = vec4(p.x / uAspect, p.y, 0.0, 1.0);
 }`
 const FS = `#version 300 es
@@ -165,7 +176,7 @@ const ask = () => (asked ??= import('../gpu/splat').then(async ({ splatDevice, c
 
 export const particles: NativeDef = {
   id: 'native/particles', name: 'Particles', kind: 'generator', category: 'geometry',
-  credit: 'VeeJay Wizard, after Gregg Tavares (twgl.js)', inputs,
+  credit: 'VeeJay Wizard, after Gregg Tavares (twgl.js)', inputs, flash: ['hit'],
   create(gl, size) {
     const tile = !!size
     let capacity = tile ? TILE_MAX : COUNT_DEFAULT // points the buffers hold (grow() raises it); a tile's (2b S3.2, design S6): ≈.1 ms
@@ -201,6 +212,7 @@ export const particles: NativeDef = {
     let wasSplat = false // the last frame drew the splat path: TF reseeds when it takes over (no state crosses paths)
     let tex: WebGLTexture | undefined // the splat canvas, uploaded as milkdrop/native.ts's copy() does
     let tw = 0, th = 0
+    let hot = 0 // the heat as drawn (heatStep)
 
     /** GPU3D C8, N6: a task between frames (no allocation inside a stage frame). New buffers by size, both pairs copied
      *  on the GPU, then swapped; `seeded` stays, so the new ids take their hash seeds in the next pass. */
@@ -241,6 +253,7 @@ export const particles: NativeDef = {
         // is pending, and on the splat path, it draws its capacity.
         if (want > capacity && !growth && !shouldSplat(want, newSplat !== null)) growth = setTimeout(() => grow(want), 0) // this frame draws the capacity
         const u = { dt: Math.min(f.dt, 0.05), time: f.time, kick: kick * (v.burst as number), bass: Math.min(3, f.energy.att.bass), pulse: pulse(f.sync), swirl: v.swirl as number }
+        hot = heatStep(hot, v.hit as number, u.dt)
         const index = splat?.index
         splat?.frame(want, f.width, f.height, u)
         const drew = !!splat && splat.index !== index // TF on a frame whose index did not move: before the first build (S2.2 ruling)
@@ -263,7 +276,8 @@ export const particles: NativeDef = {
             th = c.height
           }
           // uGain: a TF sprite's energy, ∫(1 − q²)² over its disc = (π/12) s², s = its mean px size (E[(.5 + r1)²] = 1.08)
-          const s = (v.size as number) * (f.height / 1000) * (0.6 + 0.4 * u.bass + 0.4 * u.pulse)
+          // at m = 1: the VS's / m² keeps it for any audio size factor m (I-FL1)
+          const s = (v.size as number) * (f.height / 1000)
           if (bare) gl.bindFramebuffer(gl.FRAMEBUFFER, out)
           decode({ uSrc: tex, uRes: [f.width, f.height], uGain: (Math.PI / 12) * 1.08 * s * s })
         } else {
@@ -277,7 +291,7 @@ export const particles: NativeDef = {
           gl.bindVertexArray(vao)
           setUniforms(prog, {
             uDt: u.dt, uTime: u.time, uKick: u.kick, uBass: u.bass, uPulse: u.pulse,
-            uAspect: f.width / f.height, uSize: v.size, uScale: f.height / 1000, uSwirl: u.swirl, uSeeded: seeded,
+            uAspect: f.width / f.height, uSize: v.size, uScale: f.height / 1000, uSwirl: u.swirl, uHot: hot, uSeeded: seeded,
           })
           gl.enable(gl.BLEND)
           gl.blendFunc(gl.ONE, gl.ONE)
