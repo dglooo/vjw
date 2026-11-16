@@ -114,7 +114,7 @@ describe('SYN and the bundled scenes', () => {
   const defs = Object.entries(files).map(([path, src]) => parseSyn(src as string, path.slice('./'.length, -'.glsl'.length)))
 
   test('each parses clean; its starred built-in binds every bound syn_* input; ⚡ names inputs', () => {
-    expect(defs.map((d) => d.id).sort()).toEqual(['syn/beats_in_4d', 'syn/dark_twister', 'syn/kaleidowhoa_man'])
+    expect(defs.map((d) => d.id)).toEqual(expect.arrayContaining(['syn/beats_in_4d', 'syn/dark_twister', 'syn/kaleidowhoa_man'])) // ports add more
     for (const d of defs) {
       expect(d.unsupported, d.id).toBeUndefined()
       const gens = BUILTIN.flatMap((s) => (s.star ? s.layers.map((l) => l.gen) : [])).filter((g) => g.ref === d.id)
