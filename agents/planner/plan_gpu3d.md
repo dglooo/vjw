@@ -312,7 +312,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** Vitest: none new. Rows: P-PERF2, P-PERF3, P-PERF4. The coder runs them alone; the lead's runs are the record.
 - **Done:** Gates. The three JSON files pass `check`. The report carries the sweep table and the chosen `SPLAT_MIN`.
 - **Base / depends:** master / S2.1, S2.3, S1.6. **New deps:** none.
-### S3.1 [ ] The pure seam `splats()`
+### S3.1 [x] The pure seam `splats()`
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the fluid's audio mapping, pure and tested, before any GL code.
 - **Files:** `web/src/scenes/fluid.ts` (types, constants and `splats()` only), `web/src/scenes/fluid.test.ts`.
@@ -326,6 +326,11 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** F-U1, F-U2, F-U3, F-U4 (Vitest).
 - **Done:** Gates.
 - **Base / depends:** master / none. **New deps:** none.
+- **Changed during implementation:**
+  - RG-6 resolved. `f.onsets` is `{ t, strength }[]` from the generic spectral-flux detector. It has no drum label. Drum hits never reach a native: `features.hit()` drops `strength`. A native sees a kick or a hat only as the envelope sources `s.kick` / `s.hats`. On the frame that drains a hit, the envelope jumps to min(1, sens), and between hits it only decays (`features.ts`). The drop is the `drop` level, which also only decays between drops (`arrange.ts`).
+  - So every event is a rise, not only the drop. The 4th argument is `prev: Readonly<Sources>`, the `s` of the previous call, not `dropRise: boolean`. `splats()` applies the milk-sync rule (level - previous > 0.25 = `RISE`) to `kick`, `hats` and `drop` alike. The edge rule stays inside the tested pure function. Strength = the source's level. The native (S3.2) keeps a copy of the last `s`. With `{}` on the first call, a level that is still decaying reads as one hit.
+  - The step's formula has no unit, so the impulse = direction x `SPEED` (500, the port's velocity units, as upstream's random splats ±500) x `v.force` x strength, each component clamped to +-`V_MAX`; NaN -> 0. The drop ring: radius `RING_R` = 0.15 stage heights. Its x offsets are divided by the stage aspect, so the ring is round on the stage. Its impulses = outward x `SPEED` x force x `s.drop`. Centres lie in the middle 60 % of the stage. `rgb` = a full-saturation hue from the hash, 0..1; the native may scale the dye.
+  - Only `V_MAX`, `RING_N`, `HAT_SCALE` and the event knobs are in `fluid.ts`. `SIM`, `DYE`, `PRESSURE_ITER` and the values go with the solver (S3.2). For S3.2: when `fluid.ts` imports the engine, `fluid.test.ts` needs `vi.mock('../gl/engine', () => ({}))` (the `orb.test.ts` precedent).
 
 ### S3.2 [ ] The solver port and `native/fluid`
 Invoke the `ponytail` skill (full) before writing code.
