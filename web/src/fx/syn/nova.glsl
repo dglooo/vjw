@@ -2,8 +2,8 @@
 // Author: Felix Woitzel
 // License: unknown (the donor's CREDIT names Felix Woitzel only; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts. Changes: GLSL ES 3.00 literals (2*x → 2.0*x, 7 lines); the BPM ring
-// reads syn_BPMTri2 / max(syn_BPMConfidence, 0.001) (was a bare division: 0/0 = NaN paints the frame black while
-// no tempo is found). The donor's SMOOTH_TRANSITIONS (colour regimes cReg1…3 and dark, cross-faded by the app at a
+// reads syn_BPMTri2 / max(syn_BPMConfidence, 0.001) (was a bare division: 0/0 while no tempo is found, and the
+// result reaches every pixel's colour). The donor's SMOOTH_TRANSITIONS (colour regimes cReg1…3 and dark, cross-faded by the app at a
 // detected musical transition) are panel sliders here, at the donor's first regime (cReg1 = the gold look).
 // ⚡ syn_HighHits (the hats) is flash-gated: it feeds the centre's light into the feedback and the `flashing` term.
 /*{
