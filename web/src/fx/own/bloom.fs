@@ -23,6 +23,7 @@
         { "TARGET": "up16", "FLOAT": true, "WIDTH": "$WIDTH/16", "HEIGHT": "$HEIGHT/16" },
         { "TARGET": "up8", "FLOAT": true, "WIDTH": "$WIDTH/8", "HEIGHT": "$HEIGHT/8" },
         { "TARGET": "up4", "FLOAT": true, "WIDTH": "$WIDTH/4", "HEIGHT": "$HEIGHT/4" },
+        { "TARGET": "hot", "PERSISTENT": true, "FLOAT": true, "WIDTH": 1, "HEIGHT": 1 },
         {}
     ],
     "VJW_FLASH": ["glow", "level"],
@@ -37,6 +38,7 @@
 #define KNEE 0.5       // the soft knee's half-width, × threshold
 #define INTENSITY 1.6  // the glow's overall gain (TD Intensity)
 #define RAMP 0.6       // how far the cosine ramp tints the glow (TD Ramp Glow .619)
+#define HOT_RISE 0.04  // s: the ⚡ glow and level rise with post.ts heatStep's time constant (I-FL1), fall at once
 
 // Down: the centre ×4 plus 4 diagonal taps one source texel out, each bilinear tap a 2×2 average; /8.
 vec3 down(sampler2D t, vec2 texel) {
@@ -70,12 +72,17 @@ void main() {
     else if (PASSINDEX == 6) gl_FragColor = vec4(IMG_THIS_PIXEL(down16).rgb + up(up32, 1.0 / IMG_SIZE(up32)), 1.0);
     else if (PASSINDEX == 7) gl_FragColor = vec4(IMG_THIS_PIXEL(down8).rgb + up(up16, 1.0 / IMG_SIZE(up16)), 1.0);
     else if (PASSINDEX == 8) gl_FragColor = vec4(IMG_THIS_PIXEL(down4).rgb + up(up8, 1.0 / IMG_SIZE(up8)), 1.0);
+    else if (PASSINDEX == 9) { // hot: the gated glow and level as drawn, heatStep per channel (a 1×1 persistent texel)
+        vec2 h = IMG_NORM_PIXEL(hot, vec2(0.5)).rg, x = vec2(glow, level);
+        gl_FragColor = vec4(mix(x, h + (x - h) * (1.0 - exp(-TIMEDELTA / HOT_RISE)), vec2(greaterThan(x, h))), 0.0, 1.0);
+    }
     else { // full size: the image screened with its glow (the five levels summed), tinted by the cosine ramp at its luma.
         // The exp screen is an add that soft-clips toward 1 per channel: brights keep their shape, the dark takes the halo.
         vec3 src = min(IMG_THIS_PIXEL(inputImage).rgb, 1.0);
         vec3 g = IMG_THIS_PIXEL(up4).rgb;
+        vec2 h = IMG_NORM_PIXEL(hot, vec2(0.5)).rg; // the glow and level as drawn
         float l = dot(g, vec3(0.2126, 0.7152, 0.0722));
         vec3 tint = mix(vec3(1.0), 0.5 + 0.5 * cos(6.28318 * (rampShift + l + vec3(0.0, 0.33, 0.67))), RAMP);
-        gl_FragColor = vec4(1.0 - (1.0 - src) * exp(-INTENSITY * (0.4 + 0.3 * glow + level) * g * tint), 1.0);
+        gl_FragColor = vec4(1.0 - (1.0 - src) * exp(-INTENSITY * (0.4 + 0.3 * h.x + h.y) * g * tint), 1.0);
     }
 }

@@ -90,8 +90,10 @@ const OWN: readonly SceneDoc[] = [
       fx: [
         { ref: 'isf/Pixellate', bind: { cell_size: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0.008, max: 0.025 } } }, // bigger pixels on a kick
         { ref: 'isf/Posterize', values: { numColors: 5 } },
-        // On for the first part of every beat: the saw falls 1 → 0 over the beat, and a bool is on at ≥ 0.5.
-        { ref: 'own/strobe', bind: { strobe: { source: 'beat', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 0.65 } } },
+        // On for the first ~6 % of every bar (≈ 80 ms at 174 BPM): the saw falls 1 → 0 over the bar, a bool is on at ≥ 0.5.
+        // Once a bar, not a beat (I-FL1 fa2-): one step per strobe even with its slewed fall, so 3 a second plus the
+        // drop's own flash made 7 luma steps > .10 in its second.
+        { ref: 'own/strobe', bind: { strobe: { source: 'bar', shape: 'saw', amount: 1, attack: 0, release: 0, min: 0, max: 0.53 } } },
       ],
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],

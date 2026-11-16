@@ -25,6 +25,7 @@
     ],
     "PASSES": [
         { "TARGET": "levels", "PERSISTENT": true, "FLOAT": true, "WIDTH": 128, "HEIGHT": 1 },
+        { "TARGET": "hot", "PERSISTENT": true, "FLOAT": true, "WIDTH": 1, "HEIGHT": 1 },
         {}
     ],
     "VJW_BIND": {
@@ -47,6 +48,7 @@
 #define MARGIN 0.06
 #define R0 0.2
 #define PI 3.14159265
+#define HOT_RISE 0.04 // s: the ⚡ glow and the thickness rise with post.ts heatStep's time constant (I-FL1), fall at once
 
 float level(float i) {
     return IMG_NORM_PIXEL(levels, vec2((i + 0.5) / 128.0, 0.5)).r;
@@ -104,9 +106,15 @@ void main() {
         gl_FragColor = vec4(x > prev ? x : mix(x, prev, exp(-TIMEDELTA / max(smoothing, 0.001))), 0.0, 0.0, 1.0);
         return;
     }
+    if (PASSINDEX == 1) { // hot: the gated glow and the thickness as drawn, heatStep per channel (a 1×1 persistent texel)
+        vec2 h = IMG_NORM_PIXEL(hot, vec2(0.5)).rg, x = vec2(glow, thickness);
+        gl_FragColor = vec4(mix(x, h + (x - h) * (1.0 - exp(-TIMEDELTA / HOT_RISE)), vec2(greaterThan(x, h))), 0.0, 1.0);
+        return;
+    }
+    vec2 hot2 = IMG_NORM_PIXEL(hot, vec2(0.5)).rg; // the glow and the thickness as drawn
     float ar = RENDERSIZE.x / RENDERSIZE.y;
     vec2 p = (uv - 0.5) * vec2(ar, 1.0); // screen units: the height is 1
-    float fill = (1.0 - gap) * thickness; // the share of its slot a bar takes
+    float fill = (1.0 - gap) * hot2.y; // the share of its slot a bar takes
     float d, w, t, l, g, halo; // distance, half-width, palette place, level, base → tip gradient, halo
     if (shape == 3) { // Wave: the waveform as one line, the distance to its segment across this sample (a steep spike
         // stays as tall as it is: a slope-scaled distance would smear it into streaks)
@@ -114,7 +122,7 @@ void main() {
         float y0 = wave(uv.x - e);
         float y1 = wave(uv.x + e);
         vec2 pa = vec2(e * ar, p.y - y0), ba = vec2(2.0 * e * ar, y1 - y0);
-        w = 0.0015 + 0.006 * thickness;
+        w = 0.0015 + 0.006 * hot2.y;
         d = length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0)) - w;
         t = uv.x + 2.0 * spin;
         l = 0.6 + abs(y0 + y1);
@@ -156,6 +164,6 @@ void main() {
     float px = 1.5 / RENDERSIZE.y;
     float body = smoothstep(px, -px, d);
     vec3 c = tint(t);
-    vec3 col = c * (body * (0.5 + 0.9 * g) * (0.4 + l) + halo * (0.3 + 1.2 * glow)) + body * glow * 0.5;
+    vec3 col = c * (body * (0.5 + 0.9 * g) * (0.4 + l) + halo * (0.3 + 1.2 * hot2.x)) + body * hot2.x * 0.5;
     gl_FragColor = vec4(1.0 - exp(-1.5 * col), 1.0);
 }

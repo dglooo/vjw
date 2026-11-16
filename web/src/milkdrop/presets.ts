@@ -32,6 +32,10 @@ const UNSTARRED = new Set([
   'rovastar-geiss-hyperspace-kaleidoscope', // dark (luma 7.7)
   'mig-colorful9', // 5 luma steps > .10 per s
   'orb-magma-pool', // 4 per s
+  // I-FL1 audit (fa-, fa2-): 4 and 5 luma steps > .10 in one second at the drop (dnb174-arr); not our sync: at sync 0
+  // (the preset's own levels) 6 and 5 per s all through, at the default .75 1–2 in the 60 s record
+  'shifter-escape-sigur-ros',
+  'stahlregen-dots-layered-suksma-world-humanvirus-replication-killphreqs-mix',
 ])
 
 // One built-in scene per preset: the preset alone, starred unless held back above (CP2 contract).
