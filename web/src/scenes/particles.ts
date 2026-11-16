@@ -2,9 +2,10 @@
 // disc and the point size, the (c) beat swells the disc and the points, a spring pulls each point back to its rest
 // radius, and points flung off-screen respawn at the centre.
 // Bursting points (radial speed) glow hot through the bloom; the calm swirl stays cool blue.
-// A `count` above N*_shipped is L-class (GPU3D Bench N*, plan_gpu3d S1.5): a built-in that sets one is never starred.
-// Billed p95 as shipped + own/flash, alone, slow class (M4, 1728×1118): 65 536 points 5.3 ms at res .5 (5.9 at res 1),
-// 1 048 576 points 14.9 ms at res 1 (22.1 at res .5).
+// N*_shipped = 49 152 points at res .5 (GPU3D Bench N*, plan_gpu3d S1.5, LR-2). A `count` above it is L-class: a new
+// built-in that sets one is never starred. Billed p95 as shipped + own/flash, alone, slow class (M4, 1728×1118): 49 152
+// at res .5 4.7 ms; 65 536 5.3 ms at res .5 (5.9 at res 1), so builtin:particles (starred before GPU3D, kept as is: R5)
+// overshoots the 5.0 budget by ~.3 ms; 1 048 576 14.9 ms at res 1 (22.1 at res .5).
 //
 // Adapted from twgl.js examples (MIT, https://github.com/greggman/twgl.js), examples/transform-feedback-particles-va.html
 // by Gregg Tavares: ping-pong vertex arrays + transform feedback objects, and the update shader also rasterises the
