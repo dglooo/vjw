@@ -113,11 +113,11 @@ describe('SYN and the bundled scenes', () => {
   const files = import.meta.glob(['./syn/*.glsl', '!./syn/preamble.glsl'], { query: '?raw', import: 'default', eager: true })
   const defs = Object.entries(files).map(([path, src]) => parseSyn(src as string, path.slice('./'.length, -'.glsl'.length)))
 
-  test('each parses clean; its starred built-in binds every bound syn_* input; ⚡ names inputs', () => {
+  test('each parses clean; its built-in binds every bound syn_* input; ⚡ names inputs', () => {
     expect(defs.map((d) => d.id)).toEqual(expect.arrayContaining(['syn/beats_in_4d', 'syn/dark_twister', 'syn/kaleidowhoa_man'])) // ports add more
     for (const d of defs) {
       expect(d.unsupported, d.id).toBeUndefined()
-      const gens = BUILTIN.flatMap((s) => (s.star ? s.layers.map((l) => l.gen) : [])).filter((g) => g.ref === d.id)
+      const gens = BUILTIN.flatMap((s) => s.layers.map((l) => l.gen)).filter((g) => g.ref === d.id)
       expect(gens.length, d.id).toBe(1)
       const want = d.inputs.filter((i) => i.name.startsWith('syn_')).map((i) => i.name)
       expect(Object.keys(gens[0].bind ?? {}).sort(), d.id).toEqual(want.sort())
