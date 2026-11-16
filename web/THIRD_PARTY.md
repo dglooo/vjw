@@ -61,8 +61,11 @@ Dev only, never shipped. `playwright-core` is the lead's browser-verification to
 - `src/scenes/particles.ts` adapts the twgl.js example `examples/transform-feedback-particles-va.html` (ping-pong vertex arrays + transform feedback, the update shader also rasterises the points).
   - Author: Gregg Tavares. URL: https://github.com/greggman/twgl.js. License: MIT.
   - The file keeps the original header: "twgl.js Copyright (c) 2015, Gregg Tavares All Rights Reserved. Available via the MIT license. see: http://github.com/greggman/twgl.js for details".
+- `src/scenes/fluid.ts` ports the WebGL-Fluid-Simulation solver to GLSL ES 3.00 (splat, advection, curl, vorticity, divergence, pressure, gradient subtract, the display pass; not its bloom, sunrays, pointer input or GUI; GPU3D S3.2).
+  - Author: Pavel Dobryakov. URL: https://github.com/PavelDoGreat/WebGL-Fluid-Simulation (`script.js` at commit `a2d292931f19d9b3b9f564e23e6c32729d2121c3`, 2024-11-12). License: MIT.
+  - The file keeps the original MIT notice verbatim ("Copyright (c) 2017 Pavel Dobryakov").
 
-Besides `particles.ts`, the only code and shaders ported from third parties are the ones under Shaders below.
+Besides `particles.ts` and `fluid.ts`, the only code and shaders ported from third parties are the ones under Shaders below.
 
 ## Shaders
 

@@ -338,7 +338,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - The step's formula has no unit, so the impulse = direction x `SPEED` (500, the port's velocity units, as upstream's random splats ±500) x `v.force` x strength, each component clamped to +-`V_MAX`; NaN -> 0. The drop ring: radius `RING_R` = 0.15 stage heights. Its x offsets are divided by the stage aspect, so the ring is round on the stage. Its impulses = outward x `SPEED` x force x `s.drop`. Centres lie in the middle 60 % of the stage. `rgb` = a full-saturation hue from the hash, 0..1; the native may scale the dye.
   - Only `V_MAX`, `RING_N`, `HAT_SCALE` and the event knobs are in `fluid.ts`. `SIM`, `DYE`, `PRESSURE_ITER` and the values go with the solver (S3.2). For S3.2: when `fluid.ts` imports the engine, `fluid.test.ts` needs `vi.mock('../gl/engine', () => ({}))` (the `orb.test.ts` precedent).
 
-### S3.2 [ ] The solver port and `native/fluid`
+### S3.2 [x] The solver port and `native/fluid`
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** a 2D grid fluid as a plain WebGL2 native (design L33, L76).
 - **Files:** `web/src/scenes/fluid.ts`; one entry each in the native registry and `web/src/scenes/builtin.ts`; one id in `web/src/library.test.ts`; one row in the THIRD_PARTY file; `scratchpad/gpu3d/g3-state.mjs` (mode `fluid-nan`).
@@ -358,6 +358,15 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Report:** the tile bake time of `builtin:demo-fluid`. No tile-specific sim size is built.
 - **Done:** Gates. F-B1 passes. One headless still.
 - **Base / depends:** master / S3.1. **New deps:** none. **Third party:** WebGL-Fluid-Simulation, MIT.
+- **Changed during implementation:**
+  - Upstream confirmed: `PavelDoGreat/WebGL-Fluid-Simulation`, `script.js` at commit `a2d292931f19d9b3b9f564e23e6c32729d2121c3` (2024-11-12, master HEAD on 2026-11-16), MIT ("Copyright (c) 2017 Pavel Dobryakov", in its LICENSE and the file's header). Fetched from raw.githubusercontent.com with no login (LR-6), kept read-only in the worktree's `scratchpad/gpu3d/upstream-fluid/` (script.js sha256 `291d86de…`).
+  - `dispose()` deletes every FBO and texture, not the programs. They come from the engine's `program()` cache, shared by every instance, the warm-up's throwaway `create()` and the tiles; no native deletes them, and a deleted one would go to the next instance.
+  - Values beyond the step's list, as module constants: the port's `PRESSURE` 0.8 and `VELOCITY_DISSIPATION` 0.2; `DYE_GAIN` 1.5 (the port's random splats: generateColor() 0.15 × 10) scales S3.1's 0..1 hue. The splat radius is max(`radius`, 1e-3), so the slider's 0 never divides by 0 in the splat shader.
+  - Every target is `renderTarget(true)` (RGBA16F, linear) where the port used RG / R formats and NEAREST for pressure, divergence and curl: those reads sit on texel centres, so linear = nearest. No MANUAL_FILTERING (WebGL2 filters RGBA16F). The display pass keeps the port's SHADING and writes alpha 1. Grid sizes follow `f.width / f.height` every frame (the port's getResolution); velocity and dye are persistent targets (resampled on a resize, as the port's resizeDoubleFBO), the others start over.
+  - The demo sits after the spread (`DEMOS` in builtin.ts), so the autopilot order and the milk interleave do not change. Its name is "Demo fluid": an equal name would hide it in the library as the `native/fluid` block's twin (blocks.ts).
+  - I-LIB1 is a new test in `library.test.ts`: the `builtin:demo-*` ids equal its list, all `star: false`, none in `playlist(true)` or `playlist(false)`. S1.5 and S4.7 append theirs (the "3" closes at S4.7). RED under its bad_input (the demo starred): exit 1.
+  - `g3-state.mjs` mode `fluid-nan` is in the worktree's `scratchpad/gpu3d/` (the lead copies it to the main checkout). It finds the FBOs by GL wrapping (the advection program = uniform `uSource`; velocity = its smaller target), with no DEV hook. RED under the bad_input (Jacobi weight 0.5, clamps uncapped): exit 1 through max |v| 65 280 and luma .0067. Finding: on this Metal stack the non-finite arm cannot fire for a blow-up. fp16 stores saturate at ±65 504 and `clamp()` maps NaN to its bound (probe: raw NaN / Inf → 16 of 16 counted; clamp(NaN) → −1000; 1e30 → 65 504). A NaN in velocity would read as ±1000, inside the clamp; only the luma arm would see it.
+  - Report: the tile bake of `builtin:demo-fluid` = 90 frames in 214 ms (synced), 6-frame slices median 14.0 ms, max 16.5 ms. The tile's dye is 1820 × 1024 (DYE on its short side; no tile size, as the step says).
 ### S3.3 [ ] The fluid demo binding and the R2 bench
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** R2 is measured on the demo as shipped (matrix ruling G5).
