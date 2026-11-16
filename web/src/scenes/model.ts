@@ -46,7 +46,7 @@ export const model: NativeDef = {
   credit: 'Wolf: Quaternius (CC0 1.0); three.js r187 (MIT)',
   inputs: [
     { name: 'glass', type: 'float', min: 0, max: 1, default: 0 },
-    { name: 'samples', type: 'long', values: [1, 4], labels: ['1', '4'], default: 1 },
+    { name: 'samples', type: 'long', values: [1, 4], labels: ['1', '4'], default: 1, bindable: false }, // a rebuild per change (I-B3)
     { name: 'speed', type: 'float', min: 0, max: 4, default: 1 }, // the clip's speed gain
   ],
   warm: () => load(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden

@@ -1,11 +1,16 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { BAND_COUNT } from './audio/energy'
 import { createFeatures } from './audio/features'
 import { PRESETS } from './audio/presets'
 import { parseSettings } from './audio/settings'
 import { ZERO_SYNC } from './audio/sync'
-import { createRemap, evaluate, level, restyle, sourceGroups, sources, sourcesFor, SOURCE_IDS, type Binding, type Sources } from './bind'
+import { bindable, createRemap, evaluate, level, restyle, sourceGroups, sources, sourcesFor, SOURCE_IDS, type Binding, type Sources } from './bind'
 import type { FrameInput } from './frame'
+import type { EffectDef } from './fx/types'
+import { model } from './scenes/model'
+import { particleCount, particles } from './scenes/particles'
+
+vi.mock('./gl/engine', () => ({ fullscreenProgram: () => () => {}, renderTarget: () => ({ fit() {} }), gl: {} })) // I-B3's natives: the engine takes the page's canvas + WebGL at import
 
 const frame = (over: Partial<FrameInput> = {}): FrameInput => ({
   energy: { bands: new Float32Array(BAND_COUNT), level: { bass: 1, mid: 1, treb: 1 }, att: { bass: 1, mid: 1, treb: 1 } },
@@ -271,5 +276,15 @@ describe('level (a bound bool or event, S1.3)', () => {
 
   test('event fires once on a rising edge, stays false while held, re-arms after y < .5', () => {
     expect(run('event', [0, 0.6, 0.9, 0.5, 0.49, 0.8, 0.8, 0.2])).toEqual([false, true, false, false, false, true, false, false])
+  })
+})
+
+describe('bindable (GPU3D S4.4, RG-2)', () => {
+  const input = (d: EffectDef, name: string) => d.inputs.find((x) => x.name === name)!
+  test('I-B3 bind refuses native/model samples, takes glass and speed; count takes a source and clamps to 0..1048576', () => {
+    expect(['samples', 'glass', 'speed'].map((n) => bindable(input(model, n)))).toEqual([false, true, true])
+    expect(bindable(input(particles, 'count'))).toBe(true)
+    const b = bind({ min: -5, max: 2_000_000 }) // out of range at both ends
+    expect([0, 1].map((x) => particleCount(once(b, { bass: x }), false))).toEqual([0, 1048576])
   })
 })

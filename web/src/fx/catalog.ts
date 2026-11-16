@@ -7,6 +7,7 @@ import { fluid } from '../scenes/fluid'
 import { glitch } from '../scenes/glitch'
 import { isobars } from '../scenes/isobars'
 import { lasers } from '../scenes/lasers'
+import { model } from '../scenes/model'
 import { orb } from '../scenes/orb'
 import { rgbaDelay, slitScan, timeMachine } from '../scenes/history'
 import { particles } from '../scenes/particles'
@@ -26,7 +27,7 @@ import type { EffectDef, ShaderDef } from './types'
 
 const files = import.meta.glob(['./isf/*.fs', './own/*.fs'], { query: '?raw', import: 'default', eager: true })
 
-export const catalog = new Map<string, EffectDef>([tunnel, spectrum, particles, glitch, rgbaDelay, camera, outline, timeMachine, slitScan, swarm, scatter, scope, plexus, creatures, isobars, lasers, serpent, shatter, wireform, vortex, orb, fluid, ...milkdrop].map((d) => [d.id, d] as const))
+export const catalog = new Map<string, EffectDef>([tunnel, spectrum, particles, glitch, rgbaDelay, camera, outline, timeMachine, slitScan, swarm, scatter, scope, plexus, creatures, isobars, lasers, serpent, shatter, wireform, vortex, orb, fluid, model, ...milkdrop].map((d) => [d.id, d] as const))
 /** Every bundled `.fs` file's raw text by id: the editor library reads its `// Look: TD` header (parseIsf drops it). */
 export const rawFs = new Map<string, string>()
 for (const [path, src] of Object.entries(files)) {

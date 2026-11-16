@@ -11,6 +11,7 @@ import { catalog, toyDef } from '../fx/catalog'
 import type { EffectDef, ShaderDef } from '../fx/types'
 import { gl, programAsync, renderTarget, type Target } from '../gl/engine'
 import { live, tile, type Live } from '../gl/live'
+import type { NativeDef } from '../gl/scene'
 import { store } from '../store'
 
 export const W = 320 // a still's px (rows bottom-up: the canvases flip them, CSS scaleY(-1))
@@ -20,8 +21,9 @@ export const LATE = 0.02 // s: a frame longer than this was late; the rAF after 
 const DT = 1 / 60
 
 /** A tile waiting for its still: its doc as queued, `left` frames to render, `ready` once its shaders compiled,
- *  `milk` when a milk/* node is in it, `live` its tile() instance once its bake started. */
-export interface Job { id: string; doc: SceneDoc; left: number; ready: boolean; milk: boolean; live?: Live }
+ *  `milk` when a milk/* node is in it, `live` its tile() instance once its bake started, `waited` once it waited for its
+ *  natives' warm() (park()). */
+export interface Job { id: string; doc: SceneDoc; left: number; ready: boolean; milk: boolean; live?: Live; waited?: boolean }
 
 const nodes = (doc: SceneDoc) => doc.layers.flatMap((l) => [l.gen, ...l.fx])
 const hasMilk = (doc: SceneDoc) => nodes(doc).some((n) => n.ref.startsWith('milk/'))
@@ -87,6 +89,19 @@ let prev = 0 // the last frame's time, s
 /** The hovered tile (S3.4): `n` its frames so far, `live` its tile() instance once it drew. */
 let hot: { id: string; doc: SceneDoc; milk: boolean; n: number; live?: Live } | undefined
 
+/** GPU3D N7: a tile whose every generator is hidden would bake black. Its instance goes and the job waits off the slice
+ *  for its natives' warm() (native/model's: the load), then bakes once from the start. Still hidden after that (a
+ *  failed load, the camera off) it leaves the queue: no still, the name tile stays. */
+function park(j: Job) {
+  j.live!.dispose()
+  j.live = undefined
+  j.left = bakeFrames(j.doc, catalog)
+  if (j.waited) return void queue.splice(queue.indexOf(j), 1)
+  j.ready = false
+  j.waited = true
+  void Promise.all(nodes(j.doc).map((n) => (catalog.get(n.ref) as NativeDef | undefined)?.warm?.())).then(() => (j.ready = true))
+}
+
 /** acc's pixels into a pixel-pack buffer, then a fence: poll() reads them once the GPU got there (no stall). */
 function read(id: string) {
   let pbo = spare.pop()
@@ -141,13 +156,17 @@ export const tiles = {
     } else if (hot) {
       hot.live ??= tile(hot.doc, W, H)
       hot.live.render(f, s, acc) // the live clock: f's dt
-      if (hot.n++ % 3 === 0) read(hot.id) // before the slice draws into acc
+      if (hot.n++ % 3 === 0 && !hot.live.hidden()) read(hot.id) // before the slice draws into acc; hidden: black (N7)
     }
     const slice = nextSlice(milk ? queue.filter((j) => j.live || !j.milk) : queue, dt, visible)
     if (!slice.length) return
     Object.assign(tf, f).dt = DT
     for (const [j, n] of slice) {
       j.live ??= tile(j.doc, W, H)
+      if (j.live.hidden()) {
+        park(j)
+        continue
+      }
       for (let i = 0; i < n; i++) j.live.render(tf, s, acc)
       if ((j.left -= n)) continue
       read(j.id)

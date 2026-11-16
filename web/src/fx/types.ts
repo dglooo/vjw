@@ -6,7 +6,8 @@ export type Category = 'feedback' | 'geometry' | 'liquid' | 'retro'
 export type Kind = 'generator' | 'filter' | 'transition'
 export type InputType = 'float' | 'long' | 'bool' | 'event' | 'color' | 'point2D' | 'image' | 'audio' | 'audioFFT'
 export type Value = number | boolean | readonly number[] // color [r,g,b,a], point2D [x,y]
-export interface Input { name: string; type: InputType; label?: string; default?: Value; min?: Value; max?: Value; values?: number[]; labels?: string[] }
+/** `bindable: false` (GPU3D RG-2): no binding drives it (bind.ts bindable()). */
+export interface Input { name: string; type: InputType; label?: string; default?: Value; min?: Value; max?: Value; values?: number[]; labels?: string[]; bindable?: false }
 /** `flash`: the inputs that brighten on a hit, gated by live.ts through flashGate (WCAG 2.3.1); ISF header `VJW_FLASH`.
  *  `tags`: an ISF file's raw CATEGORIES, beside the reduced `category` (the library's tag filter, 2b S3.1). */
 export interface EffectDef { id: string; name: string; kind: Kind; category?: Category; tags?: readonly string[]; credit: string; inputs: readonly Input[]; bind?: Readonly<Record<string, Binding>>; flash?: readonly string[] }
