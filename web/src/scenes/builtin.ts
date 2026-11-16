@@ -1155,5 +1155,13 @@ const DEMOS: readonly SceneDoc[] = [
   },
 ]
 
+// The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
+// reads `src` itself, never Auto-style's remap (bind.ts sourcesFor). Starred by the user's order, and last, so the
+// autopilot's order before it stays as it was.
+const CALIBRATION: SceneDoc = {
+  v: 1, id: 'builtin:calibration', name: 'Calibration', star: true,
+  layers: [{ gen: { ref: 'native/calib' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+}
+
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
-export const BUILTIN: readonly SceneDoc[] = [...spread([...OWN, ...DJ], MILK_SCENES), ...DEMOS]
+export const BUILTIN: readonly SceneDoc[] = [...spread([...OWN, ...DJ], MILK_SCENES), ...DEMOS, CALIBRATION]

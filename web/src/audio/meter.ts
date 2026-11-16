@@ -39,3 +39,6 @@ export function createMeter() {
   }
   return m
 }
+
+/** The app's one: app.ts feeds it every frame; the HUD overlay and the calibration scene read it. */
+export const meter = createMeter()

@@ -139,6 +139,7 @@ describe('restyle (Auto-style overlay, design C5)', () => {
     expect(sourcesFor('builtin:tunnel', src, styled)).toBe(styled)
     expect(sourcesFor('6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b', src, styled)).toBe(src)
     expect(sourcesFor('builtin:tunnel', src, null)).toBe(src)
+    expect(sourcesFor('builtin:calibration', src, styled)).toBe(src) // the calibration view: the analyser's own, no remap
   })
 })
 
