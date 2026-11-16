@@ -380,7 +380,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Frame time, not a bench (alone, no tail, no snapshot term, no class): 1 048 576 at res .5 on the splat path = GL `gpuMs` p95 2.45 + `webgpuMs` p95 1.51 = 3.96 ms; 0 late / 300 rAF; scale 1.
   - Stills `s23-1m-drop.png`, `s23-1m-calm.png` (the S1.5 moments; splat uploads in the probe frame, no POINTS draw). `npm run build`: `splat.ts` is a lazy chunk (6.36 kB, 3.19 kB gzip); the entry has no `navigator.gpu`.
 
-### S2.4 [ ] The WebGPU budget, rows A and B, `SPLAT_MIN`
+### S2.4 [x] The WebGPU budget, rows A and B, `SPLAT_MIN`
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the splat path is billed honestly, and the sweep sets where it takes over (N4, matrix ruling G2).
 - **Files:** `web/src/scenes/particles.ts`, `scratchpad/gpu3d/g3-bench.mjs` (modes `splat-a`, `splat-b`), `scratchpad/gpu3d/g3-60s.mjs` (mode `splat`).
@@ -394,6 +394,29 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** Vitest: none new. Rows: P-PERF2, P-PERF3, P-PERF4. The coder runs them alone; the lead's runs are the record.
 - **Done:** Gates. The three JSON files pass `check`. The report carries the sweep table and the chosen `SPLAT_MIN`.
 - **Base / depends:** master / S2.1, S2.3, S1.6. **New deps:** none.
+- **Changed during implementation:**
+  - Item 1: a splat frame (its `index` moved) calls `noteWebgpuMs(webgpuMs() + SNAPSHOT_MS)`. `webgpuMs()` undefined (no `timestamp-query`, or no timing yet) reports nothing. `SNAPSHOT_MS` = 1.05 ms, a constant (lead ruling S2.2 notes 2): the snapshot p95 of the alone row A at 1 M, res .5 (the demo's res). Res 1 reads 1.8-2.0.
+  - RG-5 (lead ruling): `app.ts:399` passes `gpuMs.get(id)`. `app.ts` is outside the step's file list; the ruling names the line. No governor rule reads `gpuCostMs`.
+  - Bare (item 2): `import.meta.env.DEV && globalThis.vjwBare`, set by the harness. The splat frame decodes straight into the engine's target and skips bloom + composite. `npm run build`: 0 files in `dist/` contain `vjwBare`. This is the step's only DEV hook.
+  - Harness: in the worktree's `scratchpad/gpu3d/` (the lead copies `g3-bench.mjs` and `g3-60s.mjs` to the main checkout). Modes: `splat-a <count> <res> [port] [rounds] [tag]`, `splat-b [port] [rounds] [tag]`, `60s splat <count> [port] [tag]`. An init script reads the splat's own timestamp maps (the `webgpuMs()` samples), the uniform n, and the main-thread ms of each upload of a WebGPU canvas. After that upload it submits the S1-W post-copy marker: a `loadOp: 'load'` render pass on the canvas texture, with its end timestamp in a harness query set. snapshot = marker end - the latest resolve end before it (one device clock; a pair > 8 ms apart is dropped as unpaired). Billed = gpuMs p95 (own/flash tail) + WebGPU p95 + snapshot p95.
+  - Row B's TF figure is measured in the same page after `device.destroy()` (the product's lost path, P-B8), so both paths share the session reference. `check` accepts `look: 'bare'` (row A's record). Diagnostic env knobs (not matrix commands): `ARGS` (extra Chrome flags), `NO60=1` (row A without its 60 s window).
+  - Results (coder runs, `b8c489e` + this diff, port 5175, apple / metal-3, slow class). Row A ran alone. Every row-B and 60 s run was stamped OVERLAP (max 3 Playwright Chromes: another lane), so those are projections. Totals = billed p95 (ms):
+
+    | row | res | gpuMs | WebGPU | snapshot | total | run |
+    |---|---|---|---|---|---|---|
+    | A bare 1 M | 1 | 2.72 | 2.36 | 1.97 | **7.05** | alone, ref 3.78 |
+    | A bare 1 M | .5 | 2.24 | 1.51 | 1.05 | **4.80** | alone, ref 3.89 |
+    | B shipped 1 M | 1 | 5.41 / 5.47 | 2.42 / 3.54 | 1.64 / 1.77 | **9.47 / 10.78** | OVERLAP x 2, ref 3.83 / 5.81 |
+    | B shipped 1 M | .5 | 2.99 / 3.28 | 1.51 / 2.69 | 0.98 / 2.23 | **5.48 / 8.20** | OVERLAP x 2 |
+
+    - Sweep (splat billed vs TF billed, run 1 / run 2): 256 K res 1 8.82 / 9.41 vs 13.32 / 13.95; 256 K res .5 5.40 / 7.03 vs 13.63 / 11.83; 512 K res 1 9.07 / 9.81 vs 14.04 / 13.64; 512 K res .5 5.61 / 7.11 vs 19.69 / 20.53; 1 M res 1 9.47 / 10.78 vs 15.41 / 14.78; 1 M res .5 5.48 / 8.20 vs 22.00 / 20.92. No splat point reads <= 5.00 ms. Splat beats TF at every point, by >= 3.8 ms.
+    - `SPLAT_MIN` = 262 144, confirmed: the smallest swept N already wins at res .5, in both sweeps. The sweep has no N below 262 144, so the true crossover may be lower.
+    - P-PERF2 RED (coder run): row A at res 1 = 7.05 > 5.00. The matrix form without the snapshot (5.08) is also > 5.00. The 60 s window passes: 0 late / 3599 at 1.00x, 0 governor steps. Root cause not isolated within the RED rule's ~15 min. The S1-W 4.84 does not reproduce: same Chrome 157.0.8103.51 and same size, but the snapshot reads med 1.05 / p95 1.97 against S1-W's 0.34 / 0.35. S1-W's flags (`--enable-unsafe-webgpu --use-angle=metal`) do not change it (`s24-diag-flags`: med 1.01 / p95 1.71). The three round sums spread 6.46-8.07. Routed to the lead; no threshold edited.
+    - P-PERF4 (60 s, 1 M as shipped, res .5, OVERLAP): run 1: copy call p95 0.1 / max 0.3 ms PASS; 0 late / 3599; 0 governor steps; minScale 1. Run 2: max 0.5 ms (> 0.4, one 100 us tick) FAIL; 0 late / 3599; 0 steps. Alone, the row A 60 s window at res 1 reads p95 0.1 / max 0.4.
+    - Row A's 60 s window at res .5 (alone) had 3 late frames (416.6, 483.3, 50.1 ms) and a 28.2 ms copy call. These are main-thread stalls that the alone stamp cannot see; the rounds before the window were clean.
+    - P-B5 rerun on this branch (alone): PASS 600/600, lag 0, same rAF.
+  - Proposed R1 line 3 (for the lead's rerun; LR-2): "Splat path: row A bare 1 M res 1 7.05 ms, res .5 4.80 (alone). Row B as shipped 1 M: res .5 5.48, res 1 9.47 (best runs, both OVERLAP); no row-B point <= 5.00 ms. P-B5 same frame 600/600." -> LR-2 second clause: the demo stays at N*_shipped (49 152, res .5). R1 closes as a measured ceiling + lever. The measured terms that a lever can cut: the snapshot (~1 ms p95 at res .5) and the look at res .5 (gpuMs +0.75 over bare). Status UNKNOWN until the lead's alone rerun.
+  - Evidence: worktree `scratchpad/gpu3d/s24-*` (logs + `.out.json`; all 6 JSONs pass `check`), `s24-chain.sh`, `s24-rerun.sh`, `s24-vite.config.mjs`.
 ### S3.1 [x] The pure seam `splats()`
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the fluid's audio mapping, pure and tested, before any GL code.

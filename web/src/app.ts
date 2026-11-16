@@ -396,7 +396,7 @@ function frame(now: number) {
   const snap = store.getSnapshot()
   if (id !== snap.edited) edits.clear() // undo is per edited scene (design S3): open, Save as, the autopilot
   if (doc.name !== snap.sceneName || id !== snap.edited) store.patch({ sceneName: doc.name, edited: id })
-  governor.frame(now, performance.now() - start) // fed only on rendered frames
+  governor.frame(now, performance.now() - start, gpuMs.get(id)) // fed only on rendered frames; GPU3D N4: + the scene's GL ms
   if (now - badgeAt >= BADGE_MS) {
     badgeAt = now
     const bpm = Math.round(f.sync.bpm * 10) / 10

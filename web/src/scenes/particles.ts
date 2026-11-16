@@ -21,6 +21,7 @@ import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, renderTarget } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
 import type { SplatPath } from '../gpu/splat'
+import { noteWebgpuMs } from '../quality'
 
 export const COUNT_DEFAULT = 65536, COUNT_MAX = 1048576, TILE_MAX = 4096
 /** Points drawn (GPU3D N1: the value as is, at any layer res and governor scale). NaN -> COUNT_DEFAULT; else Math.round,
@@ -33,7 +34,13 @@ export function particleCount(count: number, tile: boolean): number {
 export function grownCapacity(capacity: number, n: number): number {
   return Math.max(capacity, 2 ** Math.ceil(Math.log2(n))) // n 0: 2 ** -Infinity = 0
 }
-export const SPLAT_MIN = 262144 // points from which the WebGPU splat path draws (GPU3D CP2); S2.4 sets it from row B
+// Points from which the WebGPU splat path draws (GPU3D CP2). S2.4 row B: the smallest swept N (262 144) already beats TF
+// at the demo's res .5, splat billed 5.4-8.2 ms against TF 11.8-22.0 at every N in {256 K, 512 K, 1 M} x res {1, .5}.
+export const SPLAT_MIN = 262144
+// GPU3D N4 (lead ruling, S2.2 notes 2): Chrome's canvas snapshot at the texImage2D upload, ms. It runs on the WebGPU queue
+// after the splat's last timestamp, so the governor's term adds it as a constant until it can be timed per frame. S2.4's
+// post-copy marker, 1 M alone: p95 1.05 at res .5 (the demo's), 1.8-2.0 at res 1 (S1-W read 0.35 at res 1).
+const SNAPSHOT_MS = 1.05
 /** GPU3D CP2 path rule: the splat path when its device is ready and n >= SPLAT_MIN, else TF. A tile (n <= TILE_MAX)
  *  stays on TF. Pure. */
 export function shouldSplat(n: number, deviceReady: boolean): boolean {
@@ -235,6 +242,10 @@ export const particles: NativeDef = {
         const index = splat?.index
         splat?.frame(want, f.width, f.height, u)
         const drew = !!splat && splat.index !== index // TF on a frame whose index did not move: before the first build (S2.2 ruling)
+        const wg = drew ? splat!.webgpuMs() : undefined
+        if (wg !== undefined) noteWebgpuMs(wg + SNAPSHOT_MS) // N4: the splat's GPU work is outside the GL timer; none without timestamp-query
+        // S2.4 row A, DEV only: globalThis.vjwBare skips the look (the decoded count straight into the engine's target)
+        const bare = import.meta.env.DEV && drew && !!(globalThis as { vjwBare?: boolean }).vjwBare
 
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
         target.fit(f.width, f.height)
@@ -251,6 +262,7 @@ export const particles: NativeDef = {
           }
           // uGain: a TF sprite's energy, ∫(1 − q²)² over its disc = (π/12) s², s = its mean px size (E[(.5 + r1)²] = 1.08)
           const s = (v.size as number) * (f.height / 1000) * (0.6 + 0.4 * u.bass + 0.4 * u.pulse)
+          if (bare) gl.bindFramebuffer(gl.FRAMEBUFFER, out)
           decode({ uSrc: tex, uRes: [f.width, f.height], uGain: (Math.PI / 12) * 1.08 * s * s })
         } else {
           if (wasSplat) seeded = 0 // the switch reseeds
@@ -277,6 +289,7 @@ export const particles: NativeDef = {
           gl.bindVertexArray(null) // fullscreen passes set their attributes on the default VAO
         }
         wasSplat = drew
+        if (bare) return
 
         const lit = bloom.apply(target.attachments[0], f.width, f.height, v.glow as number)
         gl.bindFramebuffer(gl.FRAMEBUFFER, out)
