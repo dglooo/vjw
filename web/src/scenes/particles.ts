@@ -1,6 +1,6 @@
-// Particles: 65 536 GPU points in a swirling disc. Onsets burst them outward, bass breathes the disc and the point
-// size, the (c) beat swells the disc and the points, a spring pulls each point back to its rest radius, and points
-// flung off-screen respawn at the centre.
+// Particles: `count` GPU points (65 536 by default) in a swirling disc. Onsets burst them outward, bass breathes the
+// disc and the point size, the (c) beat swells the disc and the points, a spring pulls each point back to its rest
+// radius, and points flung off-screen respawn at the centre.
 // Bursting points (radial speed) glow hot through the bloom; the calm swirl stays cool blue.
 //
 // Adapted from twgl.js examples (MIT, https://github.com/greggman/twgl.js), examples/transform-feedback-particles-va.html
@@ -17,14 +17,22 @@ import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, renderTarget } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
 
+export const COUNT_DEFAULT = 65536, COUNT_MAX = 1048576, TILE_MAX = 4096
+/** Points drawn (GPU3D N1: the value as is, at any layer res and governor scale). NaN -> COUNT_DEFAULT; else Math.round,
+ *  clamp 0..COUNT_MAX; tile -> min(n, TILE_MAX). Pure. */
+export function particleCount(count: number, tile: boolean): number {
+  const n = Number.isNaN(count) ? COUNT_DEFAULT : Math.min(COUNT_MAX, Math.max(0, Math.round(count)))
+  return tile ? Math.min(n, TILE_MAX) : n
+}
+
 /** Look knobs, read every frame; bindings and the panel drive them through `values`. */
 export const inputs: Input[] = [
   { name: 'burst', type: 'float', min: 0, max: 6, default: 2.5 },
   { name: 'swirl', type: 'float', min: 0, max: 5, default: 1.5 },
   { name: 'size', type: 'float', min: 1, max: 16, default: 6 },
   { name: 'glow', type: 'float', min: 0, max: 8, default: 2 },
+  { name: 'count', type: 'float', min: 0, max: COUNT_MAX, default: COUNT_DEFAULT }, // points drawn: particleCount()
 ]
-const N = 65536 // knob: point count
 const SPRING = 40 // knob: 1/s², pull back to the rest radius: a burst returns within ~¼ s, and frequent onsets
 // (≈4/s with hats) only push the disc out by their mean impulse / SPRING
 const DRAG = 3 // knob: 1/s, velocity damping (bouncy, settles in ~1 s)
@@ -101,13 +109,14 @@ export const particles: NativeDef = {
   id: 'native/particles', name: 'Particles', kind: 'generator', category: 'geometry',
   credit: 'VeeJay Wizard, after Gregg Tavares (twgl.js)', inputs,
   create(gl, size) {
-    const n = size ? 4096 : N // a tile's (2b S3.2, design S6): ≈.1 ms
+    const tile = !!size
+    const capacity = tile ? TILE_MAX : COUNT_DEFAULT // points the buffers hold; a tile's (2b S3.2, design S6): ≈.1 ms
     const prog = (tfProgram ??= createProgramInfo(gl, [VS, FS], { transformFeedbackVaryings: ['posOut', 'velOut'] }))
     const composite = fullscreenProgram(COMPOSITE_FS)
     const bloom = createBloom(gl)
     const target = renderTarget(true)
     // Allocated by size (zero-filled, no CPU array): the TF pass seeds each id once, on the GPU (uSeeded).
-    const [a, b] = [0, 1].map(() => createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: 2 * n }, vel: { numComponents: 2, data: 2 * n } }))
+    const [a, b] = [0, 1].map(() => createBufferInfoFromArrays(gl, { pos: { numComponents: 2, data: 2 * capacity }, vel: { numComponents: 2, data: 2 * capacity } }))
     // Ping-pong: each set reads one pair of buffers through its VAO and writes the other pair through its TF object.
     const sets = [[a, b], [b, a]].map(([src, dst]) => ({
       vao: createVertexArrayInfo(gl, prog, src).vertexArrayObject!,
@@ -123,6 +132,7 @@ export const particles: NativeDef = {
         // at 4, so prominent hits burst fully and weak ones (hats) barely push.
         let kick = 0
         for (const o of f.onsets) kick = Math.max(kick, (o.strength - 1.5) / 2.5)
+        const n = Math.min(particleCount(v.count as number, tile), capacity)
         const { vao, tf } = sets[cur]
         cur ^= 1
 

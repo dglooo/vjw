@@ -195,7 +195,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - The seed reuses the shader's `hash()` with two new streams (angle, radius). They are independent of `r1` / `r2`, so a point starts away from its home radius, as with the CPU seed (the start-up settle stays).
   - `seeddist <port>`: one `create()` at the stage size, then one `draw()` at dt 0. The first pass seeds and moves nothing, so its TF output (`posOut`, index 0) is the start disc; `getBufferSubData` reads it back. It does not go through the app's scene path (as `seeddist capture`). `capture` finds no non-zero upload on this build (n 0, exit 1): it is for pre-change builds only.
   - For S1.4 (P-B1): the GPU sample's rMin is 0.0599999937 (float32 0.06 × |(cos a, sin a)|), 6e-9 under the domain floor 0.06. A strict P-B1 check reads such a point as out of domain; a float tolerance (about 1e-6) does not. The lead rules; nothing is edited here.
-### S1.3 [ ] The `count` value and the pure count rule
+### S1.3 [x] The `count` value and the pure count rule
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** n = `count` (N1), with the tile cap.
 - **Files:** `web/src/scenes/particles.ts`, `web/src/scenes/particles.test.ts`.
@@ -207,6 +207,11 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** P-U2, P-U3, P-U4 (Vitest).
 - **Done:** Gates.
 - **Base / depends:** master / S1.2. **New deps:** none.
+- **Changed during implementation:**
+  - RG-4 resolved: a tile = `create()` received a `size` (`live.ts` `tile()` passes it, the stage passes none). Capacity = `TILE_MAX` on a tile, `COUNT_DEFAULT` on the stage, until S1.4's growth.
+  - `count` is a `float` input (the panel slider; step = range / 100). A `long` input is a menu in this codebase. `particleCount()` rounds the value.
+  - P-U2 at this step: a tile's 4 096-point capacity also caps the draw. So the matrix bad input (no tile cap in `particleCount`) turns the row RED on its pure line `particleCount(1048576, true)`; the two draw lines catch a draw that ignores `count`.
+  - P-U4 also checks that `builtin:particles` binds nothing to `count` (a binding would move the drawn count) and that one fake-GL frame of its values draws 65 536.
 
 ### S1.4 [ ] Growth between frames
 Invoke the `ponytail` skill (full) before writing code.
