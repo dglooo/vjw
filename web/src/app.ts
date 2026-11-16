@@ -3,7 +3,7 @@
 import { createArrangement, shouldCut, SILENT_RMS, type ArrangeOut } from './audio/arrange'
 import { BAND_COUNT, createEnergy, rms } from './audio/energy'
 import { createFeatures } from './audio/features'
-import { createMeter } from './audio/meter'
+import { meter } from './audio/meter' // the HUD's input meter (dsp_linein_2026-11-16 fix 5): fed here, read live by the overlay
 import { analyser, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, inputLatency, odfQueue, onsetQueue, recDest } from './audio/input'
 import { PRESETS, snapOctave, type Band, type PresetId } from './audio/presets'
 import { activePreset, bandKey, createSettings, workletBands } from './audio/settings'
@@ -208,7 +208,6 @@ const src: Sources = {} // binding sources, refilled every frame
 const features = createFeatures() // kick/snare/hats envelopes from the worklet's hits (S1.4)
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
-const meter = createMeter() // the HUD's input meter (dsp_linein_2026-11-16 fix 5): the overlay reads it live
 if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets }) // ?debug: the live binding sources, settings and the flash budget's onsets, for DevTools and browser checks
 // plan_camera CP1 (S1.2b): the camera's harness hooks — mask users, SegmentWorker constructions, frames posted to a
 // host; also on the probe and bench pages (their harnesses read it, camGpuMs under ?bench)

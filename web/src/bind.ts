@@ -93,8 +93,9 @@ export function createRemap() {
   }
 }
 
-/** The sources a scene reads (design C5): a built-in reads the styled overlay when there is one, any other scene `src`. */
-export const sourcesFor = (id: string, src: Sources, styled: Sources | null) => (styled && id.startsWith('builtin:') ? styled : src)
+/** The sources a scene reads (design C5): a built-in reads the styled overlay when there is one, any other scene `src`.
+ *  The calibration view reads `src` too: it shows what the analyser hears, never Auto-style's remap of it. */
+export const sourcesFor = (id: string, src: Sources, styled: Sources | null) => (styled && id.startsWith('builtin:') && id !== 'builtin:calibration' ? styled : src)
 
 /** One cycle of `shape` at t (its fract is the phase): 0..1. Random is a hash of the cycle index, so it holds. */
 function shape(s: Shape, t: number): number {

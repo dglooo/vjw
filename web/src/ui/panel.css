@@ -242,6 +242,15 @@
 .node > .head > span {
   opacity: 0.85;
 }
+/* An input group (Input.group; native/calib: one per tile): its rows fold under its name. */
+.node > .group > summary {
+  cursor: pointer;
+  opacity: 0.85;
+}
+.node > .group[open] {
+  padding-bottom: 4px;
+  border-bottom: 1px dashed #ffffff12;
+}
 
 /* label · control · bind dot */
 .row {

@@ -6,7 +6,7 @@ import { BAND_COUNT } from '../audio/energy'
 import { BIND_DEFAULTS, bindable, sourceGroups, type Binding, type Shape } from '../bind'
 import { defaults, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
-import type { Kind, Value } from '../fx/types'
+import type { Input, Kind, Value } from '../fx/types'
 import { live, panel, type NodePath } from '../gl/live'
 import { library } from '../library'
 import { SourcesTab } from './SourcesTab'
@@ -155,6 +155,21 @@ export function Param({ label, bind, children }: { label: string; bind?: Bindabl
   )
 }
 
+/** The inputs' rows in order; a run of inputs with one `group` (native/calib: a tile's controls) folds under its name,
+ *  closed, in a native <details>. */
+function fold(inputs: readonly Input[], row: (x: Input) => ReactNode) {
+  const out: ReactNode[] = []
+  for (let i = 0; i < inputs.length; ) {
+    const g = inputs[i].group
+    let j = i + 1
+    while (g && inputs[j]?.group === g) j++
+    const rows = inputs.slice(i, j).map(row)
+    out.push(g ? <details key={g} className="group"><summary>{g}</summary>{rows}</details> : rows[0])
+    i = j
+  }
+  return out
+}
+
 /** A node's inputs as controls by their type (design E3); images and audio have none. */
 export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove?: () => void }) {
   const def = defOf(n)
@@ -169,7 +184,7 @@ export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove
           </button>
         </div>
       )}
-      {def?.inputs.map((x) => {
+      {fold(def?.inputs ?? [], (x) => {
         const label = x.label ?? x.name
         const set = (y: Value) => panel.setValue(path, x.name, y)
         const bind = (k: string, lo: number, hi: number): Bindable | undefined =>
