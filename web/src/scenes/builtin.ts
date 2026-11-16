@@ -1163,6 +1163,50 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // syn_Intensity (the planet's radius, 2 + 9·x) rides `energy`: big in a drop's body, small in a break (the build is 0 most of a track)
     layers: [{ gen: { ref: 'syn/exoplanet', bind: { ...syn('syn_BPMSin4', 'syn_HighHits', 'syn_BassLevel', 'syn_BassHits', 'syn_HighLevel', 'syn_Level'), syn_Intensity: { ...SYN_BIND.syn_Intensity, source: 'energy' } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
   },
+  // Donor port lane B1b (2026-11-17). The star rule of that run: I-FL1 ≤ 3 luma steps in 1 s (30 s audit on
+  // dnb174-arr) AND billed p95 ≤ 7.5 ms (20 s + the own/flash tail, M4 1728×1117 @2, five lanes on the GPU, so the
+  // numbers read high: a scene near the limit was run twice and is starred only if both runs pass). The donor's
+  // transition uniforms (cReg*, direction, sides, config, …) are panel sliders at the donor's first values.
+  {
+    v: 1, id: 'builtin:nova', name: 'Nova', star: true, // dnb · Felix Woitzel · I-FL1 1/s · billed p95 5.45 ms
+    layers: [{ gen: { ref: 'syn/nova', bind: syn('syn_BassHits', 'syn_HighHits', 'syn_RandomOnBeat', 'syn_MidLevel', 'syn_OnBeat', 'syn_ToggleOnBeat', 'syn_HighLevel', 'syn_BassLevel', 'syn_HighPresence', 'syn_MidPresence', 'syn_BassPresence', 'syn_BPMTri2', 'syn_BPMConfidence', 'syn_Presence', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }], // ⚡ syn_HighHits
+  },
+  {
+    v: 1, id: 'builtin:pop', name: 'Pop', star: false, // dnb · Meebs · Library-only: billed p95 7.38 and 8.17 ms in two runs (med 2.19, 4.72), I-FL1 3/s
+    layers: [{ gen: { ref: 'syn/pop', bind: syn('syn_RandomOnBeat', 'syn_HighLevel', 'syn_HighPresence', 'syn_BPMTri2', 'syn_BassLevel', 'syn_BassPresence', 'syn_Presence', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:quicksand', name: 'Quicksand', star: true, // dnb · Meebs · I-FL1 1/s · billed p95 4.47 ms
+    layers: [{ gen: { ref: 'syn/quicksand', bind: syn('syn_MidHighHits', 'syn_Presence', 'syn_OnBeat', 'syn_BPMSin2', 'syn_HighHits', 'syn_Intensity') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }], // ⚡ syn_HighHits
+  },
+  {
+    v: 1, id: 'builtin:rearranged', name: 'Rearranged', star: true, // dnb · Meebs · I-FL1 1/s · billed p95 1.51 ms
+    layers: [{ gen: { ref: 'syn/rearranged', bind: syn('syn_Presence', 'syn_BassLevel', 'syn_OnBeat', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }], // ⚡ syn_OnBeat
+  },
+  {
+    v: 1, id: 'builtin:sprinkles', name: 'Sprinkles', star: true, // dnb · sheltron ft. Meebs · I-FL1 2/s · billed p95 4.07 ms
+    layers: [{ gen: { ref: 'syn/sprinkles', bind: syn('syn_HighHits', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:square-shoals', name: 'SquareShoals', star: false, // dnb · Alex Rowe · Library-only: billed p95 7.86 and 4.38 ms in two runs (med 1.47, 2.59), I-FL1 1/s
+    layers: [{ gen: { ref: 'syn/square_shoals', bind: syn('syn_Hits', 'syn_HighHits', 'syn_OnBeat', 'syn_BassLevel', 'syn_ToggleOnBeat', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:sun-set', name: 'Sun_Set', star: true, // dnb · Meebs · I-FL1 2/s · billed p95 5.82 ms
+    layers: [{ gen: { ref: 'syn/sun_set', bind: syn('syn_Presence', 'syn_MidPresence', 'syn_HighHits', 'syn_HighLevel', 'syn_OnBeat', 'syn_BassHits', 'syn_BassPresence', 'syn_MidLevel', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }], // ⚡ syn_BassHits
+  },
+  {
+    v: 1, id: 'builtin:turbo-encabulator-fluid', name: 'Turbo Encabulator Fluid', star: false, // dnb · cornusammonis · Library-only: billed p95 6.94 and 11.16 ms in two runs (med 5.88, 10.23), I-FL1 1/s
+    layers: [{ gen: { ref: 'syn/turbo_encabulator_fluid', bind: syn('syn_BPMTri2', 'syn_BPMConfidence', 'syn_BassPresence', 'syn_ToggleOnBeat', 'syn_Level', 'syn_HighHits', 'syn_BassHits', 'syn_OnBeat', 'syn_Presence', 'syn_HighPresence', 'syn_HighLevel', 'syn_BassLevel', 'syn_MidLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:circles5', name: 'Circles5', star: true, // dnb · Keijiro Takahashi · I-FL1 3/s · billed p95 4.82 ms
+    layers: [{ gen: { ref: 'syn/circles5', bind: syn('syn_BassHits', 'syn_BassLevel', 'syn_BassPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:hills-eels', name: 'Hills, Eels', star: true, // dnb · Victor S. · I-FL1 1/s · billed p95 3.29 ms
+    layers: [{ gen: { ref: 'syn/hills_eels', bind: syn('syn_BassLevel', 'syn_MidPresence', 'syn_MidHighPresence', 'syn_HighPresence', 'syn_Intensity', 'syn_BassHits', 'syn_MidHits', 'syn_MidHighHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
