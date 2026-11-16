@@ -28,7 +28,9 @@ three: lazy-loaded by `native/model` only (`src/three/host.ts`, GPU3D S1-T spike
 
 | file | asset | where | license |
 |---|---|---|---|
-| `public/models/Fox.glb` (162,852 B) | Khronos glTF sample "Fox" (copied from `donor/td-reverse/.../Samples/glTF/Fox.glb`; source https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/Fox) | committed | model CC0 (PixelMannen, https://opengameart.org/content/fox-and-shiba); rig + animation CC-BY-4.0 (@tomkranis, https://sketchfab.com/3d-models/low-poly-fox-by-pixelmannen-animated-371dea88d7e04a76af5763f2a36866bc); glTF conversion CC-BY-4.0 (@AsoboStudio with @scurest). Attribution required: the native's `credit` names them |
+| `public/models/Wolf.glb` (986,712 B) | "Wolf" by Quaternius: rigged (51 joints), 12 clips (`native/model` plays Gallop), from its Poly Pizza listing https://poly.pizza/m/P1gU3Qkr9r (uploaded 2021-09-07; GLB https://static.poly.pizza/f1d12388-e39b-4157-b32a-646a1d089fc4.glb, fetched 2026-11-16). Its clip set is the one of Quaternius's Ultimate Animated Animal Pack (2021-07). Listed in `public/models/manifest.json` | committed | CC0-1.0, per the listing's licence field ("CC0 1.0"). No attribution required |
+
+Licence provenance (GPU3D S4.2, lead ruling 2026-11-16): https://quaternius.com/license.html now shows the Quaternius Asset License (QAL) v1.0 (last updated 2026-08-28), while the pack page (https://quaternius.com/packs/ultimateanimatedanimals.html, "License CC0") and the Poly Pizza listing say CC0. The copy obtained is the Poly Pizza listing's (CC0 1.0); the pack's own Drive folder refused anonymous downloads ("Quota exceeded"). Recorded as provenance (spec §6).
 
 fft.js: MIT per npm metadata (and its README); the GitHub repo (https://github.com/indutny/fft.js, Fedor Indutny) has no LICENSE file.
 

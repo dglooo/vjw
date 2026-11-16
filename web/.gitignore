@@ -32,4 +32,5 @@ public/isf-sweep/
 public/mediapipe/
 public/models/*
 !public/models/selfie_segmenter_landscape.tflite
-!public/models/Fox.glb
+!public/models/Wolf.glb
+!public/models/manifest.json
