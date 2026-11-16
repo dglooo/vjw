@@ -65,4 +65,17 @@ describe('glstate (S1-T instrument 1)', () => {
   it('I-GL2 PASS_LIST names instrument fields only (a misspelt key would restore nothing, silently)', () => {
     expect(PASS_LIST.filter((k) => !KEYS.includes(k))).toEqual([])
   })
+
+  it('I-CL1 a lost context: glState() returns (getParameter reads null there) and restore() of it sets nothing', () => {
+    const calls: string[] = [] // every call but the three getters
+    const gl = new Proxy({}, {
+      get: (_, k: string) =>
+        k === 'isContextLost' ? () => true
+        : k === 'getParameter' || k === 'getIndexedParameter' ? () => null
+        : /^[A-Z0-9_]+$/.test(k) ? k
+        : () => void calls.push(k),
+    }) as unknown as WebGL2RenderingContext
+    for (const keys of [KEYS, PASS_LIST]) restore(gl, glState(gl, keys)) // the particles / fluid / host.ts pattern
+    expect(calls).toEqual([])
+  })
 })
