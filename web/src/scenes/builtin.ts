@@ -18,6 +18,10 @@ const PARTICLES: Record<string, Binding> = {
   hit: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 }, // ⚡ a kick heats the points
 }
 
+// native/tunnel, native/spectrum and native/glitch in every scene (I-FL1): ⚡ hit = their flash input (≤3 onsets/s), the
+// only light a hit adds (their onsets and the beat pulse lit them before).
+const KICK_HIT: Record<string, Binding> = { hit: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 } }
+
 // Built-in scenes (design E4): JSON-compatible literals, so tsc checks them and doc.test.ts round-trips them. Immutable:
 // edits go to a copy. The order is the autopilot's: the natives, then the combinations, with the MilkDrop scenes
 // spread evenly among them (BUILTIN, at the end).
@@ -26,11 +30,11 @@ const PARTICLES: Record<string, Binding> = {
 const OWN: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:tunnel', name: 'Tunnel', star: true,
-    layers: [{ gen: { ref: 'native/tunnel' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    layers: [{ gen: { ref: 'native/tunnel', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:spectrum', name: 'Spectrum', star: true,
-    layers: [{ gen: { ref: 'native/spectrum' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    layers: [{ gen: { ref: 'native/spectrum', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:particles', name: 'Particles', star: true,
@@ -39,12 +43,12 @@ const OWN: readonly SceneDoc[] = [
   },
   {
     v: 1, id: 'builtin:glitch', name: 'Glitch', star: true,
-    layers: [{ gen: { ref: 'native/glitch' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    layers: [{ gen: { ref: 'native/glitch', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:kaleido-tunnel', name: 'Kaleido tunnel', star: true,
     layers: [{
-      gen: { ref: 'native/tunnel' },
+      gen: { ref: 'native/tunnel', bind: KICK_HIT },
       fx: [{
         ref: 'isf/Kaleidoscope',
         values: { center: [0.5, 0.5] }, // the file's default is the corner
@@ -56,7 +60,7 @@ const OWN: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:vhs-tunnel', name: 'VHS tunnel', star: true,
     layers: [{
-      gen: { ref: 'native/tunnel' },
+      gen: { ref: 'native/tunnel', bind: KICK_HIT },
       fx: [
         // A worn tape's steady RGB split (the file's .02), jittered by the hats.
         { ref: 'isf/Chromatic Aberration', bind: { amount: { source: 'hats', amount: 1, attack: 0, release: 0.06, min: 0.02, max: 0.04 } } },
@@ -70,7 +74,7 @@ const OWN: readonly SceneDoc[] = [
     // Two filters at most over the spectrum: a third took the scene from 3.7 to 6.4 ms GPU p95 at 1728×1118 (S4.4).
     v: 1, id: 'builtin:crt-spectrum', name: 'CRT spectrum', star: true,
     layers: [{
-      gen: { ref: 'native/spectrum' },
+      gen: { ref: 'native/spectrum', bind: KICK_HIT },
       fx: [
         { ref: 'own/scanlines' },
         // Last, so the scanlines bend with the glass, which bulges on the bass.
@@ -82,7 +86,7 @@ const OWN: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:pixel-strobe', name: 'Pixel strobe', star: true,
     layers: [{
-      gen: { ref: 'native/tunnel' },
+      gen: { ref: 'native/tunnel', bind: KICK_HIT },
       fx: [
         { ref: 'isf/Pixellate', bind: { cell_size: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0.008, max: 0.025 } } }, // bigger pixels on a kick
         { ref: 'isf/Posterize', values: { numColors: 5 } },
@@ -180,14 +184,14 @@ const OWN: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:particles-over-tunnel', name: 'Particles over tunnel', star: true,
     layers: [
-      { gen: { ref: 'native/tunnel' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 },
+      { gen: { ref: 'native/tunnel', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 },
       { gen: { ref: 'native/particles', bind: PARTICLES }, fx: [], blend: 'add', opacity: 0.9, speed: 1, res: 0.5 },
     ],
   },
   {
     v: 1, id: 'builtin:trails-spectrum', name: 'Trails spectrum', star: true,
     layers: [{
-      gen: { ref: 'native/spectrum' },
+      gen: { ref: 'native/spectrum', bind: KICK_HIT },
       fx: [{
         ref: 'isf/Long Exposure',
         values: { absorptionRate: 0.1, dischargeRate: 0.12 }, // longer, softer trails
@@ -198,7 +202,8 @@ const OWN: readonly SceneDoc[] = [
   },
   {
     // The Shadertoy node's own fixture (S3.4): inline `mainImage` code, as a paste. iChannel0 row 0 is the FFT, 512 bins
-    // up to Nyquist, so x = 0.004 reads bins 1–2 (≈ 45–95 Hz): the kick swells the rings and the light.
+    // up to Nyquist, so x = 0.004 reads bins 1–2 (≈ 45–95 Hz): the kick swells the rings. No light from that raw bin
+    // (a toy has no ⚡ input): col × (.5 + .7 bass) stepped the frame-mean luma > .10 up to 20 per 1 s (I-FL1).
     v: 1, id: 'builtin:toy-plasma', name: 'Toy plasma', star: true,
     layers: [{
       gen: {
@@ -211,7 +216,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     float v = sin(p.x * 3.0 + t) + sin(p.y * 2.5 - t * 1.3) + sin((p.x + p.y) * 2.0 + t * 0.7)
             + sin(length(p) * (7.0 - 3.0 * bass) - t * 2.0);
     vec3 col = 0.5 + 0.5 * cos(v * 1.6 + vec3(0.0, 2.1, 4.2) + iTime * 0.15);
-    fragColor = vec4(col * (0.5 + 0.7 * bass), 1.0);
+    fragColor = vec4(col, 1.0);
 }`,
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
@@ -235,7 +240,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:slit-scan', name: 'Slit scan', star: true,
     layers: [{
-      gen: { ref: 'native/tunnel' },
+      gen: { ref: 'native/tunnel', bind: KICK_HIT },
       fx: [
         { ref: 'isf/Sine Warp Tile', bind: { angle: { source: 'lfo', shape: 'saw', rate: 0.03, amount: 1, attack: 0, release: 0, min: 0, max: 1 } } },
         { ref: 'own/echo', bind: { speed: { source: 'kick', amount: 1, attack: 0.02, release: 0.3, min: 2, max: 10 } } }, // the stream rushes on a kick
@@ -267,7 +272,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:feedback-ring', name: 'Feedback ring', star: true,
     layers: [{
-      gen: { ref: 'native/spectrum' },
+      gen: { ref: 'native/spectrum', bind: KICK_HIT },
       fx: [
         { ref: 'isf/Mirror', values: { horizontal: false, vertical: true } }, // bars from the top and the bottom
         {
@@ -285,7 +290,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:rainbow-trails', name: 'Rainbow trails', star: true,
     layers: [{
-      gen: { ref: 'native/spectrum' },
+      gen: { ref: 'native/spectrum', bind: KICK_HIT },
       fx: [{ ref: 'own/trails', bind: { rise: { source: 'kick', amount: 1, attack: 0.02, release: 0.3, min: 1, max: 8 } } }], // kicks blow the trails up
       blend: 'normal', opacity: 1, speed: 1, res: 0.5,
     }],
@@ -326,7 +331,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:td-feedback', name: 'TD feedback', star: true,
     layers: [{
-      gen: { ref: 'native/spectrum' },
+      gen: { ref: 'native/spectrum', bind: KICK_HIT },
       fx: [{
         ref: 'own/td-feedback',
         bind: {
@@ -344,7 +349,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:edge-rings', name: 'Edge rings', star: true,
     layers: [{
-      gen: { ref: 'native/tunnel' },
+      gen: { ref: 'native/tunnel', bind: KICK_HIT },
       fx: [{
         ref: 'own/edge-rings',
         bind: {
@@ -360,12 +365,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:bloom-glitch', name: 'Bloom glitch', star: true, // no bass-class binding, so Auto-style changes nothing
-    layers: [{ gen: { ref: 'native/glitch' }, fx: [{ ref: 'own/bloom', bind: BLOOM }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    layers: [{ gen: { ref: 'native/glitch', bind: KICK_HIT }, fx: [{ ref: 'own/bloom', bind: BLOOM }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:light-tunnel', name: 'Light tunnel', star: true,
     layers: [{
-      gen: { ref: 'native/tunnel' }, // its rings keep the mouth round (the spectrum's bars square it off: S1.6)
+      gen: { ref: 'native/tunnel', bind: KICK_HIT }, // its rings keep the mouth round (the spectrum's bars square it off: S1.6)
       fx: [{
         ref: 'own/light-tunnel',
         bind: {
@@ -386,7 +391,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:flow-smear', name: 'Flow smear', star: true,
     layers: [{
-      gen: { ref: 'native/spectrum' }, // its bars move on their own (the tunnel moves everywhere, so it all trailed: S1.7)
+      gen: { ref: 'native/spectrum', bind: KICK_HIT }, // its bars move on their own (the tunnel moves everywhere, so it all trailed: S1.7)
       fx: [{
         ref: 'own/flow-smear',
         bind: {
@@ -401,7 +406,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:reaction-diffusion', name: 'Reaction-diffusion', star: true,
     layers: [{
-      gen: { ref: 'native/spectrum' }, // its bars seed the coral
+      gen: { ref: 'native/spectrum', bind: KICK_HIT }, // its bars seed the coral
       fx: [{
         ref: 'own/reaction-diffusion',
         bind: {
@@ -418,7 +423,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:rgba-delay', name: 'RGBA delay', star: true,
     layers: [{
-      gen: { ref: 'native/tunnel' }, // its rings move everywhere, so every edge fringes
+      gen: { ref: 'native/tunnel', bind: KICK_HIT }, // its rings move everywhere, so every edge fringes
       fx: [{
         ref: 'native/rgba-delay', // the def's bind (scenes/history.ts), repeated: built-ins stay JSON literals
         bind: {
@@ -452,7 +457,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:slit-scan-ring', name: 'Slit scan ring', star: true, // the history ring's; builtin:slit-scan is the echo one
     layers: [{
-      gen: { ref: 'native/spectrum' }, // every row up the stage is an older frame: the bars smear upward through time
+      gen: { ref: 'native/spectrum', bind: KICK_HIT }, // every row up the stage is an older frame: the bars smear upward through time
       fx: [{
         ref: 'native/slit-scan', // the def's bind (scenes/history.ts), repeated: built-ins stay JSON literals
         bind: {
@@ -484,7 +489,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:scatter', name: 'Scatter', star: true,
     layers: [{
-      gen: { ref: 'native/tunnel' }, // its rings and colours give every square something to carry
+      gen: { ref: 'native/tunnel', bind: KICK_HIT }, // its rings and colours give every square something to carry
       fx: [{
         ref: 'native/scatter', // the def's bind (scenes/points.ts), repeated: built-ins stay JSON literals
         bind: {
@@ -504,7 +509,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:pointillize', name: 'Pointillize', star: true, // Auto: reese (scatter; wobble under Dubstep)
     layers: [{
-      gen: { ref: 'native/spectrum' }, // its bars give the dots their colours
+      gen: { ref: 'native/spectrum', bind: KICK_HIT }, // its bars give the dots their colours
       fx: [{
         ref: 'native/scatter', // the def's bind (scenes/points.ts), repeated: built-ins stay JSON literals
         values: { dots: 1, sizeVar: 0.7 },
@@ -543,7 +548,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:led-grid', name: 'LED grid', star: true,
     layers: [{
-      gen: { ref: 'native/tunnel' }, // the moving gen under both pixels
+      gen: { ref: 'native/tunnel', bind: KICK_HIT }, // the moving gen under both pixels
       fx: [
         {
           ref: 'own/mosaic', // square cells: the shards the wall shows
@@ -568,7 +573,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:ascii', name: 'ASCII', star: true, // no bass-class binding, so Auto-style changes nothing
     layers: [{
-      gen: { ref: 'native/tunnel' }, // its rings give the glyphs something to chase
+      gen: { ref: 'native/tunnel', bind: KICK_HIT }, // its rings give the glyphs something to chase
       fx: [{
         ref: 'isf/ASCII Art',
         bind: {
@@ -600,7 +605,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:tiny-planet', name: 'Tiny planet', star: true, // Auto: reese (twist)
     layers: [{
-      gen: { ref: 'native/spectrum' }, // its bars give the wrap something to turn
+      gen: { ref: 'native/spectrum', bind: KICK_HIT }, // its bars give the wrap something to turn
       fx: [{
         ref: 'own/polar',
         bind: {
@@ -615,7 +620,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:grad-map', name: 'Grad map', star: true, // no bass-class binding, so Auto-style changes nothing
     layers: [{
-      gen: { ref: 'native/spectrum' }, // its luma is the ramp's input
+      gen: { ref: 'native/spectrum', bind: KICK_HIT }, // its luma is the ramp's input
       fx: [{
         ref: 'own/gradient',
         bind: {
@@ -635,7 +640,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:phaser', name: 'Phaser', star: true, // no bass-class binding, so Auto-style changes nothing
     layers: [{
-      gen: { ref: 'native/spectrum' }, // the moving gen the wipe reads
+      gen: { ref: 'native/spectrum', bind: KICK_HIT }, // the moving gen the wipe reads
       fx: [{
         ref: 'own/phaser',
         values: { treat: 1 }, // the treated copy B: hue +180 (the plan's scene value)
@@ -650,7 +655,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:diff-feedback', name: 'Diff feedback', star: true, // no bass-class binding, so Auto-style changes nothing
     layers: [{
-      gen: { ref: 'native/spectrum' }, // its moving bars are what the ghost keeps up with
+      gen: { ref: 'native/spectrum', bind: KICK_HIT }, // its moving bars are what the ghost keeps up with
       fx: [{
         ref: 'own/diff-feedback',
         bind: {
@@ -722,7 +727,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:poster', name: 'Poster', star: true,
     layers: [{
-      gen: { ref: 'native/spectrum' },
+      gen: { ref: 'native/spectrum', bind: KICK_HIT },
       fx: [
         { ref: 'own/color-threshold', bind: { tR: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.3, max: 0.6 } } }, // the sub opens the reds' threshold
         { ref: 'own/rgb-contrast', bind: { cR: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 1, max: -5 } } }, // a snare inverts the reds (min > max inverts)
@@ -737,7 +742,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:solar-emboss', name: 'Solar emboss', star: true,
     layers: [{
-      gen: { ref: 'native/spectrum' },
+      gen: { ref: 'native/spectrum', bind: KICK_HIT },
       fx: [
         {
           ref: 'isf/Solarize',
@@ -765,7 +770,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:halo', name: 'Halo', star: true, // Auto: reese (size; wobble under Dubstep)
     layers: [{
-      gen: { ref: 'native/spectrum' },
+      gen: { ref: 'native/spectrum', bind: KICK_HIT },
       fx: [
         { ref: 'own/rgba-blur', bind: { size: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 0.9, max: 2.0 } } }, // the red halo blooms on bass
         { ref: 'own/change-color', values: { mode: 1, hue: 0 }, bind: { target: { source: 'lfo', shape: 'saw', rate: 0.05, amount: 1, attack: 0, release: 0, min: 0, max: 1 } } }, // q6: the red band retints as the saw walks

@@ -1,12 +1,14 @@
 // Spectrum: the 32 bands as 64 mirrored bars (bass in the middle) standing on a floor line, eased per bar, with bloom
-// and a reflection on a dark glossy floor. Onsets brighten the bars and the floor line, and so does the (c) beat.
+// and a reflection on a dark glossy floor.
+// Light on a hit only through ⚡ `hit` (flashGate <= 3/s, WCAG 2.3.1; I-FL1): a kick brightens the bars and the floor
+// line. Before, every onset and the (c) beat pulse did.
 import { bindFramebufferInfo, setUniforms } from 'twgl.js'
 import { BAND_COUNT, bandEdges, easeBars } from '../audio/energy'
 import { analyser, ctx } from '../audio/input'
-import { pulse } from '../audio/sync'
 import type { Input } from '../fx/types'
 import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, program, renderTarget } from '../gl/engine'
+import { heatStep } from '../gl/post'
 import type { NativeDef } from '../gl/scene'
 
 /** Look knobs, read as uniforms every frame; bindings and the panel drive them through `values`. */
@@ -15,13 +17,13 @@ export const inputs: Input[] = [
   { name: 'reflect', type: 'float', min: 0, max: 1, default: 0.35 },
   { name: 'hue', type: 'float', min: 0, max: 1, default: 0.55 },
   { name: 'exposure', type: 'float', min: 0.2, max: 4, default: 1.4 },
+  { name: 'hit', type: 'float', min: 0, max: 1, default: 0 }, // ⚡ the kick's light: the one input that adds light on a hit
 ]
 const ATTACK = 0.6 // per 60 Hz frame: the share of the gap a rising bar closes
 const RELEASE = 0.1 // per 60 Hz frame for a falling bar: slower, so bars sink smoothly
 const DB_LO = -75 // band dB (after the tilt) at height 0; bands are mean linear magnitudes (S1.3)
 const DB_HI = -15 // … at full height
 const TILT = 1 // dB per band: highs are quieter
-const FLASH_TAU = 0.12 // s: onset brightening decay
 const FLOOR = 0.3 // the floor line, as a share of the height from the bottom
 const BARS = 2 * BAND_COUNT
 
@@ -47,15 +49,14 @@ in vec2 vUv;
 in float vBand;
 in float vH;
 uniform float uTime;
-uniform float uFlash; // onset strength / 4 × age decay
-uniform float uPulse; // (c) beat envelope × confidence: 1 on the beat
+uniform float uHot; // ⚡ input hit, gated by live.ts (flashGate), its rise slewed (heatStep)
 uniform float uHue;
 out vec4 outColor;
 vec3 palette(float t) { return 0.5 + 0.5 * cos(6.2831853 * (t + vec3(0.0, 0.33, 0.67))); }
 void main() {
   vec3 col = palette(uHue + 0.5 * vBand + 0.02 * uTime);
   float lift = 0.25 + 0.75 * vUv.y * vUv.y; // dark at the base, bright at the tip
-  outColor = vec4(col * lift * (0.5 + vH) * (1.0 + 1.5 * uFlash + 0.5 * uPulse), 1.0);
+  outColor = vec4(col * lift * (0.5 + vH) * (1.0 + 1.5 * uHot), 1.0);
 }`
 // Bars + glow → the engine's target: mirrored below the floor line with a depth fade and a faint ripple, the floor
 // line itself, then a soft tone map (the bloom target is half-float).
@@ -64,8 +65,7 @@ precision highp float;
 uniform sampler2D uSrc;
 uniform vec2 uRes;
 uniform float uReflect;
-uniform float uFlash;
-uniform float uPulse;
+uniform float uHot;
 uniform float uTime;
 uniform float uExposure;
 out vec4 outColor;
@@ -78,7 +78,7 @@ void main() {
     c += texture(uSrc, m).rgb * uReflect * exp(-d * 7.0);
   }
   float px = abs(d) * uRes.y; // pixels from the floor line
-  c += vec3(0.45, 0.65, 1.0) * (0.08 + 0.8 * uFlash + 0.3 * uPulse) * (exp(-px * 0.7) + 0.25 * exp(-px * 0.05));
+  c += vec3(0.45, 0.65, 1.0) * (0.08 + 0.8 * uHot) * (exp(-px * 0.7) + 0.25 * exp(-px * 0.05));
   outColor = vec4(1.0 - exp(-c * uExposure), 1.0);
 }`
 
@@ -102,7 +102,7 @@ export function rampShared(edges: ReturnType<typeof bandEdges>) {
 }
 
 export const spectrum: NativeDef = {
-  id: 'native/spectrum', name: 'Spectrum', kind: 'generator', credit: 'VeeJay Wizard', inputs,
+  id: 'native/spectrum', name: 'Spectrum', kind: 'generator', credit: 'VeeJay Wizard', inputs, flash: ['hit'],
   create(gl) {
     const bars = program(BAR_VS, BAR_FS) // the engine's cache: a re-created instance doesn't recompile
     const composite = fullscreenProgram(COMPOSITE_FS)
@@ -111,6 +111,7 @@ export const spectrum: NativeDef = {
     const goal = new Float32Array(BAND_COUNT)
     const h = new Float32Array(BAND_COUNT)
     const ramp = rampShared(bandEdges(ctx.sampleRate, analyser.fftSize)) // the bins the energy bands read (app.ts)
+    let hot = 0 // the hit as drawn (heatStep)
     return {
       draw(f, v) {
         for (let i = 0; i < BAND_COUNT; i++) {
@@ -120,9 +121,7 @@ export const spectrum: NativeDef = {
         ramp(goal)
         const k = f.dt * 60 // rates are per 60 Hz frame
         easeBars(h, goal, 1 - (1 - ATTACK) ** k, 1 - (1 - RELEASE) ** k)
-        const o = f.lastOnset // age clamped at 0 for line-in, as in the tunnel
-        const flash = o ? (o.strength / 4) * Math.exp(-Math.max(0, f.audioNow - o.t) / FLASH_TAU) : 0
-        const beat = pulse(f.sync)
+        hot = heatStep(hot, v.hit as number, f.dt)
 
         const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null // the engine's target
         target.fit(f.width, f.height)
@@ -131,14 +130,13 @@ export const spectrum: NativeDef = {
         gl.clearColor(0, 0, 0, 1)
         gl.clear(gl.COLOR_BUFFER_BIT)
         gl.useProgram(bars.program)
-        setUniforms(bars, { uH: h, uTime: f.time, uFlash: flash, uPulse: beat, uHue: v.hue })
+        setUniforms(bars, { uH: h, uTime: f.time, uHot: hot, uHue: v.hue })
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, BARS)
         const lit = bloom.apply(target.attachments[0], f.width, f.height, v.glow as number)
         gl.bindFramebuffer(gl.FRAMEBUFFER, out)
         gl.viewport(0, 0, f.width, f.height)
         composite({
-          uSrc: lit, uRes: [f.width, f.height], uReflect: v.reflect, uFlash: flash, uPulse: beat, uTime: f.time,
-          uExposure: v.exposure,
+          uSrc: lit, uRes: [f.width, f.height], uReflect: v.reflect, uHot: hot, uTime: f.time, uExposure: v.exposure,
         })
       },
       dispose() {
