@@ -1119,6 +1119,50 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:kaleidowhoa-man', name: 'KaleidoWHOA, MAN', star: true, // dnb · Meebs (syn_BeatTime: the beat count, unbound)
     layers: [{ gen: { ref: 'syn/kaleidowhoa_man', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Presence', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.4 }],
   },
+  // Port lane B2a (2026-11-17): the scenes with clocks and manual control decisions (each file's header says which).
+  {
+    v: 1, id: 'builtin:meta-experiment-3', name: 'Meta Experiment 3', star: false, // dnb · aiekick, CC BY-NC-SA 3.0
+    // one cell full screen (the donor opens on its 12-cell picker), the clock wound by the bass and the hats
+    layers: [{ gen: { ref: 'syn/meta_experiment_3', values: { TURN_ME_DOWN: 0, auto_zoom: 1, bass_mix: 0.6, highs_mix: 0.5, constant_mix: 0.25 }, bind: syn('syn_Presence', 'syn_HighHits', 'syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:min-max-hex', name: 'Min Max Hex', star: false, // dnb · Meebs ⚡ syn_HighHits
+    layers: [{ gen: { ref: 'syn/min_max_hex', bind: syn('syn_BPMSin2', 'syn_HighHits', 'syn_Presence', 'syn_BassLevel', 'syn_HighPresence', 'syn_OnBeat', 'syn_Hits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:overload', name: 'Overload', star: false, // dnb · Alex Rowe
+    // syn_HighLevel tops at .4: the rings' level is pow(level, 3.5 + 5·high), and DnB's hats would keep them dark
+    layers: [{ gen: { ref: 'syn/overload', bind: { ...syn('syn_BassLevel', 'syn_BassHits', 'syn_HighHits', 'syn_Level', 'syn_MidHits', 'syn_Presence'), syn_HighLevel: { ...SYN_BIND.syn_HighLevel, max: 0.4 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:beamers', name: 'Beamers', star: false, // dnb · sheltron
+    layers: [{ gen: { ref: 'syn/beamers', bind: syn('syn_Presence', 'syn_BassPresence', 'syn_BassHits', 'syn_BassLevel', 'syn_Level', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:fractilian-foundation', name: 'Fractilian Foundation', star: false, // dnb · mojovideotech, CC BY-NC-SA 3.0
+    layers: [{ gen: { ref: 'syn/fractilian_foundation', bind: syn('syn_Presence', 'syn_BPMSin4', 'syn_ToggleOnBeat', 'syn_Level', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:hex-array', name: 'Hex Array', star: false, // dnb · sheltron (syn_BeatTime: the beat count, unbound)
+    layers: [{ gen: { ref: 'syn/hex_array' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:gpu-melter', name: 'GPU Melter', star: false, // dnb · Meebs ⚡ syn_HighHits
+    layers: [{ gen: { ref: 'syn/gpu_melter', bind: syn('syn_BassLevel', 'syn_HighHits', 'syn_MidPresence', 'syn_OnBeat', 'syn_BassPresence', 'syn_HighPresence', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:neuron-proximitors', name: 'Neuron Proximitors', star: false, // dnb · patu x Meebs ⚡ syn_HighHits
+    layers: [{ gen: { ref: 'syn/neuron_proximitors', bind: syn('syn_OnBeat', 'syn_Level', 'syn_Hits', 'syn_BassLevel', 'syn_HighHits', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+  },
+  {
+    v: 1, id: 'builtin:thresholder', name: 'Thresholder', star: false, // dnb · Kyle Grover ⚡ syn_BassHits
+    layers: [{ gen: { ref: 'syn/thresholder', bind: syn('syn_BPMSin4', 'syn_BassHits', 'syn_BassLevel', 'syn_MidHighLevel', 'syn_HighPresence', 'syn_HighLevel', 'syn_MidLevel', 'syn_BassPresence', 'syn_Presence', 'syn_MidHighPresence', 'syn_Hits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:exoplanet', name: 'EXOplanet', star: false, // dnb · Meebs ft. WAHa_06x36
+    // syn_Intensity (the planet's radius, 2 + 9·x) rides `energy`: big in a drop's body, small in a break (the build is 0 most of a track)
+    layers: [{ gen: { ref: 'syn/exoplanet', bind: { ...syn('syn_BPMSin4', 'syn_HighHits', 'syn_BassLevel', 'syn_BassHits', 'syn_HighLevel', 'syn_Level'), syn_Intensity: { ...SYN_BIND.syn_Intensity, source: 'energy' } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
