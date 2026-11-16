@@ -5,6 +5,10 @@
 // pow(x, i) -> pow(x, float(i)). A texel of exactly zero starts from the initial condition again (a resize clears our
 // pass targets, and a flat field never gets its shape back). Passes: fb0 (the feedback, FLOAT), fb1 (its mirror and
 // media mix), the screen.
+// ⚡ syn_BassHits is flash-gated: a hit lowers the drag, so the whole field takes a quarter of its next colours at once.
+// The pass targets WRAP repeat: scene.json names no WRAP, and OpenGL's initial wrap is GL_REPEAT (the donor's engine is
+// OpenGL 3.3 core), so the scene most likely ran repeating; our default is clamp. Seen on milk_honey_smoke_bile:
+// clamped, its field is vertical bands within 6 s; repeating, it looks like its thumbnail.
 /*{
   "TITLE": "Milk, Honey, Smoke, Bile",
   "CREDIT": "Victor S.",
@@ -12,6 +16,7 @@
   "WIDTH": 1920,
   "HEIGHT": 1080,
   "PASSES": [{"FLOAT": true, "TARGET": "fb0", "WRAP": "repeat"}, {"FLOAT": true, "TARGET": "fb1", "WRAP": "repeat"}],
+  "VJW_FLASH": ["syn_BassHits"],
   "CONTROLS": [
     {"NAME": "smoke", "TYPE": "toggle", "DEFAULT": 0.0, "MIN": 0, "MAX": 1},
     {"NAME": "jump", "TYPE": "toggle", "DEFAULT": 0.0, "MIN": 0, "MAX": 1},

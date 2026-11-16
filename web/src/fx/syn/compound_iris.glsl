@@ -7,11 +7,14 @@
 // controls here. The bangs surface_pulse / surface_fracture rest at 0 (the donor's DEFAULT 1 is the pressed value).
 // Passes: firstBuffer (the rings), secondBuffer (the triangle surface), forHorBlur (chromatic aberration), forVertBlur
 // and forLastPass (the blur), the screen.
+// The pass targets WRAP repeat: scene.json names no WRAP, and OpenGL's initial wrap is GL_REPEAT (the donor's engine is
+// OpenGL 3.3 core), so the scene most likely ran repeating; our default is clamp. Seen on milk_honey_smoke_bile:
+// clamped, its field is vertical bands within 6 s; repeating, it looks like its thumbnail.
 /*{
   "TITLE": "Compound Iris",
   "CREDIT": "Meebs",
   "TAGS": ["2d", "geometric", "dark", "media", "donor"],
-  "PASSES": [{"TARGET": "firstBuffer"}, {"TARGET": "secondBuffer", "FLOAT": true}, {"TARGET": "forHorBlur", "WIDTH": 1600, "HEIGHT": 900}, {"TARGET": "forVertBlur", "WIDTH": 1600, "HEIGHT": 900}, {"TARGET": "forLastPass", "WIDTH": 1600, "HEIGHT": 900}],
+  "PASSES": [{"TARGET": "firstBuffer", "WRAP": "repeat"}, {"TARGET": "secondBuffer", "FLOAT": true, "WRAP": "repeat"}, {"TARGET": "forHorBlur", "WIDTH": 1600, "HEIGHT": 900, "WRAP": "repeat"}, {"TARGET": "forVertBlur", "WIDTH": 1600, "HEIGHT": 900, "WRAP": "repeat"}, {"TARGET": "forLastPass", "WIDTH": 1600, "HEIGHT": 900, "WRAP": "repeat"}],
   "CONTROLS": [
     {"NAME": "colored", "TYPE": "toggle", "DEFAULT": 0.0, "MIN": 0.0, "MAX": 1.0},
     {"NAME": "invert", "TYPE": "toggle", "DEFAULT": 0.0, "MIN": 0.0, "MAX": 1.0},

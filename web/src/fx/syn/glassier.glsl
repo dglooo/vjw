@@ -6,11 +6,14 @@
 // resize: ours follow the stage, the donor's are fixed at 1600x900) starts from noise again, as in the first frames;
 // an all-black field never comes back. `cReg1..4` (the donor's SMOOTH_TRANSITIONS palettes, one faded in at a scene
 // change) are controls here. Passes: buffA (the reaction, FLOAT), buffB and buffC (its blur), the screen (the light).
+// The pass targets WRAP repeat: scene.json names no WRAP, and OpenGL's initial wrap is GL_REPEAT (the donor's engine is
+// OpenGL 3.3 core), so the scene most likely ran repeating; our default is clamp. Seen on milk_honey_smoke_bile:
+// clamped, its field is vertical bands within 6 s; repeating, it looks like its thumbnail.
 /*{
   "TITLE": "Glassier",
   "CREDIT": "Felix Woitzel",
   "TAGS": ["simulation", "dark", "reaction-diffusion", "media", "donor"],
-  "PASSES": [{"TARGET": "buffA", "WIDTH": 1600, "HEIGHT": 900, "FLOAT": true}, {"TARGET": "buffB", "WIDTH": 1600, "HEIGHT": 900, "FLOAT": true}, {"TARGET": "buffC", "WIDTH": 1600, "HEIGHT": 900, "FLOAT": true}],
+  "PASSES": [{"TARGET": "buffA", "WIDTH": 1600, "HEIGHT": 900, "FLOAT": true, "WRAP": "repeat"}, {"TARGET": "buffB", "WIDTH": 1600, "HEIGHT": 900, "FLOAT": true, "WRAP": "repeat"}, {"TARGET": "buffC", "WIDTH": 1600, "HEIGHT": 900, "FLOAT": true, "WRAP": "repeat"}],
   "CONTROLS": [
     {"NAME": "shock_back", "TYPE": "bang smooth", "DEFAULT": 0, "MIN": 0.0, "MAX": 1.0},
     {"NAME": "shock_forward", "TYPE": "bang smooth", "DEFAULT": 0, "MIN": 0.0, "MAX": 1.0},

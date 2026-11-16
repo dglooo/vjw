@@ -2,8 +2,9 @@
 // Author: Meebs
 // License: unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts. Changes for GLSL ES 3.00: int literals in float maths (30+resoMod,
-// i*2.0, -1+mod(x,2), PI/4); pow(x, 1.0) of a negative x (undefined in GLSL) is x. `type` and `resoMod` (the donor's HARD_TRANSITIONS uniforms, re-rolled at a scene change)
-// are controls here. script.js only sets script_time, which main.glsl never reads: no clock.
+// i*2.0, -1+mod(x,2), PI/4); pow(x, 1.0) of a negative x (undefined in GLSL) is x. `type` and `resoMod` (the donor's
+// HARD_TRANSITIONS uniforms, re-rolled at a scene change) are controls here. script.js only sets script_time, which
+// main.glsl never reads: no clock.
 // ⚡ syn_HighHits is flash-gated: a hit fattens every cross (more white).
 /*{
   "TITLE": "PLUS",

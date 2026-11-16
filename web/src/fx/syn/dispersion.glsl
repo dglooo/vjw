@@ -2,17 +2,22 @@
 // Author: cornusammonis
 // License: unknown (the donor's CREDIT names cornusammonis only; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts. Changes: FRAMECOUNT < 10 -> 10.0 (GLSL ES 3.00); pow(a, 2.0) of the
-// signed aberration_amount (undefined in GLSL below 0) is a*a; a texel of exactly zero
-// starts from noise again (a resize clears our pass targets, and an all-zero field never moves: the donor's targets
-// are fixed at 1024x576). Passes: BuffA and BuffB (the vector field and its update, FLOAT), the screen (34 dispersion
-// taps over stripes; no media input here).
+// signed aberration_amount (undefined in GLSL below 0) is a*a; a texel of exactly zero starts from noise again (a
+// resize clears our pass targets, and an all-zero field never moves: the donor's targets are fixed at 1024x576).
+// Passes: BuffA and BuffB (the vector field and its update, FLOAT), the screen (34 dispersion taps over stripes; no
+// media input here).
+// ⚡ syn_HighHits is flash-gated: a hit scales the stripe pattern (its white bands double: more light).
+// The pass targets WRAP repeat: scene.json names no WRAP, and OpenGL's initial wrap is GL_REPEAT (the donor's engine is
+// OpenGL 3.3 core), so the scene most likely ran repeating; our default is clamp. Seen on milk_honey_smoke_bile:
+// clamped, its field is vertical bands within 6 s; repeating, it looks like its thumbnail.
 /*{
   "TITLE": "Dispersion",
   "CREDIT": "cornusammonis",
   "TAGS": ["feedback", "media", "colorful", "reaction-diffusion", "displacement", "donor"],
   "WIDTH": 1920,
   "HEIGHT": 1080,
-  "PASSES": [{"TARGET": "BuffA", "WIDTH": 1024, "HEIGHT": 576, "FLOAT": true}, {"TARGET": "BuffB", "WIDTH": 1024, "HEIGHT": 576, "FLOAT": true}],
+  "PASSES": [{"TARGET": "BuffA", "WIDTH": 1024, "HEIGHT": 576, "FLOAT": true, "WRAP": "repeat"}, {"TARGET": "BuffB", "WIDTH": 1024, "HEIGHT": 576, "FLOAT": true, "WRAP": "repeat"}],
+  "VJW_FLASH": ["syn_HighHits"],
   "CONTROLS": [
     {"NAME": "aberration_amount", "TYPE": "slider smooth", "DEFAULT": 0.7, "MIN": -1.2, "MAX": 1.2},
     {"NAME": "switch_direction", "TYPE": "toggle smooth", "DEFAULT": 0.0, "MIN": 0.0, "MAX": 1.0},

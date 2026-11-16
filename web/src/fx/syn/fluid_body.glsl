@@ -6,13 +6,16 @@
 // spectrum_0..3 are syn_BassHits, syn_MidLevel, syn_MidHighLevel, syn_HighHits; its BPMTri2 / BPMTri4 (the beat ramp
 // slowed 2x / 4x) are the beat count's fract. Passes: fb0 / fb1 (the state, FLOAT), flow1..flow8 (the flow pyramid,
 // each half the size of the one before), the screen (HSLuv colours).
+// The pass targets WRAP repeat: scene.json names no WRAP, and OpenGL's initial wrap is GL_REPEAT (the donor's engine is
+// OpenGL 3.3 core), so the scene most likely ran repeating; our default is clamp. Seen on milk_honey_smoke_bile:
+// clamped, its field is vertical bands within 6 s; repeating, it looks like its thumbnail.
 /*{
   "TITLE": "Fluid Body",
   "CREDIT": "Victor S.",
   "TAGS": ["feedback", "media", "colorful", "psychedelic", "groovy", "donor"],
   "WIDTH": 1920,
   "HEIGHT": 1080,
-  "PASSES": [{"FLOAT": true, "HEIGHT": 1024, "TARGET": "fb0", "WIDTH": 1792}, {"FLOAT": true, "HEIGHT": 1024, "TARGET": "fb1", "WIDTH": 1792}, {"FLOAT": true, "HEIGHT": 512, "TARGET": "flow1", "WIDTH": 896}, {"FLOAT": true, "HEIGHT": 256, "TARGET": "flow2", "WIDTH": 448}, {"FLOAT": true, "HEIGHT": 128, "TARGET": "flow3", "WIDTH": 224}, {"FLOAT": true, "HEIGHT": 64, "TARGET": "flow4", "WIDTH": 112}, {"FLOAT": true, "HEIGHT": 32, "TARGET": "flow5", "WIDTH": 56}, {"FLOAT": true, "HEIGHT": 16, "TARGET": "flow6", "WIDTH": 28}, {"FLOAT": true, "HEIGHT": 8, "TARGET": "flow7", "WIDTH": 14}, {"FLOAT": true, "HEIGHT": 4, "TARGET": "flow8", "WIDTH": 7}],
+  "PASSES": [{"FLOAT": true, "HEIGHT": 1024, "TARGET": "fb0", "WIDTH": 1792, "WRAP": "repeat"}, {"FLOAT": true, "HEIGHT": 1024, "TARGET": "fb1", "WIDTH": 1792, "WRAP": "repeat"}, {"FLOAT": true, "HEIGHT": 512, "TARGET": "flow1", "WIDTH": 896, "WRAP": "repeat"}, {"FLOAT": true, "HEIGHT": 256, "TARGET": "flow2", "WIDTH": 448, "WRAP": "repeat"}, {"FLOAT": true, "HEIGHT": 128, "TARGET": "flow3", "WIDTH": 224, "WRAP": "repeat"}, {"FLOAT": true, "HEIGHT": 64, "TARGET": "flow4", "WIDTH": 112, "WRAP": "repeat"}, {"FLOAT": true, "HEIGHT": 32, "TARGET": "flow5", "WIDTH": 56, "WRAP": "repeat"}, {"FLOAT": true, "HEIGHT": 16, "TARGET": "flow6", "WIDTH": 28, "WRAP": "repeat"}, {"FLOAT": true, "HEIGHT": 8, "TARGET": "flow7", "WIDTH": 14, "WRAP": "repeat"}, {"FLOAT": true, "HEIGHT": 4, "TARGET": "flow8", "WIDTH": 7, "WRAP": "repeat"}],
   "CONTROLS": [
     {"NAME": "flow", "TYPE": "slider", "DEFAULT": 0.25, "MIN": 0.02, "MAX": 1},
     {"NAME": "color_rotate", "TYPE": "xy", "DEFAULT": [0, 0], "MIN": [0, 0], "MAX": [1, 1]},

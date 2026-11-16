@@ -6,11 +6,14 @@
 // (the donor's HARD_TRANSITIONS uniforms, re-rolled at a scene change) are controls here; colRegSel's `== 0.1` and
 // `== 0.2` are ranges (a slider never lands on them). The bangs lift / swirl rest at 0 (the donor's DEFAULT 1 is the
 // pressed value). Passes: firstFB (the flow), secondFB (its blur), vertBlur (the colours), horBlur, the screen.
+// The pass targets WRAP repeat: scene.json names no WRAP, and OpenGL's initial wrap is GL_REPEAT (the donor's engine is
+// OpenGL 3.3 core), so the scene most likely ran repeating; our default is clamp. Seen on milk_honey_smoke_bile:
+// clamped, its field is vertical bands within 6 s; repeating, it looks like its thumbnail.
 /*{
   "TITLE": "Churning",
   "CREDIT": "Victor S.",
   "TAGS": ["rainbow", "feedback", "media", "morphing", "colorful", "groovy", "psychedelic", "donor"],
-  "PASSES": [{"TARGET": "firstFB"}, {"TARGET": "secondFB"}, {"TARGET": "vertBlur"}, {"TARGET": "horBlur"}],
+  "PASSES": [{"TARGET": "firstFB", "WRAP": "repeat"}, {"TARGET": "secondFB", "WRAP": "repeat"}, {"TARGET": "vertBlur", "WRAP": "repeat"}, {"TARGET": "horBlur", "WRAP": "repeat"}],
   "CONTROLS": [
     {"NAME": "turbulence", "TYPE": "toggle", "DEFAULT": 0.0, "MIN": 0.0, "MAX": 1.0},
     {"NAME": "plasma", "TYPE": "toggle", "DEFAULT": 0.0, "MIN": -0.5, "MAX": 0.0},
