@@ -4,6 +4,7 @@
 // after a failed load (one console error). An instance owns its RT (1 sample + depth, or `samples` 4) and draws on its
 // layer's clock (the clip at `speed` × it). The RT holds premultiplied linear colour; the composite un-premultiplies,
 // tone-maps, encodes sRGB and writes straight alpha under `normal`, premultiplied colour under every other blend (N3).
+// `alpha: 'straight'` keeps a bottom model layer off live.ts's direct path (LR-7).
 import type { Blend } from '../doc'
 import { fullscreenProgram, gl as stageGl } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
@@ -44,6 +45,7 @@ export const modelSamples = (v: number): 1 | 4 => (v >= 4 ? 4 : 1)
 export const model: NativeDef = {
   id: 'native/model', name: 'Model', kind: 'generator', category: 'geometry',
   credit: 'Wolf: Quaternius (CC0 1.0); three.js r187 (MIT)',
+  alpha: 'straight', // N3 under normal: live.ts keeps the layer off the direct path, so layer 0 reads d·a (LR-7)
   inputs: [
     { name: 'glass', type: 'float', min: 0, max: 1, default: 0 },
     { name: 'samples', type: 'long', values: [1, 4], labels: ['1', '4'], default: 1, bindable: false }, // a rebuild per change (I-B3)
