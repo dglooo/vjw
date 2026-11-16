@@ -62,6 +62,7 @@
 - `agents/backlog.md` — user feature backlog (2026-11-16): TD gaps (MIDI, video source, text layer, Three.js 3D, WebGPU, Syphon/Spout/NDI, mapping, set list, transitions, OSC), track recognition on line-in, Rekordbox capture, audio player, animals, next-project shaders. Current.
 - `agents/hardening.md` — reliability-debt ledger for Tier S (fast) ships (2026-11-16): one line per scene with what is not proven. Current.
 - `agents/planner/plan_amen_shatter.md` — Amen Shatter build plan (2026-11-15, 88 lines): S5.1 merge-ready on the spike branch, M, S5.2 running-pass rows, S5.3 stills guards, S6, S7; LR-1..LR-8 + lead rulings 2026-11-15; gate record. Current.
+- `agents/planner/plan_gpu3d.md` — GPU3D build plan (2026-11-16, 604 lines; 20 parts joined): 5 CPs / 23 steps (CP1 particles TF, CP2 WebGPU splat, CP3 2D fluid, CP4 model incl. S4.1 merge of S1-T, CP5 integration); 83/83 rows owned; LR-1..LR-7 ruled. Current.
 - `agents/test-architect/coverage_amen_shatter.md` — Amen Shatter S4 coverage (2026-11-15, 169 lines): 60/60 IDs mapped, LR-5 7 ACCEPT + T-V10 REJECT, T-C15 P1–P4 numbers, B1/B2 closed by the lead (T-G7 row, T-A1r G-6 numbers); S4 PASS by lead ruling. Current.
 - `thoughts/spec_dnb_wave4.md` — DnB wave 4 epic spec (lead, 2026-11-15, Tier 3 S0): Neuro Serpent (reese chrome ribbon) + Amen Shatter (breakbeat slicing); lead default picks; R1–R7. Current.
 - `agents/tester/avqa_rave_lasers.md` — RL S6 AV QA (2026-11-15): FAIL literal 16/10/6; dispositions in STATE. Current.
