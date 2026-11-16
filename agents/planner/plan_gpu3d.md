@@ -350,7 +350,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - `grownCapacity` is imported from `scenes/particles.ts`. When S2.3 imports `splat.ts` from `particles.ts`, the two modules form an import cycle. The cycle is safe at runtime (a function declaration, called only inside `frame()` work), but a dynamic `import()` in S2.3 avoids it. `SPRING` (40) and `DRAG` (3) are copied into the WGSL as literals: `particles.ts` keeps them private.
   - The harness writes in this worktree's `scratchpad/gpu3d/` (the brief's evidence rule); the lead copies `g3-webgpu.mjs` to the main checkout.
   - Coder runs (port 5175, private cacheDir, alone, adapter apple / metal-3; class n/a: exact-integer rows, no timing gate): P-B6 PASS (inside 29 216 = count sum 29 216 = canvas R + 256 G sum 29 216); P-B7 PASS (one lit texel = 65 535, count buffer 1 048 576 there, wraps 0). RED once each: clear after resolve -> count sum 0; `& 65535u` wrap -> lit 0.
-### S2.3 [ ] The splat path inside `native/particles`
+### S2.3 [x] The splat path inside `native/particles`
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** one particle native with two paths; TF is the fallback (design § Variant C rev 1).
 - **Files:** `web/src/scenes/particles.ts`, `web/src/scenes/particles.test.ts`, `scratchpad/gpu3d/g3-webgpu.mjs` (modes `marker`, `lost`, `nogpu`).
@@ -368,6 +368,17 @@ Invoke the `ponytail` skill (full) before writing code.
   - `g3-webgpu.mjs lost <port>` (P-B8) and `nogpu <port>` (P-B9).
 - **Done:** Gates. The three lines pass. One headless still of the demo at 1 048 576.
 - **Base / depends:** master / S2.2, S1.5. **New deps:** none.
+- **Changed during implementation:**
+  - Name: `useSplat` is `shouldSplat(n, deviceReady)`. ESLint's `react-hooks/rules-of-hooks` reads every `use*` call as a React hook: 2 errors in `draw`, more in the test callbacks. `SPLAT_MIN` (262 144) is exported beside it.
+  - Device state is module-level, once per page: `ask()` = dynamic `import('../gpu/splat')` + `splatDevice()`, on the first draw that wants >= `SPLAT_MIN` (tiles never ask). `device.lost` sets it to null for the page. TF schedules growth only when `!shouldSplat(want, device !== null)` (no WebGPU, lost, or below `SPLAT_MIN`). While the device is pending, and on a splat frame whose `index` did not move, TF draws its capacity.
+  - Copy: milk `copy()` is not called. It draws a LINEAR, Y-flipped texture over the bound target, and its texture is shared by every milk layer. `particles.ts` reuses its upload pattern on an own NEAREST texture per instance, made on the first splat frame (`texSubImage2D` at an equal size, `texImage2D` at a new size). The decode pass flips Y and reads `texelFetch` (S2.2 ruling 4), scaled while a count-buffer rebuild is pending.
+  - Look (the plan names none): the decode writes count x the TF calm colour (0.06, 0.125, 0.5) x `uGain` into the HDR target, then the same bloom and composite. `uGain` = one TF sprite's energy, (π/12) x 1.08 x s², s = size x height/1000 x (0.6 + 0.4 bass + 0.4 pulse). So the brightness per point matches TF at any res, and size, bass and beat still move it. No heat colour: a count carries none (design § Variant C rev 1, "a per-particle colour needs more atomics").
+  - Reseed: the splat path is disposed whenever the rule says TF, and a new one seeds itself. TF sets `seeded = 0` on its first frame after a splat frame.
+  - Tests: a `beforeAll` in `particles.test.ts` lets Node's device resolve null (no WebGPU), so P-U1..P-U6 keep the S1.4 rules under `-t`. Two plain tests: "S2.3 shouldSplat" and "S2.3 while the device is pending" (a fresh module through `vi.resetModules`). RED once each: `n > SPLAT_MIN`; growth while pending.
+  - Harness: `g3-webgpu.mjs` app modes `marker [port] [frames] [tag]`, `lost [port] [tag]`, `nogpu [port] [tag]`. They use init-script instrumentation, no DEV hook. P-B5 compares the GL-read B with the last 48-byte uniform write (u32 11 = `index`) AND its rAF timestamp. The lag-1 bad input (upload before `splat.frame()`) shows as `otherRaf` 600/600, because B then matches the stale index; so the same-rAF timestamp is part of the PASS line.
+  - Coder runs (port 5175, private cacheDir, alone, `20c7b4f`, test:demo-1048576 = the demo at 1 048 576, res .5): P-B5 PASS 600/600, lag 0, same rAF, indices consecutive, stage luma .56. P-B8 PASS: TF from the next frame (8 ms), luma .0875 then .29 then .66 at 1 048 576 after the growth, 0 uploads after TF, reloads 0, pageerror 0. P-B9 PASS: TF draws 1 048 576, luma .625, WebGPU calls 0, pageerror 0. RED once each (`s23-red-*`): P-B5 lag 1 -> `otherRaf` 600; P-B8 no lost handler -> luma 0, no TF; P-B9 0 points when the device is null -> luma 0.
+  - Frame time, not a bench (alone, no tail, no snapshot term, no class): 1 048 576 at res .5 on the splat path = GL `gpuMs` p95 2.45 + `webgpuMs` p95 1.51 = 3.96 ms; 0 late / 300 rAF; scale 1.
+  - Stills `s23-1m-drop.png`, `s23-1m-calm.png` (the S1.5 moments; splat uploads in the probe frame, no POINTS draw). `npm run build`: `splat.ts` is a lazy chunk (6.36 kB, 3.19 kB gzip); the entry has no `navigator.gpu`.
 
 ### S2.4 [ ] The WebGPU budget, rows A and B, `SPLAT_MIN`
 Invoke the `ponytail` skill (full) before writing code.
