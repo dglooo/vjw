@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { SOURCE_IDS, type Sources } from '../bind'
 import { createAnalysis } from './analysis'
 import type { Drum, Hit } from './drums'
-import { createFeatures } from './features'
+import { createFeatures, knee } from './features'
 import type { WorkletMsg } from './onset.worklet'
 import { PRESETS, type Preset } from './presets'
 import { workletBands, type AudioSettings, type CustomBand } from './settings'
@@ -87,7 +87,7 @@ describe('hit sources (design C1)', () => {
 // Sustained sources (plan S2.4, design C1). Hand-made `feat` batches pin the knobs; the real chain runs the fixtures.
 type Feat = Extract<WorkletMsg, { kind: 'feat' }>
 const HOP = 256 / SR
-const SUSTAINED = ['sub', 'reese', 'wobble', 'wobbleDepth']
+const SUSTAINED = ['sub', 'reese', 'wobble', 'wobbleDepth', 'subBody', 'reeseBody']
 
 const ripple = (t: number) => 1 + 0.2 * Math.sin(2 * Math.PI * 7 * t)
 /** `s` seconds of 2-hop batches, bands [sub, reese, wobble] at held levels `lv(t)`. e2 ripples in the sub and wobble
@@ -209,6 +209,27 @@ describe('sustained sources (design C1)', () => {
     expect(f.raw.sub).toBe(1)
     f.at(1 + HOP)
     expect(f.raw.sub).toBe(4)
+  })
+})
+
+describe('body levels subBody, reeseBody (dsp_formula_review_2026-11-17 P1)', () => {
+  test('knee: r / 2 up to the mean, then a soft knee toward 1, no kink at the mean', () => {
+    expect([knee(0), knee(0.5), knee(1)]).toEqual([0, 0.25, 0.5])
+    expect(knee(2)).toBeCloseTo(1 - 0.5 / Math.E, 12)
+    expect((knee(1 + 1e-6) - knee(1)) / 1e-6).toBeCloseTo(0.5, 5)
+    expect(knee(4)).toBeLessThan(0.98) // a drop's first seconds, 2–4× the mean, don't saturate
+  })
+
+  test('held ÷ its 60 s mean (plain until 60 s) through knee: .5 on a steady bed at any gain; a ×2 step stays above .5', () => {
+    const lv = (g: number) => (t: number) => [g * (t < 10 ? 1 : 2), g * (t < 10 ? 0.5 : 1), g]
+    const [loud, quiet] = [play(feats(80, lv(1))), play(feats(80, lv(0.25)))]
+    loud.forEach(([, v], i) => expect(quiet[i][1].subBody).toBeCloseTo(v.subBody, 6))
+    expect(near(loud, 9.9)).toMatchObject({ subBody: 0.5, reeseBody: 0.5 })
+    expect(near(loud, 10.02).subBody).toBeCloseTo(knee(2), 2) // the step over 10 s of the old level
+    expect(near(loud, 20).subBody).toBeCloseTo(knee(2 / 1.5), 2) // the plain mean: (10 × 1 + 10 × 2) / 20
+    expect(near(loud, 20).reeseBody).toBeCloseTo(near(loud, 20).subBody, 6)
+    expect(near(loud, 79.9).subBody).toBeGreaterThan(0.52) // 70 s on, an EMA past 60 s: still over the mean…
+    expect(near(loud, 79.9).sub).toBeLessThan(0.01) // …where the 4 s rise reads 0
   })
 })
 

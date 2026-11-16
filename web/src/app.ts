@@ -235,7 +235,7 @@ const style = createStyle()
 // S5.3: the arrangement detector (build/drop/heat) runs every frame; its output drives the post pass, the frame's
 // heat speed, and the drop cut. `dropAt` = seconds since the last confident drop (-Infinity = none yet).
 const arrangement = createArrangement()
-let arrangeOut: ArrangeOut = { build: 0, drop: 0, heat: 0, sparse: false, fired: null, confirmed: null }
+let arrangeOut: ArrangeOut = { build: 0, drop: 0, heat: 0, energy: 0, sparse: false, fired: null, confirmed: null }
 let dropAt = -Infinity
 // energy.ts's 30 Hz–16 kHz log grid: the first band at/above 4 kHz; `high` = the sum of those bands (S5.3).
 const highStart = Math.ceil((BAND_COUNT * Math.log(4000 / 30)) / Math.log(16000 / 30))
@@ -381,6 +381,7 @@ function frame(now: number) {
   const styled = restyle(src, rmFrom, rmTo, rmW, styledOut)
   src.build = arrangeOut.build // S5.3: expose the arrangement as binding sources (the UI lists them in S6.3)
   src.drop = arrangeOut.drop
+  src.energy = arrangeOut.energy // P2: the section level (dsp_formula_review_2026-11-17)
   camTick(now) // plan_camera S1.2b (D1): the camera host's life + its GL (upload, EMA, ref), before render() and presence
   src.presence = presence(camGate.area) // S1.1 (design D3): the gate's held area — stable through flood/strobe; rests at 0 with no camera
   f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)

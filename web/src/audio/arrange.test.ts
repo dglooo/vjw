@@ -1,6 +1,7 @@
 import FFT from 'fft.js'
 import { expect, test } from 'vitest'
 import { createArrangement, shouldCut, type ArrangeIn, type ArrangeOpts } from './arrange'
+import { knee } from './features'
 import { createBank } from './bands'
 import { createDrums } from './drums'
 import { rms } from './energy'
@@ -316,4 +317,26 @@ test('a bass-less intro is the breakdown, through cuts shorter than `arm`: its d
   expect(d.now - 31.5).toBeLessThan(0.5)
   expect(d.fired).toBeGreaterThanOrEqual(0.6)
   expect(fired(INTRO, BREAK, { ...INTRO, s: 10 }, DROP)).toEqual([]) // …and ends at the first run ≥ `arm` (here past its grace)
+})
+
+test('energy (P2): τ 3 s levels of low and high over their 60 s means, .8 : .2, through knee; .5 when steady at any gain', () => {
+  const [a, b] = [createArrangement(), createArrangement()]
+  let now = 0
+  const hold = (s: number, low: number, high: number, total = 0.1) => {
+    let e = [0, 0]
+    for (const end = now + s; now < end; now += 1 / 60) {
+      const x = { low, high, total, kick: false, beat: null, cuts: true, now }
+      e = [a.update(x).energy, b.update({ ...x, low: 10 * low, high: 0.1 * high }).energy]
+    }
+    return e
+  }
+  const [x, y] = hold(30, 2, 0.5)
+  expect(x).toBeCloseTo(0.5, 3)
+  expect(y).toBeCloseTo(x, 6)
+  // a breakdown, low ÷ 4 for 10 s: the low level ≈ .55 over the plain mean (30 × 2 + 10 × .5) / 40
+  expect(hold(10, 0.5, 0.5)[0]).toBeCloseTo(knee(0.8 * ((0.5 + 1.5 * Math.exp(-10 / 3)) / 1.625) + 0.2), 2)
+  expect(hold(10, 0, 0, 0)[0]).toBeLessThan(0.02) // a stopped deck: the levels fall to 0, the means hold
+  // the groove back for 30 s: 20 s finish the plain 60 s mean of music frames (1.75: the silence never counts), then
+  // 10 s of its EMA toward 2
+  expect(hold(30, 2, 0.5)[0]).toBeCloseTo(knee(0.8 * (2 / (2 - 0.25 * Math.exp(-10 / 60))) + 0.2), 2)
 })
