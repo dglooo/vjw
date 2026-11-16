@@ -14,6 +14,7 @@ Bundled into the app.
 | fft.js | 4.0.4 | MIT |
 | react | 19.3.1 | MIT |
 | react-dom | 19.3.1 | MIT |
+| three | 0.187.0 | MIT |
 | twgl.js | 7.0.0 | MIT |
 
 @mediapipe/tasks-vision: the camera's segmentation runtime (the R0-Mac ruling, plan_camera S1.2a; licence from its `package.json`, the package ships no LICENSE file). The page self-hosts it so the browser touches localhost only (design D7): `postinstall` (`scripts/models.mjs`) copies the package's `wasm/` to the git-ignored `public/mediapipe/`. The package's built-in usage logger (a POST to `https://odml.pa.googleapis.com/v1/log` once a minute) is refused in `src/camera/segment.worker.ts`. Its models:
@@ -22,6 +23,12 @@ Bundled into the app.
 |---|---|---|---|
 | `public/models/selfie_segmenter_landscape.tflite` (250,177 B) | MediaPipe Selfie Segmentation, landscape 144×256 (Tingbo Hou, Siargey Pisarchyk, Karthik Raveendran, Google; 2021-05-06) | committed (K-12) | Apache-2.0, per its [model card](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Selfie%20Segmentation.pdf) ("Licensed under: Apache License, Version 2.0") |
 | `public/models/pose_landmarker_lite.task` | MediaPipe BlazePose GHUM 3D, lite (Valentin Bazarevsky, Ivan Grishchenko, Eduard Gabriel Bazavan, Google; 2021-04-16) | downloaded by `postinstall`, git-ignored | Apache-2.0, per its [model card](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20BlazePose%20GHUM%203D.pdf) ("Licensed under: Apache License, Version 2.0") |
+
+three: lazy-loaded by `native/model` only (`src/three/host.ts`, GPU3D S1-T spike; pinned exactly, an upgrade re-runs S1-T). Its `LICENSE` ships in the package. Its model asset:
+
+| file | asset | where | license |
+|---|---|---|---|
+| `public/models/Fox.glb` (162,852 B) | Khronos glTF sample "Fox" (copied from `donor/td-reverse/.../Samples/glTF/Fox.glb`; source https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/Fox) | committed | model CC0 (PixelMannen, https://opengameart.org/content/fox-and-shiba); rig + animation CC-BY-4.0 (@tomkranis, https://sketchfab.com/3d-models/low-poly-fox-by-pixelmannen-animated-371dea88d7e04a76af5763f2a36866bc); glTF conversion CC-BY-4.0 (@AsoboStudio with @scurest). Attribution required: the native's `credit` names them |
 
 fft.js: MIT per npm metadata (and its README); the GitHub repo (https://github.com/indutny/fft.js, Fedor Indutny) has no LICENSE file.
 

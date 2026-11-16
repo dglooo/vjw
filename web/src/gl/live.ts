@@ -268,7 +268,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       fl.dt = dt
       fl.width = dst.width
       fl.height = dst.height
-      n.native.draw(fl, n.u as Record<string, Value>, src, s) // a native filter reads src; null for a generator
+      n.native.draw(fl, n.u as Record<string, Value>, src, s, l.blend) // a native filter reads src; null for a generator
     } else {
       if (n.w !== dst.width || n.h !== dst.height) resize(n, dst.width, dst.height)
       n.u.TIME = n.u.iTime = l.t // ISF's names and a toy's
