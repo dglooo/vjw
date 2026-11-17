@@ -52,3 +52,12 @@
   - donor GPU rating 4: alien_cavern, compound_iris, fuzzy_signal, transparent_isoslices, vein_melter, videofx_directionalblur, voronoi_geode;
   - also fluid_body (10 passes) and neon_city (path tracing).
 - **Spectrum texture:** audio_indicators, bouncy_hexagons, entombed_silicon_dreams, neon_city. **Non-public names:** exoplanet `syn_BassExpoCurve`, audio_indicators `syn_InputLevel`.
+
+## Update after adapter step 2 (`syn-adapter-2`, 2026-11-17)
+- **IMAGES:** the adapter loads IMAGES from `web/public/syn/<scene>/<PATH>` (PATH as in scene.json). All 18 B3 scenes' files are copied. When porting a B4 scene that has IMAGES (circuit_bending, equirectangular, fire_tunnel, hextunnel, terrain_lattice, traced_tunnel, waterly), copy only the listed files from `donor/…/<scene>.synScene/<PATH>`. Images are upright, REPEAT, mipmapped, and black until loaded.
+- **Pass sizes:** a side under 8 px keeps exact pixels; WIDTH/HEIGHT 0 = the frame's size. Target wrap defaults to repeat (unless `WRAP: clamp`). The screen pass writes alpha 1.
+- **Media stub:** `syn_Media` / `syn_UserImage` are black, `syn_MediaType` = 0. Media-only scenes (raw_video, videofx_1, videofx_directionalblur, equirectangular, sinusoidal_warp, pxl_sort_1) compile but show nothing: skip them or make them Library-only.
+- **`syn_Spectrum`:** the 1D calls are rewritten automatically. ⚠️ Our FFT is linear, the donor's may be log: a range like 0.05–0.55 reads 1–13 kHz here (the hats band). Retune frequency controls via `values` if a scene only reacts to hats.
+- **Controls:** `bang counter` and `traveler` work with no edits (override a traveler's speed with a same-name `VJW_CLOCK` entry). xy scalar defaults, colours without a default, and bang DEFAULT 1 are fixed in the adapter. Copy `HARD_TRANSITIONS` / `SMOOTH_TRANSITIONS` into the header (port.py does not yet); they become static controls. Per-scene workarounds from B1/B2 are harmless (declared controls win).
+- **Still unsupported:** `FILTER mipmap` passes (entombed_silicon_dreams, logo_grid_pulses), pass `TYPE float` (lost_in_the_sauce), `syn_LevelTrail` / `syn_InputLevel` (audio_indicators). Report these and leave them.
+- **Measurement:** with several lanes on the GPU, billed p95 reads 1.2–1.9× high: take the lowest run; a solo rerun decides borderline stars.

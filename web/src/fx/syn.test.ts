@@ -47,6 +47,24 @@ describe('parseSyn', () => {
       expect(d.fs).toContain(u)
     expect(d.fs.startsWith('#version 300 es\n')).toBe(true)
     expect(d.fs).toContain('if (PASSINDEX == 0) return') // the donor's float compare, as our int
+    expect(d.fs).toContain('_COLOR_OUT_ = renderMain();\n  if (PASSINDEX == 1) _COLOR_OUT_.a = 1.0;') // the screen pass is opaque
+  })
+
+  test('transitions are static controls; a bang rests at 0; #line is dropped', () => {
+    const d = parseSyn(syn({
+      CONTROLS: [{ NAME: 'jump', TYPE: 'bang smooth', DEFAULT: 1 }, { NAME: 'mode', TYPE: 'dropdown', DEFAULT: 1, LABELS: ['a', 'b'] }],
+      HARD_TRANSITIONS: [{ UNIFORM: 'reso', VALUES: [10, 0, 30] }, { UNIFORM: 'mode', VALUES: [0, 1] }],
+      SMOOTH_TRANSITIONS: [{ UNIFORMS: ['light', 'dark'], DURATION: 3 }],
+    }, '#line 0\nvec4 renderMain() { return vec4(reso, light, dark, jump); }'), 'syn/tr')
+    expect(d.unsupported).toBeUndefined()
+    expect(d.inputs).toEqual([
+      { name: 'jump', type: 'float', default: 0, min: 0, max: 1 },
+      { name: 'mode', type: 'float', default: 1, min: 0, max: 1, label: 'mode (a / b)' }, // declared once: the control wins
+      { name: 'reso', type: 'float', default: 10, min: 0, max: 30 }, // the first value
+      { name: 'light', type: 'float', default: 1, min: 0, max: 1 }, // the group's first one on
+      { name: 'dark', type: 'float', default: 0, min: 0, max: 1 },
+    ])
+    expect(d.fs).not.toContain('#line')
   })
 
   test('feedback wiring: a PASSES TARGET and syn_FinalPass get read/write pairs; the screen pass is last, its size scales', () => {
@@ -58,6 +76,11 @@ describe('parseSyn', () => {
     expect(pairsByTarget(d.passes)).toEqual([0, 1]) // each its own pair: a pass reads its target's last frame (live.ts)
     expect(sizeExpr(d.passes[0].width!, { WIDTH: 1000 })).toBe(500)
     for (const t of ['buf', 'syn_FinalPass']) expect(d.fs).toContain(`uniform sampler2D ${t};\nuniform vec2 _${t}_imgSize;`)
+    // a data grid (a side under 8 px) keeps its pixels; 0 is the frame's size
+    const g = parseSyn(syn({ PASSES: [{ TARGET: 'grid', WIDTH: 5, HEIGHT: 512 }, { TARGET: 'full', WIDTH: 0, HEIGHT: 0 }] }, ''), 'syn/g')
+    expect(g.passes.slice(0, 2)).toEqual([{ target: 'grid', persistent: false, float: false, width: '5', height: '512', wrap: 'repeat' }, { target: 'full', persistent: false, float: false, width: undefined, height: undefined, wrap: 'repeat' }]) // repeat unless WRAP clamp
+    expect(parseSyn(syn({ PASSES: [{ TARGET: 'c', WRAP: 'clamp' }] }, ''), 'syn/w').passes[0].wrap).toBeUndefined()
+    expect(sizeExpr(g.passes[0].width!, { WIDTH: 432 })).toBe(5)
     const plain = parseSyn(syn({}, 'vec4 renderMain() { return vec4(1.0); }'), 'syn/plain')
     expect(plain.passes).toEqual([{ target: undefined, persistent: false, float: false }]) // no feedback: the direct path
     expect(plain.name).toBe('plain')
@@ -85,17 +108,52 @@ describe('parseSyn', () => {
     expect(def().fs).toContain('_synInit();\n  _COLOR_OUT_ = renderMain();')
   })
 
-  test('unsupported: every gap listed at once; a porter slip still throws', () => {
-    const d = parseSyn(syn({
-      IMAGES: [{ NAME: 'noise', PATH: 'images/noise.jpg' }],
-      PASSES: [{ TARGET: 'b', FILTER: 'mipmap' }],
-      CONTROLS: [{ NAME: 't', TYPE: 'slider traveler' }, { NAME: 'n', TYPE: 'bang counter' }],
-    }, 'float x = syn_Spectrum.r + syn_PrimeBang;'), 'syn/a')
-    expect(d.unsupported!.split('; ')).toEqual([
-      'control t: TYPE slider traveler (it moves or counts by itself)', 'control n: TYPE bang counter (it moves or counts by itself)',
-      'syn_Spectrum (the donor FFT texture, 4 channels: map to audioTex)', 'syn_PrimeBang (not a public donor name)',
-      'IMAGES (1: copy images/ to public/ and load them as textures)', 'pass b: FILTER mipmap',
+  test('textures: IMAGES from public/syn/<scene>/, the media stub black, syn_Spectrum the toy texture (1D calls rewritten)', () => {
+    const body = 'vec4 renderMain() { float s = texture(syn_Spectrum, _uv.x).g + textureLod( syn_Spectrum ,0.5, 0).b; return texture(noise, _uv) + texture(fbm, _uv) + texture(syn_Media, _uv) + texture(syn_UserImage, _uv) * s * syn_MediaType; }'
+    const d = parseSyn(syn({ IMAGES: [{ NAME: 'noise', PATH: './images/noise.jpg' }, { NAME: 'fbm', PATH: 'fbm.png' }] }, body), 'syn/t')
+    expect(d.unsupported).toBeUndefined()
+    expect(d.textures).toEqual({ noise: '/syn/t/images/noise.jpg', fbm: '/syn/t/fbm.png', syn_Spectrum: 'audio', syn_Media: 'black', syn_UserImage: 'black' })
+    for (const t of ['noise', 'fbm', 'syn_Media', 'syn_UserImage', 'syn_Spectrum']) expect(d.fs).toContain(`uniform sampler2D ${t};`)
+    expect(d.fs).toContain('float s = _synSpectrum(_uv.x).g + _synSpectrum(0.5, 0).b;') // ES 3.00 has no sampler1D
+    // the spectrum's channels: r = g = b the toy texture's FFT row, a its waveform row
+    expect(d.fs).toContain('vec4 _synSpectrum(float x) { float f = texture(syn_Spectrum, vec2(x, 0.25)).r; return vec4(f, f, f, texture(syn_Spectrum, vec2(x, 0.75)).r); }')
+    expect(d.fs).toContain('#define syn_MediaType 0.0') // media code behind its guard stays off
+  })
+
+  test('controls: a counter is + 1 per bang event, a traveler moves at its value × PARAMS per frame; an xy scalar is a pair', () => {
+    const d = parseSyn(syn({ CONTROLS: [
+      { NAME: 'n', TYPE: 'bang counter' },
+      { NAME: 'spin', TYPE: 'slider traveler', DEFAULT: 0.2, MIN: 0, MAX: 2, PARAMS: 0.02 },
+      { NAME: 'v', TYPE: 'xy traveler', DEFAULT: 0, MIN: -0.5, MAX: 0.5, PARAMS: 0.0025 },
+      { NAME: 'look', TYPE: 'xy smooth', DEFAULT: 0, MIN: -1, MAX: 1 },
+      { NAME: 'ink', TYPE: 'color' }, // no default: black
+    ] }, 'vec4 renderMain() { return vec4(n, spin, v); }'), 'syn/c')
+    expect(d.unsupported).toBeUndefined()
+    expect(d.inputs).toEqual([
+      { name: 'n_', label: 'n', type: 'event' }, // the panel's trigger, bindable: the body reads the count
+      { name: 'spin_', label: 'spin', type: 'float', default: 0.2, min: 0, max: 2 }, // the speed: the body reads the position
+      { name: 'v_', label: 'v', type: 'point2D', default: [0, 0], min: [-0.5, -0.5], max: [0.5, 0.5] },
+      { name: 'look', type: 'point2D', default: [0, 0], min: [-1, -1], max: [1, 1] },
+      { name: 'ink_', label: 'ink', type: 'color', default: [0, 0, 0, 1] },
     ])
+    expect(d.fs).toContain('#define v vec2(v_x, v_y)')
+    // live.ts run(): the clocks step before the draw (a frame clock by 1), the events clear after it
+    const u: Record<string, unknown> = { n_: false, spin_: 0.5, v_: [0.1, -0.2] }
+    for (let i = 0; i < 60; i++) {
+      if (i % 20 === 0) u.n_ = true
+      for (const c of d.clocks!) u[c.u] = clockStep((u[c.u] as number | undefined) ?? 0, c.rate, u, c.frame ? 1 : 1 / 60)
+      u.n_ = false
+    }
+    expect(u.n).toBe(3) // three bangs, at any frame rate
+    expect(u.spin).toBeCloseTo(0.5 * 0.02 * 60, 9) // 1 s
+    expect([u.v_x, u.v_y]).toEqual([expect.closeTo(0.1 * 0.0025 * 60, 9), expect.closeTo(-0.2 * 0.0025 * 60, 9)])
+    const o = parseSyn(syn({ CONTROLS: [{ NAME: 'spin', TYPE: 'slider traveler', PARAMS: 0.02 }], VJW_CLOCK: { spin: [[1, 'spin_']] } }, ''), 'syn/o')
+    expect(o.clocks).toEqual([{ u: 'spin', rate: [[1, ['spin_', -1]]] }]) // a scene's own clock of the name replaces it
+  })
+
+  test('unsupported: every gap listed at once; a porter slip still throws', () => {
+    const d = parseSyn(syn({ PASSES: [{ TARGET: 'b', FILTER: 'mipmap' }] }, 'float x = texture(syn_LevelTrail, 0.5).g + syn_PrimeBang;'), 'syn/a')
+    expect(d.unsupported!.split('; ')).toEqual(['syn_LevelTrail (a band-level history texture)', 'syn_PrimeBang (not a public donor name)', 'pass b: FILTER mipmap'])
     expect(() => parseSyn(syn({ VJW_CLOCK: { t: [['nope']] } }, ''), 'syn/b')).toThrow(/^syn\/b: VJW_CLOCK reads nope/)
     expect(() => parseSyn(syn({ VJW_FLASH: ['ghost'] }, ''), 'syn/d')).toThrow(/^syn\/d: VJW_FLASH/)
   })

@@ -6,12 +6,12 @@
 // (our grid's beat count), script_bass_time adds (syn_BassLevel / 2)^2 per frame = the clock 15 * level^2 per second
 // (x 60). fly_in_out (a traveler slider) = a clock on the new fly_speed slider. The script's camera_pos / camera_look
 // are not read by the body. PASSES: FLOAT added (the donor's default target is HDR: lattix and swarm show it; ours
-// is 8-bit unless FLOAT).
+// is 8-bit unless FLOAT); WRAP clamp (a repeating target draws the bloom's edge taps as a line on the frame's border).
 /*{
   "TITLE": "Deeper",
   "CREDIT": "Meebs",
   "TAGS": ["raymarching", "3d", "dark", "grayscale", "tunnel", "infinite", "donor"],
-  "PASSES": [{"TARGET": "backbuffer", "WIDTH": 1024, "HEIGHT": 576, "FLOAT": true}],
+  "PASSES": [{"TARGET": "backbuffer", "WIDTH": 1024, "HEIGHT": 576, "FLOAT": true, "WRAP": "clamp"}],
   "VJW_CLOCK": {
     "script_bass_time": [[15, "syn_BassLevel", "syn_BassLevel"]],
     "fly_in_out": [[30, "fly_speed"]]

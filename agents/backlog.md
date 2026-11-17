@@ -26,6 +26,7 @@
 - **Audio player for the file input** (Tier 2): scrub bar, play/pause, ±10 s on the existing `new Audio()` (`audio/input.ts:70`); beat grid and drop state survive a seek.
 - **Animals scene rework:** the user dislikes the current look («было круче, силуэты животных»); he writes the tasks later.
 - **Shaders from the user's next project** (name pending, user 2026-11-16).
+- **Donor scene port, the rest** (user 2026-11-17: «с портом сцен закончим позже — в бэклог … пусть эти закончат»): the running lanes B1a / B1b / B2b and adapter step 2 finish; then PARKED: batch B3 (18 scenes, needs IMAGES) and B4 (25, needs the media stub / spectrum), plus anything a running lane skips. Guide: `agents/research/_adhoc/syn_porting_2026-11-17.md`. Also: alone p95 rerun of every starred syn scene; THIRD_PARTY syn table (`node scripts/shaders.mjs`).
 - **Scene groups + a group browser** (user 2026-11-17, voice): split all scenes into groups; the user picks the groups; add a switcher («листалка») that pages through the scenes of a chosen group in the UI; the autopilot plays inside the chosen group. Frontend work (`frontend-coder`). ⚠️ Assumption, needs confirmation: the transcription reads «разнести по группе все спектры»; the lead reads «спектры» as all scenes / effects, not only the spectrum scenes.
 
 ## TouchDesigner gaps (user 2026-11-16: «добавляем всё это в backlog»)

@@ -53,8 +53,9 @@ export interface Live {
 /** A built node: a native, or a shader program and its passes; `u` holds its values (+ the ISF uniforms). The passes
  *  naming one TARGET share a read/write pair, swapped after each of them draws (design E2): a PERSISTENT one reads its
  *  last frame, a later pass what the previous one wrote, and no pass samples the texture it draws into. `w`/`h`: the
- *  size the targets were fitted for. `frames`: a shader's FRAMEINDEX, its own draws so far (0 on its first). */
-interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number }
+ *  size the targets were fitted for. `frames`: a shader's FRAMEINDEX, its own draws so far (0 on its first). `images`:
+ *  a synScene's IMAGES textures as they load (null: a native, or freed, when a later load deletes its own). */
+interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number; images: WebGLTexture[] | null }
 /** A built layer: its nodes (a null one blacks the layer out), its live opacity/speed (bindable) and res, its clock,
  *  the reused FrameInput copy a native reads, its own target once `res` < 1, and the editor's mute (black too). `mask`
  *  (camera CP1): the doc's; `release` gives back the camera user a masked layer holds (K-3), idempotent. */
@@ -81,6 +82,17 @@ const noise = createTexture(gl, { width: 256, height: 256, src: Uint8Array.from(
 const TOY = {
   iResolution: IRES, iDate: IDATE, iSampleRate: ctx.sampleRate, iChannel0: audioTex.toy, iChannel1: noise, iChannel2: noise, iChannel3: noise,
   iChannelResolution: [512, 2, 1, 256, 256, 1, 256, 256, 1, 256, 256, 1],
+}
+const black = createTexture(gl, { width: 1, height: 1, src: new Uint8Array(4) }) // a synScene's media stub, and its IMAGES until they load
+/** A synScene IMAGES file (fx/syn.ts) as a texture: decoded off the main thread, upright (ISF's), repeating, mipmapped
+ *  (Shadertoy's defaults: ⚠️ the donor's are not on file). */
+async function image(url: string) {
+  const r = await fetch(url)
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  const bmp = await createImageBitmap(await r.blob(), { imageOrientation: 'flipY', premultiplyAlpha: 'none' }) // WebGL ignores UNPACK_* for a bitmap
+  const t = createTexture(gl, { src: bmp, wrap: gl.REPEAT, min: gl.LINEAR_MIPMAP_LINEAR })
+  bmp.close()
+  return t
 }
 /** A pasted Shadertoy node's def, from its inline code (design E5); other refs are the catalog's. */
 const toyOf = (n: NodeDoc) => (n.ref.startsWith('toy/') ? toyDef(n) : undefined)
@@ -181,8 +193,8 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     if (!def) return fail(`unknown ref ${n.ref}`)
     const u: Record<string, unknown> = { ...defaults(def), ...n.values }
     const events = def.inputs.filter((x) => x.type === 'event').map((x) => x.name)
-    if ('create' in def) return { def, native: (def as NativeDef).create(gl, own?.size), u, events, passes: [], w: 0, h: 0, frames: 0 }
-    const { vs, fs, passes, inputs } = def as ShaderDef
+    if ('create' in def) return { def, native: (def as NativeDef).create(gl, own?.size), u, events, passes: [], w: 0, h: 0, frames: 0, images: null }
+    const { vs, fs, passes, inputs, textures = {} } = def as ShaderDef
     const info = program(vs, fs) // null when it fails to compile; twgl logged why
     if (!info) return fail(`${n.ref}: ${toy ? toyLog(fs, toy.prefixLines) : 'shader failed to compile'}`)
     Object.assign(u, { RENDERSIZE: RS, PASSINDEX: 0, DATE, _inputImage_imgSize: SIZE })
@@ -195,7 +207,19 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     const at = pairsByTarget(passes) // passes naming one TARGET share a pair, built to its first pass's FLOAT/PERSISTENT
     const tex = (p: PassDef) => ({ ...(p.filter && { minMag: gl.NEAREST }), ...(p.wrap && { wrap: gl.REPEAT }) }) // a synScene TARGET's sampling
     const pairs = passes.map((p, j) => (at[j] === j ? [renderTarget(p.float, p.persistent, tex(p)), renderTarget(p.float, p.persistent, tex(p))] : null))
-    return { def, info, u, events, passes: passes.map((p, j) => ({ p, pair: at[j] < 0 ? null : pairs[at[j]] })), w: 0, h: 0, frames: 0 }
+    const x: Node = { def, info, u, events, passes: passes.map((p, j) => ({ p, pair: at[j] < 0 ? null : pairs[at[j]] })), w: 0, h: 0, frames: 0, images: [] }
+    // ponytail: each node loads its own copy, so a library tile bakes (1 frame) before its images land; share a cache
+    // by URL if the tiles show it.
+    for (const [name, src] of Object.entries(textures)) {
+      u[name] = src === 'audio' ? audioTex.toy : black
+      if (src[0] !== '/') continue
+      image(src).then((t) => {
+        if (!x.images) return gl.deleteTexture(t) // freed while it loaded
+        x.images.push(t)
+        u[name] = t
+      }, (e: Error) => fail(`${n.ref}: ${src}: ${e.message}`))
+    }
+    return x
   }
 
   /** Compiles `binds` onto `u` (a node's uniforms or a layer's values). An input bound before (in `old`) first gets
@@ -281,7 +305,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       n.u.FRAMEINDEX = n.u.iFrame = n.frames++
       n.u.inputImage = src // the previous draw; unused by a generator
       const { clocks, raws } = n.def as ShaderDef // a synScene's audio clocks (on the layer's clock) and frame values
-      if (clocks) for (const c of clocks) n.u[c.u] = clockStep((n.u[c.u] as number | undefined) ?? 0, c.rate, n.u, dt)
+      if (clocks) for (const c of clocks) n.u[c.u] = clockStep((n.u[c.u] as number | undefined) ?? 0, c.rate, n.u, c.frame ? 1 : dt) // an event reads 1 on its draw
       if (raws) for (const [k, read] of raws) n.u[k] = read(f)
       for (let j = 0; j < n.passes.length; j++) {
         const { p, pair } = n.passes[j]
@@ -307,10 +331,13 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
   })
 
   /** The one freeing path, of a disposed scene and of a removed node or layer: a native's own dispose() (a milk/* one
-   *  goes back to its pool), every pass target. */
+   *  goes back to its pool), every pass target, the IMAGES textures loaded so far. */
   function freeNode(n: Node | null) {
-    n?.native?.dispose?.()
-    new Set(n?.passes.flatMap((x) => x.pair ?? [])).forEach(free) // a shared pair once
+    if (!n) return
+    n.native?.dispose?.()
+    new Set(n.passes.flatMap((x) => x.pair ?? [])).forEach(free) // a shared pair once
+    n.images?.forEach((t) => gl.deleteTexture(t))
+    n.images = null
   }
   function freeLayer(l: Layer) {
     l.release()
