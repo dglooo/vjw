@@ -218,7 +218,7 @@ User 2026-11-15: removed from the pipeline for now. The definition is parked at 
 8. Independent roles run only inside Tier 3 (or when the user asks); security is disabled.
 9. Any web work → `frontend-coder`; any server work → `backend-coder`. Never cross.
 10. Session end: STATE.md HEAD states where we stopped and the exact next step.
-11. **Dispatch (user, 2026-10-28; updated 2026-10-31, 2026-11-14):** one plan step per coder, with a fresh context. **Up to FIVE sub-agents at once (user 2026-11-17: «5 агентов за раз … это нормально»; the old two-agent cap is lifted)**: independent lanes only; merges into `master` stay one at a time.
+11. **Dispatch (user, 2026-10-28; updated 2026-10-31, 2026-11-14):** one plan step per coder, with a fresh context. **At most TWO sub-agents at once (user 2026-11-18, angry after a 5-lane launch: «надо было не больше двух агентов запустить»; this reverts the 2026-11-17 five-agent allowance)**: independent lanes only; merges into `master` stay one at a time.
     - Never parallel waves; never a whole checkpoint in one agent.
     - The coder works in its own git worktree (`isolation: "worktree"`, with `web/node_modules` symlinked) and commits on its branch.
     - The lead merges into `master`, runs the gates and commits, then dispatches the next step.
