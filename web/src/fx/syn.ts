@@ -274,8 +274,9 @@ export function parseSyn(src: string, id: string): ShaderDef {
     if (p.WRAP !== undefined && p.WRAP !== 'clamp' && p.WRAP !== 'repeat') why.push(`pass ${target}: WRAP ${p.WRAP}`)
     return {
       // DOUBLE_BUFFER: every TARGET is a read/write pair here. WRAP: repeat unless clamp (⚠️ the donor's default is not on
-      // file: hills_eels writes none and needs repeat; 13 donor passes write repeat, 3 clamp)
-      target, persistent: false, float: !!p.FLOAT,
+      // file: hills_eels writes none and needs repeat; 13 donor passes write repeat, 3 clamp). FLOAT: HDR unless false
+      // (the donor's default: lattix, swarm, hue_review and deeper go flat in 8-bit; 85 passes write true, 10 false)
+      target, persistent: false, float: p.FLOAT !== false,
       width: size(p.WIDTH, 'WIDTH', W), height: size(p.HEIGHT, 'HEIGHT', H),
       ...(p.FILTER === 'nearest' && { filter: 'nearest' as const }), ...(p.WRAP !== 'clamp' && { wrap: 'repeat' as const }),
     }

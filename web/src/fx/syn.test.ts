@@ -77,9 +77,9 @@ describe('parseSyn', () => {
     expect(pairsByTarget(d.passes)).toEqual([0, 1]) // each its own pair: a pass reads its target's last frame (live.ts)
     expect(sizeExpr(d.passes[0].width!, { WIDTH: 1000 })).toBe(500)
     for (const t of ['buf', 'syn_FinalPass']) expect(d.fs).toContain(`uniform sampler2D ${t};\nuniform vec2 _${t}_imgSize;`)
-    // a data grid (a side under 8 px) keeps its pixels; 0 is the frame's size
-    const g = parseSyn(syn({ PASSES: [{ TARGET: 'grid', WIDTH: 5, HEIGHT: 512 }, { TARGET: 'full', WIDTH: 0, HEIGHT: 0 }] }, ''), 'syn/g')
-    expect(g.passes.slice(0, 2)).toEqual([{ target: 'grid', persistent: false, float: false, width: '5', height: '512', wrap: 'repeat' }, { target: 'full', persistent: false, float: false, width: undefined, height: undefined, wrap: 'repeat' }]) // repeat unless WRAP clamp
+    // a data grid (a side under 8 px) keeps its pixels; 0 is the frame's size; no FLOAT key is HDR (the donor's default)
+    const g = parseSyn(syn({ PASSES: [{ TARGET: 'grid', WIDTH: 5, HEIGHT: 512 }, { TARGET: 'full', WIDTH: 0, HEIGHT: 0, FLOAT: false }] }, ''), 'syn/g')
+    expect(g.passes.slice(0, 2)).toEqual([{ target: 'grid', persistent: false, float: true, width: '5', height: '512', wrap: 'repeat' }, { target: 'full', persistent: false, float: false, width: undefined, height: undefined, wrap: 'repeat' }]) // repeat unless WRAP clamp
     expect(parseSyn(syn({ PASSES: [{ TARGET: 'c', WRAP: 'clamp' }] }, ''), 'syn/w').passes[0].wrap).toBeUndefined()
     expect(sizeExpr(g.passes[0].width!, { WIDTH: 432 })).toBe(5)
     const plain = parseSyn(syn({}, 'vec4 renderMain() { return vec4(1.0); }'), 'syn/plain')
