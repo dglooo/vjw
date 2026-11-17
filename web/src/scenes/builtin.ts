@@ -1346,6 +1346,59 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:entombed-silicon-dreams', name: 'Entombed Silicon Dreams', star: false, // dnb · mrange, CC0 · ⚡ syn_BassHits (the ring = our FFT)
     layers: [{ gen: { ref: 'syn/entombed_silicon_dreams', bind: syn('syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
   },
+  // Lane B3a (IMAGES scenes on adapter step 2; each file's header says what its script.js / transitions / media became).
+  // Starred = I-FL1 (max luma steps > .10 in 1 s, 30 s of dnb174-arr) <= 3 and billed p95 <= 7.5 ms (5 lanes on the GPU,
+  // M4 1728x1118, the lowest run): biopsy 3 / 5.4 ms, biopsy-v2 2 / 4.7, boreal 1 / 6.6, cloudten 2 / 6.3, cosmic-dust
+  // 2 / 5.2, dynamical-flame 3 / 7.2, gaussian-smoothlife 2 / 6.5, glitch-meebs 3 / 4.8, hexoplanet 1 / 6.1.
+  {
+    // inOrOut -1: the bass zooms in (the donor re-rolls it per transition; at its first value, 1, our bass level pulls
+    // the field in over the wrapped edges faster than it grows: an empty frame round the picture)
+    v: 1, id: 'builtin:biopsy', name: 'Biopsy', star: true, // dnb · Meebs ft. Flexi · ⚡ syn_HighHits
+    layers: [{ gen: { ref: 'syn/biopsy', values: { inOrOut: -1 }, bind: syn('syn_HighHits', 'syn_HighPresence', 'syn_BassPresence', 'syn_BassLevel', 'syn_BPMTri2', 'syn_MidHighPresence', 'syn_Presence', 'syn_MidPresence', 'syn_Level', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:biopsy-v2', name: 'Biopsy V2', star: true, // dnb · Meebs ft. Flexi · ⚡ syn_HighHits (inOrOut: as Biopsy)
+    layers: [{ gen: { ref: 'syn/biopsy_v2', values: { inOrOut: -1 }, bind: syn('syn_HighHits', 'syn_HighPresence', 'syn_BassPresence', 'syn_BassLevel', 'syn_BassHits', 'syn_MidHighPresence', 'syn_MidPresence', 'syn_Presence', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    // the donor's script re-rolls its three dropdowns per transition; held here on colour tears, moving in, waving (its
+    // defaults are the still white feathers). res: billed p95 8.6 ms at 1
+    v: 1, id: 'builtin:boreal', name: 'Boreal', star: true, // dnb · Alex Rowe (the scanner's phase: a clock)
+    layers: [{ gen: { ref: 'syn/boreal', values: { image_select: 2, wind_movement: 0, warp_type: 0 }, bind: syn('syn_Intensity', 'syn_MidHighPresence', 'syn_BassHits', 'syn_BassPresence', 'syn_BassLevel', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75 }],
+  },
+  {
+    // res: billed p95 10.4 ms at 1 (its clouds are a third of the layer: soft at .5)
+    v: 1, id: 'builtin:cloudten', name: 'Cloud Ten', star: true, // dnb · nimitz (the level flies the camera: a clock)
+    layers: [{ gen: { ref: 'syn/cloudten', bind: syn('syn_Presence', 'syn_HighPresence', 'syn_BassPresence', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:cosmic-dust', name: 'Cosmic Dust', star: true, // dnb · Kali x Meebs · ⚡ syn_HighHits, syn_MidHighHits (res: billed p95 12.7 ms at 1)
+    layers: [{ gen: { ref: 'syn/cosmic_dust', bind: syn('syn_BassLevel', 'syn_MidLevel', 'syn_HighHits', 'syn_MidHighHits', 'syn_HighPresence', 'syn_MidPresence', 'syn_Level', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:dynamical-flame', name: 'Dynamical Flame', star: true, // dnb · cornusammonis · ⚡ syn_HighHits
+    layers: [{ gen: { ref: 'syn/dynamical_flame', bind: syn('syn_BassLevel', 'syn_HighHits', 'syn_Presence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    // res: billed p95 8.8 ms at 1 (two 101-tap blurs). scale 1.13 keeps the donor's cell size on screen at res .75 (its
+    // kernel is in texels: 1.3 x sqrt(.75)). The hits rise over 40 ms, the picture's on the snare (I-FL1 on dnb174-arr,
+    // 30 s, as SYN binds them: the drop's first hit steps the luma up and back in two frames, 4 steps in 1 s with the
+    // two every scene shows at the drop; 2 here)
+    v: 1, id: 'builtin:gaussian-smoothlife', name: 'Gaussian SmoothLife', star: true, // dnb · cornusammonis · ⚡ syn_HighHits ← snare, syn_BassHits ← kick
+    layers: [{ gen: { ref: 'syn/gaussian_smoothlife', values: { scale: 1.13 }, bind: { ...syn('syn_Presence', 'syn_BassLevel'), syn_HighHits: SOFT_SNARE, syn_BassHits: SOFT_KICK } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75 }],
+  },
+  {
+    v: 1, id: 'builtin:glitch-meebs', name: 'Glitch (Meebs)', star: true, // dnb · Meebs ft. XOR · ⚡ syn_OnBeat, syn_HighHits; builtin:glitch is our own
+    layers: [{ gen: { ref: 'syn/glitch', bind: syn('syn_OnBeat', 'syn_BassPresence', 'syn_HighPresence', 'syn_Presence', 'syn_HighHits', 'syn_BassLevel', 'syn_BassHits', 'syn_BPMTri', 'syn_Hits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    // the donor's thumbnail look: the camera close over the pole, full bumps (its defaults show the whole ball). The
+    // bumps follow the sub (bass_bump 0); the donor's default flips them per beat (syn_ToggleOnBeat: our beat LFO scales
+    // with the tempo confidence, so they lie flat on a weak grid). res: billed p95 13.5 ms at .5, 8.1 at .35 (its march
+    // takes up to 1000 short steps)
+    v: 1, id: 'builtin:hexoplanet', name: 'HEXOplanet', star: true, // dnb · aiekick, CC BY-NC-SA 3.0 · ⚡ syn_Hits
+    layers: [{ gen: { ref: 'syn/hexoplanet', values: { elevation: 3.2, size_bumps: 1, bass_bump: 0 }, bind: syn('syn_BassLevel', 'syn_ToggleOnBeat', 'syn_Hits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
