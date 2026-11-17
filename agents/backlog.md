@@ -9,11 +9,11 @@
 - 2026-11-16, lead. Code facts: no `requestMIDIAccess` in `web/src`; video only from the camera (`camera/camera.ts`); `MediaRecorder` in `recorder.ts`; LFO sources exist (`bind.ts`); 13 transitions (`editor/blocks.ts:23`); engine = WebGL2 + twgl.js 7 + Butterchurn 3 beta 5, 100 % TypeScript.
 
 ## Order (user 2026-11-16, voice message; transcription read by the lead)
-1. **MilkDrop on our audio system** (running; `sync` knob keeps the old path open for quick rework).
-2. **New MilkDrop presets.**
-3. **Audio in: line-in = the same signal decoding as the file** (§ Audio input).
-4. **WebGPU: millions of particles, fluids.**
-5. **3D on Three.js: models incl. animals, chrome reflections.**
+1. ✅ **MilkDrop on our audio system** (done 2026-11-16; `sync` knob keeps the old path open for quick rework).
+2. ✅ **New MilkDrop presets** (50, done 2026-11-16).
+3. ✅ **Audio in: line-in = the same signal decoding as the file** (§ Audio input).
+4. ✅ **WebGPU: millions of particles, fluids** (GPU3D built; S6 + tester + close paused).
+5. ✅ **3D on Three.js: models incl. animals, chrome reflections** (GPU3D, chrome/glass wolf).
 6. **Text layer** — just a text layer.
 7. **MIDI controller** — basic, without extras. ⚠️ Assumption, needs confirmation: the transcription reads «мобиль»; the lead reads it as MIDI (the first item of the gap list).
 8. **Video files as a source.**
