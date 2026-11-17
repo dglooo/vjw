@@ -1346,6 +1346,43 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:entombed-silicon-dreams', name: 'Entombed Silicon Dreams', star: false, // dnb · mrange, CC0 · ⚡ syn_BassHits (the ring = our FFT)
     layers: [{ gen: { ref: 'syn/entombed_silicon_dreams', bind: syn('syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
   },
+  // Lane B3a (IMAGES scenes; each file's header says what its script.js / transitions / media became).
+  {
+    v: 1, id: 'builtin:biopsy', name: 'Biopsy', star: false, // dnb · Meebs ft. Flexi · ⚡ syn_HighHits
+    layers: [{ gen: { ref: 'syn/biopsy', values: { inOrOut: -1 }, bind: syn('syn_HighHits', 'syn_HighPresence', 'syn_BassPresence', 'syn_BassLevel', 'syn_BPMTri2', 'syn_MidHighPresence', 'syn_Presence', 'syn_MidPresence', 'syn_Level', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:biopsy-v2', name: 'Biopsy V2', star: false, // dnb · Meebs ft. Flexi · ⚡ syn_HighHits
+    layers: [{ gen: { ref: 'syn/biopsy_v2', values: { inOrOut: -1 }, bind: syn('syn_HighHits', 'syn_HighPresence', 'syn_BassPresence', 'syn_BassLevel', 'syn_BassHits', 'syn_MidHighPresence', 'syn_MidPresence', 'syn_Presence', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:boreal', name: 'Boreal', star: false, // dnb · Alex Rowe (the scanner's phase: a clock)
+    layers: [{ gen: { ref: 'syn/boreal', values: { image_select: 2, wind_movement: 0, warp_type: 0 }, bind: syn('syn_Intensity', 'syn_MidHighPresence', 'syn_BassHits', 'syn_BassPresence', 'syn_BassLevel', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:cloudten', name: 'Cloud Ten', star: false, // dnb · nimitz (the level flies the camera: a clock)
+    layers: [{ gen: { ref: 'syn/cloudten', bind: syn('syn_Presence', 'syn_HighPresence', 'syn_BassPresence', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:cosmic-dust', name: 'Cosmic Dust', star: false, // dnb · Kali x Meebs · ⚡ syn_HighHits, syn_MidHighHits
+    layers: [{ gen: { ref: 'syn/cosmic_dust', bind: syn('syn_BassLevel', 'syn_MidLevel', 'syn_HighHits', 'syn_MidHighHits', 'syn_HighPresence', 'syn_MidPresence', 'syn_Level', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:dynamical-flame', name: 'Dynamical Flame', star: false, // dnb · cornusammonis · ⚡ syn_HighHits
+    layers: [{ gen: { ref: 'syn/dynamical_flame', bind: syn('syn_BassLevel', 'syn_HighHits', 'syn_Presence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:gaussian-smoothlife', name: 'Gaussian SmoothLife', star: false, // dnb · cornusammonis · ⚡ syn_HighHits
+    layers: [{ gen: { ref: 'syn/gaussian_smoothlife', bind: syn('syn_HighHits', 'syn_BassHits', 'syn_Presence', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:glitch-meebs', name: 'Glitch (Meebs)', star: false, // dnb · Meebs ft. XOR · ⚡ syn_OnBeat, syn_HighHits; builtin:glitch is our own
+    layers: [{ gen: { ref: 'syn/glitch', bind: syn('syn_OnBeat', 'syn_BassPresence', 'syn_HighPresence', 'syn_Presence', 'syn_HighHits', 'syn_BassLevel', 'syn_BassHits', 'syn_BPMTri', 'syn_Hits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:hexoplanet', name: 'HEXOplanet', star: false, // dnb · aiekick, CC BY-NC-SA 3.0 · ⚡ syn_Hits
+    layers: [{ gen: { ref: 'syn/hexoplanet', values: { elevation: 3.2, size_bumps: 1, bass_bump: 0 }, bind: syn('syn_BassLevel', 'syn_ToggleOnBeat', 'syn_Hits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
