@@ -10,7 +10,8 @@
 // data, stepped per frame by clock.ts; a traveler or counter control is a clock too. IMAGES files are served from
 // public/syn/<scene>/ (live.ts loads them). What the adapter cannot feed yet is listed in `unsupported` (the catalog
 // skips such a file), so a bulk import sees every gap at once.
-import type { Binding } from '../bind'
+import { meter } from '../audio/meter'
+import { evaluate, type Binding, type BindState, type Sources } from '../bind'
 import type { Rate, Ref } from '../clock'
 import type { FrameInput } from '../frame'
 import { VS } from './glsl'
@@ -21,28 +22,43 @@ import type { Clock, Input, PassDef, ShaderDef } from './types'
 /** A clock's rate as a file writes it: terms of numbers and input names (`name`, `name.x`, `name.y`). */
 type RateSpec = readonly (readonly (number | string)[])[]
 /** How one donor name is fed: a binding (a float input the panel shows and the user can rebind), a clock, a value
- *  read from the frame, a constant, the feedback target, a texture (ShaderDef.textures), or not yet (the reason). */
-type Syn = Binding | { clock: RateSpec } | { raw: (f: FrameInput) => number } | { value: number } | { target: true } | { texture: 'audio' | 'black' } | { unsupported: string }
+ *  read from the frame and its sources, a constant, the feedback target, a texture (ShaderDef.textures), or not yet. */
+type Syn = Binding | { clock: RateSpec } | { raw: (f: FrameInput, s: Sources) => number } | { value: number } | { target: true } | { texture: 'audio' | 'black' | 'trail' } | { unsupported: string }
 
 const b = (source: string, attack: number, release: number): Binding => ({ source, amount: 1, attack, release, min: 0, max: 1 })
+// A hit: our drum envelope (1 on the hit, e^(−age/τ), features.ts) as sampled at the frame peaks at .78–1 by its phase;
+// × 1.35 every hit reaches 1 (a donor `step(0.99, syn_HighHits)` fires on each), and stays a frame-sharp rise.
+const hit = (source: string, release: number): Binding => ({ ...b(source, 0, release), amount: 1.35 })
 const slow = (source: string) => b(source, 1, 2) // presence: the band held over seconds
-const lfo = (shape: 'sine' | 'tri' | 'square' | 'random', rate: number): Binding => ({ ...b('beat', 0, 0), shape, rate }) // beat-locked, 0..1, × confidence (bind.ts)
-/** The donor's 44 public names (its editor's keyword list; research §4) → ours, DnB first. An own built-in binds no
- *  onset/treb (doc.test.ts): the any-band hit is the snare, the highs are a band or the hats. Level and Presence ride
- *  the body sources (dsp_formula_review_2026-11-17 P1/P2: .5 = the track's 60 s mean): bass subBody, mid and the overall
- *  level reeseBody, the any-band presence energy (already a 3 s level: unsmoothed here).
- *  ⚠️ = semantics guessed from scene use (no donor docs): CurvedTime, BPMTwitcher, the BPM LFOs' range, Intensity. */
+const lfo = (shape: 'sine' | 'tri', rate: number): Binding => ({ ...b('beat', 0, 0), shape, rate }) // beat-locked, 0..1, × confidence (bind.ts)
+const frac = (x: number) => x - Math.floor(x)
+/** A beat step's flip over the beat's first 15 %, smoothstepped (the donor's logistic flip; ⚠️ its length is not on file). */
+const flip = (beat: number) => {
+  const p = Math.min(1, frac(beat) / 0.15)
+  return p * p * (3 - 2 * p)
+}
+const dice = (n: number) => frac(Math.sin(n * 12.9898) * 43758.5453) // bind.ts's random shape: one value per beat
+/** The donor's public names (its editor's keyword list; research §4; dsp_formula_review_2026-11-17 §1 for what each
+ *  does) → OUR detector, so a donor scene reacts as our scenes do. An own built-in binds no onset/treb (doc.test.ts).
+ *  Hits are our drum detectors: BassHits the kick, Hits / MidHits the snare (the any-band hit), MidHigh / HighHits the
+ *  hats; OnBeat (the donor's onset-based beat, BeatComponentHFC/RMS) the kick. Levels and Presence ride the body sources
+ *  (P1/P2: .5 = the track's 60 s mean): bass subBody, mid and the overall level reeseBody, the any-band presence energy.
+ *  The beat names run on our grid: BeatTime steps per beat (the donor's BeatToIncrement), BPMTwitcher jumps each beat
+ *  and settles (BPMComponentTwitcher), Toggle / RandomOnBeat flip on it at full swing (a 0/1 flip has no half state, so
+ *  confidence does not scale it: Kanine's grid sits near .45); the BPM LFOs fade with confidence, as ours do.
+ *  Intensity is our arrangement: the section level, lifted by the build and held at 1 by the drop pulse.
+ *  ⚠️ = semantics guessed from scene use (no donor docs): CurvedTime, the BPM LFOs' range. */
 export const SYN: Readonly<Record<string, Syn>> = {
   syn_Level: b('reeseBody', 0.05, 0.3),
   syn_BassLevel: b('subBody', 0.05, 0.15),
   syn_MidLevel: b('reeseBody', 0.05, 0.15),
   syn_MidHighLevel: b('band22', 0.05, 0.15), // ≈ 2.2 kHz (energy.ts: 32 log bands, 30 Hz–16 kHz)
   syn_HighLevel: b('band27', 0.05, 0.15), // ≈ 6 kHz
-  syn_Hits: b('snare', 0, 0.2),
-  syn_BassHits: b('kick', 0, 0.2),
-  syn_MidHits: b('snare', 0, 0.2),
-  syn_MidHighHits: b('hats', 0, 0.15),
-  syn_HighHits: b('hats', 0, 0.15),
+  syn_Hits: hit('snare', 0.2),
+  syn_BassHits: hit('kick', 0.2),
+  syn_MidHits: hit('snare', 0.2),
+  syn_MidHighHits: hit('hats', 0.15),
+  syn_HighHits: hit('hats', 0.15),
   syn_Presence: b('energy', 0, 0),
   syn_BassPresence: slow('subBody'),
   syn_MidPresence: slow('reeseBody'),
@@ -54,11 +70,11 @@ export const SYN: Readonly<Record<string, Syn>> = {
   syn_MidHighTime: { clock: [['syn_MidHighLevel']] },
   syn_HighTime: { clock: [['syn_HighLevel']] },
   syn_CurvedTime: { clock: [[0.5], [0.5, 'syn_Level']] }, // ⚠️ never stops, faster when loud
-  syn_OnBeat: b('kick', 0, 0.2),
-  syn_ToggleOnBeat: lfo('square', 0.5), // 0/1, flips each beat
-  syn_RandomOnBeat: lfo('random', 1), // a new value per beat
-  syn_BeatTime: { raw: (f) => f.sync.beat }, // the beat count
-  syn_BPMTwitcher: { raw: (f) => f.sync.beat }, // ⚠️ jumps per beat: scenes floor/fract the count
+  syn_OnBeat: hit('kick', 0.2),
+  syn_ToggleOnBeat: { raw: (f) => (Math.floor(f.sync.beat) % 2 ? flip(f.sync.beat) : 1 - flip(f.sync.beat)) }, // 0/1, flips each beat
+  syn_RandomOnBeat: { raw: (f) => dice(Math.floor(f.sync.beat) - 1) + (dice(Math.floor(f.sync.beat)) - dice(Math.floor(f.sync.beat) - 1)) * flip(f.sync.beat) }, // a new value per beat
+  syn_BeatTime: { raw: (f) => Math.floor(f.sync.beat) }, // + 1 per beat
+  syn_BPMTwitcher: { raw: (f) => Math.floor(f.sync.beat) + 1 - Math.exp(-6 * frac(f.sync.beat)) }, // a jump at each beat, eased
   syn_BPM: { raw: (f) => f.sync.bpm }, // 0 = no tempo yet
   syn_BPMConfidence: b('confidence', 0.5, 0.5),
   syn_BPMSin: lfo('sine', 1), // ⚠️ the period in beats is the suffix; 0..1 here
@@ -69,20 +85,32 @@ export const SYN: Readonly<Record<string, Syn>> = {
   syn_BPMTri2: lfo('tri', 1 / 2),
   syn_BPMTri4: lfo('tri', 1 / 4),
   syn_BPMTri8: lfo('tri', 1 / 8),
-  syn_Intensity: b('energy', 0, 0), // ⚠️ the donor's OSC energy macro: ours
-  syn_FadeInOut: { value: 1 }, // the donor's fade to black in silence: none here
+  syn_Intensity: { raw: (_, s) => Math.max(s.energy ?? 0, s.build ?? 0, s.drop ?? 0) }, // swells through a build, peaks on the drop
+  syn_FadeInOut: { value: 1 }, // the donor's fade to black in silence: none (a library tile bakes one frame; the preview stays lit)
+  syn_BassExpoCurve: { raw: (_, s) => (s.subBody ?? 0) ** 2 }, // not public (exoplanet): growth on a sustained bass
+  syn_InputLevel: { raw: () => 10 ** (meter.db / 20) }, // not public (audio_indicators): the HUD meter's held peak, linear ⚠️
   syn_MediaType: { value: 0 }, // no media input yet: syn_Media and syn_UserImage are black, the preamble's media helpers stubs
   syn_FinalPass: { target: true },
   // The donor's 1D FFT texture (research §4): .r the raw FFT, .g the FFT, .b a smoothed ("juiced") one, .a the waveform.
   // Ours: the toy texture (row 0 FFT, row 1 waveform) through _synSpectrum below; r = g = b = our one FFT (the analyser
   // runs unsmoothed: ⚠️ no raw/juiced split, no smoothing), a = the waveform.
   syn_Spectrum: { texture: 'audio' },
-  syn_LevelTrail: { unsupported: 'syn_LevelTrail (a band-level history texture)' },
+  syn_LevelTrail: { texture: 'trail' }, // TRAIL texels of the four levels (r all, g bass, b mid, a high), newest at x = 1
   syn_Media: { texture: 'black' },
   syn_UserImage: { texture: 'black' },
 }
 /** SYN's bindings, by name: a built-in's `bind` for its scene's bound names. */
 export const SYN_BIND: Readonly<Record<string, Binding>> = Object.fromEntries(Object.entries(SYN).filter(([, m]) => 'source' in m)) as Record<string, Binding>
+
+/** syn_LevelTrail's length in frames (⚠️ the donor's is not on file: 256 ≈ 4 s at 60 fps). */
+export const TRAIL = 256
+const TRAILED = ['syn_Level', 'syn_BassLevel', 'syn_MidLevel', 'syn_HighLevel'].map((n) => SYN_BIND[n])
+/** syn_LevelTrail one frame on (live.ts, per node): the RGBA8 texels shift one left, and the four levels as SYN's
+ *  bindings evaluate them now land in the last. */
+export function pushTrail(bytes: Uint8Array, states: BindState[], s: Sources, dt: number) {
+  bytes.copyWithin(0, 4)
+  for (let c = 0; c < 4; c++) bytes[bytes.length - 4 + c] = 255 * evaluate(TRAILED[c], s, states[c], dt)
+}
 
 interface Control { NAME: string; TYPE?: string; DEFAULT?: number | number[]; MIN?: number | number[]; MAX?: number | number[]; DEF_COLOR?: number[]; LABELS?: string[]; PARAMS?: number }
 interface Pass { TARGET: string; FLOAT?: boolean; WIDTH?: number; HEIGHT?: number; FILTER?: string; WRAP?: string; DOUBLE_BUFFER?: boolean; TYPE?: string }
@@ -100,6 +128,8 @@ const SPECTRUM = `uniform sampler2D syn_Spectrum;
 vec4 _synSpectrum(float x) { float f = texture(syn_Spectrum, vec2(x, 0.25)).r; return vec4(f, f, f, texture(syn_Spectrum, vec2(x, 0.75)).r); }
 vec4 _synSpectrum(float x, float lod) { return _synSpectrum(x); }
 vec4 _synSpectrum(float x, int lod) { return _synSpectrum(x); }`
+const LEVEL_TRAIL = `uniform sampler2D syn_LevelTrail;
+vec4 _synLevelTrail(float x) { return texture(syn_LevelTrail, vec2(x, 0.5)); }`
 const DECL = /^(\s*)((?:(?:highp|mediump|lowp)\s+)?(?:float|int|uint|bool|[biu]?vec[234]|mat[234](?:x[234])?)(?:\s*\[\s*\d*\s*\])?)\s+([^;]*);\s*$/
 
 /** `s` split at its top-level commas (none inside () or []). */
@@ -174,6 +204,7 @@ export function parseSyn(src: string, id: string): ShaderDef {
   // the donor compares PASSINDEX as int and as float (`== 1.0`); ours is an int
   const code = src.slice(z + 2).replace(COMMENTS, '').replace(/\bPASSINDEX(\s*(?:[=!<>]=|[<>])\s*)(\d+)\.0*(?![\d.])/g, 'PASSINDEX$1$2')
     .replace(/^[ \t]*#line\b.*$/gm, '') // keeps the compile log's line numbers the fs's
+    .replace(/\bFRAMECOUNT(\s*(?:[=!<>]=|[<>])\s*)(\d+)(?![\d.])/g, 'FRAMECOUNT$1$2.0') // ours is a float
   const why: string[] = []
   const defines: string[] = []
 
@@ -187,9 +218,10 @@ export function parseSyn(src: string, id: string): ShaderDef {
       // +1 on each trigger (the panel's button, or a bound source's rise: an event is true for one draw, live.ts)
       controls.push({ name: `${name}_`, label: name, type: 'event' })
       moving.push({ u: name, rate: [[[`${name}_`, -1]]], frame: true })
-    } else if (mode === 'traveler') {
-      // ⚠️ PARAMS read as the step per frame at the donor's 60 fps (no donor docs); a VJW_CLOCK of the name replaces it
-      const k = 60 * (c.PARAMS ?? 1)
+    } else if (mode === 'traveler' || mode === 'speed') {
+      // ⚠️ a traveler's PARAMS read as the step per frame at the donor's 60 fps, a speed slider's value as its rate per
+      // second (no donor docs); a VJW_CLOCK of the name replaces it
+      const k = mode === 'speed' ? 1 : 60 * (c.PARAMS ?? 1)
       const xy = type === 'xy'
       controls.push(xy ? { name: `${name}_`, label: name, type: 'point2D', default: pair(c.DEFAULT), min: pair(c.MIN), max: pair(c.MAX) } : { name: `${name}_`, label: name, type: 'float', default: c.DEFAULT, min: c.MIN ?? 0, max: c.MAX ?? 1 })
       if (!xy) moving.push({ u: name, rate: [[k, [`${name}_`, -1]]] })
@@ -204,7 +236,13 @@ export function parseSyn(src: string, id: string): ShaderDef {
       controls.push({ name: `${name}_`, label: name, type: 'color', default: [...(Array.isArray(rgb) ? rgb.slice(0, 3) : [0, 0, 0]), 1] }) // none: black
     }
     else if (type === 'dropdown') controls.push({ name, type: 'float', default: c.DEFAULT, min: 0, max: Math.max(1, (c.LABELS?.length ?? 2) - 1), label: c.LABELS ? `${name} (${c.LABELS.join(' / ')})` : name })
-    else if (['slider', 'knob', 'toggle', 'bang'].includes(type)) controls.push({ name, type: 'float', default: type === 'bang' ? 0 : c.DEFAULT, min: c.MIN ?? 0, max: c.MAX ?? 1 }) // a bang rests at 0
+    else if (['slider', 'knob', 'toggle', 'bang'].includes(type)) {
+      // a bang rests at MIN (shrouded's shimmer: 1, its hit −10); a toggle sits at MIN or MAX, so a DEFAULT between them
+      // is its state (0: MIN, else MAX; stained_glass's reverse −1/1 at DEFAULT 0 stopped a clock)
+      const [lo, hi] = [c.MIN ?? 0, c.MAX ?? 1]
+      const def = type === 'bang' ? lo : type === 'toggle' && c.DEFAULT !== lo && c.DEFAULT !== hi ? (c.DEFAULT ? hi : lo) : c.DEFAULT
+      controls.push({ name, type: 'float', default: def, min: lo, max: hi })
+    }
     else why.push(`control ${name}: TYPE ${c.TYPE}`)
   }
   // The donor re-rolls these on a musical transition (HARD: one of VALUES; SMOOTH: a one-hot group, crossfaded). Here
@@ -222,7 +260,7 @@ export function parseSyn(src: string, id: string): ShaderDef {
   const bind: Record<string, Binding> = {}
   const textures: Record<string, NonNullable<ShaderDef['textures']>[string]> = {}
   for (const x of h.IMAGES ?? []) textures[glslName(x.NAME, id, 'IMAGES NAME')] = `/${id}/${String(x.PATH).replace(/^\.\//, '')}` as const // public/syn/<scene>/<PATH>
-  const raws: [string, (f: FrameInput) => number][] = []
+  const raws: [string, (f: FrameInput, s: Sources) => number][] = []
   const synClocks: [string, RateSpec][] = []
   let feedback = false
   for (const n of names) {
@@ -269,14 +307,14 @@ export function parseSyn(src: string, id: string): ShaderDef {
     const target = glslName(p.TARGET, id, 'pass TARGET')
     const grid = !!p.WIDTH && !!p.HEIGHT && Math.min(p.WIDTH, p.HEIGHT) < 8
     const size = (n: number | undefined, v: string, of: number) => (!n ? undefined : grid ? String(Number(n)) : `$${v}*${Number(n)}/${of}`)
-    if (p.TYPE !== undefined) why.push(`pass ${target}: TYPE ${p.TYPE}`)
+    if (p.TYPE !== undefined && p.TYPE !== 'float') why.push(`pass ${target}: TYPE ${p.TYPE}`)
     if (p.FILTER !== undefined && !['linear', 'nearest', 'mipmap'].includes(p.FILTER)) why.push(`pass ${target}: FILTER ${p.FILTER}`)
     if (p.WRAP !== undefined && p.WRAP !== 'clamp' && p.WRAP !== 'repeat') why.push(`pass ${target}: WRAP ${p.WRAP}`)
     return {
       // DOUBLE_BUFFER: every TARGET is a read/write pair here. WRAP: repeat unless clamp (⚠️ the donor's default is not on
       // file: hills_eels writes none and needs repeat; 13 donor passes write repeat, 3 clamp). FLOAT: HDR unless false
       // (the donor's default: lattix, swarm, hue_review and deeper go flat in 8-bit; 85 passes write true, 10 false)
-      target, persistent: false, float: p.FLOAT !== false,
+      target, persistent: false, float: p.TYPE === 'float' || p.FLOAT !== false, // TYPE float: our HDR (half float) too
       width: size(p.WIDTH, 'WIDTH', W), height: size(p.HEIGHT, 'HEIGHT', H),
       ...((p.FILTER === 'nearest' || p.FILTER === 'mipmap') && { filter: p.FILTER }), ...(p.WRAP !== 'clamp' && { wrap: 'repeat' as const }),
     }
@@ -284,14 +322,14 @@ export function parseSyn(src: string, id: string): ShaderDef {
   passes.push({ target: feedback ? 'syn_FinalPass' : undefined, persistent: false, float: false })
   const targets = [...new Set(passes.flatMap((p) => (p.target ? [p.target] : [])))]
   const decl = (i: Input) => (i.type === 'color' ? `uniform vec4 ${i.name};\n#define ${i.label} ${i.name}.rgb` : `uniform ${i.type === 'point2D' ? 'vec2' : 'float'} ${i.name};`)
-  const { body: hoisted, init } = hoist(code.replace(/\btexture(?:Lod)?\s*\(\s*syn_Spectrum\s*,\s*/g, '_synSpectrum('))
+  const { body: hoisted, init } = hoist(code.replace(/\btexture(?:Lod)?\s*\(\s*syn_(Spectrum|LevelTrail)\s*,\s*/g, '_syn$1(')) // 1D in GLSL 330
   const fs = [
     '#version 300 es\nprecision highp float;\nprecision highp int;\nuniform float TIME;\nuniform vec2 RENDERSIZE;\nuniform int PASSINDEX;\nuniform int FRAMEINDEX;\n#define FRAMECOUNT float(FRAMEINDEX)',
     ...inputs.map(decl),
     ...[...clocks.map((c) => c.u), ...raws.map(([n]) => n)].map((n) => `uniform float ${n};`),
     ...defines,
     ...targets.map((t) => `uniform sampler2D ${t};\nuniform vec2 _${t}_imgSize;`),
-    ...Object.keys(textures).map((t) => (t === 'syn_Spectrum' ? SPECTRUM : `uniform sampler2D ${t};`)),
+    ...Object.keys(textures).map((t) => (t === 'syn_Spectrum' ? SPECTRUM : t === 'syn_LevelTrail' ? LEVEL_TRAIL : `uniform sampler2D ${t};`)),
     PREAMBLE,
     hoisted,
     `void _synInit() {${init.map((x) => `\n  ${x}`).join('')}\n}`,

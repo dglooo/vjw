@@ -1,4 +1,4 @@
-import type { Binding } from '../bind'
+import type { Binding, Sources } from '../bind'
 import type { Rate } from '../clock'
 import type { FrameInput } from '../frame'
 
@@ -24,8 +24,9 @@ export interface Clock { u: string; rate: Rate; frame?: true }
  *  A synScene's `clocks` and `raws` (uniforms read from the frame) are set by live.ts before its passes. */
 export interface ShaderDef extends EffectDef {
   glsl: 100 | 300; vs: string; fs: string; passes: readonly PassDef[]; unsupported?: string
-  clocks?: readonly Clock[]; raws?: readonly (readonly [uniform: string, read: (f: FrameInput) => number])[]
+  clocks?: readonly Clock[]; raws?: readonly (readonly [uniform: string, read: (f: FrameInput, s: Sources) => number])[]
   /** A synScene's samplers besides its TARGETs, bound by live.ts: an IMAGES file's URL (black until it loads), 'audio'
-   *  (the toy texture: row 0 FFT, row 1 waveform) or 'black' (the media stub). */
-  textures?: Readonly<Record<string, 'audio' | 'black' | `/${string}`>>
+   *  (the toy texture: row 0 FFT, row 1 waveform), 'black' (the media stub) or 'trail' (syn_LevelTrail: the node's own
+   *  level history, fx/syn.ts pushTrail). */
+  textures?: Readonly<Record<string, 'audio' | 'black' | 'trail' | `/${string}`>>
 }

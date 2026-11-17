@@ -4,7 +4,9 @@ import { clockRate, clockStep } from '../clock'
 import type { FrameInput } from '../frame'
 import { BUILTIN } from '../scenes/builtin'
 import { pairsByTarget, sizeExpr } from './isf'
-import { hoist, parseSyn, SYN, SYN_BIND } from './syn'
+import { meter } from '../audio/meter'
+import { evaluate, type Sources } from '../bind'
+import { hoist, parseSyn, pushTrail, SYN, SYN_BIND, TRAIL } from './syn'
 import PREAMBLE from './syn/preamble.glsl?raw'
 
 const syn = (header: object, body: string) => `// Source: test\n/*${JSON.stringify(header)}*/\n${body}`
@@ -43,7 +45,7 @@ describe('parseSyn', () => {
     expect(d.bind).toEqual({ syn_BassHits: SYN_BIND.syn_BassHits, syn_Presence: SYN_BIND.syn_Presence, syn_MidLevel: SYN_BIND.syn_MidLevel })
     expect(d.bind!.syn_BassHits.source).toBe('kick')
     expect(d.raws!.map(([n]) => n)).toEqual(['syn_BeatTime'])
-    expect(d.raws![0][1]({ sync: { beat: 7.25 } } as FrameInput)).toBe(7.25) // the beat count, not a 0..1 binding
+    expect(d.raws![0][1]({ sync: { beat: 7.25 } } as FrameInput, {})).toBe(7) // + 1 per beat (the donor's steps), not a 0..1 binding
     for (const u of ['uniform float syn_BassHits;', 'uniform vec2 speed;', 'uniform vec4 tint_;\n#define tint tint_.rgb', 'uniform float ct;', 'uniform float syn_MidTime;', 'uniform float syn_BeatTime;', '#define syn_FadeInOut 1.0', '_COLOR_OUT_ = renderMain();'])
       expect(d.fs).toContain(u)
     expect(d.fs.startsWith('#version 300 es\n')).toBe(true)
@@ -164,17 +166,68 @@ describe('parseSyn', () => {
     expect(stubs.filter((l) => /^vec4 _(load|texture)Media/.test(l)).every((l) => l.includes('{ return vec4(0.0); }'))).toBe(true) // the black media stub
   })
 
+  test('adapter step 3: TYPE float, FRAMECOUNT compares, a bang at MIN, a toggle at MIN or MAX, a speed slider is a clock', () => {
+    const d = parseSyn(syn({
+      PASSES: [{ TARGET: 'f', TYPE: 'float' }],
+      CONTROLS: [
+        { NAME: 'shimmer', TYPE: 'bang smooth', DEFAULT: 1, MIN: 1, MAX: -10 }, // shrouded
+        { NAME: 'reverse', TYPE: 'toggle', DEFAULT: 0, MIN: -1, MAX: 1 }, // stained_glass: 0 stopped its clock
+        { NAME: 'up', TYPE: 'toggle', DEFAULT: 1, MIN: 0.05, MAX: 0.9 },
+        { NAME: 'flip', TYPE: 'toggle', DEFAULT: 1, MIN: 1, MAX: 0 }, // a default at MIN stays
+        { NAME: 'speed', TYPE: 'slider speed', DEFAULT: 4, MIN: -9, MAX: 9 }, // entombed_silicon_dreams
+      ],
+    }, 'vec4 renderMain() { if (FRAMECOUNT < 10 || FRAMECOUNT<=2 || FRAMECOUNT < 2.5) return vec4(0.0); return vec4(shimmer, reverse, speed, up); }'), 'syn/s3')
+    expect([d.unsupported, d.passes[0].float]).toEqual([undefined, true])
+    expect(d.fs).toContain('if (FRAMECOUNT < 10.0 || FRAMECOUNT<=2.0 || FRAMECOUNT < 2.5)') // ours is a float
+    expect(d.inputs.map((i) => [i.name, i.default])).toEqual([['shimmer', 1], ['reverse', -1], ['up', 0.9], ['flip', 1], ['speed_', 4]])
+    expect(d.clocks).toEqual([{ u: 'speed', rate: [[1, ['speed_', -1]]] }])
+    const u: Record<string, unknown> = { speed_: 4 }
+    for (let i = 0; i < 60; i++) for (const c of d.clocks!) u[c.u] = clockStep((u[c.u] as number | undefined) ?? 0, c.rate, u, 1 / 60)
+    expect(u.speed).toBeCloseTo(4, 9) // the slider's value per second
+  })
+
+  test('syn_LevelTrail: the four levels over time, newest at x = 1; syn_InputLevel the HUD meter; syn_BassExpoCurve subBody²', () => {
+    const d = parseSyn(syn({}, 'vec4 renderMain() { return texture(syn_LevelTrail, _uv.x) * syn_InputLevel * syn_BassExpoCurve; }'), 'syn/lt')
+    expect([d.unsupported, d.textures]).toEqual([undefined, { syn_LevelTrail: 'trail' }])
+    expect(d.fs).toContain('return _synLevelTrail(_uv.x) * syn_InputLevel * syn_BassExpoCurve;')
+    expect(d.fs).toContain('vec4 _synLevelTrail(float x) { return texture(syn_LevelTrail, vec2(x, 0.5)); }')
+    const bytes = new Uint8Array(4 * TRAIL).fill(9)
+    const states = [0, 1, 2, 3].map(() => ({ y: 0 }))
+    const s: Sources = { reeseBody: 0.5, subBody: 1, band27: 0.25 }
+    pushTrail(bytes, states, s, 10) // dt ≫ the bindings' attack: the levels land in full
+    expect([...bytes.slice(-8)]).toEqual([9, 9, 9, 9, 127, 255, 127, 63]) // r all (reeseBody), g bass, b mid, a high
+    const raw = (n: string, s: Sources) => (SYN[n] as { raw: (f: FrameInput, s: Sources) => number }).raw({} as FrameInput, s)
+    meter.db = -20
+    expect(raw('syn_InputLevel', {})).toBeCloseTo(0.1, 9) // linear, of the held peak
+    expect(raw('syn_BassExpoCurve', { subBody: 0.5 })).toBe(0.25)
+  })
+
+  test('SYN follows our detector: hits reach 1, beat names step on our grid at full swing, Intensity rides the arrangement', () => {
+    for (const n of ['syn_BassHits', 'syn_Hits', 'syn_MidHits', 'syn_HighHits', 'syn_OnBeat']) {
+      const b = SYN_BIND[n]
+      const tau = b.source === 'hats' ? 0.06 : 0.12 // features.ts: e^(−age/τ), 1 on the hit
+      expect(evaluate(b, { [b.source]: Math.exp(-(1 / 60) / tau) }, { y: 0 }, 1 / 60), n).toBe(1) // a hit a frame old still reads 1
+    }
+    expect([SYN_BIND.syn_BassHits.source, SYN_BIND.syn_Hits.source, SYN_BIND.syn_HighHits.source, SYN_BIND.syn_OnBeat.source]).toEqual(['kick', 'snare', 'hats', 'kick'])
+    const raw = (n: string, beat: number, confidence = 0.1, s: Sources = {}) => (SYN[n] as { raw: (f: FrameInput, s: Sources) => number }).raw({ sync: { beat, confidence } } as FrameInput, s)
+    expect([raw('syn_ToggleOnBeat', 4.5), raw('syn_ToggleOnBeat', 5.5), raw('syn_ToggleOnBeat', 5)]).toEqual([0, 1, 0]) // a full flip at confidence .1, starting on the beat
+    expect(raw('syn_RandomOnBeat', 7.5)).toBe(raw('syn_RandomOnBeat', 7.9)) // held through the beat
+    expect(raw('syn_RandomOnBeat', 7.5)).not.toBe(raw('syn_RandomOnBeat', 8.5))
+    expect([raw('syn_BeatTime', 7.9), raw('syn_BPMTwitcher', 7), raw('syn_BPMTwitcher', 7.5)]).toEqual([7, 7, expect.closeTo(8 - Math.exp(-3), 9)])
+    expect([raw('syn_Intensity', 0, 0, { energy: 0.4 }), raw('syn_Intensity', 0, 0, { energy: 0.3, build: 0.8 }), raw('syn_Intensity', 0, 0, { energy: 0.5, drop: 1 })]).toEqual([0.4, 0.8, 1])
+  })
+
   test('unsupported: every gap listed at once; a porter slip still throws', () => {
-    const d = parseSyn(syn({ PASSES: [{ TARGET: 'b', FILTER: 'cubic' }] }, 'float x = texture(syn_LevelTrail, 0.5).g + syn_PrimeBang;'), 'syn/a')
-    expect(d.unsupported!.split('; ')).toEqual(['syn_LevelTrail (a band-level history texture)', 'syn_PrimeBang (not a public donor name)', 'pass b: FILTER cubic'])
+    const d = parseSyn(syn({ PASSES: [{ TARGET: 'b', FILTER: 'cubic', TYPE: 'half' }] }, 'float x = syn_PrimeBang;'), 'syn/a')
+    expect(d.unsupported!.split('; ')).toEqual(['syn_PrimeBang (not a public donor name)', 'pass b: TYPE half', 'pass b: FILTER cubic'])
     expect(() => parseSyn(syn({ VJW_CLOCK: { t: [['nope']] } }, ''), 'syn/b')).toThrow(/^syn\/b: VJW_CLOCK reads nope/)
     expect(() => parseSyn(syn({ VJW_FLASH: ['ghost'] }, ''), 'syn/d')).toThrow(/^syn\/d: VJW_FLASH/)
   })
 })
 
 describe('SYN and the bundled scenes', () => {
-  test('SYN maps the 44 public donor names; its bindings read known sources, no onset/treb (an own built-in binds neither)', () => {
-    expect(Object.keys(SYN)).toHaveLength(44)
+  test('SYN maps the 44 public donor names (+ BassExpoCurve, InputLevel); its bindings read known sources, no onset/treb (an own built-in binds neither)', () => {
+    expect(Object.keys(SYN)).toHaveLength(46)
     for (const b of Object.values(SYN_BIND)) {
       expect(SOURCE_IDS).toContain(b.source)
       expect(['onset', 'treb']).not.toContain(b.source)

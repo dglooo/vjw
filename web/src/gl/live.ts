@@ -18,6 +18,7 @@ import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { pairsByTarget, sizeExpr } from '../fx/isf'
+import { pushTrail, TRAIL } from '../fx/syn'
 import { clockStep } from '../clock'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
@@ -54,8 +55,9 @@ export interface Live {
  *  naming one TARGET share a read/write pair, swapped after each of them draws (design E2): a PERSISTENT one reads its
  *  last frame, a later pass what the previous one wrote, and no pass samples the texture it draws into. `w`/`h`: the
  *  size the targets were fitted for. `frames`: a shader's FRAMEINDEX, its own draws so far (0 on its first). `images`:
- *  a synScene's IMAGES textures as they load (null: a native, or freed, when a later load deletes its own). */
-interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number; images: WebGLTexture[] | null }
+ *  a synScene's IMAGES textures as they load (null: a native, or freed, when a later load deletes its own); its
+ *  syn_LevelTrail texture is one of them, `trail` its texels and level states. */
+interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number; images: WebGLTexture[] | null; trail?: { t: WebGLTexture; bytes: Uint8Array; states: BindState[] } }
 /** A built layer: its nodes (a null one blacks the layer out), its live opacity/speed (bindable) and res, its clock,
  *  the reused FrameInput copy a native reads, its own target once `res` < 1, and the editor's mute (black too). `mask`
  *  (camera CP1): the doc's; `release` gives back the camera user a masked layer holds (K-3), idempotent. */
@@ -217,6 +219,11 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     // by URL if the tiles show it.
     for (const [name, src] of Object.entries(textures)) {
       u[name] = src === 'audio' ? audioTex.toy : black
+      if (src === 'trail') {
+        const bytes = new Uint8Array(4 * TRAIL)
+        x.trail = { t: createTexture(gl, { width: TRAIL, height: 1, src: bytes, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE }), bytes, states: [0, 1, 2, 3].map(() => ({ y: 0 })) }
+        x.images!.push((u[name] = x.trail.t))
+      }
       if (src[0] !== '/') continue
       image(src).then((t) => {
         if (!x.images) return gl.deleteTexture(t) // freed while it loaded
@@ -312,7 +319,12 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       n.u.inputImage = src // the previous draw; unused by a generator
       const { clocks, raws } = n.def as ShaderDef // a synScene's audio clocks (on the layer's clock) and frame values
       if (clocks) for (const c of clocks) n.u[c.u] = clockStep((n.u[c.u] as number | undefined) ?? 0, c.rate, n.u, c.frame ? 1 : dt) // an event reads 1 on its draw
-      if (raws) for (const [k, read] of raws) n.u[k] = read(f)
+      if (raws) for (const [k, read] of raws) n.u[k] = read(f, s)
+      if (n.trail) {
+        pushTrail(n.trail.bytes, n.trail.states, s, f.dt)
+        gl.bindTexture(gl.TEXTURE_2D, n.trail.t)
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TRAIL, 1, gl.RGBA, gl.UNSIGNED_BYTE, n.trail.bytes)
+      }
       for (let j = 0; j < n.passes.length; j++) {
         const { p, pair } = n.passes[j]
         out = pair ? pair[1] : dst
