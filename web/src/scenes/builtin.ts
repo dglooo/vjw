@@ -1296,6 +1296,56 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
     }],
   },
+  // Lane B2b (clocks + manual-control decisions; each file's header says what its script.js / bang / traveler became).
+  // Starred = I-FL1 (max luma steps > .10 in 1 s, 30 s of dnb174-arr) <= 3 and billed p95 <= 7.5 ms (5 lanes on the GPU,
+  // M4 1728x1118), on adapter step 2: hue-review 1 / 3.7 ms, inkshot 2 / 4.9, lattix 1 / 3.7, myoplasm 2 / 5.0,
+  // scaffold-fractal 3 / 5.9, deeper 1 / 6.0. Library-only (frame time): swarm-meebs 3 / 8.7, entombed 1 / 13.1.
+  {
+    v: 1, id: 'builtin:hue-review', name: 'Hue Review', star: true, // dnb · Meebs · ⚡ syn_Hits (the snare's ring), syn_BassHits
+    layers: [{ gen: { ref: 'syn/hue_review', bind: syn('syn_Hits', 'syn_Presence', 'syn_HighHits', 'syn_BassHits', 'syn_OnBeat', 'syn_BassLevel', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:inkshot', name: 'Ink Shot', star: true, // dnb · Meebs · ⚡ syn_BassHits
+    layers: [{ gen: { ref: 'syn/inkshot', bind: syn('syn_HighHits', 'syn_BassHits', 'syn_BassLevel', 'syn_RandomOnBeat', 'syn_BassPresence', 'syn_Level', 'syn_HighLevel', 'syn_MidHighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:lattix', name: 'Lattix', star: true, // dnb · Anonymous (the kick lunges the camera: a clock)
+    layers: [{ gen: { ref: 'syn/lattix', bind: syn('syn_OnBeat', 'syn_Presence', 'syn_HighHits', 'syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:myoplasm', name: 'Myoplasm', star: true, // dnb · Alex Rowe
+    layers: [{ gen: { ref: 'syn/myoplasm', bind: syn('syn_BassLevel', 'syn_BassHits', 'syn_BassPresence', 'syn_HighLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:scaffold-fractal', name: 'Scaffold Fractal', star: true, // dnb · Meebs (after kabuto / s1e) · ⚡ syn_HighHits
+    layers: [{ gen: { ref: 'syn/scaffold_fractal', bind: syn('syn_Presence', 'syn_HighHits', 'syn_Level', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:swarm-meebs', name: 'Swarm (Meebs)', star: false, // dnb · Meebs (40 particles: a FLOAT state row); builtin:swarm is our own
+    layers: [{ gen: { ref: 'syn/swarm', bind: syn('syn_HighHits', 'syn_Presence', 'syn_BPMSin2', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }], // Library-only: billed p95 8.7 ms at res .5 (40 particles per pixel; 15.5 ms at res 1, the governor steps to .6)
+  },
+  {
+    v: 1, id: 'builtin:deeper', name: 'Deeper', star: true, // dnb · Meebs (the bass flies the corridor: a clock)
+    layers: [{
+      gen: {
+        ref: 'syn/deeper',
+        // the donor's thumbnail look (its defaults are a bare grey corridor): colour, spiral bumps, the beams that
+        // swell with the hats and wave with the bass, the walls breathing per two bars. light_chaser stays off (its
+        // light jumps back to the near walls at each bar start; not measured with the slowed hats below)
+        values: { colorful: 1, walls_texture: 0.5, beams_on: 1, many_beams: 1, beam_glow: 0.12, undulating: 1 },
+        // the hats swell the beams (and their glow) over .12 s, not in one frame (I-FL1 on dnb174-arr: 5 luma steps in
+        // 1 s and 22 in 30 s at attack 0, 1 and 1 here). res: billed p95 11.1 ms at 1 (its raymarch pass is .53 of it)
+        bind: { ...syn('syn_BassLevel', 'syn_HighPresence', 'syn_Presence', 'syn_BassPresence'), syn_HighHits: { ...SYN_BIND.syn_HighHits, attack: 0.12, release: 0.3 } },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.6,
+    }],
+  },
+  {
+    // Library-only: billed p95 13.1 ms at res .25 (14.5 at .5, 13.3 at .3: each with the governor at .6, so few scale-1
+    // samples; its 50-step raymarch is 7.5 of 11.6 ms at res .3). Re-measure with the GPU alone before starring.
+    v: 1, id: 'builtin:entombed-silicon-dreams', name: 'Entombed Silicon Dreams', star: false, // dnb · mrange, CC0 · ⚡ syn_BassHits (the ring = our FFT)
+    layers: [{ gen: { ref: 'syn/entombed_silicon_dreams', bind: syn('syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
