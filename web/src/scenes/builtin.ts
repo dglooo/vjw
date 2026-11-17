@@ -1351,7 +1351,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   // M4 1728x1118): TODO numbers.
   {
     v: 1, id: 'builtin:tunnel-beauty-6', name: 'Tunnel Beauty 6', star: true, // dnb · aiekick, CC BY-NC-SA 3.0 · ⚡ syn_OnBeat ← kick: the far walls light up
-    layers: [{ gen: { ref: 'syn/tunnel_beauty_6', bind: { ...syn('syn_Presence', 'syn_BassPresence', 'syn_BPMSin4', 'syn_HighLevel', 'syn_BassLevel'), syn_OnBeat: SOFT_KICK } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    layers: [{ gen: { ref: 'syn/tunnel_beauty_6', bind: { ...syn('syn_Presence', 'syn_BassPresence', 'syn_BPMSin4', 'syn_HighLevel', 'syn_BassLevel'), syn_OnBeat: SOFT_KICK } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75 }],
   },
   {
     v: 1, id: 'builtin:waterly', name: 'Waterly', star: true, // dnb · FabriceNeyret2 / Shady Headstash, CC BY-NC-SA 3.0 (the level and the hits wind the flow: a clock)
@@ -1359,7 +1359,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:terrain-lattice', name: 'Terrain Lattice', star: true, // dnb · Shane (the kick swells the pipes)
-    layers: [{ gen: { ref: 'syn/terrain_lattice', bind: syn('syn_OnBeat', 'syn_Presence', 'syn_BassLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    layers: [{ gen: { ref: 'syn/terrain_lattice', bind: syn('syn_OnBeat', 'syn_Presence', 'syn_BassLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.8 }],
   },
   {
     v: 1, id: 'builtin:traced-tunnel', name: 'Traced Tunnel', star: true, // dnb · Shane · ⚡ syn_HighHits ← snare (auto_flasher only)

@@ -4,6 +4,7 @@
 // VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES image3 / image48 from public/syn/traced_tunnel/images/). Change
 // for ES 3.00: (max(small_circles, 1.0)-1) -> -1.0. script.js (not run) is empty (its one clock is commented out).
 // syn_Media is black (no media yet): the walls keep image3. The bangs (FOV_bump, scan_x, scan_z) rest at 0.
+// sampleNum 12 -> 8 (the author's own "Eight is enough"): billed p95 10.8 ms at 12 samples, res .25.
 // ⚡ syn_HighHits is flash-gated: with auto_flasher on (off by default) the hats blank bands of the walls.
 /*{
   "TITLE": "Traced Tunnel",
@@ -115,7 +116,7 @@
 
 
 // Sample number: Higher is better, but slower. Eight is enough. :)
-const int sampleNum = 12;
+const int sampleNum = 8; // VJW: was 12 (frame time; the comment above: "Eight is enough")
 
 
 // 2D rotation.
