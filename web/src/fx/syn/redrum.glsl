@@ -1,4 +1,4 @@
-// Source: donor/visual_system_2/scenes/release/redrum.synScene (main.glsl + scene.json) · unknown
+// Source: donor/visual_system_2/scenes/release/redrum.synScene (main.glsl + scene.json + images/; script.js restated, see below) · unknown
 // Author: Meebs (grit / flashing effect by jmpep, Shadertoy: the body's first comment)
 // License: unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES wall1Tex/wall2Tex/wall3Tex from public/syn/redrum/images/).

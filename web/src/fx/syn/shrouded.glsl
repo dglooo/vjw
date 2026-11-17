@@ -1,4 +1,4 @@
-// Source: donor/visual_system_2/scenes/release/shrouded.synScene (main.glsl + scene.json) · unknown
+// Source: donor/visual_system_2/scenes/release/shrouded.synScene (main.glsl + scene.json + images/) · unknown
 // Author: Felix Woitzel ft. Meebs
 // License: unknown (the donor's CREDIT names Felix Woitzel ft. Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES colornoise from public/syn/shrouded/images/). Changes for ES

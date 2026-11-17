@@ -1,4 +1,4 @@
-// Source: donor/visual_system_2/scenes/release/transparent_isoslices.synScene (main.glsl + scene.json) · unknown
+// Source: donor/visual_system_2/scenes/release/transparent_isoslices.synScene (main.glsl + scene.json + images/; script.js restated, see below) · unknown
 // Author: Shane (the body's title comment: "Transparent Isoslices")
 // License: unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES texIn/texIn2 from public/syn/transparent_isoslices/images/).

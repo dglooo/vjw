@@ -1,4 +1,4 @@
-// Source: donor/visual_system_2/scenes/release/replik8.synScene (main.glsl + scene.json) · unknown
+// Source: donor/visual_system_2/scenes/release/replik8.synScene (main.glsl + scene.json + images/) · unknown
 // Author: Meebs
 // License: unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES colornoise from public/syn/replik8/images/: declared by the

@@ -1346,38 +1346,47 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:entombed-silicon-dreams', name: 'Entombed Silicon Dreams', star: false, // dnb · mrange, CC0 · ⚡ syn_BassHits (the ring = our FFT)
     layers: [{ gen: { ref: 'syn/entombed_silicon_dreams', bind: syn('syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
   },
-  // Lane B3b (IMAGES scenes; each file's header says what its script.js / bang / reversed range became).
+  // Lane B3b (IMAGES scenes; each file's header says what its script.js / bang / reversed range became). A hit that
+  // lights the frame rides the snare (SOFT_SNARE), never the hats. Res: .5 where the scene is sized in its pass's
+  // pixels (the fields of Vein Melter, Shrouded and Molten, REDRUM's drips): the donor's own pass sizes on a 3456-wide
+  // stage; else what the frame time allows.
+  // Measured as shipped: I-FL1 = the most luma steps > .10 in any 1 s (dnb174-arr, 30 s; <= 3 passes) and the billed
+  // p95 (M4 1728x1117 @2, other lanes on the GPU, so the lowest run; this run's star line was 7.5 ms): replik8 2 ·
+  // 4.09 ms (12.13 at res 1), Stained Glass 1 · 4.49 (11.34 at res 1), Transparent Isoslices 2 · 5.11 (6.23 at .35),
+  // KIFS Flythrough 1 · 4.44 (3.6 at .5), REDRUM 3 · 3.35, Vein Melter 2 · 4.09, Shrouded 1 · 3.2, Molten 2 · 3.52.
   {
-    v: 1, id: 'builtin:replik8', name: 'replik8', star: false, // dnb · Meebs · ⚡ syn_HighHits ← snare (with `flashing` on)
-    layers: [{ gen: { ref: 'syn/replik8', bind: { ...syn('syn_Presence', 'syn_BassPresence', 'syn_HighLevel', 'syn_BassLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    v: 1, id: 'builtin:replik8', name: 'replik8', star: true, // dnb · Meebs · ⚡ syn_HighHits ← snare (with `flashing` on)
+    layers: [{ gen: { ref: 'syn/replik8', bind: { ...syn('syn_Presence', 'syn_BassPresence', 'syn_HighLevel', 'syn_BassLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.6 }],
   },
   {
-    v: 1, id: 'builtin:stained-glass', name: 'Stained Glass', star: false, // dnb · Meebs (IMAGES colorNoise)
+    v: 1, id: 'builtin:stained-glass', name: 'Stained Glass', star: true, // dnb · Meebs (IMAGES colorNoise)
     // syn_RandomOnBeat eases to its new value over .83 s: script.js's random_spot (2 % per frame toward a per-beat goal)
-    layers: [{ gen: { ref: 'syn/stained_glass', bind: { ...syn('syn_Presence', 'syn_BassLevel', 'syn_BassPresence', 'syn_HighLevel'), syn_RandomOnBeat: { ...SYN_BIND.syn_RandomOnBeat, attack: 0.83, release: 0.83 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    layers: [{ gen: { ref: 'syn/stained_glass', bind: { ...syn('syn_Presence', 'syn_BassLevel', 'syn_BassPresence', 'syn_HighLevel'), syn_RandomOnBeat: { ...SYN_BIND.syn_RandomOnBeat, attack: 0.83, release: 0.83 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   {
-    v: 1, id: 'builtin:transparent-isoslices', name: 'Transparent Isoslices', star: false, // dnb · Shane · ⚡ syn_HighHits ← snare
+    v: 1, id: 'builtin:transparent-isoslices', name: 'Transparent Isoslices', star: true, // dnb · Shane · ⚡ syn_HighHits ← snare
     layers: [{ gen: { ref: 'syn/transparent_isoslices', bind: { ...syn('syn_OnBeat', 'syn_MidPresence', 'syn_MidLevel', 'syn_BassLevel', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.3 }],
   },
   {
-    v: 1, id: 'builtin:kifs-flythrough', name: 'KIFS Flythrough', star: false, // dnb · Shane (the bass flies the camera: a clock)
-    layers: [{ gen: { ref: 'syn/kifs_flythrough', bind: syn('syn_BassLevel', 'syn_BassPresence', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.35 }],
+    v: 1, id: 'builtin:kifs-flythrough', name: 'KIFS Flythrough', star: true, // dnb · Shane (the bass flies the camera: a clock)
+    layers: [{ gen: { ref: 'syn/kifs_flythrough', bind: syn('syn_BassLevel', 'syn_BassPresence', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.6 }],
   },
   {
-    v: 1, id: 'builtin:redrum', name: 'REDRUM', star: false, // dnb · Meebs · ⚡ syn_HighHits ← snare
+    v: 1, id: 'builtin:redrum', name: 'REDRUM', star: true, // dnb · Meebs · ⚡ syn_HighHits ← snare
     layers: [{ gen: { ref: 'syn/redrum', bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_OnBeat', 'syn_Level', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   {
-    v: 1, id: 'builtin:vein-melter', name: 'Vein Melter', star: false, // dnb · cornusammonis (a FLOAT field, 40 advection steps)
-    layers: [{ gen: { ref: 'syn/vein_melter', bind: syn('syn_HighHits', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    v: 1, id: 'builtin:vein-melter', name: 'Vein Melter', star: true, // dnb · cornusammonis (a FLOAT field, 40 advection steps)
+    // paint1_on: the donor's brush at the centre, so the field hears the music (the hats push it out, the bass pulls
+    // it in); off (the donor's default) only the bar-long heartbeat moves it
+    layers: [{ gen: { ref: 'syn/vein_melter', values: { paint1_on: 1 }, bind: syn('syn_HighHits', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   {
-    v: 1, id: 'builtin:shrouded', name: 'Shrouded', star: false, // dnb · Felix Woitzel ft. Meebs · ⚡ syn_HighHits ← snare
+    v: 1, id: 'builtin:shrouded', name: 'Shrouded', star: true, // dnb · Felix Woitzel ft. Meebs · ⚡ syn_HighHits ← snare
     layers: [{ gen: { ref: 'syn/shrouded', bind: { ...syn('syn_Presence', 'syn_BassLevel', 'syn_BPMSin2', 'syn_MidHighPresence', 'syn_BassPresence', 'syn_HighPresence', 'syn_MidPresence', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   {
-    v: 1, id: 'builtin:molten', name: 'Molten', star: false, // dnb · Meebs ft. Flexi · ⚡ syn_HighHits ← snare (the camera: clocks)
+    v: 1, id: 'builtin:molten', name: 'Molten', star: true, // dnb · Meebs ft. Flexi · ⚡ syn_HighHits ← snare (the camera: clocks)
     layers: [{ gen: { ref: 'syn/molten', bind: { ...syn('syn_BassLevel', 'syn_HighPresence', 'syn_BassPresence', 'syn_BPMSin4', 'syn_MidPresence', 'syn_HighLevel', 'syn_Level'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
 ]

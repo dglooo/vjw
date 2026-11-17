@@ -1,4 +1,4 @@
-// Source: donor/visual_system_2/scenes/release/kifs_flythrough.synScene (main.glsl + scene.json) · unknown
+// Source: donor/visual_system_2/scenes/release/kifs_flythrough.synScene (main.glsl + scene.json + images/; script.js restated, see below) · unknown
 // Author: Shane (the body's title comment: "KIFS Flythrough")
 // License: unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES image3/image10/geom from public/syn/kifs_flythrough/images/).

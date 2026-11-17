@@ -1,4 +1,4 @@
-// Source: donor/visual_system_2/scenes/release/molten.synScene (main.glsl + scene.json) · unknown
+// Source: donor/visual_system_2/scenes/release/molten.synScene (main.glsl + scene.json + images/; script.js restated, see below) · unknown
 // Author: Meebs ft. Flexi
 // License: unknown (the donor's CREDIT names Meebs ft. Flexi only; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES colornoise from public/syn/molten/images/). Changes for ES
