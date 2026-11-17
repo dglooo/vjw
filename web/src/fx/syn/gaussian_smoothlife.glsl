@@ -5,7 +5,8 @@
 // public/syn/gaussian_smoothlife/images/). Changes for ES 3.00: FRAMECOUNT < 2 -> 2.0, < 10 -> 10.0, xy_flow*1 -> *1.0.
 // No script.js. The field restarts itself from image47 when its alpha is zero (the donor's own test: a cleared target).
 // No media input: the media feed is zero.
-// ⚡ syn_HighHits is flash-gated: a hit switches the picture from the blurred field to the hard one.
+// ⚡ syn_HighHits (a hit switches the picture from the blurred field to the hard one, and speeds the timestep) and
+// syn_BassHits (a hit moves the survival bounds s1 / s2) are flash-gated.
 /*{
   "TITLE": "Gaussian SmoothLife",
   "CREDIT": "cornusammonis",
@@ -14,7 +15,7 @@
   "HEIGHT": 1080,
   "PASSES": [{"FLOAT": true, "HEIGHT": 720, "TARGET": "BuffA", "WIDTH": 1280}, {"FLOAT": true, "HEIGHT": 720, "TARGET": "BuffB", "WIDTH": 1280}, {"FLOAT": true, "HEIGHT": 720, "TARGET": "BuffC", "WIDTH": 1280}],
   "IMAGES": [{"NAME": "image47", "PATH": "images/47.jpg"}],
-  "VJW_FLASH": ["syn_HighHits"],
+  "VJW_FLASH": ["syn_HighHits", "syn_BassHits"],
   "CONTROLS": [
     {"NAME": "regime_toggle", "TYPE": "toggle", "DEFAULT": 0.0, "MIN": 0.0, "MAX": 1.0},
     {"NAME": "cycling_rings", "TYPE": "toggle", "DEFAULT": 0.0, "MIN": 0.0, "MAX": 1.0},
