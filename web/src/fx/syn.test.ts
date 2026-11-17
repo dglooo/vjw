@@ -5,6 +5,7 @@ import type { FrameInput } from '../frame'
 import { BUILTIN } from '../scenes/builtin'
 import { pairsByTarget, sizeExpr } from './isf'
 import { hoist, parseSyn, SYN, SYN_BIND } from './syn'
+import PREAMBLE from './syn/preamble.glsl?raw'
 
 const syn = (header: object, body: string) => `// Source: test\n/*${JSON.stringify(header)}*/\n${body}`
 const BODY = `// syn_BassTime only in a comment
@@ -149,6 +150,16 @@ describe('parseSyn', () => {
     expect([u.v_x, u.v_y]).toEqual([expect.closeTo(0.1 * 0.0025 * 60, 9), expect.closeTo(-0.2 * 0.0025 * 60, 9)])
     const o = parseSyn(syn({ CONTROLS: [{ NAME: 'spin', TYPE: 'slider traveler', PARAMS: 0.02 }], VJW_CLOCK: { spin: [[1, 'spin_']] } }, ''), 'syn/o')
     expect(o.clocks).toEqual([{ u: 'spin', rate: [[1, ['spin_', -1]]] }]) // a scene's own clock of the name replaces it
+  })
+
+  test('preamble: the meta-control stubs return the neutral result (a zero one turned a scene black); media reads black', () => {
+    const stubs = PREAMBLE.slice(PREAMBLE.indexOf('// The media and meta-control stubs'), PREAMBLE.indexOf('// The helpers:')).split('\n')
+    const meta = stubs.filter((l) => /^\w+ _(apply\w+|ratioFix|flipMediaCoords|correctUserImageCoords|imageToMask|mediaSize)\(/.test(l))
+    expect(meta).toHaveLength(21)
+    for (const l of meta) expect(l).not.toMatch(/return (vec[24]\(0\.0\)|0\.0);/)
+    for (const s of ['vec4 _applyContrast(vec4 color) { return color; }', 'vec4 _applyColorCorrection(vec4 colIn) { return _applyBrightness(_applyGamma(_applyContrast(_applyHueSaturation(_applyInvert(colIn))))); }'])
+      expect(PREAMBLE).toContain(s)
+    expect(stubs.filter((l) => /^vec4 _(load|texture)Media/.test(l)).every((l) => l.includes('{ return vec4(0.0); }'))).toBe(true) // the black media stub
   })
 
   test('unsupported: every gap listed at once; a porter slip still throws', () => {
