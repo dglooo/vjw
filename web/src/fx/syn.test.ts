@@ -81,6 +81,8 @@ describe('parseSyn', () => {
     const g = parseSyn(syn({ PASSES: [{ TARGET: 'grid', WIDTH: 5, HEIGHT: 512 }, { TARGET: 'full', WIDTH: 0, HEIGHT: 0, FLOAT: false }] }, ''), 'syn/g')
     expect(g.passes.slice(0, 2)).toEqual([{ target: 'grid', persistent: false, float: true, width: '5', height: '512', wrap: 'repeat' }, { target: 'full', persistent: false, float: false, width: undefined, height: undefined, wrap: 'repeat' }]) // repeat unless WRAP clamp
     expect(parseSyn(syn({ PASSES: [{ TARGET: 'c', WRAP: 'clamp' }] }, ''), 'syn/w').passes[0].wrap).toBeUndefined()
+    const m = parseSyn(syn({ PASSES: [{ TARGET: 'c', FILTER: 'mipmap' }, { TARGET: 'l', FILTER: 'linear' }] }, ''), 'syn/m') // mipmap: live.ts generates the levels per draw
+    expect([m.unsupported, m.passes[0].filter, m.passes[1].filter]).toEqual([undefined, 'mipmap', undefined])
     expect(sizeExpr(g.passes[0].width!, { WIDTH: 432 })).toBe(5)
     const plain = parseSyn(syn({}, 'vec4 renderMain() { return vec4(1.0); }'), 'syn/plain')
     expect(plain.passes).toEqual([{ target: undefined, persistent: false, float: false }]) // no feedback: the direct path
@@ -163,8 +165,8 @@ describe('parseSyn', () => {
   })
 
   test('unsupported: every gap listed at once; a porter slip still throws', () => {
-    const d = parseSyn(syn({ PASSES: [{ TARGET: 'b', FILTER: 'mipmap' }] }, 'float x = texture(syn_LevelTrail, 0.5).g + syn_PrimeBang;'), 'syn/a')
-    expect(d.unsupported!.split('; ')).toEqual(['syn_LevelTrail (a band-level history texture)', 'syn_PrimeBang (not a public donor name)', 'pass b: FILTER mipmap'])
+    const d = parseSyn(syn({ PASSES: [{ TARGET: 'b', FILTER: 'cubic' }] }, 'float x = texture(syn_LevelTrail, 0.5).g + syn_PrimeBang;'), 'syn/a')
+    expect(d.unsupported!.split('; ')).toEqual(['syn_LevelTrail (a band-level history texture)', 'syn_PrimeBang (not a public donor name)', 'pass b: FILTER cubic'])
     expect(() => parseSyn(syn({ VJW_CLOCK: { t: [['nope']] } }, ''), 'syn/b')).toThrow(/^syn\/b: VJW_CLOCK reads nope/)
     expect(() => parseSyn(syn({ VJW_FLASH: ['ghost'] }, ''), 'syn/d')).toThrow(/^syn\/d: VJW_FLASH/)
   })

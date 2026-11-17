@@ -14,8 +14,9 @@ export interface Input { name: string; type: InputType; label?: string; default?
 /** `flash`: the inputs that brighten on a hit, gated by live.ts through flashGate (WCAG 2.3.1); ISF header `VJW_FLASH`.
  *  `tags`: an ISF file's raw CATEGORIES, beside the reduced `category` (the library's tag filter, 2b S3.1). */
 export interface EffectDef { id: string; name: string; kind: Kind; category?: Category; tags?: readonly string[]; credit: string; inputs: readonly Input[]; bind?: Readonly<Record<string, Binding>>; flash?: readonly string[] }
-/** `filter`/`wrap`: a synScene TARGET's sampling (fx/syn.ts); linear and clamp without. */
-export interface PassDef { target?: string; persistent: boolean; float: boolean; width?: string; height?: string; filter?: 'nearest'; wrap?: 'repeat' }
+/** `filter`/`wrap`: a synScene TARGET's sampling (fx/syn.ts); linear and clamp without. `mipmap`: trilinear, its levels
+ *  generated after each draw (live.ts). */
+export interface PassDef { target?: string; persistent: boolean; float: boolean; width?: string; height?: string; filter?: 'nearest' | 'mipmap'; wrap?: 'repeat' }
 /** A synScene clock (fx/syn.ts): uniform `u` stepped by clock.ts each frame, its rate read from the node's values.
  *  `frame`: one step per frame, not per second (a bang counter: + 1 on its event's draw). */
 export interface Clock { u: string; rate: Rate; frame?: true }

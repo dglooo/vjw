@@ -270,7 +270,7 @@ export function parseSyn(src: string, id: string): ShaderDef {
     const grid = !!p.WIDTH && !!p.HEIGHT && Math.min(p.WIDTH, p.HEIGHT) < 8
     const size = (n: number | undefined, v: string, of: number) => (!n ? undefined : grid ? String(Number(n)) : `$${v}*${Number(n)}/${of}`)
     if (p.TYPE !== undefined) why.push(`pass ${target}: TYPE ${p.TYPE}`)
-    if (p.FILTER !== undefined && p.FILTER !== 'linear' && p.FILTER !== 'nearest') why.push(`pass ${target}: FILTER ${p.FILTER}`)
+    if (p.FILTER !== undefined && !['linear', 'nearest', 'mipmap'].includes(p.FILTER)) why.push(`pass ${target}: FILTER ${p.FILTER}`)
     if (p.WRAP !== undefined && p.WRAP !== 'clamp' && p.WRAP !== 'repeat') why.push(`pass ${target}: WRAP ${p.WRAP}`)
     return {
       // DOUBLE_BUFFER: every TARGET is a read/write pair here. WRAP: repeat unless clamp (⚠️ the donor's default is not on
@@ -278,7 +278,7 @@ export function parseSyn(src: string, id: string): ShaderDef {
       // (the donor's default: lattix, swarm, hue_review and deeper go flat in 8-bit; 85 passes write true, 10 false)
       target, persistent: false, float: p.FLOAT !== false,
       width: size(p.WIDTH, 'WIDTH', W), height: size(p.HEIGHT, 'HEIGHT', H),
-      ...(p.FILTER === 'nearest' && { filter: 'nearest' as const }), ...(p.WRAP !== 'clamp' && { wrap: 'repeat' as const }),
+      ...((p.FILTER === 'nearest' || p.FILTER === 'mipmap') && { filter: p.FILTER }), ...(p.WRAP !== 'clamp' && { wrap: 'repeat' as const }),
     }
   })
   passes.push({ target: feedback ? 'syn_FinalPass' : undefined, persistent: false, float: false })

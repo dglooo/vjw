@@ -1346,6 +1346,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:entombed-silicon-dreams', name: 'Entombed Silicon Dreams', star: false, // dnb · mrange, CC0 · ⚡ syn_BassHits (the ring = our FFT)
     layers: [{ gen: { ref: 'syn/entombed_silicon_dreams', bind: syn('syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
   },
+  // synScene adapter step 3: the ports its features unblocked (each file's header says what its script.js became).
+  {
+    v: 1, id: 'builtin:logo-grid-pulses', name: 'Logo Grid Pulses', star: true, // UFFFD x Meebs · ⚡ syn_BassHits, syn_OnBeat · the logo: our wordmark (IMAGES)
+    // the auto re-roll knobs at 0: the donor's default modes (diagonal lines x zigzag) hold; some re-rolled pairs leave the
+    // frame almost empty (fill up x expanding waves). Raise them to .15 for the donor's re-roll (every 32 bars here).
+    layers: [{ gen: { ref: 'syn/logo_grid_pulses', values: { grid_auto_transition: 0, pulse_auto_transition: 0 }, bind: syn('syn_BassLevel', 'syn_BPMSin4', 'syn_BPMConfidence', 'syn_HighHits', 'syn_OnBeat', 'syn_BassHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the

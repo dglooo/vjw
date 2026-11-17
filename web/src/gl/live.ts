@@ -105,6 +105,11 @@ function toyLog(fs: string, prefixLines: number) {
   gl.deleteShader(sh)
   return log.replace(/(ERROR|WARNING): (\d+):(\d+)/g, (_, k: string, s: string, n: string) => `${k}: ${s}:${Number(n) - prefixLines}`)
 }
+/** A FILTER mipmap target's levels from its level 0 (fx/syn.ts): after each draw into it, and after fit(). */
+const mips = (t: Target) => {
+  gl.bindTexture(gl.TEXTURE_2D, t.attachments[0])
+  gl.generateMipmap(gl.TEXTURE_2D)
+}
 const free = (t: Target) => {
   gl.deleteFramebuffer(t.framebuffer)
   gl.deleteTexture(t.attachments[0])
@@ -205,7 +210,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       u[`_${name}_imgSize`] = AUDIO_SIZE
     }
     const at = pairsByTarget(passes) // passes naming one TARGET share a pair, built to its first pass's FLOAT/PERSISTENT
-    const tex = (p: PassDef) => ({ ...(p.filter && { minMag: gl.NEAREST }), ...(p.wrap && { wrap: gl.REPEAT }) }) // a synScene TARGET's sampling
+    const tex = (p: PassDef) => ({ ...(p.filter === 'nearest' && { minMag: gl.NEAREST }), ...(p.filter === 'mipmap' && { min: gl.LINEAR_MIPMAP_LINEAR }), ...(p.wrap && { wrap: gl.REPEAT }) }) // a synScene TARGET's sampling
     const pairs = passes.map((p, j) => (at[j] === j ? [renderTarget(p.float, p.persistent, tex(p)), renderTarget(p.float, p.persistent, tex(p))] : null))
     const x: Node = { def, info, u, events, passes: passes.map((p, j) => ({ p, pair: at[j] < 0 ? null : pairs[at[j]] })), w: 0, h: 0, frames: 0, images: [] }
     // ponytail: each node loads its own copy, so a library tile bakes (1 frame) before its images land; share a cache
@@ -282,6 +287,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       const tw = dim(p.width, vars, w)
       const th = dim(p.height, vars, h)
       for (const t of pair) t.fit(tw, th)
+      if (p.filter === 'mipmap') pair.forEach(mips) // fit() redefines level 0 only: the old levels leave it incomplete
       n.u[p.target!] = pair[0].attachments[0] // a persistent fit() swaps in a new texture
       n.u[`_${p.target}_imgSize`] = [tw, th]
     }
@@ -316,6 +322,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
         n.u.PASSINDEX = j
         draw(n.info!, n.u)
         if (!pair) continue
+        if (p.filter === 'mipmap') mips(out)
         pair.reverse() // what it drew is now the one later passes (and the next frame) read
         n.u[p.target!] = pair[0].attachments[0]
       }
