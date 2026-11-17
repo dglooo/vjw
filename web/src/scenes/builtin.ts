@@ -1346,6 +1346,40 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:entombed-silicon-dreams', name: 'Entombed Silicon Dreams', star: false, // dnb · mrange, CC0 · ⚡ syn_BassHits (the ring = our FFT)
     layers: [{ gen: { ref: 'syn/entombed_silicon_dreams', bind: syn('syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
   },
+  // Lane B3b (IMAGES scenes; each file's header says what its script.js / bang / reversed range became).
+  {
+    v: 1, id: 'builtin:replik8', name: 'replik8', star: false, // dnb · Meebs · ⚡ syn_HighHits ← snare (with `flashing` on)
+    layers: [{ gen: { ref: 'syn/replik8', bind: { ...syn('syn_Presence', 'syn_BassPresence', 'syn_HighLevel', 'syn_BassLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:stained-glass', name: 'Stained Glass', star: false, // dnb · Meebs (IMAGES colorNoise)
+    // syn_RandomOnBeat eases to its new value over .83 s: script.js's random_spot (2 % per frame toward a per-beat goal)
+    layers: [{ gen: { ref: 'syn/stained_glass', bind: { ...syn('syn_Presence', 'syn_BassLevel', 'syn_BassPresence', 'syn_HighLevel'), syn_RandomOnBeat: { ...SYN_BIND.syn_RandomOnBeat, attack: 0.83, release: 0.83 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:transparent-isoslices', name: 'Transparent Isoslices', star: false, // dnb · Shane · ⚡ syn_HighHits ← snare
+    layers: [{ gen: { ref: 'syn/transparent_isoslices', bind: { ...syn('syn_OnBeat', 'syn_MidPresence', 'syn_MidLevel', 'syn_BassLevel', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.3 }],
+  },
+  {
+    v: 1, id: 'builtin:kifs-flythrough', name: 'KIFS Flythrough', star: false, // dnb · Shane (the bass flies the camera: a clock)
+    layers: [{ gen: { ref: 'syn/kifs_flythrough', bind: syn('syn_BassLevel', 'syn_BassPresence', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.35 }],
+  },
+  {
+    v: 1, id: 'builtin:redrum', name: 'REDRUM', star: false, // dnb · Meebs · ⚡ syn_HighHits ← snare
+    layers: [{ gen: { ref: 'syn/redrum', bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_OnBeat', 'syn_Level', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vein-melter', name: 'Vein Melter', star: false, // dnb · cornusammonis (a FLOAT field, 40 advection steps)
+    layers: [{ gen: { ref: 'syn/vein_melter', bind: syn('syn_HighHits', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:shrouded', name: 'Shrouded', star: false, // dnb · Felix Woitzel ft. Meebs · ⚡ syn_HighHits ← snare
+    layers: [{ gen: { ref: 'syn/shrouded', bind: { ...syn('syn_Presence', 'syn_BassLevel', 'syn_BPMSin2', 'syn_MidHighPresence', 'syn_BassPresence', 'syn_HighPresence', 'syn_MidPresence', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:molten', name: 'Molten', star: false, // dnb · Meebs ft. Flexi · ⚡ syn_HighHits ← snare (the camera: clocks)
+    layers: [{ gen: { ref: 'syn/molten', bind: { ...syn('syn_BassLevel', 'syn_HighPresence', 'syn_BassPresence', 'syn_BPMSin4', 'syn_MidPresence', 'syn_HighLevel', 'syn_Level'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
