@@ -161,14 +161,54 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `transitions/Swirl.glsl` | Sergey Kosarevsky | https://github.com/gl-transitions/gl-transitions/blob/master/transitions/Swirl.glsl | MIT |
 | `transitions/crossfade.glsl` | VeeJay Wizard (own) | - | MIT (own) |
 
-### syn (4)
+### syn (44)
 
 | path | author | source | license |
 |---|---|---|---|
+| `syn/PLUS.glsl` | Meebs | donor/visual_system_2/scenes/release/PLUS.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/alien_cavern.glsl` | aiekick (Stephane Cuillerdier) | donor/visual_system_2/scenes/release/alien_cavern.synScene | CC BY-NC-SA 3.0 Unported (the author's lines are kept below; non-commercial, share-alike) |
+| `syn/beamers.glsl` | sheltron | donor/visual_system_2/scenes/release/beamers.synScene | unknown (the donor's CREDIT names sheltron only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/beats_in_4d.glsl` | mrange (Mårten Rånge) | donor/visual_system_2/scenes/release/beats_in_4d.synScene | CC0 1.0 Universal (the dedication is kept below) |
+| `syn/bouncy_hexagons.glsl` | mrange (Mårten Rånge) | donor/visual_system_2/scenes/release/bouncy_hexagons.synScene | CC0 1.0 Universal (the dedication is kept below; the helpers keep their own licence lines) |
+| `syn/canvas.glsl` | unknown (the donor's CREDIT is empty) | donor/visual_system_2/scenes/release/canvas.synScene | unknown (no credit, no licence text; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/churning.glsl` | Victor S. | donor/visual_system_2/scenes/release/churning.synScene | unknown (the donor's CREDIT names Victor S. only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/circles5.glsl` | Keijiro Takahashi | donor/visual_system_2/scenes/release/circles5.synScene | unknown (the donor's CREDIT names Keijiro Takahashi only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/compound_iris.glsl` | Meebs | donor/visual_system_2/scenes/release/compound_iris.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/dark_twister.glsl` | mrange (Mårten Rånge) | donor/visual_system_2/scenes/release/dark_twister.synScene | CC0 1.0 Universal (the dedication is kept below) |
+| `syn/deeper.glsl` | Meebs | donor/visual_system_2/scenes/release/deeper.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/dispersion.glsl` | cornusammonis | donor/visual_system_2/scenes/release/dispersion.synScene | unknown (the donor's CREDIT names cornusammonis only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/entombed_silicon_dreams.glsl` | mrange (Mårten Rånge) | donor/visual_system_2/scenes/release/entombed_silicon_dreams.synScene | CC0 1.0 Universal (the dedication is kept below; helpers: sam hocevar WTFPL, Inigo Quilez MIT, Pascal Gilcher MIT) |
+| `syn/exoplanet.glsl` | Meebs ft. WAHa_06x36 | donor/visual_system_2/scenes/release/exoplanet.synScene | unknown (the donor's CREDIT names Meebs ft. WAHa_06x36 only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/fluid_body.glsl` | Victor S.; HSLUV-GLSL v4.2: William Malo (https://github.com/williammalo) | donor/visual_system_2/scenes/release/fluid_body.synScene | unknown (the donor's CREDIT names Victor S. only; shipped inside a commercial app; personal use, ⚠️ check before release); HSLUV-GLSL: its header is kept below, it names no licence |
+| `syn/fractilian_foundation.glsl` | mojovideotech (based on "Fractals: MRS" by Nikos Papadopoulos, 4rknova) | donor/visual_system_2/scenes/release/fractilian_foundation.synScene | CC BY-NC-SA 3.0 Unported (the file's own notice is kept below) |
+| `syn/glassier.glsl` | Felix Woitzel | donor/visual_system_2/scenes/release/glassier.synScene | unknown (the donor's CREDIT names Felix Woitzel only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/glob.glsl` | Nimitz | donor/visual_system_2/scenes/release/glob.synScene | unknown (the donor's CREDIT names Nimitz only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/gpu_melter.glsl` | Meebs (the warp by inigo quilez, https://www.shadertoy.com/view/lsl3RH) | donor/visual_system_2/scenes/release/gpu_melter.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/hex_array.glsl` | sheltron | donor/visual_system_2/scenes/release/hex_array.synScene | unknown (the donor's CREDIT names sheltron only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/hills_eels.glsl` | Victor S. | donor/visual_system_2/scenes/release/hills_eels.synScene | unknown (the donor's CREDIT names Victor S. only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/hue_review.glsl` | Meebs | donor/visual_system_2/scenes/release/hue_review.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/inkshot.glsl` | Meebs | donor/visual_system_2/scenes/release/inkshot.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/kaleidowhoa_man.glsl` | Meebs | donor/visual_system_2/scenes/release/kaleidowhoa_man.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/lattix.glsl` | Anonymous | donor/visual_system_2/scenes/release/lattix.synScene | unknown (the donor's CREDIT names "Anonymous" only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/meta_experiment_3.glsl` | aiekick (Stephane Cuillerdier) | donor/visual_system_2/scenes/release/meta_experiment_3.synScene | CC BY-NC-SA 3.0 Unported (the file's own notice is kept below) |
+| `syn/milk_honey_smoke_bile.glsl` | Victor S. | donor/visual_system_2/scenes/release/milk_honey_smoke_bile.synScene | unknown (the donor's CREDIT names Victor S. only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/min_max_hex.glsl` | Meebs (the triangle tiling adapted from mattz, https://www.shadertoy.com/view/4d2GzV) | donor/visual_system_2/scenes/release/min_max_hex.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/myoplasm.glsl` | Alex Rowe | donor/visual_system_2/scenes/release/myoplasm.synScene | unknown (the donor's CREDIT names Alex Rowe only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/neuron_proximitors.glsl` | patu x Meebs (a fork of "Buffer computed points." by patu, https://shadertoy.com/view/XllBRj) | donor/visual_system_2/scenes/release/neuron_proximitors.synScene | unknown (the file states none; a Shadertoy fork, the site's default is CC BY-NC-SA 3.0; personal use, ⚠️ check before release) |
+| `syn/nova.glsl` | Felix Woitzel | donor/visual_system_2/scenes/release/nova.synScene | unknown (the donor's CREDIT names Felix Woitzel only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/overload.glsl` | Alex Rowe | donor/visual_system_2/scenes/release/overload.synScene | unknown (the donor's CREDIT names Alex Rowe only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/pop.glsl` | Meebs (the polygon layers: "by @301z", kept below) | donor/visual_system_2/scenes/release/pop.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/preamble.glsl` | the donor app (anonymised in donor/visual_system_2/report.md); _hsv2rgb/_rgb2hsv: sam hocevar (WTFPL, https://stackoverflow.com/a/17897228/418488) | donor/visual_system_2/glsl/01_preamble.txt | unknown (app resource strings, copied as text; recorded per spec §6); _hsv2rgb/_rgb2hsv WTFPL |
+| `syn/quicksand.glsl` | Meebs | donor/visual_system_2/scenes/release/quicksand.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/rearranged.glsl` | Meebs | donor/visual_system_2/scenes/release/rearranged.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/scaffold_fractal.glsl` | Meebs (after kabuto, fork by s1e; glslsandbox.com) | donor/visual_system_2/scenes/release/scaffold_fractal.synScene | unknown (the body credits "a raymarching experiment by kabuto, dmt fork by s1e, found on glslsandbox.com"; no licence text; personal use, ⚠️ check before release) |
+| `syn/sprinkles.glsl` | sheltron ft. Meebs | donor/visual_system_2/scenes/release/sprinkles.synScene | unknown (the donor's CREDIT names sheltron ft. Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/square_shoals.glsl` | Alex Rowe | donor/visual_system_2/scenes/release/square_shoals.synScene | unknown (the donor's CREDIT names Alex Rowe only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/sun_set.glsl` | Meebs | donor/visual_system_2/scenes/release/sun_set.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/swarm.glsl` | Meebs | donor/visual_system_2/scenes/release/swarm.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release); the particle draw cites iq, "Brick", shadertoy.com/view/MddGzf |
+| `syn/thresholder.glsl` | Kyle Grover (Classic Perlin 3D Noise by Stefan Gustavson) | donor/visual_system_2/scenes/release/thresholder.synScene | unknown (the donor's CREDIT names Kyle Grover only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/turbo_encabulator_fluid.glsl` | cornusammonis (the donor's CREDIT: "Original by cornusammonis from shadertoy"); noise: Inigo Quilez | donor/visual_system_2/scenes/release/turbo_encabulator_fluid.synScene | unknown (the Shadertoy original names no licence; shipped inside a commercial app; personal use, ⚠️ check before release); the noise helper: MIT, Copyright © 2013 Inigo Quilez (the notice is kept below) |
+| `syn/voronoi_geode.glsl` | Shane (the body's title comment: "Perspex Web Lattice") | donor/visual_system_2/scenes/release/voronoi_geode.synScene | unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release) |
 
 ### Parser port
 
