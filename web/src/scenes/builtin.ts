@@ -1373,7 +1373,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:redrum', name: 'REDRUM', star: true, // dnb · Meebs · ⚡ syn_HighHits ← snare
-    layers: [{ gen: { ref: 'syn/redrum', bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_OnBeat', 'syn_Level', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // more_blood 2 (the donor's top): at its default 1 the frame stays near black here (median luma .004 on dnb174-arr):
+    // the donor also splats on a hat hit >= .99, which our 40 ms snare rise never reaches, so the kick alone splats
+    layers: [{ gen: { ref: 'syn/redrum', values: { more_blood: 2 }, bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_OnBeat', 'syn_Level', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   {
     v: 1, id: 'builtin:vein-melter', name: 'Vein Melter', star: true, // dnb · cornusammonis (a FLOAT field, 40 advection steps)
