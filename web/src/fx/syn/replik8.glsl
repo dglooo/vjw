@@ -1,8 +1,8 @@
-// Source: donor/visual_system_2/scenes/release/replik8.synScene (main.glsl + scene.json + images/) · unknown
+// Source: donor/visual_system_2/scenes/release/replik8.synScene (main.glsl + scene.json) · unknown
 // Author: Meebs
 // License: unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release)
-// VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES colornoise from public/syn/replik8/images/: declared by the
-// donor, read only by commented-out code). Changes for ES 3.00: the int loop index and count in float maths are
+// VeeJay Wizard, 2026: ported for fx/syn.ts. IMAGES is empty: the donor declares colornoise, but only commented-out
+// code reads it, so it is not loaded here. Changes for ES 3.00: the int loop index and count in float maths are
 // float(j) / float(iters), smoothstep(0, 1, x) -> smoothstep(0.0, 1.0, x). No script.js. The media input is a stub
 // here (_isMediaActive() is false), so the rings stay grayscale. PASSES: FLOAT added (the donor's default target is
 // HDR; ours is 8-bit unless FLOAT). ⚡ syn_HighHits is flash-gated: with `flashing` on, a hit adds 100 x colour^5.
@@ -11,7 +11,7 @@
   "CREDIT": "Meebs",
   "TAGS": ["2d", "geometric", "grayscale", "media", "donor"],
   "PASSES": [{"TARGET": "backbuffer", "WIDTH": 1280, "HEIGHT": 720, "FLOAT": true}],
-  "IMAGES": [{"PATH": "images/colornoise.jpg", "NAME": "colornoise"}],
+  "IMAGES": [],
   "VJW_FLASH": ["syn_HighHits"],
   "CONTROLS": [
     {"NAME": "circle_or_tri", "TYPE": "toggle smooth"},

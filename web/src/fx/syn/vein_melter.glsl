@@ -1,11 +1,11 @@
 // Source: donor/visual_system_2/scenes/release/vein_melter.synScene (main.glsl + scene.json + images/; script.js restated, see below) · unknown
 // Author: cornusammonis
 // License: unknown (the donor's CREDIT names cornusammonis only; shipped inside a commercial app; personal use, ⚠️ check before release)
-// VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES image45/image16 from public/syn/vein_melter/images/: image16
-// seeds the field; image45 is read only by commented-out code). Changes for ES 3.00: STEPS = 40 -> 40.0 and the
-// advection loop's int index against it is float(i) < STEPS; PI/2 -> PI/2.0; _normalizeRGB(255, 255, 255) ->
-// (255.0, 255.0, 255.0). script.js (not run) restated: beat_time = the bar count (bpm / 4 per minute) =
-// syn_BeatTime / 4 (our grid's beat count). Controls: the reversed ranges of color_palette (the donor's MIN 4,
+// VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES image16 from public/syn/vein_melter/images/: it seeds the
+// field; the donor's image45 is read only by commented-out code, so it is not loaded here). Changes for ES 3.00:
+// STEPS = 40 -> 40.0 and the advection loop's int index against it is float(i) < STEPS; PI/2 -> PI/2.0;
+// _normalizeRGB(255, 255, 255) -> (255.0, 255.0, 255.0). script.js (not run) restated: beat_time = the bar count
+// (bpm / 4 per minute) = syn_BeatTime / 4 (our grid's beat count). Controls: the reversed ranges of color_palette (the donor's MIN 4,
 // MAX 0) and brush_size1 (MIN 2, MAX .3) are written 0 to 4 and .3 to 2. The media input is a stub here. The field
 // starts itself again after a cleared target (the body's own rule: a zero texel takes the noise image).
 /*{
@@ -15,7 +15,7 @@
   "WIDTH": 1920,
   "HEIGHT": 1080,
   "PASSES": [{"FLOAT": true, "HEIGHT": 432, "TARGET": "BuffA", "WIDTH": 768}, {"FLOAT": true, "HEIGHT": 432, "TARGET": "BuffA2", "WIDTH": 768}],
-  "IMAGES": [{"NAME": "image45", "PATH": "images/45.jpg"}, {"NAME": "image16", "PATH": "images/16.png"}],
+  "IMAGES": [{"NAME": "image16", "PATH": "images/16.png"}],
   "CONTROLS": [
     {"NAME": "pulse_out", "TYPE": "bang smooth", "DEFAULT": 0, "MIN": 0, "MAX": 1},
     {"NAME": "full_pulse", "TYPE": "bang smooth", "DEFAULT": 0.0, "MIN": 0.0, "MAX": 1.0},
