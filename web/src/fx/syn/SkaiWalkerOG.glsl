@@ -7,6 +7,7 @@
 // syn_Presence), spin_time 3.5 * time_rate * syn_Presence, bass_count 0.0075 * 0.5 * 15 * time_rate * syn_Hits per
 // frame (x 60); its bass_time and portal_time are not read by the body. syn_UserImage and the media are black (no
 // media input yet). ⚡ syn_Hits (x2 on the walls' colour) and syn_HighHits (auto_overlay) are flash-gated.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Skaiwalker OG",
   "CREDIT": "Psybernautics",

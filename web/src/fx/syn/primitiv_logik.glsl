@@ -6,6 +6,7 @@
 // grid, beatTime = syn_BeatTime / 2 (one shape per two beats), and the TOGGLE_ON_BEAT control is dropped. No media
 // input yet: the dispersion reads the shape pass (the donor's no-media branch). PASSES: FLOAT added (the donor's
 // default target is HDR).
+// res .6 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): SAMPLES 32 → 16
 /*{
   "TITLE": "PRIMITIV_logik",
   "CREDIT": "Meebs",
@@ -190,7 +191,8 @@ vec3 renderAllShapes(){
 }
 
 // chromatic dispersion samples
-#define SAMPLES 32
+// VJW: was 32 (res .6 → .85, agents/guides/guide_syn_res_085.md)
+#define SAMPLES 16
 
 // channels to use for displacement, either xy or zw
 #define CH xy

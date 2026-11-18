@@ -11,6 +11,7 @@
 // round(4.8 / auto) bars while an auto knob is up (32 bars at .15); squarize_grid and the param reset on a mode change
 // are dropped. ES 3.00: int literals in float maths. ⚡ syn_BassHits (the bright parts invert on the kick:
 // flasher_invert) and syn_OnBeat (flasher) are flash-gated.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Logo Grid Pulses",
   "CREDIT": "UFFFD x Meebs",

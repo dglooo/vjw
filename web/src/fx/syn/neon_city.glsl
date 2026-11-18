@@ -10,6 +10,7 @@
 // Our detector's logic (user 2026-11-18): the built-in runs lighting_mode Hits (the kick, the snare and the hats
 // light their towers) and one added line keeps a floor of lit windows between the hits: lit_frac + .6 x syn_Intensity
 // (the donor's energy macro, its default binding: never overridden). ⚡ the four Hits (the windows) are flash-gated.
+// res .35 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Neon City by Night",
   "CREDIT": "mrange",
