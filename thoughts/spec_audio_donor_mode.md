@@ -32,7 +32,7 @@
 - **R1** A mode switch (ours / donor) in the Sources tab. It is persisted, and switching it mid-track causes no false drop and no flash.
 - **R2** Donor mode exposes every `syn_*` audio name the 87 donor scenes use (`research_donor_visual_system_2.md` §4 table) as a live value. The values are 0..1 where the donor's docs say 0..1, and `BeatTime` steps +1 per beat.
 - **R3** Formula sanity on the same 3 tracks / 7 drops as the formula review (offline sim): Level rests near its mean; Hits fire on transients, with a hit count per minute reported against our kick; Presence rises over a section; Intensity is higher in a drop body than in a break on ≥ 6/7 drops.
-- **R4** Cost: the donor analyser adds ≤ 0.5 ms main-thread p95 per frame. It runs only while donor mode is on or a donor source is bound.
+- **R4** Cost: the donor analyser adds ≤ 0.5 ms main-thread p95 per frame. **Lead amendment 2026-11-18 (S1 finding, `dsp_donor_mode_2026-11-18.md` §A3–§A4):** the stats core runs from the first audio frame in every mode (a cold start takes ≤ 15 s for Level and > 30 s for Presence / Intensity, which would break R1); only the textures (Spectrum g/b, LevelTrail) are gated by the mode. The measured cost is ≤ 31 µs p95.
 - **R5** Part B: each embedded gap has a before/after offline number on the same dataset (SDLC §4). No existing pin moves without a stated reason.
 - **R6** I-FL1 holds: a donor-mode `Hits` source never drives light except through a flash-gated ⚡ input.
 - **R7** Gates green; the calibration scene shows the donor sources as tiles.
