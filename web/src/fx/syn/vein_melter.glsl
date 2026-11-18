@@ -8,6 +8,7 @@
 // (bpm / 4 per minute) = syn_BeatTime / 4 (our grid's beat count). Controls: the reversed ranges of color_palette (the donor's MIN 4,
 // MAX 0) and brush_size1 (MIN 2, MAX .3) are written 0 to 4 and .3 to 2. The media input is a stub here. The field
 // starts itself again after a cleared target (the body's own rule: a zero texel takes the noise image).
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Vein Melter",
   "CREDIT": "cornusammonis",

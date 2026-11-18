@@ -6,6 +6,7 @@
 // clamp(depth+15, 0, 1)). script.js (not run) restated: script_time adds speed x level per frame, the level following
 // syn_Level^2 by .9 per frame = the clock 60 x speed x syn_Level^2 per second (the one-frame lag is dropped).
 // PASSES: FLOAT added (the donor's default target is HDR). No media input: the media mask is off.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Cloud Ten",
   "CREDIT": "nimitz",
