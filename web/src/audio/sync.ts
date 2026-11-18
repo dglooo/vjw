@@ -37,7 +37,7 @@ const PARTNER = 0.01
 const TAP_GAP = 2 // s: a longer pause starts a new tap count
 const TAPS = 4 // intervals in the tap median
 
-export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncControls & { at(audioNow: number): Sync; feed(o: Onset): void; reset(): void } {
+export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncControls & { at(audioNow: number): Sync; feed(o: Onset): void; seek(): void } {
   const o = { ...DEFAULTS, ...opts }
   const out: Sync = { ...ZERO_SYNC } // at() returns this object every call
   let period = 0 // s; 0 = no grid
@@ -55,6 +55,7 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
   let seen: TempoReading | null = null
   let pending: { r: TempoReading; since: number } | null = null // a confident other grid, waiting out relockBeats
   let taps: number[] = []
+  let rephase = false // seek(): the tempo is kept, the phase is not: the next reading at our tempo re-anchors at once
 
   const beatAt = (t: number) => anchorBeat + (t - anchor) / period
   const timeOf = (n: number) => anchor + (n - anchorBeat) * period
@@ -63,11 +64,6 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
     const n = Math.floor(beatAt(t))
     anchor = timeOf(n)
     anchorBeat = n
-  }
-  /** No grid (bpm 0): the next lock counts beats from 0. The lead (nudge) stays: it is the output's, not the music's. */
-  function reset() {
-    period = conf = smooth = downbeatOffset = 0
-    pending = null
   }
   /** A new grid on (bpm, beat time `at`), numbered on from the old one. */
   function lock(bpm: number, at: number, confidence: number) {
@@ -78,6 +74,7 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
     lastHit = Math.max(lastHit, at)
     conf = confidence
     pending = weakSince = null // a tap is news too: any weak streak counts from here
+    rephase = false
   }
   /** Phase of reading `r` against grid (p, a), in beats of the finer of the two, folded to [−½, ½). */
   function phase(r: TempoReading, p: number, a: number) {
@@ -95,6 +92,7 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
     const k = Math.round(Math.log2(60 / r.bpm / period)) // our octave of it: ×2 / ÷2 stick
     const p = 60 / r.bpm / 2 ** k
     if (Math.abs(p / period / 0.75 - 1) < PARTNER) return // DnB's two-step reads its ⅔ lag (174 → 116) for long stretches
+    if (rephase && Math.abs(p / period - 1) < MERGE) return lock(60 / p, r.anchor, r.confidence) // the new spot's phase
     if (Math.abs(p / period - 1) < MERGE && Math.abs(phase(r, period, anchor)) <= TOL) {
       rebase(t)
       period += (p - period) * MERGE_GAIN
@@ -110,7 +108,16 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
   }
 
   return {
-    reset, // a file's seek or resume: the music's phase moved
+    /** A file's seek or resume: the music's phase moved, its tempo did not. The grid hides (confidence 0) and keeps
+     *  its tempo; the first confident reading at that tempo (any octave, any phase) re-anchors it, without the
+     *  relockBeats wait. A fresh lock would take the source's reading as it is: 116 in a two-step (the ⅔ lag).
+     *  ponytail: hidden until the source reads our tempo family; outside the DnB range a two-step groove reads 116 for
+     *  8 s and more (Kanine 58–68 s). A comb phase at the kept tempo (tempo.ts update()'s, for a given bpm) if it bites. */
+    seek() {
+      conf = smooth = 0
+      pending = null
+      rephase = true
+    },
     feed(on) {
       now = Math.max(now, on.t)
       if (!period) return
@@ -137,7 +144,8 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
       const bar = 4 * period
       const idle = (audioNow - lastHit) / bar // bars without an onset on the grid
       if (idle > o.holdBars) {
-        reset()
+        period = conf = smooth = downbeatOffset = 0 // the next lock counts beats from 0
+        pending = null
         return ZERO_SYNC
       }
       const weak = weakSince === null ? 0 : (audioNow - weakSince) / bar

@@ -247,13 +247,13 @@ const style = createStyle()
 const arrangement = createArrangement()
 let arrangeOut: ArrangeOut = { build: 0, drop: 0, heat: 0, energy: 0, sparse: false, fired: null, confirmed: null }
 let dropAt = -Infinity
-// The file transport: a seek or a resume moves the music's phase under the grid, so the grid restarts from the new spot
-// (tempo: the window and the start settle; sync: no grid until a fresh lock). A seek also lands in another section of
-// the track: the arrangement restarts its section for a second (arrange.ts SEEK). A pause needs nothing: the paused
-// element feeds digital silence, so PAUSE reads it as on line-in.
+// The file transport: a seek or a resume moves the music's phase under the grid, not its tempo. The tempo source drops
+// the onsets before it (and settles its ODF), the grid hides and re-anchors on the first confident reading at its tempo.
+// A seek also lands in another section of the track: the arrangement restarts its section for a second (arrange.ts
+// SEEK). A pause needs nothing: the paused element feeds digital silence, so PAUSE reads it as on line-in.
 const regrid = () => {
   tempo.seek(ctx.currentTime) // the worklet's clock, which stamps the ODF and the onsets
-  sync.reset()
+  sync.seek()
 }
 player.addEventListener('play', regrid)
 player.addEventListener('seeked', () => {
