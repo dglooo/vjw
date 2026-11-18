@@ -1478,8 +1478,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:traced-tunnel', name: 'Traced Tunnel', star: true, // dnb · Shane · ⚡ syn_HighHits ← snare (auto_flasher only)
     // overrides: syn_HighHits ← snare, 40 ms rise (a light on the hats would flicker); FOV ← build (1 → .55): the lens
-    // widens through a build
-    layers: [{ gen: { ref: 'syn/traced_tunnel', bind: { ...syn('syn_Presence', 'syn_BPMSin2', 'syn_BassLevel', 'syn_Level', 'syn_MidHighLevel', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE, FOV: { source: 'build', amount: 1, attack: 1, release: 2, min: 1, max: 0.55 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+    // widens through a build. res .75 (was .25, the mush): the file traces 1 sample per pixel, not 8 (its header), so 9 x
+    // the pixels cost the same billed time. Same-session 20 s holds, GPU shared: .25 x 8 samples p95 6.7 ms, .75 6.3,
+    // .85 7.2, 1 8.4 (7.0 with the GPU quiet): raise res here if the frame time allows
+    layers: [{ gen: { ref: 'syn/traced_tunnel', bind: { ...syn('syn_Presence', 'syn_BPMSin2', 'syn_BassLevel', 'syn_Level', 'syn_MidHighLevel', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE, FOV: { source: 'build', amount: 1, attack: 1, release: 2, min: 1, max: 0.55 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75 }],
   },
   {
     v: 1, id: 'builtin:raymarched-reflections', name: 'Raymarched Reflections', star: true, // dnb · Shane (the sub flies the cubes: a clock)
