@@ -1,0 +1,819 @@
+# Test matrix — donor-mode audio analyser (Tier 3 S2 → S4 input)
+
+## TL;DR
+- Picked design: Variant A rev 2 (`agents/system-designer/design_audio_donor_mode.md` § Lead pick, decisions 1–9; the § Skeptic response overrides the body where they differ). The recheck verdict is PASS with findings (`agents/architecture-skeptic/skeptic_audio_donor_mode.md` § Recheck).
+- 68 matrix entries: unit 39, contract 5, performance 4, browser 6, integration 9 (4 offline replays H4a–d, H7 latency, 4 lead gates: lint, typecheck, test, binding r), visual 1, manual 4. Test-IDs follow the design (T1, T2, T7a–d, H1–H4); new IDs are added where a requirement had none.
+- Every R1–R7 and every finding with a test consequence (C1–C11, N1–N3) maps to at least one ID (§3). Each entry names its bad input.
+- Three DSP parameters are not set yet (`SILENT_RMS`, `HIT_DT` with θ, `HIT_RATE_TOL`). The gaps lane is still running, so the rows that use them are UNKNOWN until it writes its file. They are named parameters, not numbers.
+- Cost to watch: H2 covers every syn built-in (about 85 scenes). At 30 s per scene, one run is about 43 min of browser time, and the two runs (174 and ≥ 185 BPM) about 85 min. The ≥ 185 BPM fixture does not exist yet.
+
+## Freshness
+- 2026-11-18, test-architect (Haiku 5.5), matrix mode. Source: master `76e6ab4`.
+- Read: `thoughts/spec_audio_donor_mode.md` (whole, R1–R7 and the lead record); `design_audio_donor_mode.md` (whole: Variant A, B, C, the Skeptic response L299–367, the Lead pick L368–387); `architecture-skeptic/skeptic_audio_donor_mode.md` (whole, §1 findings, §2 holding, §Recheck L87–136); `audio-dsp/dsp_donor_mode_2026-11-18.md` (TL;DR, §A1–§A4, §B, §C, Freshness); `scratchpad/dsp-donor/out/score-v2.txt` (whole).
+- Not read: `agents/audio-dsp/dsp_donor_mode_gaps_2026-11-18.md` (absent at intake; the lane is running). `scratchpad/dsp-donor/gaps/gaps.ts`, `g1*.txt` (in progress, not used as a source).
+- Brief pointers: the brief gave line ranges and section headings, not § numbers. I used the headings as the section names. The line ranges were checked against the files.
+- Code anchors came from the designer's and skeptic's reads (the code is at `web/src` identical from `ff21782` to `76e6ab4`, per the skeptic). One graphify query ran; it did not reach `live.ts` or `post.ts`, so I used grep-level anchors from those reports. The coders re-check the anchors at S5.
+- Existing test pins found by grep: `web/src/fx/syn.test.ts:220–222` (asserts `syn_PrimeBang` is unsupported; this pin moves), `web/src/bind.test.ts:81` (sourceGroups coverage; the count moves), `web/src/scenes/calib.test.ts:13` and `:40` (ROWS is a module constant; it must become a function of `donorMix`), `web/src/scenes/flash.test.ts` (I-FL1 static pins, must stay green), `web/src/gl/post.test.ts:73–119` (flashGate, must stay green).
+- Harness precedents found: `scratchpad/ed/cp4-60s.mjs` (60 s autopilot, late = rAF > 1.5× median), `scratchpad/ed/compile-check.mjs` (in-page shader compile), `scratchpad/gpu3d/g3-bench.mjs` (its header lists a `60s flash audit` mode, STATE 2026-11-16).
+
+## §1 Strategy
+
+### Layers
+- **unit** (Vitest, Node): pure functions and the donor core on synthetic signals. `cd web && npm test -- <file>`.
+- **contract** (Vitest): shape and coverage pins (name sets, group membership, no default binding).
+- **performance** (Vitest Node micro-check, and browser A/B): T1o, H3, H5, H6b.
+- **integration** (offline replay in Node, and the lead's gates): H4a–d, H7, G-LINT, G-TYPE, G-TEST, G-R80.
+- **browser** (headless Chrome, Playwright-core, the `scratchpad/ed` pattern): H1, H1b, H2, H6a, H6c, H8. Headless per the user rule recorded in the camera matrix (2026-11-15). The older `scratchpad/ed` scripts run headed; the coder switches them to headless before use.
+- **visual**: H9 (frozen pixel pair).
+- **manual**: user or lead calls (§1 bottom).
+- The brief's labels map as follows: "Vitest unit" → unit, "Vitest integration" → integration, "headless harness" → browser, performance or visual (by what it measures), "lead runner" → integration (gates) and owner `lead`.
+
+### Fixtures
+- Vitest: synthetic signals only. Seed 1 (the seeded LCG in `scratchpad/dsp-donor/donor-model.ts`). 48 kHz, FFT 1024, 1024-sample analyser window. Frame `dt` = 1/60 s unless a row says otherwise. Cadences: 30 / 60 / 120 / 144 Hz = 1600 / 800 / 400 / 333 samples per frame.
+- Offline replay (H4, H7): PCM of the three real tracks, `scratchpad/dsp-donor/pcm/{kanine,subfocus,bicep}.f32` (git-ignored, decoded from `tracks/`). Drop annotations: `scratchpad/trackview/annot.json` (7 main drops; the dsp did not ear-check them except Sub Focus 146.5 s).
+- Browser (H1, H1b, H2, H3, H5, H6, H8, H9): `scratchpad/fx_audio/dnb174-arr.wav` and `dubstep140-arr.wav`. All four `fx_audio` files are MONO (Chrome presents `[x, 0]`). Use `scratchpad/ed/dnb174-arr-stereo.wav` only where L/R matters (meter InputLevel: ⚠️ the coder confirms which channel `meter.db` reads).
+- New, generated by the coder into `scratchpad/fx_audio/` (scratch, not committed): `dnb200-synth.wav` (200 BPM grid, kick on the grid, hat on the off-beat, 60 s) for H2; `kick-train-120.wav` (kicks at known times, 120 BPM, 30 s) for H7.
+- Real tracks in `tracks/` are never committed. H1's "real drops fire" uses Kanine (`1-Kanine-Feel-The-Vibrat-EW6MXW.flac`), Sub Focus (`1-Sub-Focus-Elevate--SOTA-Remix--CHJWAE.flac`) and Bicep (`Bicep - Glue (Kanine Bootleg).wav`).
+
+### Clock and seed
+- Vitest: virtual time, no wall clock. Seeded LCG (seed 1). A test that needs a different seed names it.
+- Browser: rAF at the display rate (H-runs use the rate the harness reads from `quality.ts`). The mode switch is driven by the harness at a timestamp given in the row.
+
+### Gaps-lane parameters (named; not yet written)
+Source: `agents/audio-dsp/dsp_donor_mode_gaps_2026-11-18.md`, not yet written at intake. Until it lands, every row that uses one is UNKNOWN, never PASS.
+- `SILENT_RMS`: the instant silence predicate `frameRms ≤ SILENT_RMS` (recheck item 4.1). Value: from dsp_donor_mode_gaps_2026-11-18. The prototype's music gate is −60 dBFS (`donor-model.ts:58`), a candidate only.
+- `HIT_DT`: the Hits tick period. Default 1/60 s = 16.67 ms. The tick fires at ≥ `HIT_DT` − 2 ms (recheck item 4.2). Value: from dsp_donor_mode_gaps_2026-11-18.
+- `THETA_TICK`: the θ per tick period. The prototype uses θ = 3 at 60 Hz. Value: from dsp_donor_mode_gaps_2026-11-18.
+- `HIT_RATE_TOL`: the allowed Hits/min deviation from the 60 Hz value at 120 and 144 Hz. Design value: ±25 % (T1, C5). The brief's example (≤ 15 %) is tighter; it is not used until the lane sets it.
+- `LEVEL_RATE_TOL`: ⚠️ Assumption, needs confirmation. Proposed ±0.05 absolute on the median Level at 30 vs 60 Hz. The design gives no number.
+
+### Pure seams the coders must export (Vitest cannot reach the rest)
+Without these, T1l, T1m, T1n, T6b, T7, T8 cannot run. The design already names most of them.
+- `audio/donor.ts`: `createDonor`, `update`, `seedBeat`, the `spectrum` bytes, and the formulas as pure helpers (`intensityStep`, `primeBang`, `inputLevel`) so T1l–n can call them directly.
+- `gl/post.ts`: `boundStep` (C1) and `donorChain(name, b)` (C7, lead mandatory item).
+- `fx/syn.ts`: `synValue` (raws only, per the recheck).
+- `scenes/calib.ts`: `ROWS` is a constant at `calib.ts:40`. It becomes `rows(donorMix)` (C8). T6a and T6b need it.
+
+### What stays manual (not testable by Vitest or the harnesses)
+- M1 (user, optional): whether donor mode reads like the donor's. Non-visual, so no creative gate. The user's ear check on the 7 annotated drops is the only check of the annotations themselves.
+- M2 (user): P4 `kickAccent` must be heard or seen in the app before the P4 step (dsp §B: "the user must see it in the app first").
+- M3 (lead): the OnBeat divisor (C4 remedy). Set from the H2 refused-onset report.
+- M4 (lead): R6 operative reading (N1) and the silence policy (decision 5). The tests show the numbers; the call is the lead's.
+- Feel of the 2 s mix ramp, and whether the Panel hint reads clearly: the lead's visual check, no gate.
+
+---
+
+## §2 Matrix
+
+Notes on the schema: `req` = R1–R7 (spec), C1–C11 / N1–N3 (skeptic), G-* (project gate), M-* (manual). `threshold` gives the number and its unit. A row with a gaps-lane name is UNKNOWN until the lane writes the value.
+
+```yaml
+# ---- unit: audio/donor.ts (Vitest, Node, synthetic, seed 1, dt 1/60 s) ----
+- req: R3
+  test: T1a
+  layer: unit
+  fixture: none (synthetic 1 kHz tone at -20 dBFS, seed 1)
+  bad_input: "core writes raw dB into Level, or the clamp to 0..1 is missing (Level pinned at 0 or 1)"
+  expected: "Level median over frames 20 s to 60 s lies inside the rest band"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "median Level in [0.40, 0.70] (unitless, 0..1)"
+  owner: frontend-coder
+
+- req: R2
+  test: T1b
+  layer: unit
+  fixture: none (synthetic: 60 Hz burst, 60 ms, +12 dB on the Bass band, then silence)
+  bad_input: "Hits holds until the next frame (no decay), or BassHits uses Mid's tau 0.10 s"
+  expected: "exactly one upward crossing of THETA_TICK per burst; the decay from peak to 1/e takes tau_Bass = 0.12 s"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "1/e time in [0.10, 0.14] s (tau 0.12 s plus or minus one frame); crossings per burst = 1 (count)"
+  owner: frontend-coder
+
+- req: R3
+  test: T1c
+  layer: unit
+  fixture: none (5 s digital silence after 10 s of tone, seed 1)
+  bad_input: "stats or clocks keep running in silence (Level not forced to 0, Time keeps advancing)"
+  expected: "FadeInOut falls to e^(-5/2.5); Level 0; Time clocks do not advance"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "FadeInOut <= 0.15 (unitless); Level <= 0.05; Time delta over the 5 s = 0 (s)"
+  owner: frontend-coder
+
+- req: R2
+  test: T1d
+  layer: unit
+  fixture: none (60 s at 174 BPM grid from a stub sync, plus a backward re-anchor at 30 s)
+  bad_input: "BeatTime steps on every frame, or steps by 2 on one beat, or decreases on a backward re-anchor"
+  expected: "per-frame delta of BeatTime is in {0, 1}; total steps = beats within 1; no decrease on a re-anchor"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "delta in {0, 1} on 100 % of frames (count); |steps - beats| <= 1 (count); decreases = 0 (count)"
+  owner: frontend-coder
+
+- req: R1
+  test: T1e
+  layer: unit
+  fixture: none (grid stub at beat 3.2, seedBeat(7))
+  bad_input: "seedBeat ignored, so the next beat reads 1 (the count restarts)"
+  expected: "the next beat after seedBeat(7) gives BeatTime 8"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "BeatTime == 8 exactly (count)"
+  owner: frontend-coder
+
+- req: R2
+  test: T1f
+  layer: unit
+  fixture: none (10 s seeded white noise at -6 dBFS, then 2 s digital silence)
+  bad_input: "an unclamped formula (a z-score without the 4 sigma clamp), or -inf dB not floored at -120 dB, gives NaN or a value outside 0..1"
+  expected: "every 0..1 name stays in [0, 1] and is finite; Spectrum bytes are integers in 0..255"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "out-of-range or non-finite values = 0 (count)"
+  owner: frontend-coder
+
+- req: R3
+  test: T1g
+  layer: unit
+  fixture: none (60 s seeded kick train at 174 BPM plus hats, fed at 60, 120, 144 Hz; 30 Hz as a report)
+  bad_input: "flux taken per render tick with no HIT_DT tick, so Hits/min doubles at 144 Hz (C5)"
+  expected: "BassHits/min and HighHits/min at 120 and 144 Hz within HIT_RATE_TOL of the 60 Hz values; 30 Hz is reported and is not a gate (opt-in deviation, recheck item 4)"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "relative deviation <= HIT_RATE_TOL (from dsp_donor_mode_gaps_2026-11-18; design value 25 %) at 120 and 144 Hz; 30 Hz value printed"
+  owner: frontend-coder
+
+- req: R3
+  test: T1h
+  layer: unit
+  fixture: none (seeded tone, two runs: dt = 30 s and dt = 0.1 s)
+  bad_input: "no clamp on dt, so a stalled tab moves FadeInOut and Presence in one step"
+  expected: "a dt of 30 s gives the same FadeInOut and Presence as a dt of 0.1 s"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "absolute difference <= 1e-9 (unitless)"
+  owner: frontend-coder
+
+- req: C2
+  test: T1i
+  layer: unit
+  fixture: none (5 s of -120 dB silence with silent = true, then 10 s of kick train; seed 1)
+  bad_input: "prev not unset on the first non-silent frame, so the flux of the edge frame fires every band"
+  expected: "on the first 2 music frames at most 1 band triggers; BassHits/min in the 5 s after resume is at least 50 % of the 5 s before"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "band triggers in the first 2 frames <= 1 (count); recovery ratio >= 0.50 (unitless)"
+  owner: frontend-coder
+
+- req: C2
+  test: T1j
+  layer: unit
+  fixture: none (10 s tone, then 60 frames of -120 dB; two runs: silent set on the first silent frame, and silent set 60 frames late, the `paused` pattern)
+  bad_input: "the late silent flag (paused, 1 s late, app.ts:39) lets 60 frames at -120 dB into the 10 s stats"
+  expected: "with the instant flag, the 10 s sigma stays within 2x of its pre-pause value; with the late flag the row fails"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "sigma ratio after silence <= 2.0 (unitless); the late-flag run must fail this assertion"
+  owner: frontend-coder
+
+- req: C10
+  test: T1k
+  layer: unit
+  fixture: none (music from frame 0, seed 1)
+  bad_input: "fade starts at 0, so FadeInOut rises from 0 (about 0.49 at 1 s)"
+  expected: "FadeInOut >= 0.9 at t = 1 s, and the start value is 1"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "FadeInOut >= 0.90 at 1 s (unitless)"
+  owner: frontend-coder
+
+- req: C11
+  test: T1l
+  layer: unit
+  fixture: none (pure helper intensityStep, bass N60 = 0.7, high N60 = 0.3, held 60 s)
+  bad_input: "the full-band form (weights 0.5 / 0.5, or the all-band mean) instead of the bass-weighted .8 / .2 form with x2.5"
+  expected: "Intensity = clamp(0.5 + 2.5 * (EMA6s(0.8*0.7 + 0.2*0.3) - 0.5)) = 0.80"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "|Intensity - 0.80| <= 0.01 (unitless)"
+  owner: frontend-coder
+
+- req: C11
+  test: T1m
+  layer: unit
+  fixture: none (kick train with fired = false for 10 s, then fired = true once at t0)
+  bad_input: "PrimeBang taken from the core's own band Hits (donor-style false bangs), not from our fired"
+  expected: "PrimeBang = 0 for all 10 s with fired false; after fired at t0, PrimeBang(t0 + 0.3 s) = e^-1"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "nonzero PrimeBang frames with fired false = 0 (count); value at 0.3 s in [0.36, 0.38] (unitless)"
+  owner: frontend-coder
+
+- req: C11
+  test: T1n
+  layer: unit
+  fixture: none (pure helper inputLevel on meter.db values -60, -30, 0, +3)
+  bad_input: "no clamp at 1, so a clipped meter reads above 1"
+  expected: "inputLevel(-60) = 0; (-30) = 0.5; (0) = 1; (+3) = 1"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "values match to 1e-9; no value > 1 (count = 0)"
+  owner: frontend-coder
+
+- req: R3
+  test: T1p
+  layer: unit
+  fixture: none (60 ms 60 Hz burst, then 5 ms 10 kHz burst, 1 s apart)
+  bad_input: "band edges swapped, or flux taken over the full band (both bands fire on both bursts)"
+  expected: "the 60 Hz burst gives BassHits >= 0.5 once and HighHits 0; the 10 kHz burst gives HighHits >= 0.5 once and BassHits 0"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "wrong-band hits = 0 (count); right-band hits = 1 (count)"
+  owner: frontend-coder
+
+- req: R3
+  test: T1q
+  layer: unit
+  fixture: none (two 60 ms bass bursts: 150 ms apart; then 40 ms apart)
+  bad_input: "hold-until-decay swallows the second hit (1 hit at 150 ms apart)"
+  expected: "150 ms apart gives 2 hits; 40 ms apart gives 1 or 2 hits, never 0 and never 3"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "hits at 150 ms = 2 (count); hits at 40 ms in {1, 2} (count)"
+  owner: frontend-coder
+
+- req: R3
+  test: T1r
+  layer: unit
+  fixture: none (kick train, tempo ramp 174 to 140 BPM over 20 s, stub sync)
+  bad_input: "a BPM change re-anchors and emits extra steps (+2 in one frame)"
+  expected: "per-frame BeatTime delta in {0, 1}; total steps = beats in the ramp within 1"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "frames with delta 2 = 0 (count); |steps - beats| <= 1 (count)"
+  owner: frontend-coder
+
+# ---- performance: core cost (Vitest Node) ----
+- req: R4
+  test: T1o
+  layer: performance
+  fixture: none (seeded noise frames, 3000 update() calls, 3 runs)
+  bad_input: "a per-frame rebuild of the spectrum or the stats history inside update() (a gross regression; allocation itself is not measured here)"
+  expected: "p95 of update() per frame is within the budget; all 3 runs pass (design estimate 31 us p95, dsp §A3)"
+  command: "cd web && npm test -- src/audio/donor.test.ts"
+  threshold: "p95 <= 0.5 ms per update() (R4 budget, Node)"
+  owner: frontend-coder
+
+# ---- contract: the name set and the pins ----
+- req: R2
+  test: T2d
+  layer: contract
+  fixture: the scene files under web/src/fx/syn/ (85 donor scenes plus preamble.glsl; the count is derived, not hardcoded)
+  bad_input: "a syn_* audio name used by a scene with no donor writer (a value, rate or texture key)"
+  expected: "every syn_* audio name in the scene files is a key of the core output, a donor clock rate or a donor texture"
+  command: "cd web && npm test -- src/fx/syn.test.ts"
+  threshold: "missing names = 0 (count)"
+  owner: frontend-coder
+
+- req: R2
+  test: T2a
+  layer: unit
+  fixture: none (synthetic s: { syn_BassLevel: 0.8 }, ours = 0.3)
+  bad_input: "endpoints swapped (w 0 returns s, w 1 returns ours)"
+  expected: "synValue('syn_BassLevel', 0.3, s, 0) = 0.3; at w 1 = 0.8; at w 0.5 = 0.55"
+  command: "cd web && npm test -- src/fx/syn.test.ts"
+  threshold: "absolute error <= 1e-9 (unitless)"
+  owner: frontend-coder
+
+- req: R1
+  test: T2b
+  layer: unit
+  fixture: none (synthetic s with syn_BeatTime = 7, ours = 6)
+  bad_input: "a linear blend on a count (BeatTime 6.5 mid-fade, the count slides)"
+  expected: "at w 0.49 the value is ours (6); at w 0.5 it is s (7); no intermediate value for syn_BeatTime, syn_BPM, syn_BPMTwitcher"
+  command: "cd web && npm test -- src/fx/syn.test.ts"
+  threshold: "intermediate values = 0 (count); exact endpoints (absolute error 0)"
+  owner: frontend-coder
+
+- req: C7
+  test: T2c
+  layer: unit
+  fixture: none (synthetic s with kick: 0.9 and foo: 0.9)
+  bad_input: "a guard on Object.hasOwn(s, name), which hijacks the native inputs named like sources (shatter, serpent)"
+  expected: "synValue('foo', 0.3, {foo: 0.9}, 1) = 0.3 (no syn_ name, returns ours); synValue('kick', 0.3, {kick: 0.9}, 1) = 0.3"
+  command: "cd web && npm test -- src/fx/syn.test.ts"
+  threshold: "absolute error <= 1e-9 (unitless)"
+  owner: frontend-coder
+
+- req: C9
+  test: T2e
+  layer: unit
+  fixture: none (clock step at L = 0.5, dt = 1/60, w = 1)
+  bad_input: "the donor clock uses our rate (Time 0.5/s, CurvedTime 0.75/s), not 2L and 8L^3"
+  expected: "donor Time rate = 1.0 /s; donor CurvedTime rate = 1.0 /s; ours stays Time 0.5 /s and CurvedTime 0.75 /s at w 0"
+  command: "cd web && npm test -- src/fx/syn.test.ts"
+  threshold: "absolute error <= 1e-6 /s"
+  owner: frontend-coder
+
+- req: C9
+  test: T2f
+  layer: unit
+  fixture: none (clock with ours 0.5 /s and donor 1.0 /s, dt = 1/60)
+  bad_input: "the switch at w = 0.5 (a step), so the per-frame delta doubles"
+  expected: "the per-frame delta across w 0.49 to 0.51 changes by less than 10 %"
+  command: "cd web && npm test -- src/fx/syn.test.ts"
+  threshold: "relative change in per-frame delta < 0.10 (unitless)"
+  owner: frontend-coder
+
+- req: R2
+  test: T2g
+  layer: unit
+  fixture: none (four donor levels fed for 1 s, w = 1)
+  bad_input: "pushTrail records ours, not synValue (the trail shows our levels in donor mode)"
+  expected: "the newest LevelTrail sample equals synValue(...) at w 1, channel by channel"
+  command: "cd web && npm test -- src/fx/syn.test.ts"
+  threshold: "absolute error <= 1e-9 per channel (unitless)"
+  owner: frontend-coder
+
+- req: R2
+  test: T2h
+  layer: contract
+  fixture: web/src tree (grep, no runtime)
+  bad_input: "a def outside fx/syn/ declares an input named syn_* (the A7 assumption breaks)"
+  expected: "only the parseSyn path declares syn_* inputs"
+  command: "cd web && npm test -- src/fx/syn.test.ts"
+  threshold: "declarations outside fx/syn/ = 0 (count)"
+  owner: frontend-coder
+
+- req: R2
+  test: T2i
+  layer: contract
+  fixture: none (SYN_BIND, parseSyn of a scene with syn_PrimeBang and build)
+  bad_input: "PrimeBang still unsupported (the pin at syn.test.ts:220–222 is kept as is)"
+  expected: "syn_PrimeBang resolves to a bound input b('syn_PrimeBang', 0, 0); PrimeAndBang resolves to b('build', 0, 0). This pin moves: its reason is design §How SYN switches"
+  command: "cd web && npm test -- src/fx/syn.test.ts"
+  threshold: "unsupported entries for these names = 0 (count)"
+  owner: frontend-coder
+
+# ---- contract: bind and settings ----
+- req: R7
+  test: T3a
+  layer: contract
+  fixture: none (sourceGroups(), DONOR_GROUPS merged)
+  bad_input: "a donor id listed in two groups, or missing from every group"
+  expected: "the groups cover SOURCE_IDS exactly once; the count moves from the current list by the 31 donor ids (the pin at bind.test.ts:81 moves; reason: design §Modules)"
+  command: "cd web && npm test -- src/bind.test.ts"
+  threshold: "duplicates = 0, missing = 0 (count)"
+  owner: frontend-coder
+
+- req: R5
+  test: T3c
+  layer: contract
+  fixture: web/src tree (grep)
+  bad_input: "kickAccent bound by default in a native or a built-in (P4 must stay unbound)"
+  expected: "no bind entry names kickAccent in web/src/scenes or web/src/fx"
+  command: "cd web && npm test -- src/bind.test.ts"
+  threshold: "matches = 0 (count)"
+  owner: frontend-coder
+
+- req: R1
+  test: T3b
+  layer: unit
+  fixture: none (gain() with the donor id syn_BassLevel at 0.5)
+  bad_input: "donor sources written after gain(), so the user gain and mute skip them"
+  expected: "the donor source at gain 0.5 equals 0.5 x its ungained value"
+  command: "cd web && npm test -- src/bind.test.ts"
+  threshold: "absolute error <= 1e-6 (unitless)"
+  owner: frontend-coder
+
+- req: R1
+  test: T4a
+  layer: unit
+  fixture: none (localStorage strings: missing, 'foo', 2, and a valid record with other fields set)
+  bad_input: "a bad analyser value throws or resets the other fields (the parseSettings pattern at settings.test.ts:58 fails)"
+  expected: "analyser defaults to 'ours' when missing or bad; the other fields keep their stored values; v stays 1"
+  command: "cd web && npm test -- src/audio/settings.test.ts"
+  threshold: "resets of other fields = 0 (count); analyser default 'ours' (string)"
+  owner: frontend-coder
+
+- req: R1
+  test: T4b
+  layer: unit
+  fixture: none (round trip, the pattern at settings.test.ts:121)
+  bad_input: "analyser not serialised, so 'donor' is lost on reload"
+  expected: "after a reload the analyser is 'donor'; the stored JSON under vjw.audio has analyser: 'donor'"
+  command: "cd web && npm test -- src/audio/settings.test.ts"
+  threshold: "round-trip equality (boolean true)"
+  owner: frontend-coder
+
+- req: R1
+  test: T4c
+  layer: unit
+  fixture: none (patch({analyser: 'donor'}), then patch({analyser: 'x'}))
+  bad_input: "patch() ignores the field, or accepts an invalid value"
+  expected: "the valid patch changes the field; the invalid patch is rejected and the value stays 'donor'"
+  command: "cd web && npm test -- src/audio/settings.test.ts"
+  threshold: "field == 'donor' after the valid patch; 'x' not stored (boolean)"
+  owner: frontend-coder
+
+# ---- unit: the flash path (gl/post.ts) ----
+- req: R6
+  test: T5
+  layer: unit
+  fixture: scratchpad/dsp-donor/out/kanine.json (BassHits trace, real) and a synthetic 185 BPM OnBeat train (tau 0.1 s), 60 s
+  bad_input: "a budget per input instead of one shared budget (two inputs can pass 6/s together)"
+  expected: "one onsets array across both inputs; in every 1 s window the total passes of both inputs are <= 3; refused onsets are counted"
+  command: "cd web && npm test -- src/gl/post.test.ts"
+  threshold: "passes per 1 s window <= 3 (onsets/s, all inputs together)"
+  owner: frontend-coder
+
+- req: C1
+  test: T7a
+  layer: unit
+  fixture: none (synthetic: one ⚡ input, ours silent, donor = 6 frame-sharp hits in 1 s, w = 1, 60 fps)
+  bad_input: "gate then mix (flashGate applied to ours, then the donor value added), which lets 6 frame-sharp donor hits through"
+  expected: "boundStep output rises through 0.5 at most 3 times in the 1 s"
+  command: "cd web && npm test -- src/gl/post.test.ts"
+  threshold: "crossings of 0.5 in 1 s <= 3 (count)"
+  owner: frontend-coder
+
+- req: C1
+  test: T7b
+  layer: unit
+  fixture: none (override attack 0.04, amount 6; one donor hit; w = 1; 60 fps; 3 frames)
+  bad_input: "bypass of the binding shape (the donor value goes straight to the gate, 100 % on frame 1)"
+  expected: "frame 1 rise <= 35 % of the step (1 - e^(-dt/0.04) = 0.341); frame 2 output <= 0.6 (N3, the gated value is about 0.566)"
+  command: "cd web && npm test -- src/gl/post.test.ts"
+  threshold: "frame 1 <= 0.35 of step (unitless); frame 2 <= 0.60 (unitless)"
+  owner: frontend-coder
+
+- req: C6
+  test: T7c
+  layer: unit
+  fixture: none (seeded 10 s trace of ours and donor inputs, plus the pre-change golden trace of one SYN binding; w = 0)
+  bad_input: "any change to the ours path (an extra smoother, or the order of evaluate and gate changed)"
+  expected: "at w 0, boundStep equals flashGate(evaluate(b)) bit for bit on every frame; the golden trace matches bit for bit"
+  command: "cd web && npm test -- src/gl/post.test.ts"
+  threshold: "differing frames = 0 (count); bitwise (Object.is) equality"
+  owner: frontend-coder
+
+- req: C1
+  test: T7d
+  layer: unit
+  fixture: none ({ ...SYN_BIND.syn_BPMTri, amount: 0 } with shape and rate removed; w = 1)
+  bad_input: "the donor chain keeps the amount (the parked Canvas BPMTri comes back at full swing)"
+  expected: "the output is 0 on every frame at w = 1"
+  command: "cd web && npm test -- src/gl/post.test.ts"
+  threshold: "nonzero frames = 0 (count)"
+  owner: frontend-coder
+
+- req: R6
+  test: T8a
+  layer: unit
+  fixture: none (the serpent bass binding, the shatter kick, build and drop bindings, the serpent presence binding)
+  bad_input: "a donor chain for every input, with source = input name (serpent bass rewired to the source bass, presence to the camera presence, 0 with no camera)"
+  expected: "donorChain('bass', serpentBass) is undefined; donorChain on kick, build and drop of the native bindings is undefined"
+  command: "cd web && npm test -- src/gl/post.test.ts"
+  threshold: "defined donor chains on non-syn_ names = 0 (count)"
+  owner: frontend-coder
+
+- req: R6
+  test: T8b
+  layer: unit
+  fixture: none (SYN_BIND.syn_BPMTri with amount 0; SYN_BIND.syn_HighHits)
+  bad_input: "shape or rate kept on the donor chain (a donor value re-shaped twice)"
+  expected: "donorChain('syn_BPMTri', overridden) = { source: 'syn_BPMTri', amount: 0, shape: undefined, rate: undefined }; the syn_HighHits chain keeps its attack and release"
+  command: "cd web && npm test -- src/gl/post.test.ts"
+  threshold: "shape and rate undefined (boolean); attack and release equal to SYN_BIND (absolute error 0)"
+  owner: frontend-coder
+
+- req: R6
+  test: T8c
+  layer: unit
+  fixture: none (a clock binding on a syn_ Time input)
+  bad_input: "a donor chain on a clock binding (the clock keeps its position only through its own rate)"
+  expected: "donorChain returns undefined for a clock binding"
+  command: "cd web && npm test -- src/gl/post.test.ts"
+  threshold: "defined chains = 0 (count)"
+  owner: frontend-coder
+
+# ---- unit: calibration rows (C8) ----
+- req: R7
+  test: T6a
+  layer: unit
+  fixture: none (rows(donorMix = 0))
+  bad_input: "donor rows listed in ours mode (52 tiles instead of 21)"
+  expected: "rows(0) equals SOURCE_IDS minus bands and presence, as at calib.test.ts:13 (the pin is kept for ours)"
+  command: "cd web && npm test -- src/scenes/calib.test.ts"
+  threshold: "tile count in ours mode = the current count (count); donor ids present = 0"
+  owner: frontend-coder
+
+- req: R7
+  test: T6b
+  layer: unit
+  fixture: none (rows(donorMix = 0.5))
+  bad_input: "donor rows missing, or listed twice"
+  expected: "rows includes each of the 31 donor ids exactly once; the total is the ours count plus 31"
+  command: "cd web && npm test -- src/scenes/calib.test.ts"
+  threshold: "donor ids missing = 0, duplicates = 0 (count)"
+  owner: frontend-coder
+
+- req: R7
+  test: T6c
+  layer: unit
+  fixture: none (layout(rows(donorMix = 1)))
+  bad_input: "52 tiles overflow the stage or overlap (the layout is built for 21)"
+  expected: "every tile inside the stage and on no other tile"
+  command: "cd web && npm test -- src/scenes/calib.test.ts"
+  threshold: "overflow or overlap = 0 (count)"
+  owner: frontend-coder
+
+# ---- unit: Part B P4 (after G3) ----
+- req: R5
+  test: T9a
+  layer: unit
+  fixture: none (synthetic kick at 60 Hz, 50 ms; then the kick train of the replay)
+  bad_input: "kickAccent replaces kick, or does not decay like kick"
+  expected: "kickAccent at the kick frame is in [0, 1]; its decay is the kick decay; kick peak stays 1 (the drums pin)"
+  command: "cd web && npm test -- src/audio/drums.test.ts"
+  threshold: "kick peak = 1.0 (absolute error 0); kickAccent in [0, 1] (count of violations = 0). Blocked until G3 writes the 0..1 map"
+  owner: frontend-coder
+
+# ---- integration: offline replay (Node, scratchpad/dsp-donor) ----
+- req: R2
+  test: H4a
+  layer: integration
+  fixture: scratchpad/dsp-donor/pcm/kanine.f32, subfocus.f32, bicep.f32 (48 kHz mono, git-ignored)
+  bad_input: "a literal port of the prototype with int (full band) for Intensity, not the bass-weighted xInt3 (C11); or PrimeBang from the core's own Hits"
+  expected: "the product core reproduces every printed value of score-v2.txt; the Intensity row is the xInt3 row (body > break 7/7; gap >= .2 on 6/7); PrimeBang rising edges equal our fired count per track (3, 1, 1)"
+  command: "cd scratchpad/dsp-donor && ../../web/node_modules/.bin/rolldown parity.ts -o out/parity.mjs -p node -f esm && node out/parity.mjs pcm/kanine.f32 48000 out/parity-kanine.json && python3 -I score.py  (parity.ts imports web/src/audio/donor.ts; the coder writes it; the same for subfocus, bicep)"
+  threshold: "each printed value within 0.01 (unitless); counts exact (integers)"
+  owner: lead
+
+- req: R3
+  test: H4b
+  layer: integration
+  fixture: the same three PCM files and scratchpad/trackview/annot.json (7 drops)
+  bad_input: "Level off its mean (a raw dB Level), or Presence and Intensity flat across drop and break"
+  expected: "Level median in the rest band on all 3 tracks; Presence body > break on >= 6 of 7 drops; Intensity (xInt3) body > break on >= 6 of 7; BassHits/min divided by our kick/min in [0.8, 2.0] (report and bound); BeatTime steps/min within 1 % of the grid BPM"
+  command: "cd scratchpad/dsp-donor && python3 -I score.py (on out/parity-*.json from H4a)"
+  threshold: "Level median in [0.50, 0.70]; body > break counts >= 6/7; ratio in [0.8, 2.0]; BPM error <= 1 %"
+  owner: lead
+
+- req: R3
+  test: H4c
+  layer: integration
+  fixture: the same three PCM files, resampled to analyser cadence 120 Hz (400 samples) and 144 Hz (333 samples)
+  bad_input: "Hits flux per render tick with no HIT_DT tick (C5)"
+  expected: "BassHits/min and HighHits/min at 120 and 144 Hz within HIT_RATE_TOL of the 60 Hz run; 30 Hz (every other frame) printed as a report only (opt-in deviation)"
+  command: "cd scratchpad/dsp-donor && node out/parity.mjs pcm/kanine.f32 48000 out/rate-120-kanine.json 400 && python3 -I score.py  (repeat for 333 samples, 144 Hz, and each track)"
+  threshold: "relative deviation <= HIT_RATE_TOL (from dsp_donor_mode_gaps_2026-11-18; design value 25 %)"
+  owner: lead
+
+- req: R5
+  test: H4d
+  layer: integration
+  fixture: the same three PCM files, the P4 (iii) column (analyser frame 47–141 Hz power at the kick frame)
+  bad_input: "kickAccent taken from the 10 ms RMS of the worklet hop, not the drain frame (P4 (i) cannot be used: no contract change is planned)"
+  expected: "P4 (iii) r >= 0.6 and CV >= 0.2 against the 150 Hz truth on all 3 tracks (FR §5 criteria in dsp §B); before (kick CV 0) and after from the same run and the same frames"
+  command: "cd scratchpad/dsp-donor && node out/parity.mjs pcm/<track>.f32 48000 out/p4-<track>.json && python3 -I score.py"
+  threshold: "r >= 0.60 (unitless); CV >= 0.20 (unitless); both on 3 of 3 tracks"
+  owner: lead
+
+- req: R4
+  test: H7
+  layer: integration
+  fixture: scratchpad/fx_audio/kick-train-120.wav (generated; kick times known to 1 ms)
+  bad_input: "Hits computed at the 30 fps tick (33 ms extra), or a Hits tick held back by a full frame"
+  expected: "from the kick time to the donor BassHits crossing 0.5 on the replay at 60 Hz: p95 within the budget"
+  command: "cd scratchpad/dsp-donor && node out/parity.mjs ../fx_audio/kick-train-120.wav 48000 out/latency-120.json && python3 -I score.py (latency section)"
+  threshold: "p95 <= 40 ms (⚠️ Assumption, needs confirmation: the 21.3 ms analyser window plus one render tick and margin; the lead sets the value)"
+  owner: lead
+
+# ---- integration: the project gates (lead runner) ----
+- req: G-GATE
+  test: G-LINT
+  layer: integration
+  fixture: web/ source tree
+  bad_input: "a lint error in the new modules (donor.ts, the post.ts and live.ts changes)"
+  expected: "eslint exits 0"
+  command: "cd web && npm run lint"
+  threshold: "exit code 0 (count of errors = 0)"
+  owner: lead
+
+- req: G-GATE
+  test: G-TYPE
+  layer: integration
+  fixture: web/ source tree
+  bad_input: "a type error in the new SourceId union or the Clock.donor field"
+  expected: "tsc -b exits 0"
+  command: "cd web && npm run typecheck"
+  threshold: "exit code 0 (count of errors = 0)"
+  owner: lead
+
+- req: G-GATE
+  test: G-TEST
+  layer: integration
+  fixture: web/ test tree
+  bad_input: "a broken ours-mode pin, or a moved pin not updated (syn.test.ts:220, bind.test.ts:81, calib.test.ts:13 are the three expected moves)"
+  expected: "all tests pass; the three named pins are updated with their reason; no other pin moves"
+  command: "cd web && npm test"
+  threshold: "failures = 0 (count); the test count is recorded (baseline 487 per STATE 2026-11-07)"
+  owner: lead
+
+- req: R5
+  test: G-R80
+  layer: integration
+  fixture: UNKNOWN (two fixtures named in the project gate; the lead names them)
+  bad_input: "UNKNOWN: the metric behind the project gate 'binding r >= .80' is not named for this change"
+  expected: "UNKNOWN until the lead names the metric and the two fixtures; not PASS"
+  command: "UNKNOWN (lead to define)"
+  threshold: "r >= 0.80 on both fixtures (project gate)"
+  owner: lead
+
+# ---- browser: headless harnesses (scratchpad/donor-mode/, evidence under scratchpad/donor-mode/out/) ----
+- req: R1
+  test: H1
+  layer: browser
+  fixture: tracks/ real tracks (Kanine, Sub Focus, Bicep; not committed) with scratchpad/trackview/annot.json; scratchpad/fx_audio/dnb174-arr.wav for the luma and compile checks
+  bad_input: "a switch that rebinds or recompiles the scene (flash state lost), or an arrangement that reads a syn_* value (a false drop at the switch frame); the switch done in the console instead of the Sources tab"
+  expected: "switches made through the Sources tab control at 3 points (intro, drop body, break): (a) no drop event in donor mode that the ours-only run lacks, within 0.5 s; (b) every annotated drop that ours fires is fired in donor mode too; (c) frame-to-frame mean-luma rise > 0.10 (one luma step) at most 3 times in any 1 s window of the 4 s around each switch; (d) shader compiles and program links during the switch = 0; (e) the mix ramp takes 2.0 s"
+  command: "node scratchpad/donor-mode/h1-switch.mjs <track> [port=5174]   (evidence: scratchpad/donor-mode/out/h1-<track>.json)"
+  threshold: "false drops = 0 (count); missed drops = 0 (count); luma steps <= 3 per 1 s (count); compiles = 0 (count); ramp 2.0 +/- 0.1 s"
+  owner: lead
+
+- req: R1
+  test: H1b
+  layer: browser
+  fixture: scratchpad/fx_audio/dnb174-arr.wav (mono)
+  bad_input: "a per-toggle GPU texture or program allocation that is not released (a leak across 20 switches)"
+  expected: "20 toggles over 60 s: program count and texture count after the last toggle equal the count before the first"
+  command: "node scratchpad/donor-mode/h1b-toggle.mjs scratchpad/fx_audio/dnb174-arr.wav [port=5174]   (evidence: scratchpad/donor-mode/out/h1b.json)"
+  threshold: "program and texture count difference = 0 (count); JS heap growth <= 10 MB (⚠️ Assumption, needs confirmation: proposed)"
+  owner: lead
+
+- req: C1
+  test: H2
+  layer: browser
+  fixture: scratchpad/fx_audio/dnb174-arr.wav (174 BPM, 30 s window per scene) and scratchpad/fx_audio/dnb200-synth.wav (200 BPM, 60 s; generated); the scene list derived from BUILTIN (the 64 starred and 21 Library syn built-ins per STATE 2026-11-18, derived not hardcoded)
+  bad_input: "a scene whose I-FL1 overrides are removed in donor mode (Deeper with no flash input, Alien Cavern, Dispersion, Canvas BPMTri), the 12 scenes with a donor HighHits override (N2), or a 200 BPM OnBeat train that fills the shared budget (C3, C4)"
+  expected: "in donor mode (mix 1, after the 2 s ramp, a 5 s settle, then a 30 s window) every syn built-in: (a) luma steps > 0.10 at most 3 in any 1 s window; (b) flashGate passes <= 3 onsets/s; (c) refused onsets per input and per scene printed (for M3)"
+  command: "node scratchpad/donor-mode/h2-flash.mjs <fixture> [port=5174]  (run twice; evidence: scratchpad/donor-mode/out/h2-<fixture>-<run>.json; reuse the `60s flash audit` mode of scratchpad/gpu3d/g3-bench.mjs if its metric matches)"
+  threshold: "scenes with > 3 luma steps in 1 s = 0 (count); flashGate passes > 3/s = 0 (count). Cost: about 85 scenes x 30 s = 43 min per run"
+  owner: lead
+
+- req: R4
+  test: H8
+  layer: browser
+  fixture: line-in or a line-in-like replay of tracks/ at the desk level (the lead chooses; the P4 step only)
+  bad_input: "kickAccent aligned to the drain frame of files but not to the live line-in (dsp §B measured files only)"
+  expected: "the peak of kickAccent falls within one analyser frame of the kick hit on line-in"
+  command: "node scratchpad/donor-mode/h8-p4-align.mjs <input> [port=5174]   (run only at the P4 step)"
+  threshold: "offset <= 21.3 ms (one 1024-sample analyser frame at 48 kHz; ⚠️ Assumption, needs confirmation)"
+  owner: lead
+
+- req: C10
+  test: H6c
+  layer: browser
+  fixture: scratchpad/fx_audio/dnb174-arr.wav (mono), with analyser stored as 'donor'
+  bad_input: "a context loss or reload that leaves the donor Spectrum texture unbound (black or stale spectrum), or a reload that starts the fade at 0 (C10)"
+  expected: "(a) forced webglcontextlost, the page reloads (engine.ts:17); after reload analyser is still 'donor'; the donor texture is uploaded within 2 s; (b) booting in donor mode with a file playing: FadeInOut >= 0.9 at 1 s"
+  command: "node scratchpad/donor-mode/h6c-reload.mjs scratchpad/fx_audio/dnb174-arr.wav [port=5174]   (evidence: scratchpad/donor-mode/out/h6c.json)"
+  threshold: "analyser persisted = true (boolean); texture non-zero within 2 s (boolean); FadeInOut at 1 s >= 0.90 (unitless)"
+  owner: lead
+
+- req: R7
+  test: H6a
+  layer: browser
+  fixture: web/src/fx/syn/ (85 donor scenes, preamble.glsl)
+  bad_input: "syn_FadeInOut as a uniform breaks a scene that uses it in a constant expression (A5)"
+  expected: "every syn scene compiles in-page after the change"
+  command: "UNKNOWN exact runner: the 85/85 compile record is merge-check/synchk-b4a.txt (STATE 2026-11-18); the lead names the command before S6. Single-scene: node scratchpad/ed/compile-check.mjs (port 5175, own/julia only)"
+  threshold: "compile failures = 0 of 85 (count)"
+  owner: lead
+
+# ---- performance: browser A/B and calibration ----
+- req: R4
+  test: H3
+  layer: performance
+  fixture: scratchpad/fx_audio/dnb174-arr.wav (mono), the same scene stack for both runs, ending in an own/flash layer (the "own/flash tail")
+  bad_input: "a per-frame allocation or a texture upload in ours mode (run A), or the donor core on a 30 fps tick (the run is at 60 Hz)"
+  expected: "run A (analyser ours) and run B (donor, mix 1 after the ramp), 60 s each: billed p95 <= 5 ms in both; jsMs p95 difference B - A <= 0.5 ms; late frames (rAF > 1.5 x median) = 0 at 1.00x; donor texture uploads per frame: A = 0, B = 1; p99 and max reported (C11)"
+  command: "node scratchpad/donor-mode/h3-cost.mjs scratchpad/fx_audio/dnb174-arr.wav [port=5174]   (evidence: scratchpad/donor-mode/out/h3-A.json, h3-B.json)"
+  threshold: "billed p95 <= 5 ms (per run); jsMs p95 delta <= 0.5 ms; late = 0 (count); uploads A = 0 (count)"
+  owner: lead
+
+- req: R7
+  test: H5
+  layer: performance
+  fixture: scratchpad/fx_audio/dnb174-arr.wav (mono); the calibration scene with donor mode on (52 tiles)
+  bad_input: "52 tiles of Canvas2D draw per frame (about 2.5x the 21-tile cost, est. 6.4 ms p95), or a stuck donor tile (no value change)"
+  expected: "60 s run: billed p95 <= 5 ms; 0 late frames; the 31 donor tiles show moving values (std over 10 s > 0.01 for each); a Library tile renders the same in donor mode as in ours (w = 0; pixel difference at the tile floor)"
+  command: "node scratchpad/donor-mode/h5-calib.mjs scratchpad/fx_audio/dnb174-arr.wav [port=5174]   (evidence: scratchpad/donor-mode/out/h5-calib.json, h5-calib.png)"
+  threshold: "billed p95 <= 5 ms (project gate); late = 0 (count); tile std > 0.01 (unitless); tile pixel diff = 0 at the floor (count)"
+  owner: lead
+
+- req: G-GATE
+  test: H6b
+  layer: performance
+  fixture: scratchpad/fx_audio/dnb174-arr.wav and scratchpad/fx_audio/dubstep140-arr.wav (mono), donor mode on for half the run
+  bad_input: "a per-frame upload or a stall in donor mode that shows as late frames in the 60 s autopilot run"
+  expected: "60 s autopilot at 1.00x on both fixtures: 0 late frames"
+  command: "node scratchpad/ed/cp4-60s.mjs dnb174-arr [port=5174]  and  node scratchpad/ed/cp4-60s.mjs dubstep140-arr [port=5174]   (evidence: the script's own output)"
+  threshold: "late frames = 0 (count, rAF > 1.5 x phase median)"
+  owner: lead
+
+# ---- visual: frozen pixel pair ----
+- req: G-GATE
+  test: H9
+  layer: visual
+  fixture: each native or built-in whose bound inputs change (the lead decides which; see §4), rendered at a fixed seed and time, in ours mode
+  bad_input: "a bound input added to an existing scene, so the output moves in ours mode (w = 0 must be an identity)"
+  expected: "the pre-change and post-change frame pair is bit-identical in ours mode"
+  command: "node scratchpad/donor-mode/h9-frozen.mjs <scene-id> <fixture> [port=5174]   (evidence: scratchpad/donor-mode/out/h9-<scene>.png and .json)"
+  threshold: "differing bytes = 0 (count); if the same build differs run to run (control run), the control floor applies (the STATE 2026-11-07 precedent: 0.08/255 mean)"
+  owner: lead
+
+# ---- manual ----
+- req: R7
+  test: M1
+  layer: manual
+  fixture: the app, donor mode on, a real track from tracks/ (not committed)
+  bad_input: "a donor mode that does not hear like the donor (the lead's taste, no metric)"
+  expected: "the user listens to the 7 annotated drops and says ok or not ok (optional, non-visual: no creative gate)"
+  command: "manual: the user runs the app (npm run dev, http://localhost:5173/)"
+  threshold: "user words: ok / not ok"
+  owner: user
+
+- req: R5
+  test: M2
+  layer: manual
+  fixture: the app, P4 kickAccent in the calibration scene, on a real track
+  bad_input: "a P4 accent that the user cannot see in the app (dsp §B: the user must see it first)"
+  expected: "the user sees the accent in the app before the P4 step is built"
+  command: "manual: the user runs the app"
+  threshold: "user words: ok / not ok (before the P4 step)"
+  owner: user
+
+- req: C4
+  test: M3
+  layer: manual
+  fixture: the H2 report (refused onsets per input and per scene)
+  bad_input: "a second ⚡ input refused at random (OnBeat plus BassHits at 174 BPM takes about 97 % of the budget)"
+  expected: "the lead picks one remedy per affected scene: accept, drop the second input in donor mode, or fire OnBeat on every 2nd beat"
+  command: "manual: the lead reads scratchpad/donor-mode/out/h2-*.json"
+  threshold: "one recorded decision per scene that the H2 report flags"
+  owner: lead
+
+- req: N1
+  test: M4
+  layer: manual
+  fixture: the design, the skeptic recheck, the lead record in spec
+  bad_input: "R6 read as 'every donor value through a flash-gated input' when the operative reading (N1) is 'a ⚡ input or the audited shaping (H2)'"
+  expected: "the lead records the operative reading of R6 and the silence policy (decision 5) in STATE.md; each is backed by H2 and T1c"
+  command: "manual: the lead writes the STATE line"
+  threshold: "recorded (boolean)"
+  owner: lead
+```
+
+---
+
+## §3 Requirement index (every R and every finding with a test consequence)
+
+| ID | Covered by |
+|---|---|
+| R1 (switch, persisted, no false drop, no flash) | T1e, T1k, T2b, T2f, T3b, T4a, T4b, T4c, T7c, H1, H1b, H6c |
+| R2 (every syn_* name, 0..1, BeatTime +1) | T1d, T1f, T1p, T2a, T2d, T2g, T2h, T2i, H4a |
+| R3 (formula sanity on 3 tracks / 7 drops) | T1a, T1b, T1c, T1h, T1q, T1r, T1l, T1m, H4b, H1 (drops fire), M1 |
+| R4 (cost, warm core) | T1o, H3, H5, H7 (latency, the 30 fps deviation) |
+| R5 (Part B: P4, no pin moves) | T3c, T9a, H4d, H8, M2, the full suite (G-TEST) |
+| R6 (I-FL1: donor Hits through a ⚡ input or the audited shaping) | T5, T7a, T7b, T7d, T8a, T8b, T8c, H1 (c), H2, M4 |
+| R7 (gates green, calibration shows donor tiles) | G-LINT, G-TYPE, G-TEST, T6a, T6b, T6c, H5, H6a |
+| C1 (shaping lost in donor mode) | T7a, T7b, T7c, T7d, H2 (Deeper, Alien Cavern, Dispersion), H1 (c) |
+| C2 (silence edge; instant predicate) | T1i, T1j |
+| C3 (H2 blind to raws and clocks; 185 BPM) | H2 (200 BPM run, luma metric) |
+| C4 (budget app-wide; OnBeat 3x) | T5, H2 (refused onsets per input), M3 |
+| C5 (Hits per render tick; 120 / 144 Hz) | T1g, H4c (HIT_RATE_TOL) |
+| C6 (ordering untested in Vitest) | T7a, T7b, T7c, H1 (c, d) |
+| C7 (synValue guard; serpent / shatter) | T2c, T8a, T8b, T8c |
+| C8 (calibration cost, 52 tiles) | T6b, H5 |
+| C9 (clock rate jump at w = .5) | T2e, T2f |
+| C10 (cold start, FadeInOut) | T1k, H6c (b) |
+| C11 (formulas, PrimeBang, InputLevel, p99 / max) | T1l, T1m, T1n, H4a, H3 (p99, max) |
+| N1 (Deeper, no ⚡, R6 reading) | H2, M4 |
+| N2 (12 HighHits overrides, donor rate 2.3–4.7x) | H2 (the 12 scenes) |
+| N3 (frame-2 value of the gate) | T7b (frame 2 <= 0.6) |
+
+Every finding C1–C11 and N1–N3 has at least one ID. Every R1–R7 has at least one ID.
+
+## §4 Open items for the lead (before S4 / S6)
+
+1. **Gaps lane (blocks the rows that use it):** `SILENT_RMS` (T1j, H4c), `HIT_DT` and θ per tick (T1g, H4c, H7), `HIT_RATE_TOL` (T1g, H4c). Any run that uses them before the lane writes its file is UNKNOWN.
+2. **Pins that move, each with a stated reason:** `web/src/fx/syn.test.ts:220–222` (PrimeBang now supported, T2i); `web/src/bind.test.ts:81` (31 donor ids, T3a); `web/src/scenes/calib.test.ts:13` (ROWS becomes `rows(donorMix)`, T6a). The rest of the suite stays unchanged.
+3. **Seams the coders must export** (§1): `intensityStep`, `primeBang`, `inputLevel`, `boundStep`, `donorChain`, `rows(donorMix)`. Without them, T1l–T1n, T6b, T7 and T8 cannot run in Vitest.
+4. **Frozen pair (H9):** the design adds `syn_PrimeBang` and `build` bindings to syn scenes that declare them. Decide whether a syn built-in that gains a bound input counts as "an existing native gains inputs". If yes, H9 runs on it. If no, H9 is N/A with that reason.
+5. **Scene count:** the spec says 87, the dsp says 88 folders, the skeptic and STATE say 85 donor scenes plus preamble. T2d and H2 derive the list from the files, so the count does not need fixing.
+6. **H2 cost:** about 43 min per run at 30 s per scene; two runs about 85 min of headless browser time. The lead decides the run plan; the list may be split into two sessions.
+7. **Fixtures:** the 200 BPM and the kick-train fixtures must be generated (scratch, not committed). All four `fx_audio` files are mono; stereo only where L/R matters.
+8. **H7 threshold (40 ms p95) and H8 (21.3 ms) are proposed.** They are ⚠️ Assumption, needs confirmation.
+9. **Project gate "binding r >= .80 on both fixtures" (G-R80):** the metric and the two fixtures are not named for this change. The row is UNKNOWN until the lead names them.
+10. **Annotations:** the 7 drop annotations were not ear-checked (dsp Freshness; only Sub Focus 146.5 s was). H1's "real drops fire" depends on them. M1 is the user's check of the annotations.
+11. **Tempo:** H2 at ≥ 185 BPM. The skeptic's bound is 185 BPM (`audio/presets.ts:35` × `audio/tempo.ts:44` MARGIN 1.1 gives 203.5). The run uses 200 BPM.
+12. **Cadence:** the design's 30 fps check (opt-in '30' mode, `app.ts:293`) is report-only in T1g and H4c. It is a recorded deviation, not a gate.
+
+## Freshness of this matrix
+2026-11-18, test-architect (Haiku 5.5). Repo `master` `76e6ab4`. This matrix is an input to the planner (S4) and to the coders (S5). It does not write PASS: the lead runs every row with runner evidence (commit SHA, command, exit code, evidence path).
+
+## Lead rulings (2026-11-18, before S4)
+- **G-R80:** N/A for this change. No binding of our own sources is retuned. Our mode's identity is covered by T7c (output at w 0 equals ours exactly) plus the gates. The Part B numbers for R5 come from H4d and `dsp_donor_mode_gaps_2026-11-18.md`.
+- **H6a compile runner:** start a fresh Vite on :5180, then run `node scratchpad/donor-vs2/b1b/check.mjs 5180 $(ls web/src/fx/syn/*.glsl | grep -v preamble)` from the repo root. Pass = every scene prints `== syn/<id> OK`. Record the output to `scratchpad/donor-vs2/merge-check/synchk-donor-mode.txt`. Baseline: 85/85 (`synchk-b4a.txt`).
+- **H2 run plan:** the lead runs H2 at S6 with the GPU otherwise idle: two runs (dnb174-arr, and the coder-generated 200 BPM synthetic), SEC=30, Chrome `--disable-audio-output`. The cost of ≈ 85 min is accepted.
+- **H9:** N/A as a frozen pair. In both modes, the scenes that read `syn_PrimeBang` / `syn_PrimeAndBang` now re-roll on our `fired` / `build`, which is an intended look change; log it in the plan.
+- **Test-count baseline:** 722 (master `c68a5ef`), not 487.
+- **H7 (40 ms p95 latency) and H8 (21.3 ms line-in offset):** accepted as thresholds marked ⚠️ assumption. Any change to them goes on record at S6.
