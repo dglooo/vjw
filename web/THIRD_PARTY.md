@@ -104,36 +104,46 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `isf/Worley Cells.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/v002-CRT-Displacement.fs` | vade | https://github.com/Vidvox/ISF-Files | MIT |
 
-### own (34)
+### own (44)
 
 | path | author | source | license |
 |---|---|---|---|
 | `own/bars.fs` | VeeJay Wizard (own) + FFT Color Lines and FFT Filled Waveform (VIDVOX) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
 | `own/bloom.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/change-color.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/checker.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/color-threshold.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/dent.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/diff-feedback.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/domain-warp.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/echo.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/edge-rings.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/emboss.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/feedback-zoom.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/flash.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/flow-smear.fs` | VeeJay Wizard (own) + Optical Flow Generator (VIDVOX / v002 / Andrew Benson) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
 | `own/flythrough.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/fractal.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/gradient.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/hsv-blur.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/ink.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/julia.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/laser-grid.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/led-grid.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/light-tunnel.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/liquid-chrome.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/metaballs.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/mosaic.fs` | VeeJay Wizard (own) + Triangle Mosaic (VIDVOX) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
+| `own/negative.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/phaser.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/polar.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/radial-blur.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/reaction-diffusion.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/rgb-contrast.fs` | VeeJay Wizard (own) | - | MIT (own) |
+| `own/rgba-blur.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/scanlines.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/sdf-shapes.fs` | VeeJay Wizard (own) + hg_sdf (Mercury) | https://mercury.sexy/hg_sdf/hg_sdf.glsl | MIT (own), MIT (hg_sdf, its MIT option) |
+| `own/sharpen.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/smoke.fs` | VeeJay Wizard (own) + webgl-noise srdnoise (Stefan Gustavson) | https://github.com/stegu/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/stars.fs` | VeeJay Wizard (own) + Stars2D and PolkaDot2D from Brian Sharpe's Wombat | https://github.com/BrianSharpe | MIT (own), Wombat permissive ("use the code however you wish, credit"; no licence file in the in-repo TD extract; personal use) |
 | `own/strobe.fs` | VeeJay Wizard (own) | - | MIT (own) |
@@ -161,7 +171,7 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `transitions/Swirl.glsl` | Sergey Kosarevsky | https://github.com/gl-transitions/gl-transitions/blob/master/transitions/Swirl.glsl | MIT |
 | `transitions/crossfade.glsl` | VeeJay Wizard (own) | - | MIT (own) |
 
-### syn (61)
+### syn (72)
 
 | path | author | source | license |
 |---|---|---|---|
@@ -184,6 +194,7 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `syn/dispersion.glsl` | cornusammonis | donor/visual_system_2/scenes/release/dispersion.synScene | unknown (the donor's CREDIT names cornusammonis only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/dynamical_flame.glsl` | cornusammonis | donor/visual_system_2/scenes/release/dynamical_flame.synScene | unknown (the donor's CREDIT names cornusammonis only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/entombed_silicon_dreams.glsl` | mrange (Mårten Rånge) | donor/visual_system_2/scenes/release/entombed_silicon_dreams.synScene | CC0 1.0 Universal (the dedication is kept below; helpers: sam hocevar WTFPL, Inigo Quilez MIT, Pascal Gilcher MIT) |
+| `syn/equirectangular.glsl` | Shady Headstash (the donor's CREDIT) | donor/visual_system_2/scenes/release/equirectangular.synScene | unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/exoplanet.glsl` | Meebs ft. WAHa_06x36 | donor/visual_system_2/scenes/release/exoplanet.synScene | unknown (the donor's CREDIT names Meebs ft. WAHa_06x36 only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/fluid_body.glsl` | Victor S.; HSLUV-GLSL v4.2: William Malo (https://github.com/williammalo) | donor/visual_system_2/scenes/release/fluid_body.synScene | unknown (the donor's CREDIT names Victor S. only; shipped inside a commercial app; personal use, ⚠️ check before release); HSLUV-GLSL: its header is kept below, it names no licence |
 | `syn/fractilian_foundation.glsl` | mojovideotech (based on "Fractals: MRS" by Nikos Papadopoulos, 4rknova) | donor/visual_system_2/scenes/release/fractilian_foundation.synScene | CC BY-NC-SA 3.0 Unported (the file's own notice is kept below) |
@@ -210,22 +221,32 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `syn/overload.glsl` | Alex Rowe | donor/visual_system_2/scenes/release/overload.synScene | unknown (the donor's CREDIT names Alex Rowe only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/pop.glsl` | Meebs (the polygon layers: "by @301z", kept below) | donor/visual_system_2/scenes/release/pop.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/preamble.glsl` | the donor app (anonymised in donor/visual_system_2/report.md); _hsv2rgb/_rgb2hsv: sam hocevar (WTFPL, https://stackoverflow.com/a/17897228/418488) | donor/visual_system_2/glsl/01_preamble.txt | unknown (app resource strings, copied as text; recorded per spec §6); _hsv2rgb/_rgb2hsv WTFPL |
+| `syn/pxl_sort_1.glsl` | Meebs | donor/visual_system_2/scenes/release/pxl_sort_1.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release). The noise snippet has no header in the donor file; it reads as webgl-noise's classic Perlin (Ian McEwan / Stefan Gustavson, MIT) |
 | `syn/quicksand.glsl` | Meebs | donor/visual_system_2/scenes/release/quicksand.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/raw_video.glsl` | unknown (the donor's CREDIT is empty: the donor app's own utility scene) | donor/visual_system_2/scenes/release/raw_video.synScene | unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/raymarched_reflections.glsl` | Shane (the body's title comment: "Raymarched Reflections") | donor/visual_system_2/scenes/release/raymarched_reflections.synScene | unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/rearranged.glsl` | Meebs | donor/visual_system_2/scenes/release/rearranged.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/redrum.glsl` | Meebs (grit / flashing effect by jmpep, Shadertoy: the body's first comment) | donor/visual_system_2/scenes/release/redrum.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/replik8.glsl` | Meebs | donor/visual_system_2/scenes/release/replik8.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/scaffold_fractal.glsl` | Meebs (after kabuto, fork by s1e; glslsandbox.com) | donor/visual_system_2/scenes/release/scaffold_fractal.synScene | unknown (the body credits "a raymarching experiment by kabuto, dmt fork by s1e, found on glslsandbox.com"; no licence text; personal use, ⚠️ check before release) |
 | `syn/shrouded.glsl` | Felix Woitzel ft. Meebs | donor/visual_system_2/scenes/release/shrouded.synScene | unknown (the donor's CREDIT names Felix Woitzel ft. Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/sinusoidal_warp.glsl` | Shane ("Bumped Sinusoidal Warp", https://www.shadertoy.com/view/4l2XWK), modified by Mikael Ems (Shady Headstash) | donor/visual_system_2/scenes/release/sinusoidal_warp.synScene | CC BY-NC-SA 3.0 Unported (the body's licence lines are kept) |
 | `syn/sprinkles.glsl` | sheltron ft. Meebs | donor/visual_system_2/scenes/release/sprinkles.synScene | unknown (the donor's CREDIT names sheltron ft. Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/square_shoals.glsl` | Alex Rowe | donor/visual_system_2/scenes/release/square_shoals.synScene | unknown (the donor's CREDIT names Alex Rowe only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/stained_glass.glsl` | Meebs | donor/visual_system_2/scenes/release/stained_glass.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/sun_set.glsl` | Meebs | donor/visual_system_2/scenes/release/sun_set.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/swarm.glsl` | Meebs | donor/visual_system_2/scenes/release/swarm.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release); the particle draw cites iq, "Brick", shadertoy.com/view/MddGzf |
+| `syn/terrain_lattice.glsl` | Shane (the body's title comment: "Terrain Lattice") | donor/visual_system_2/scenes/release/terrain_lattice.synScene | unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/thresholder.glsl` | Kyle Grover (Classic Perlin 3D Noise by Stefan Gustavson) | donor/visual_system_2/scenes/release/thresholder.synScene | unknown (the donor's CREDIT names Kyle Grover only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/traced_tunnel.glsl` | Shane (the body's title comment: "Traced Tunnel"; after W23's "Past Racer" and NuSan's "Corridor Travel") | donor/visual_system_2/scenes/release/traced_tunnel.synScene | unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/transparent_isoslices.glsl` | Shane (the body's title comment: "Transparent Isoslices") | donor/visual_system_2/scenes/release/transparent_isoslices.synScene | unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/tunnel_beauty_6.glsl` | aiekick (Stephane Cuillerdier, @Aiekick, 2016) | donor/visual_system_2/scenes/release/tunnel_beauty_6.synScene | CC BY-NC-SA 3.0 Unported (the body's licence line is kept) |
 | `syn/turbo_encabulator_fluid.glsl` | cornusammonis (the donor's CREDIT: "Original by cornusammonis from shadertoy"); noise: Inigo Quilez | donor/visual_system_2/scenes/release/turbo_encabulator_fluid.synScene | unknown (the Shadertoy original names no licence; shipped inside a commercial app; personal use, ⚠️ check before release); the noise helper: MIT, Copyright © 2013 Inigo Quilez (the notice is kept below) |
 | `syn/vein_melter.glsl` | cornusammonis | donor/visual_system_2/scenes/release/vein_melter.synScene | unknown (the donor's CREDIT names cornusammonis only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/videofx_1.glsl` | unknown (the donor's CREDIT is empty: the donor app's own utility scene) | donor/visual_system_2/scenes/release/videofx_1.synScene | unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/videofx_directionalblur.glsl` | unknown (the donor's CREDIT is empty: the donor app's own utility scene) | donor/visual_system_2/scenes/release/videofx_directionalblur.synScene | unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/voronoi_geode.glsl` | Shane (the body's title comment: "Perspex Web Lattice") | donor/visual_system_2/scenes/release/voronoi_geode.synScene | unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/waterly.glsl` | FabriceNeyret2 ("waterly video - test", https://www.shadertoy.com/view/MdlGDM), modified by Mikael Ems (Shady Headstash); noise: Inigo Quilez (https://www.shadertoy.com/view/XslGRr) | donor/visual_system_2/scenes/release/waterly.synScene | CC BY-NC-SA 3.0 Unported (the body's licence lines are kept) |
 
 ### Parser port
 
