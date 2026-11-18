@@ -7,6 +7,7 @@
 // (random_camera): no data form for a random re-roll, so random_spot rests at the script's start (0, 0, 1) and the two
 // controls are dropped. media_style: the donor's reversed range is written 0 to 1. syn_Media is black (no media
 // input yet): the scene shows its own colours (the donor's no-media branch).
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): AA 2 → 1
 /*{
   "TITLE": "Mandelbrot Decoration",
   "CREDIT": "Shane",
@@ -110,7 +111,8 @@ vec4 renderMainImage() {
     float cameraTime = (TIME*0.5 + syn_Time*0.05)*0.5;
     // Anitaliasing: Just a 2 by 2 sample. You could almost get away with not using
     // it at all, but it is necessary.
-    #define AA 2
+    // VJW: was 2 (res .5 → .85, agents/guides/guide_syn_res_085.md)
+    #define AA 1
     for(int j=0; j<AA; j++){
         for(int i=0; i<AA; i++){
 
