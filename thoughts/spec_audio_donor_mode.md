@@ -7,7 +7,7 @@
 - This is Tier 3 and non-visual: S0 → S1 audio-dsp → S2 system-designer → architecture-skeptic → lead pick → test-architect → S4 plan → S5 build → S6. No creative-director, S3 or S7.
 
 ## Freshness
-- 2026-11-18, lead intake. Inputs: `dsp_formula_review_2026-11-17.md` §1–§3, §5; `research_donor_visual_system_2.md` §7; `web/src/fx/syn.ts` (the `SYN` table, adapter step 3 is moving it onto our detector).
+- 2026-11-18, lead intake. Inputs: `dsp_formula_review_2026-11-17.md` §1–§3, §5; `research_donor_visual_system_2.md` §4; `web/src/fx/syn.ts` (the `SYN` table, adapter step 3 is moving it onto our detector).
 
 ## User words
 «добавим еще один алгоритм короче распознавание звука чисто будет как у них и в наш мы встроим то что нам не достает»
@@ -30,7 +30,7 @@
 
 ## Acceptance (IDs)
 - **R1** A mode switch (ours / donor) in the Sources tab. It is persisted, and switching it mid-track causes no false drop and no flash.
-- **R2** Donor mode exposes every `syn_*` audio name the 87 donor scenes use (research §7 table) as a live value. The values are 0..1 where the donor's docs say 0..1, and `BeatTime` steps +1 per beat.
+- **R2** Donor mode exposes every `syn_*` audio name the 87 donor scenes use (`research_donor_visual_system_2.md` §4 table) as a live value. The values are 0..1 where the donor's docs say 0..1, and `BeatTime` steps +1 per beat.
 - **R3** Formula sanity on the same 3 tracks / 7 drops as the formula review (offline sim): Level rests near its mean; Hits fire on transients, with a hit count per minute reported against our kick; Presence rises over a section; Intensity is higher in a drop body than in a break on ≥ 6/7 drops.
 - **R4** Cost: the donor analyser adds ≤ 0.5 ms main-thread p95 per frame. It runs only while donor mode is on or a donor source is bound.
 - **R5** Part B: each embedded gap has a before/after offline number on the same dataset (SDLC §4). No existing pin moves without a stated reason.
