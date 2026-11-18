@@ -593,3 +593,28 @@ Each is `⚠️ Assumption, needs confirmation`.
 - The S1.1 brief points at: this plan `### S1.1`, `## Parameters` and the CP1 contract; `agents/audio-dsp/dsp_donor_mode_2026-11-18.md` L20-48; `agents/audio-dsp/dsp_donor_mode_gaps_2026-11-18.md` L40 and L58; `scratchpad/dsp-donor/donor-model.ts`.
 - Every brief opens with the SDLC section 15 YAML header and says: invoke `ponytail` first; run graphify before reading code.
 - Before S5 starts: the test-architect runs the S4 coverage on `## Coverage index`, and the lead rules on `## Deltas` items 3 and 6.
+
+## Coverage fixes (2026-11-18)
+Source: the S4 coverage section of `agents/test-architect/matrix_audio_donor_mode.md` (plan `245a291`) and the lead's rulings. Each item overrides the plan body.
+
+- **F1, `## Assumptions` item 6:** deleted. S1.1 item 4 sets Level to 0 on every `g.silent` frame; T1c's sum must be exactly 0. No report fallback.
+- **F2, S1.1 T1l:** keep the old text as arm (a). Arm (b), what `update()` writes: 120 s of baseline in which every bin alternates +1 / -1 dB frame by frame (sigma 1 dB); then 3 s steady with the Bass bins +1.6 dB and the High bins -1.6 dB (N60 0.9 and 0.1). At the end `syn_Intensity` is within 0.03 of `intensity(e)`, `e` = `intensityStep` run from 0.5 over the same 180 frames at (0.9, 0.1): about 0.74. A .5/.5 or full-band form reads 0.5 or less and fails.
+- **F2, S6 row 3 H4b (S4.1 `score.py` prints it):** Intensity is scored on the `xInt3` row, the product's form: body > break on >= 6 of 7 drops, and the p50 gap >= .2 on >= 6 of 7. The rest stays.
+- **F3, S6 row 3 H4a (S4.1 `score.py`):** only three blocks of `out/score-v2.txt` are compared: the R3 Level block, the R3 sections block (Intensity = `xInt3`) and the beats block. Values within 0.01; counts exact. Not compared: the R1 cold start, the prototype's PrimeBang list, the P4 and P6 blocks, the cost line. New: the rising edges of `syn_PrimeBang` equal our `fired` count per track: Kanine 3, Sub Focus 1, Bicep 1.
+- **F4, S2.3 T2g:** `s` holds ours (`reeseBody` 0.2, `subBody` 0.3, `band27` 0.1) and donor (`syn_Level` 0.8, `syn_BassLevel` 0.7, `syn_MidLevel` 0.6, `syn_HighLevel` 0.9) for 60 frames. The reference bindings are literals in the test, not `donorChain` calls: `{ source: 'syn_Level', amount: 1, attack: 0.05, release: 0.3, min: 0, max: 1 }`, and the other three names with `release: 0.15`. First assert: the ours bytes differ from the donor bytes in all 4 channels. At `w` 1 the newest texel equals the bytes of `evaluate` on the literals, stepped alongside; at `w` 0 it equals the ours bytes.
+- **F5 + F7, S1.2 T1g:** the train gains a snare (noise 300 Hz-5 kHz) on every second beat, so all four bands fire. Frames are cut at 30, 60, 120 and 144 Hz. For each of Bass, Mid, MidHigh and High, Hits per minute at 30, 120 and 144 Hz are within +-10 % of the 60 Hz value. 12 gates, none report-only. The mutant check stays.
+- **F5, S6 row 3 H4c:** every band within +-10 % of its 60 fps rate at 30, 120 and 144 fps. 30 fps is a gate.
+- **F6, S1.2 T1i:** run A = 10.1 s of the T1g train (60 Hz cut), 5 s at -120 dB with `silent`, 10 s of train. The zeros start 100 ms after a beat, so no onset is in the edge window. Run B = the same frames without the 5 s. New assert: the triggers of the four bands, summed over the 0-2 s after the resume, A / B is in [0.9, 1.1]. The old asserts stay.
+- **F8, S1.2, new PA5:** on the T1g frames at 30 and 60 Hz, p10, p50 and p90 of each of the five Levels over 20-60 s differ by at most 0.05 (`LEVEL_RATE_TOL`; measured 0.01). p10 and p90 catch a smoother not scaled by `dt`.
+- **F9, new H9b (coder-owned), in the done-checks of S2.2 and S2.5:** scratch `scratchpad/donor-mode/h9b-pixels.mjs`. Mode ours. Scenes: the built-ins on `syn/alien_cavern` (SOFT_SNARE), `syn/deeper` (clocks) and `syn/glob` (reads `syn_FadeInOut`). One fixed frame of `scratchpad/fx_audio/dnb174-arr.wav` (the frozen-pair method, STATE 2026-11-07). "Before" = the step's base commit; "after" = the finished step. Pass: 0 differing bytes per scene. A control pair (one build, two captures) runs first; if it differs, its floor is the pass line (matrix row H9) and the report gives both. S2.5 also compares its "after" with the S2.2 "before" (covers S2.3, S2.4). Evidence: the main checkout's `scratchpad/donor-mode/out/h9b-<step>-*`.
+
+Conditions:
+- **S1.1 T1j:** the AM rate is 0.5 Hz, not 2 Hz (a 150 ms release flattens a 2 Hz swing). Each swing is taken over 4 s. The test prints the pre-pause swing, which must be above 0.5, and both ratios. Only the `>= 0.5` arm is a product assert; the `< 0.5` arm shows that the fixture discriminates.
+- **S1.5, pin `bind.test.ts:72`:** it stays an exact `toEqual` on the full sorted key list (`SOURCE_IDS` + the 5 unlisted names), never a subset check.
+- **`## Parameters`, Silence row:** `SILENT_RMS` is the existing constant of `audio/arrange.ts` (-60 dBFS; imported at `app.ts:3`).
+
+`## Coverage index`: S1.2 plan-added = PA5. S2.2 = H9b (owner; S2.5 re-runs it). Totals: 46 coder-owned IDs (45 matrix + H9b), one owning step each; plan-added PA1-PA5; lead 21; user 2.
+
+Planner notes:
+- H4a compares no Hits row: G4 changed the tick and THETA, so the Hits rates of `score-v2.txt` moved. H4b and H4c score Hits.
+- S3.2's check scene id is `syn/audio_indicators` (underscores).
