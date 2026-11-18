@@ -3,6 +3,7 @@
 // License: unknown (the donor's CREDIT names sheltron only; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts; body: int literals → float (ES 3.00). Controls: color_palette (the donor's
 // bang counter: each press steps the palette) is a 0…9 slider; monochrome_color gets a default (the donor file has none).
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Beamers",
   "CREDIT": "sheltron",

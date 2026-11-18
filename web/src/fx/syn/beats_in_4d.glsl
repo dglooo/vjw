@@ -4,6 +4,7 @@
 // VeeJay Wizard, 2026: ported for fx/syn.ts. Changes: the script's vector `ro` is the clocks ro_x/ro_y (rot(ro.x) →
 // rot(ro_x)); the clocks follow script.js (per second: dt_blend = speed_control.x + speed_control.y · syn_BassLevel).
 // ⚡ syn_BassHits (the kick) is flash-gated: it drives B, the exp(6·B) flash term.
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Beats in 4D",
   "CREDIT": "mrange",

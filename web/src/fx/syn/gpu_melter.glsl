@@ -6,6 +6,7 @@
 // body compared it with 0.0 / 0.1 / 0.2 / 0.3: now < .5 / 1.5 / 2.5 / 3.5); fresh_blocks (a bang counter) is a 0…10
 // slider; pixelation 4…500 (the donor wrote MIN 500, MAX 4). ⚡ syn_HighHits (the hats) is flash-gated: `flashing`
 // multiplies the background by .4 + .7·HighHits.
+// res .4 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "GPU_Melter",
   "CREDIT": "Meebs",

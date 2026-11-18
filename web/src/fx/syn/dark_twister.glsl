@@ -4,6 +4,7 @@
 // VeeJay Wizard, 2026: ported for fx/syn.ts, body unchanged. The script's clocks add per frame (no dt): restated per
 // second at the donor's 60 fps (x 60). syn_FinalPass (the motion blur) = the screen pass's own TARGET (fx/syn.ts).
 // ⚡ syn_BassHits (the kick) is flash-gated: it drives B, the flash sphere's colour, size and the x10 flash_mix.
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): max_steps 90 → 60
 /*{
   "TITLE": "Dark Twister",
   "CREDIT": "mrange",
@@ -64,7 +65,8 @@ vec3 hsv2rgb(vec3 c) {
 float
   TAU=2.*PI
 , max_dist  = 10.
-, max_steps = 90.
+// VJW: was 90. (res .25 → .85, agents/guides/guide_syn_res_085.md)
+, max_steps = 60.
 , norm_eps  = 5e-4
 , tolerance = 5e-4
 ;

@@ -5,6 +5,7 @@
 // initializer must be constant); PI/2 → PI/2.0, 2*PI → 2.0*PI; the neighbour taps step one backTex texel
 // (_backTex_imgSize, was the donor's fixed 1408x792). The script's clocks add per frame (no dt): restated per second at
 // the donor's 60 fps (x 60). Pass 0 raymarches one 60° wedge into backTex (FLOAT), the screen pass folds it 6 ways.
+// res .4 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "KaleidoWHOA, MAN",
   "CREDIT": "Meebs",

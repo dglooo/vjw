@@ -6,6 +6,7 @@
 // body computes it from syn_BeatTime (the beat count): the same motion on our beat grid. Controls: fly_in_out (the
 // donor's slider traveler) is the clock `fly_in_out` wound by the new slider fly_rate (4.8 / s at full: the donor's
 // PARAMS .08 per frame, ⚠️ guessed); the scalar xy default is a pair.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Hex Array",
   "CREDIT": "sheltron",
