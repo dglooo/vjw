@@ -340,3 +340,39 @@ test('energy (P2): τ 3 s levels of low and high over their 60 s means, .8 : .2,
   // 10 s of its EMA toward 2
   expect(hold(30, 2, 0.5)[0]).toBeCloseTo(knee(0.8 * (2 / (2 - 0.25 * Math.exp(-10 / 60))) + 0.2), 2)
 })
+
+// A file's seek (app.ts: the player's `seeked`): seek() on the first frame at or after `at` s.
+const runSeek = (frames: readonly ArrangeIn[], at: number) => {
+  const a = createArrangement()
+  let sought = false
+  return frames.map((f) => {
+    if (!sought && f.now >= at) {
+      a.seek(f.now)
+      sought = true
+    }
+    return { now: f.now, ...a.update(f) }
+  })
+}
+
+test('seek: a scrub out of an armed break into the drop fires nothing (played through, it fires); 1 s of no build; energy runs on', () => {
+  const frames = song(GROOVE, BREAK, DROP) // the break arms; its drop fires at 40.1 s when played through
+  const [played, sought] = [run(frames), runSeek(frames, 40)]
+  expect(fires(played)).toHaveLength(1)
+  expect(fires(sought)).toEqual([]) // the section restarted at the seek: no arm, so the drop's 10 s fire nothing
+  expect(sought.map((f) => f.energy)).toEqual(played.map((f) => f.energy)) // the 60 s means are the track's
+  // a seek 5 s into the break: build 0 for SEEK s, then a new run from 0 (played through it climbs on)
+  const mid = runSeek(frames, 35)
+  expect(mid.filter((f) => f.now >= 35 && f.now < 36).every((f) => f.build === 0 && f.fired === null)).toBe(true)
+  expect(at(mid, 39.9).build).toBeLessThan(at(played, 39.9).build)
+})
+
+test('seek: G, `music` and the warm-up stay, so a break and drop after a seek in the groove still fire', () => {
+  expect(fires(runSeek(song(GROOVE, BREAK, DROP), 25))).toHaveLength(1)
+})
+
+test('seek: no build from a jump in `high` (a scrub to the riser part of a break): the riser re-learns during SEEK', () => {
+  const frames = song(GROOVE, { ...BREAK, s: 5 }, { ...BREAK, s: 5, high: 8 }) // the jump at 35 s, sparse either side
+  const peak = (r: ReturnType<typeof run>) => Math.max(...r.filter((f) => f.now >= 35 && f.now < 38).map((f) => f.build))
+  expect(peak(run(frames))).toBeGreaterThan(0.8) // played through, the jump reads as a riser
+  expect(peak(runSeek(frames, 35))).toBeLessThan(0.2) // the fast EMA's last few % after SEEK
+})

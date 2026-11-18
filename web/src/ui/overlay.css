@@ -49,6 +49,27 @@
   border-radius: 6px;
 }
 
+/* The file transport (Overlay.tsx): the same bar at the bottom, its gradient flipped */
+.bar.transport {
+  inset: auto 0 0;
+  gap: 10px;
+  padding: 28px 18px 12px;
+}
+.bar.transport::before {
+  background: linear-gradient(#0000, #000b);
+}
+.transport input[type='range'] {
+  flex: 1;
+  margin: 0 6px;
+  accent-color: #d8d8d8;
+}
+.transport .time {
+  min-width: 11ch;
+  text-align: right;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
 .bar button[aria-pressed='false'] {
   text-decoration: line-through; /* "Video" off: the camera picture is hidden */
   color: #8888;

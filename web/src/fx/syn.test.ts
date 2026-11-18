@@ -237,14 +237,16 @@ describe('SYN and the bundled scenes', () => {
   const files = import.meta.glob(['./syn/*.glsl', '!./syn/preamble.glsl'], { query: '?raw', import: 'default', eager: true })
   const defs = Object.entries(files).map(([path, src]) => parseSyn(src as string, path.slice('./'.length, -'.glsl'.length)))
 
-  test('each parses clean; its built-in binds every bound syn_* input; ⚡ names inputs', () => {
+  test('each parses clean; its built-in binds every bound syn_* input (and may bind its controls); ⚡ names inputs', () => {
     expect(defs.map((d) => d.id)).toEqual(expect.arrayContaining(['syn/beats_in_4d', 'syn/dark_twister', 'syn/kaleidowhoa_man'])) // ports add more
     for (const d of defs) {
       expect(d.unsupported, d.id).toBeUndefined()
       const gens = BUILTIN.flatMap((s) => s.layers.map((l) => l.gen)).filter((g) => g.ref === d.id)
       expect(gens.length, d.id).toBe(1)
       const want = d.inputs.filter((i) => i.name.startsWith('syn_')).map((i) => i.name)
-      expect(Object.keys(gens[0].bind ?? {}).sort(), d.id).toEqual(want.sort())
+      const keys = Object.keys(gens[0].bind ?? {})
+      expect(keys, d.id).toEqual(expect.arrayContaining(want))
+      for (const k of keys) expect(d.inputs.map((i) => i.name), `${d.id} binds ${k}`).toContain(k) // a declared input: no stray or raw name
       for (const f of d.flash ?? []) expect(want, d.id).toContain(f)
     }
   })

@@ -68,5 +68,8 @@ export const store = {
   },
 }
 
+/** The transport's time, m:ss (a 2 h mix reads 120:00); '–:––' for a duration not known yet (NaN) or a stream (Infinity). */
+export const clock = (s: number) => (Number.isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '–:––')
+
 /** The saved input device, only if it is still in the list. */
 export const pickSaved = (devices: UiSnapshot['devices'], savedId: string | null) => devices.find((d) => d.id === savedId)

@@ -88,6 +88,11 @@ const RATIO = 16 // a return this many × the sparse mean gives full confidence 
 const ENERGY = 3 // knob: s
 const REF = 60 // knob: s
 const HIGH = 0.2 // knob: high's share
+// A file's seek: the section so far is another part of the track. For SEEK s every frame restarts it (no arm, return,
+// run, cut, cut wait or build; the riser's slow EMA sits on the fast one) while `slow` and the riser learn the new spot.
+// Then a drop needs fresh evidence: a deep cut (≥ cutMin) or a run (≥ arm). G, energy's means and `music` are the
+// track's: they stay. Ceiling: a seek into a pre-drop cut shorter than SEEK + cutMin misses that drop.
+const SEEK = 1 // knob: s
 
 const ema = (dt: number, tau: number) => 1 - Math.exp(-dt / tau)
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
@@ -95,7 +100,7 @@ const clamp = (x: number) => Math.min(1, Math.max(0, x))
 /** A confident drop (≥ 0.6), once `confirmed`, cuts the scene — unless the user holds (LOCK or the panel open) (plan S5.3). */
 export const shouldCut = (fired: number | null, hold: boolean) => fired !== null && fired >= 0.6 && !hold
 
-export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: ArrangeIn): ArrangeOut } {
+export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: ArrangeIn): ArrangeOut; seek(now: number): void } {
   const o = { ...DEFAULTS, ...opts }
   const out: ArrangeOut = { build: 0, drop: 0, heat: 0, energy: 0, sparse: false, fired: null, confirmed: null } // update() returns this object
   let last = NaN // previous `now`
@@ -113,8 +118,12 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
   let [rise, riseKick] = [NaN, false] // when the current return started (NaN = none), and whether near a kick
   let [firedAt, conf, heatAt, warm] = [-Infinity, 0, 0, 0] // warm = build smoothed (heat away from a drop)
   let [cutUntil, waitAt, waitSum, waitN] = [-Infinity, 0, NaN, 0] // the last fire's cut: a wait may start until cutUntil; the running wait's start, Σ low / G, frames (NaN = none)
+  let seekUntil = -Infinity // the section restarts every frame until then (SEEK)
 
   return {
+    seek(now) {
+      seekUntil = now + SEEK
+    },
     update(x) {
       out.fired = out.confirmed = null
       const dt = Math.min(0.1, x.now - last) // ≤ 0.1: a hidden tab's gap doesn't count as a breakdown
@@ -130,7 +139,7 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
       ;[lowE, highE] = [lowE + (x.low - lowE) * ema(dt, ENERGY), highE + (x.high - highE) * ema(dt, ENERGY)]
       out.energy = knee((1 - HIGH) * (lowRef > 0 ? lowE / lowRef : 0) + HIGH * (highRef > 0 ? highE / highRef : 0))
       hiFast += (x.high - hiFast) * ema(dt, RISER[0])
-      hiSlow += (x.high - hiSlow) * ema(dt, RISER[1])
+      hiSlow = x.now < seekUntil ? hiFast : hiSlow + (x.high - hiSlow) * ema(dt, RISER[1])
       // drop v2 (2): a deep cut arms (a) as a full build (before the run below starts, so that run keeps the peak: 7b)
       if (x.cuts && music >= o.warmup && deep >= o.cutMin) [armed, peak] = [x.now + GRACE, 1]
       if (sparse) {
@@ -148,6 +157,8 @@ export function createArrangement(opts?: Partial<ArrangeOpts>): { update(x: Arra
         peak = Math.max(peak, out.build)
       } else out.build -= out.build * ema(dt, RELEASE)
       if (intro && isMusic) [dur, sum] = [dur + dt, sum + x.low * dt] // the breakdown; `sparse`, build, `armed` untouched
+      if (x.now < seekUntil)
+        [armed, rise, deep, run, runSum, peak, dur, sum, cutUntil, waitSum, out.build, warm] = [-Infinity, NaN, 0, 0, 0, 0, 0, 0, -Infinity, NaN, 0, 0]
 
       if (x.kick) [kickAt, kickBeat] = [x.now, x.beat]
       const live = x.now <= armed && x.now - firedAt >= o.refractory

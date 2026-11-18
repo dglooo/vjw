@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { pickSaved, store } from './store'
+import { clock, pickSaved, store } from './store'
 
 test('patch keeps the snapshot object on a no-op and replaces it on a change', () => {
   const calls: number[] = []
@@ -31,4 +31,9 @@ test('pickSaved returns the saved device only if it is present', () => {
   expect(pickSaved(devices, 'b')).toBe(devices[1])
   expect(pickSaved(devices, 'gone')).toBeUndefined()
   expect(pickSaved(devices, null)).toBeUndefined()
+})
+
+test('clock: m:ss, floored; minutes past the hour; a dash for an unknown duration or a stream', () => {
+  expect([0, 9.99, 83.9, 600, 7200].map(clock)).toEqual(['0:00', '0:09', '1:23', '10:00', '120:00'])
+  expect([NaN, Infinity].map(clock)).toEqual(['–:––', '–:––'])
 })

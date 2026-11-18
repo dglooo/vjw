@@ -67,9 +67,12 @@ ctx.audioWorklet.addModule(onsetWorklet).then(
   (e) => console.error('onset worklet', e),
 )
 
-const player = new Audio() // one reusable file player, not in the DOM
+/** One reusable file player, not in the DOM. The overlay's transport drives it; app.ts hears its seeks and resumes. */
+export const player = new Audio()
 const playerNode = ctx.createMediaElementSource(player)
 playerNode.connect(ctx.destination) // files are heard; line-in is not monitored (design S2)
+/** Play / pause. Callers check that the source is a file: on line-in the player holds the last file, still audible. */
+export const togglePlay = () => (player.paused ? void player.play() : player.pause())
 
 let node: AudioNode | null = null
 let stream: MediaStream | null = null

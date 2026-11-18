@@ -16,6 +16,11 @@ export interface TempoSource {
    *  confidence. The ACF always spans 45–360 BPM, so this never depends on the active range. T1: `windows[0]` is DnB's.
    *  A later window whose best lag reads ⅔ or 4/5 of DnB's best tempo (octave-folded) gets at most DnB's evidence. */
   families(windows: readonly Band[]): number[]
+  /** The music jumped at audio time `t` (a file's seek or resume): the onsets before `t` are dropped and the first
+   *  SETTLE s of ODF from `t` read 0 (the start settle). The onsets carry the phase: a reading on the old grid finds none
+   *  on it, so it reads no confidence. The ODF window stays: the ACF is phase-blind and a track keeps its tempo (a 1.43 s
+   *  relock on the test's scrub; zeroed, the thin window kept the confidence under LOCK for 3.5 s). */
+  seek(t: number): void
 }
 export interface TempoOpts {
   windowSeconds: number // ODF kept for the ACF
@@ -68,6 +73,7 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
   let due = 0 // hops since the last update
   let quiet = Infinity // s of no-signal ODF up to the newest value
   let settle = -Infinity // ODF values before this time read 0
+  let from = -Infinity // onsets before this time are dropped (seek)
   const onsets: number[] = [] // onset times, oldest first
   let reading: TempoReading | null = null
   let range: Band | null = null
@@ -153,7 +159,7 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
 
   return {
     push(on) {
-      onsets.push(on.t)
+      if (on.t >= from) onsets.push(on.t) // a pre-seek onset can still be in flight or queued until heard
     },
     pushOdf(values, t0, h) {
       if (!hop) {
@@ -179,6 +185,11 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
       if (filled >= ring.length) update() // a reading needs a full window
     },
     read: () => reading,
+    seek(t) {
+      onsets.length = 0
+      from = t
+      settle = t + SETTLE
+    },
     setRange(bpm) {
       range = bpm
       centre = bpm ? Math.sqrt(bpm[0] * bpm[1]) : PRIOR_BPM
