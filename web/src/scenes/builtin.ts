@@ -1451,8 +1451,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   // only (fx/syn.test.ts), so a control rides a source through that name in the scene's body.
   // Starred = I-FL1 (max luma steps > .10 in 1 s, 30 s of dnb174-arr) <= 3 and billed p95 <= 7.5 ms (M4 1728x1118, the
   // lowest run; the GPU was shared, the reference scene wireform+flash read 4.6-6.4 ms): tunnel-beauty-6 1 / 7.33 ms,
-  // waterly 2 / 5.99, traced-tunnel 1 / 5.38, raymarched-reflections 1 / 4.53. Library-only (frame time): terrain-lattice
-  // 1 / 7.9.
+  // waterly 2 / 5.99, traced-tunnel 1 / 5.4, raymarched-reflections 1 / 4.75. Library-only (frame time): terrain-lattice
+  // 1 / 7.9 at res .6 (12.3 at its .8).
   {
     v: 1, id: 'builtin:tunnel-beauty-6', name: 'Tunnel Beauty 6', star: true, // dnb · aiekick, CC BY-NC-SA 3.0 · ⚡ syn_OnBeat ← kick: the far walls light up
     // overrides: syn_OnBeat's 40 ms rise (a light); syn_Intensity ← build: the tunnel's diameter swells through a build.
@@ -1464,9 +1464,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     layers: [{ gen: { ref: 'syn/waterly', bind: syn('syn_Level', 'syn_Presence', 'syn_Hits', 'syn_BassPresence', 'syn_BassHits', 'syn_Intensity') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
-    // Library-only: billed p95 7.9 ms at res .6 and 7.91 at .8 (the lowest runs; 12.3 the highest), each with the GPU
-    // shared (the reference scene read 4.6 ms). Re-measure with the GPU alone before starring. perturbation 2 (the donor's
-    // height at energy .5) read 11.4 ms: left at 1.
+    // Library-only: billed p95 7.9 ms at res .6 and 12.3 at .8 with these values (7.91 at .8 with the donor's defaults),
+    // each with the GPU shared (the reference scene read 4.6 ms). Re-measure with the GPU alone before starring.
+    // perturbation 2 (the donor's height at energy .5) read 11.4 ms with the governor at .85: left at 1.
     v: 1, id: 'builtin:terrain-lattice', name: 'Terrain Lattice', star: false, // dnb · Shane (the kick swells the pipes). No override
     // the donor's own switches: auto_perturb = the terrain's height x energy; split_amt .5 with its auto_split = a red /
     // cyan fringe x the sub cubed (loud sub only; at 1 the pipes read as an anaglyph through a whole drop)
