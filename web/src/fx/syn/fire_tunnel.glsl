@@ -7,8 +7,6 @@
 // const_speed and spin are travelers (the adapter's clocks). Controls: the donor's reversed ranges (sharpness,
 // planes_only) are written low to high. syn_Media is black (no media input yet). ⚡ syn_BassHits (the kick's fire
 // bands) and syn_HighHits (the media's light) are flash-gated. PASSES: FLOAT added (the donor's default target is HDR).
-// Our detector's logic (user 2026-11-18): one line rides syn_Intensity (the energy macro, its default binding; x 1 at
-// .5 = the track's mean): constriction x (.7 + .6 x it), so a full track thickens the fire.
 /*{
   "TITLE": "Fire Tunnel",
   "CREDIT": "aiekick",
@@ -120,7 +118,7 @@ vec3 cam(vec2 uv, vec3 ro, vec3 cu, vec3 cv, float fov)
 
 vec4 march(vec4 f, vec3 ro, vec3 rd, float st)
 {
-	float s = 1., h = .25*constriction*(0.7+0.6*syn_Intensity), td = 0.0, d=1.,dl=0.2, w; // VJW: syn_Intensity thickens the fire
+	float s = 1., h = .25*constriction, td = 0.0, d=1.,dl=0.2, w;
 	vec3 p = ro;
 	for(float i=0.;i<100.0;i++)
 	{      

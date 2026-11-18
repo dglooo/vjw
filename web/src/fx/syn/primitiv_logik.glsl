@@ -6,8 +6,6 @@
 // grid, beatTime = syn_BeatTime / 2 (one shape per two beats), and the TOGGLE_ON_BEAT control is dropped. No media
 // input yet: the dispersion reads the shape pass (the donor's no-media branch). PASSES: FLOAT added (the donor's
 // default target is HDR).
-// Our detector's logic (user 2026-11-18): one line rides syn_Intensity (the energy macro, its default binding; x 1 at
-// .5 = the track's mean): the shape's size x (.8 + .4 x it), so a full track swells the shape.
 /*{
   "TITLE": "PRIMITIV_logik",
   "CREDIT": "Meebs",
@@ -172,7 +170,6 @@ vec3 renderAllShapes(){
     vec2 shapeOrigin = uv;
     vec2 ogOffset = vec2(_statelessContinuousChaotic(syn_BassTime*0.5), _statelessContinuousChaotic(syn_BassTime*0.7))*syn_OnBeat;
     shapeOrigin += ogOffset*0.1*bass_twitcher*bass_twitcher;
-    shapeOrigin /= 0.8+0.4*syn_Intensity; // VJW: syn_Intensity swells the shape
 
     //Shapes
 	float distCirc = circleDist(shapeOrigin, 0.3*radius);

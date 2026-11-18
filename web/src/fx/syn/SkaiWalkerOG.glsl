@@ -2,13 +2,11 @@
 // Author: Psybernautics ("Ferro Fluid Speaker Box", 2025)
 // License: unknown (no notice in the file; the inlined hg_sdf and lygia functions keep their own licence lines; ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts. Changes: the two #include lines are inlined by hand (fx/syn.ts has
-// no #include); FAR 70 -> 70.0, float i = 0 -> 0.0 (ES 3.00); the media meta-controls are neutral (see the VJW
-// block). script.js (not run) restated per second: script_time = dynamic_time add 5 * time_rate * (2 +
+// no #include); FAR 70 -> 70.0, float i = 0 -> 0.0 (ES 3.00); _Media_Contrast (a media meta-control our preamble does
+// not declare) is 1 (see the VJW block). script.js (not run) restated per second: script_time = dynamic_time add 5 * time_rate * (2 +
 // syn_Presence), spin_time 3.5 * time_rate * syn_Presence, bass_count 0.0075 * 0.5 * 15 * time_rate * syn_Hits per
 // frame (x 60); its bass_time and portal_time are not read by the body. syn_UserImage and the media are black (no
 // media input yet). ⚡ syn_Hits (x2 on the walls' colour) and syn_HighHits (auto_overlay) are flash-gated.
-// Our detector's logic (user 2026-11-18): the sphere morph rides syn_Intensity (the energy macro, its default
-// binding): perspective + .8 x (it - .5), so the room bends when the track is fuller than its mean.
 /*{
   "TITLE": "Skaiwalker OG",
   "CREDIT": "Psybernautics",
@@ -130,10 +128,8 @@ float digits(in vec2 st, in float value, in float nDecDigit) {
     vec2 pixel = floor(pos * vec2(4., 5.));
     return mod(floor(bin / pow(2., (pixel.x + (pixel.y * 4.)))), 2.);
 }
-// VJW: the app's media meta-controls, neutral (no media input yet): _Media_Contrast 1 = no change; _invertImage is
-// the identity (our preamble's is a zero stub, which blacked the glyph texture and with it the walls).
+// VJW: _Media_Contrast is one of the app's media meta-controls (our preamble declares none of them): 1 = no change.
 #define _Media_Contrast 1.0
-#define _invertImage(c) (c)
 #define FAR 70.0
 
 float smin( float a, float b, float k )
@@ -287,7 +283,7 @@ vec3 render()
     ssp.xy = _rotate(ssp.xy, -script_time*0.05);
     ssp.yz = _rotate(ssp.yz, dynamic_time*0.025);
     ssp.xz = _rotate(ssp.xz, dynamic_time*0.05);
-    rd = mix(rd, normalize(ssp), mix(clamp(perspective+0.8*(syn_Intensity-0.5), 0.0, 0.95), syn_MidHighPresence*syn_Presence, auto_morph)); // VJW: syn_Intensity bends the room
+    rd = mix(rd, normalize(ssp), mix(perspective, syn_MidHighPresence*syn_Presence, auto_morph));
     vec3 lp = ro + vec3(0.0, 0.0, 7.5);
     vec2 t = march(ro, rd);
     vec2 tSave = t;

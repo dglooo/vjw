@@ -7,8 +7,6 @@
 // (random_camera): no data form for a random re-roll, so random_spot rests at the script's start (0, 0, 1) and the two
 // controls are dropped. media_style: the donor's reversed range is written 0 to 1. syn_Media is black (no media
 // input yet): the scene shows its own colours (the donor's no-media branch).
-// Our detector's logic (user 2026-11-18): one line rides syn_Intensity (the energy macro, its default binding; x 1 at
-// .5 = the track's mean): zoom x (1.15 - .3 x it), so a full track zooms in.
 /*{
   "TITLE": "Mandelbrot Decoration",
   "CREDIT": "Shane",
@@ -83,7 +81,6 @@
 */
 
 #define random_spot vec3(0.0, 0.0, 1.0) // VJW: the script's rest spot (its random camera jumps are dropped)
-#define zoom (zoom*(1.15-0.3*syn_Intensity)) // VJW: syn_Intensity zooms in (the macro does not expand itself)
 vec4 texMirror(sampler2D samplerIn, vec2 uvIn){
   if (mod(uvIn.x, 2.0) > 1.0){
     uvIn.x = 1.0-uvIn.x;

@@ -2,14 +2,13 @@
 // Author: Meebs
 // License: unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts. Changes for ES 3.00: 1500 -> 1500.0, 4-2.0*sin -> 4.0-, PI/2 -> PI/2.0,
-// 1/columns -> 1.0/columns, pos.z*2*PI -> pos.z*2.0*PI. script.js (not run) restated: script_time = the bar count
-// (bpm / 4 per minute) = syn_BeatTime / 4 (our grid's beat count); script_bass_time adds ((syn_BassLevel / 2)^2 *
+// 1/columns -> 1.0/columns, pos.z*2*PI -> pos.z*2.0*PI. script.js (not run) restated: script_time (the bar count, bpm / 4 per minute) = a steady clock at
+// 174 BPM's bar rate, .725 / s (a clock cannot read the tempo; syn_BeatTime is one step per beat);
+// script_bass_time adds ((syn_BassLevel / 2)^2 *
 // bass_travel + jump_forward) * (0.8 * FOV + 0.2) per frame and fly_in_out_script adds 0.2 * travel * (0.8 * FOV + 0.2)
 // = the clocks below, per second at the donor's 60 fps (x 60). The script's camera objects are not read by the body.
 // The media texture is off (no media input yet). ⚡ syn_HighHits (lights_react, light_chaser) and syn_OnBeat (the dot
 // field) are flash-gated.
-// Our detector's logic (user 2026-11-18): one line rides syn_Intensity (the energy macro, its default binding; x 1 at
-// .5 = the track's mean): the beams' glow x (.5 + it), so a full track brightens the beams.
 /*{
   "TITLE": "Deeper V2",
   "CREDIT": "Meebs",
@@ -19,6 +18,7 @@
   "TAGS": ["donor"],
   "VJW_FLASH": ["syn_HighHits", "syn_OnBeat"],
   "VJW_CLOCK": {
+    "script_time": [[0.725]],
     "script_bass_time": [[12, "syn_BassLevel", "syn_BassLevel", "bass_travel", "FOV"], [3, "syn_BassLevel", "syn_BassLevel", "bass_travel"], [48, "jump_forward", "FOV"], [12, "jump_forward"]],
     "fly_in_out_script": [[9.6, "travel", "FOV"], [2.4, "travel"]]
   },
@@ -50,7 +50,6 @@
   ]
 }*/
 #define MAX_ITER 140
-#define script_time (syn_BeatTime*0.25) // VJW: the bar count (script.js: a BPM / 4 counter)
 
 #define RIGID
 // Standard 2x2 hash algorithm.
@@ -591,7 +590,7 @@ vec3 tot = vec3(0.0);
     vec3  fogColor  = vec3(0.3+syn_BassPresence*0.6,0.6,0.7);
     rmCol = mix(rmCol, fogColor, fogAmount*fog_col*(0.8+0.3*syn_BassPresence));
 
-    rmCol += clamp(pow(glow*glow_amount*glow_amount,0.5)*0.1*(0.5+syn_Intensity),0.0,1.0); // VJW: syn_Intensity brightens the beams
+    rmCol += clamp(pow(glow*glow_amount*glow_amount,0.5)*0.1,0.0,1.0);
     tot += rmCol;
   // }
   // tot /= float(AA*AA);

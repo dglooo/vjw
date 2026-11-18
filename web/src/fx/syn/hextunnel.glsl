@@ -1,14 +1,12 @@
 // Source: donor/visual_system_2/scenes/release/hextunnel.synScene (main.glsl + scene.json) · unknown
 // Author: sheltron
 // License: unknown (the donor's CREDIT names sheltron only; shipped inside a commercial app; personal use, ⚠️ check before release)
-// VeeJay Wizard, 2026: ported for fx/syn.ts. script.js (not run) restated: script_time = the bar count (bpm / 4 per
-// minute) = syn_BeatTime / 4 (our grid's beat count); its script_bass_time is not read by the body. All the light
+// VeeJay Wizard, 2026: ported for fx/syn.ts. script.js (not run) restated: script_time (the bar count, bpm / 4 per minute) = a steady clock at
+// 174 BPM's bar rate, .725 / s (a clock cannot read the tempo; syn_BeatTime is one step per beat); its script_bass_time is not read by the body. All the light
 // of this scene is its media texture on the walls, and syn_Media is black here (no media input yet): while no media
 // is active the walls read the scene's own image30 (public/syn/hextunnel/images/30.png; the donor ships it, its own
 // lookups are commented out). The last pow() clamps its base at 0 (a negative base is undefined in ES 3.00: NaN on
 // Metal; the donor's GL shows black there, as 0 does).
-// Our detector's logic (user 2026-11-18): one line rides syn_Intensity (the energy macro, its default binding; x 1 at
-// .5 = the track's mean): radius x (1.25 - .5 x it), so a full track narrows the hexagons' opening.
 /*{
   "TITLE": "HexTunnel",
   "CREDIT": "sheltron",
@@ -17,6 +15,9 @@
   "HEIGHT": 1080,
   "PASSES": [{"FLOAT": true, "HEIGHT": 1080, "TARGET": "BuffA", "WIDTH": 1920}],
   "IMAGES": [{"NAME": "image30", "PATH": "images/30.png"}],
+  "VJW_CLOCK": {
+    "script_time": [[0.725]]
+  },
   "CONTROLS": [
     {"NAME": "media_scale", "TYPE": "slider smooth", "DEFAULT": 0.5, "MIN": 0, "MAX": 1},
     {"NAME": "cam_Look", "TYPE": "xy smooth", "DEFAULT": [3.14, 3.14], "MIN": [0, 0], "MAX": [6.28, 6.28]},
@@ -27,7 +28,6 @@
     {"NAME": "Blue", "TYPE": "slider smooth", "DEFAULT": 1, "MIN": 0, "MAX": 1}
   ]
 }*/
-#define script_time (syn_BeatTime*0.25) // VJW: the bar count (script.js: a BPM / 4 counter)
 float camZ = 0.5 * TIME + sin(script_time);
 			//******** BuffA Code Begins ********
 
@@ -74,7 +74,7 @@ float map(vec3 p)
     p = p * rotationMatrix(vec3(0.0, 0.0, 1.0), 1.0 * sin(q.z) + 2.0 * sin( TIME*0.2+syn_BassTime*0.2 + q.z));
     
     float rad = 0.7 + 0.4 * sin(q.z) + 0.5+0.5*sin(TIME*0.5);
-    float rad2 = rad * radius * (1.25-0.5*syn_Intensity); // VJW: syn_Intensity narrows the opening; was rad * radius; //0.8 + 0.8 * cos(q.z );
+    float rad2 = rad * radius; //0.8 + 0.8 * cos(q.z );
     float outer = sdHexPrism(p, vec2(rad, 0.01+0.02*syn_Presence));
     float inner = sdHexPrism(p, vec2(rad2, 0.6));
     

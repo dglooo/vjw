@@ -1,13 +1,9 @@
 // Source: donor/visual_system_2/scenes/release/fuzzy_signal.synScene (main.glsl + scene.json) · unknown
 // Author: Meebs
 // License: unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release)
-// VeeJay Wizard, 2026: ported for fx/syn.ts. Changes: floor(x*16) -> 16.0 (ES 3.00). No media input yet: the
-// pattern's uv is the frame's (_uv; the donor's _correctMediaCoords / _applyMediaScale are zero stubs in our
-// preamble, which made the frame one flat colour). The donor's syn_BeatTime steps per detected beat (the noise
-// fields re-roll on a beat); ours is the continuous grid count, so the body reads beatStep = floor(syn_BeatTime).
+// VeeJay Wizard, 2026: ported for fx/syn.ts. Changes: floor(x*16) -> 16.0 (ES 3.00); the body is the donor's
+// otherwise. No media input yet: the scene draws its own diamond pattern (the donor's no-media branch).
 // ⚡ syn_HighHits (the hats' CMY glitch fringes) is flash-gated.
-// Our detector's logic (user 2026-11-18): the constant glitch rides syn_Intensity (the energy macro, its default
-// binding): glitch_constant + .8 x (it - .5), so the signal breaks up when the track is fuller than its mean.
 /*{
   "TITLE": "Fuzzy Signal",
   "CREDIT": "Meebs",
@@ -38,7 +34,6 @@
     {"NAME": "vignette_invert", "TYPE": "toggle", "DEFAULT": 0.0, "MIN": 0, "MAX": 1}
   ]
 }*/
-#define beatStep floor(syn_BeatTime) // VJW: a step per beat (the donor's counter steps)
 vec2 glitchPos;
 
 float rand(vec2 uv, float t) {
@@ -64,13 +59,13 @@ vec3 diamondsPattern(vec2 uvIn) {
 		return vec3(sin(cos(p.x+p.y+syn_BassTime*0.1)*10.0+p.x*100.0), sin(p.y*100.0+cos(p.x*10.0+syn_BassTime)), sin(p.x*sin(TIME)*10.0+p.y*100.0));
 	}
 	float f=0., f2=0., r = 0.0, r2 = 0.0;
-  float timeVar = beatStep*beat_jump+TIME*0.05+syn_BPMTwitcher*0.05;
+  float timeVar = syn_BeatTime*beat_jump+TIME*0.05+syn_BPMTwitcher*0.05;
 	const float I = 30.;
 	vec2 p2 = vec2(-p);
 	for(float i=1.; i<=I; i++) {
 		if(abs(p.x)+abs(p.y)<1.+syn_Presence*0.25) {
 		  r = cos(timeVar+.3*i)/2.;
-		  p += atan(i*rand(vec2(i), beatStep*beat_jump))*0.1;
+		  p += atan(i*rand(vec2(i), syn_BeatTime*beat_jump))*0.1;
 			if(p.x<2.*r) {
 				p.x -= r-.5;
 				p /= r+.5;
@@ -82,7 +77,7 @@ vec3 diamondsPattern(vec2 uvIn) {
 		}
 		if(abs(p2.x)+abs(p2.y)<1.+syn_Presence*0.25) {
 		  r2 = cos(timeVar+.3*i)/2.;
-		  p2 += atan(i*rand(vec2(i), beatStep*beat_jump))*0.1;
+		  p2 += atan(i*rand(vec2(i), syn_BeatTime*beat_jump))*0.1;
 			if(p2.x<2.*r2) {
 				p2.x -= r2-.5;
 				p2 /= r2+.5;
@@ -142,7 +137,8 @@ vec3 _grad3(vec3 col1, vec3 col2, vec3 col3, float mixVal){
 
 
 vec3 loadMediaMirrored(vec2 offset){
-  vec2 uv = _uv; // VJW: no media, the frame's uv (was _correctMediaCoords())
+  vec2 uv = _correctMediaCoords();
+  uv = _applyMediaScale(uv);
   uv += anger_shake*glitchPos;
   uv += _uvc*_pulse(length(_uvc)*length(_uvc), 0.95-pow(ripple_snap,0.5)*1.5, 0.5*sqrt(ripple_snap))*0.2;
   uv += offset;
@@ -199,22 +195,21 @@ vec4 renderMain(void)
 	  vig = pow(vig, 0.6+vignette_invert*0.8); // change pow for modifying the extend of the  vignette
 	  vig = mix(0.0, mix(vig, 1.0-vig, vignette_invert), vignette);
 	  //Create voronoise
-	  float voronoise = iqnoise(_uvc*scale*0.1+beatStep*10.0, 1.0, 0.4);
+	  float voronoise = iqnoise(_uvc*scale*0.1+syn_BeatTime*10.0, 1.0, 0.4);
 	  voronoise *= (1.0-vig);
 
 	  //Create pixely noise
-	  float voronoise3 = iqnoise(_uvc*scale*0.01+beatStep*10.0, 1.0, 0.1);
+	  float voronoise3 = iqnoise(_uvc*scale*0.01+syn_BeatTime*10.0, 1.0, 0.1);
 	  vec2 largePixels = _pixelate(_uvc, floor(20.0*(1.0+voronoise3)));
 	  vec2 largerPixels = _pixelate(_uvc, 100.0);
-	 	float voronoise2 = iqnoise(_rotate(_uvc, beatStep*10.0)*scale*0.1+beatStep*10.0+17.7, 1.0, 0.1);
+	 	float voronoise2 = iqnoise(_rotate(_uvc, syn_BeatTime*10.0)*scale*0.1+syn_BeatTime*10.0+17.7, 1.0, 0.1);
 	 	// return vec4(voronoise2);
 	  uv = mix(voronoise2*uv, largePixels, step(0.5,rand(largerPixels, TIME*100.0)));
 	  float smallNoise = rand(uv, TIME);
 	  vec2 offset = (smallNoise - 0.5) * 2.0 * vec2(1.0);
 	  // return vec4(abs(offset), 0.0, 0.0);
 	  vec2 totOff = vec2(1.0,-1.0)*_uvc*2.0*offset*voronoise2;
-	  float glitchK = clamp(glitch_constant+0.8*(syn_Intensity-0.5), 0.0, 1.0); // VJW: syn_Intensity raises the constant glitch
-	  totOff *= (syn_HighHits+glitchK);
+	  totOff *= (syn_HighHits+glitch_constant);
 
 	  // **** GLITCH ****
 	  color = loadMediaMirrored(vec2(0.0)).rgb;
@@ -227,14 +222,14 @@ vec4 renderMain(void)
 	  vec3 noise = noiseC*mix(vec3(1.0,0.0,0.0), vec3(0.0,1.0,1.0), rgb_vs_cmyk)+noiseM*mix(vec3(0.0,1.0,0.0), vec3(1.0,0.0,1.0), rgb_vs_cmyk)+noiseY*mix(vec3(0.0,0.0,1.0), vec3(1.0,1.0,0.0), rgb_vs_cmyk);
 	  noise *= 2.0-rgb_vs_cmyk;
 
-	  color = mix(color, max(color, noise), (glitch_flashes*sqrt(syn_HighHits)+glitchK)*(1.0-vig));
+	  color = mix(color, max(color, noise), (glitch_flashes*sqrt(syn_HighHits)+glitch_constant)*(1.0-vig));
 
 
 
 	  // **** FEEDBACK ****
 	  float pixelateRoto = floor(voronoise2*16.0);
 	  vec2 feedbackOffset = _rotate(vec2(1.0,0.0), pixelateRoto*PI*0.25);
-	  float feedbackNoise = iqnoise(_uvc*scale*0.1+vec2(beatStep), 1.0, 0.4);
+	  float feedbackNoise = iqnoise(_uvc*scale*0.1+vec2(syn_BeatTime), 1.0, 0.4);
 	  feedbackOffset *= feedback_scale*feedback_scale*feedback_scale*0.1;
 	  vec3 last = loadImageMirrored(feedback, feedbackOffset).rgb;
 	  float mixAmt = (1.0-vig);
