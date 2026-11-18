@@ -1513,27 +1513,28 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   // Donor port lane B4a (2026-11-18, the media stub: syn_Media is black). The stars follow the B2b rule above.
   {
     v: 1, id: 'builtin:filter-blown', name: 'Filter Blown', star: false, // dnb · Meebs · ⚡ syn_OnBeat (the kick's diamond lines)
-    layers: [{ gen: { ref: 'syn/filter_blown', bind: syn('syn_BPMSin2', 'syn_BPMConfidence', 'syn_BassLevel', 'syn_HighHits', 'syn_OnBeat', 'syn_ToggleOnBeat', 'syn_BPMSin4', 'syn_Presence', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    layers: [{ gen: { ref: 'syn/filter_blown', bind: syn('syn_Intensity', 'syn_BPMSin2', 'syn_BPMConfidence', 'syn_BassLevel', 'syn_HighHits', 'syn_OnBeat', 'syn_ToggleOnBeat', 'syn_BPMSin4', 'syn_Presence', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:fuzzy-signal', name: 'Fuzzy Signal', star: false, // dnb · Meebs · ⚡ syn_HighHits (the hats' CMY glitch)
-    layers: [{ gen: { ref: 'syn/fuzzy_signal', bind: syn('syn_Presence', 'syn_HighHits', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'syn/fuzzy_signal', bind: syn('syn_Intensity', 'syn_Presence', 'syn_HighHits', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
   },
   {
     v: 1, id: 'builtin:hextunnel', name: 'HexTunnel', star: false, // dnb · sheltron
-    layers: [{ gen: { ref: 'syn/hextunnel', values: { media_scale: 0.03 }, bind: syn('syn_Presence', 'syn_BassLevel', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }], // media_scale: the noise image as broad patches (.5, the donor's default for a video, is a fine speckle)
+    layers: [{ gen: { ref: 'syn/hextunnel', values: { media_scale: 0.03 }, bind: syn('syn_Intensity', 'syn_Presence', 'syn_BassLevel', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }], // media_scale: the noise image as broad patches (.5, the donor's default for a video, is a fine speckle)
   },
   {
     v: 1, id: 'builtin:fire-tunnel', name: 'Fire Tunnel', star: false, // dnb · aiekick, CC BY-NC-SA 3.0 · ⚡ syn_BassHits (the kick's fire bands)
-    layers: [{ gen: { ref: 'syn/fire_tunnel', bind: syn('syn_HighPresence', 'syn_HighHits', 'syn_BassPresence', 'syn_BassLevel', 'syn_BassHits', 'syn_MidPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    layers: [{ gen: { ref: 'syn/fire_tunnel', bind: syn('syn_Intensity', 'syn_HighPresence', 'syn_HighHits', 'syn_BassPresence', 'syn_BassLevel', 'syn_BassHits', 'syn_MidPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.7 }],
   },
   {
-    v: 1, id: 'builtin:ray-marching-experiment-62', name: 'Ray Marching Experiment 62', star: false, // dnb · aiekick, CC BY-NC-SA 3.0
-    layers: [{ gen: { ref: 'syn/ray_marching_experiment_62', bind: syn('syn_HighHits', 'syn_Presence', 'syn_Hits', 'syn_BassLevel', 'syn_BassPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.3 }],
+    v: 1, id: 'builtin:ray-marching-experiment-62', name: 'Ray Marching Experiment 62', star: false, // dnb · aiekick, CC BY-NC-SA 3.0 · ⚡ syn_Hits ← snare (40 ms rise): the spiral lights up
+    // the donor's own switches: flashing = the snare lights the spiral, highhits_ridges = the hats ripple its ridges
+    layers: [{ gen: { ref: 'syn/ray_marching_experiment_62', values: { flashing: 1, highhits_ridges: 1 }, bind: { ...syn('syn_Intensity', 'syn_HighHits', 'syn_Presence', 'syn_BassLevel', 'syn_BassPresence'), syn_Hits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.3 }],
   },
   {
     v: 1, id: 'builtin:mandelbrot-decoration', name: 'Mandelbrot Decoration', star: false, // dnb · Shane (the lit layer steps per beat)
-    layers: [{ gen: { ref: 'syn/mandelbrot_decoration', bind: syn('syn_MidHighLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'syn/mandelbrot_decoration', bind: syn('syn_Intensity', 'syn_MidHighLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   {
     v: 1, id: 'builtin:circuit-bending', name: 'Circuit Bending', star: false, // dnb · mojovideotech + Meebs, CC BY-NC-SA 3.0 · ⚡ syn_HighHits ← snare: the cyan circuits light up
@@ -1541,19 +1542,23 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:primitiv-logik', name: 'PRIMITIV_logik', star: false, // dnb · Meebs (a shape per two beats)
-    layers: [{ gen: { ref: 'syn/primitiv_logik', bind: syn('syn_HighHits', 'syn_OnBeat', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    // the donor's own switch: bass_twitcher = the kick twitches the shape (off in the donor's defaults)
+    layers: [{ gen: { ref: 'syn/primitiv_logik', values: { bass_twitcher: 1 }, bind: syn('syn_Intensity', 'syn_HighHits', 'syn_OnBeat', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.6 }],
   },
   {
     v: 1, id: 'builtin:deeper-v2', name: 'Deeper V2', star: false, // dnb · Meebs (the bass flies the corridor: a clock)
     layers: [{ gen: { ref: 'syn/deeper_v2', bind: syn('syn_OnBeat', 'syn_MidHighLevel', 'syn_HighHits', 'syn_BassLevel', 'syn_Intensity', 'syn_BassPresence', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.35 }],
   },
   {
-    v: 1, id: 'builtin:neon-city', name: 'Neon City by Night', star: false, // dnb · mrange (path tracing; the windows = our FFT)
-    layers: [{ gen: { ref: 'syn/neon_city', bind: syn('syn_BassHits', 'syn_MidHighHits', 'syn_HighHits', 'syn_MidHits', 'syn_BassPresence', 'syn_MidPresence', 'syn_MidHighPresence', 'syn_HighPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    v: 1, id: 'builtin:neon-city', name: 'Neon City by Night', star: false, // dnb · mrange (path tracing) · ⚡ the four Hits: the windows
+    // the donor's own switch: lighting_mode 1 (Hits) = the kick, the snare and the hats light their towers (0 = its FFT:
+    // on our linear FFT only 2 % of the towers); height_mul 1.5 lifts the hats' towers (the hats read <= .33)
+    layers: [{ gen: { ref: 'syn/neon_city', values: { lighting_mode: 1, height_mul: 1.5 }, bind: syn('syn_BassHits', 'syn_MidHighHits', 'syn_HighHits', 'syn_MidHits', 'syn_BassPresence', 'syn_MidPresence', 'syn_MidHighPresence', 'syn_HighPresence', 'syn_Intensity') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.35 }],
   },
   {
     v: 1, id: 'builtin:skaiwalker-og', name: 'Skaiwalker OG', star: false, // dnb · Psybernautics · ⚡ syn_Hits ← snare (40 ms rise): x2 on the walls' colour
-    layers: [{ gen: { ref: 'syn/SkaiWalkerOG', bind: { ...syn('syn_Presence', 'syn_BassPresence', 'syn_MidHighPresence', 'syn_MidHighLevel', 'syn_HighHits', 'syn_HighPresence'), syn_Hits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // the donor's own switch: auto_bubble = the lens bubbles with the sub's presence
+    layers: [{ gen: { ref: 'syn/SkaiWalkerOG', values: { auto_bubble: 1 }, bind: { ...syn('syn_Intensity', 'syn_Presence', 'syn_BassPresence', 'syn_MidHighPresence', 'syn_MidHighLevel', 'syn_HighHits', 'syn_HighPresence'), syn_Hits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
 ]
 

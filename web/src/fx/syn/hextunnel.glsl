@@ -7,6 +7,8 @@
 // is active the walls read the scene's own image30 (public/syn/hextunnel/images/30.png; the donor ships it, its own
 // lookups are commented out). The last pow() clamps its base at 0 (a negative base is undefined in ES 3.00: NaN on
 // Metal; the donor's GL shows black there, as 0 does).
+// Our detector's logic (user 2026-11-18): one line rides syn_Intensity (the energy macro, its default binding; x 1 at
+// .5 = the track's mean): radius x (1.25 - .5 x it), so a full track narrows the hexagons' opening.
 /*{
   "TITLE": "HexTunnel",
   "CREDIT": "sheltron",
@@ -72,7 +74,7 @@ float map(vec3 p)
     p = p * rotationMatrix(vec3(0.0, 0.0, 1.0), 1.0 * sin(q.z) + 2.0 * sin( TIME*0.2+syn_BassTime*0.2 + q.z));
     
     float rad = 0.7 + 0.4 * sin(q.z) + 0.5+0.5*sin(TIME*0.5);
-    float rad2 = rad * radius; //0.8 + 0.8 * cos(q.z );
+    float rad2 = rad * radius * (1.25-0.5*syn_Intensity); // VJW: syn_Intensity narrows the opening; was rad * radius; //0.8 + 0.8 * cos(q.z );
     float outer = sdHexPrism(p, vec2(rad, 0.01+0.02*syn_Presence));
     float inner = sdHexPrism(p, vec2(rad2, 0.6));
     

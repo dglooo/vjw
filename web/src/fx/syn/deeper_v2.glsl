@@ -8,6 +8,8 @@
 // = the clocks below, per second at the donor's 60 fps (x 60). The script's camera objects are not read by the body.
 // The media texture is off (no media input yet). ⚡ syn_HighHits (lights_react, light_chaser) and syn_OnBeat (the dot
 // field) are flash-gated.
+// Our detector's logic (user 2026-11-18): one line rides syn_Intensity (the energy macro, its default binding; x 1 at
+// .5 = the track's mean): the beams' glow x (.5 + it), so a full track brightens the beams.
 /*{
   "TITLE": "Deeper V2",
   "CREDIT": "Meebs",
@@ -589,7 +591,7 @@ vec3 tot = vec3(0.0);
     vec3  fogColor  = vec3(0.3+syn_BassPresence*0.6,0.6,0.7);
     rmCol = mix(rmCol, fogColor, fogAmount*fog_col*(0.8+0.3*syn_BassPresence));
 
-    rmCol += clamp(pow(glow*glow_amount*glow_amount,0.5)*0.1,0.0,1.0);
+    rmCol += clamp(pow(glow*glow_amount*glow_amount,0.5)*0.1*(0.5+syn_Intensity),0.0,1.0); // VJW: syn_Intensity brightens the beams
     tot += rmCol;
   // }
   // tot /= float(AA*AA);

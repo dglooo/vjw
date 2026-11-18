@@ -6,6 +6,8 @@
 // preamble, which made the frame one flat colour). The donor's syn_BeatTime steps per detected beat (the noise
 // fields re-roll on a beat); ours is the continuous grid count, so the body reads beatStep = floor(syn_BeatTime).
 // ⚡ syn_HighHits (the hats' CMY glitch fringes) is flash-gated.
+// Our detector's logic (user 2026-11-18): the constant glitch rides syn_Intensity (the energy macro, its default
+// binding): glitch_constant + .8 x (it - .5), so the signal breaks up when the track is fuller than its mean.
 /*{
   "TITLE": "Fuzzy Signal",
   "CREDIT": "Meebs",
@@ -211,7 +213,8 @@ vec4 renderMain(void)
 	  vec2 offset = (smallNoise - 0.5) * 2.0 * vec2(1.0);
 	  // return vec4(abs(offset), 0.0, 0.0);
 	  vec2 totOff = vec2(1.0,-1.0)*_uvc*2.0*offset*voronoise2;
-	  totOff *= (syn_HighHits+glitch_constant);
+	  float glitchK = clamp(glitch_constant+0.8*(syn_Intensity-0.5), 0.0, 1.0); // VJW: syn_Intensity raises the constant glitch
+	  totOff *= (syn_HighHits+glitchK);
 
 	  // **** GLITCH ****
 	  color = loadMediaMirrored(vec2(0.0)).rgb;
@@ -224,7 +227,7 @@ vec4 renderMain(void)
 	  vec3 noise = noiseC*mix(vec3(1.0,0.0,0.0), vec3(0.0,1.0,1.0), rgb_vs_cmyk)+noiseM*mix(vec3(0.0,1.0,0.0), vec3(1.0,0.0,1.0), rgb_vs_cmyk)+noiseY*mix(vec3(0.0,0.0,1.0), vec3(1.0,1.0,0.0), rgb_vs_cmyk);
 	  noise *= 2.0-rgb_vs_cmyk;
 
-	  color = mix(color, max(color, noise), (glitch_flashes*sqrt(syn_HighHits)+glitch_constant)*(1.0-vig));
+	  color = mix(color, max(color, noise), (glitch_flashes*sqrt(syn_HighHits)+glitchK)*(1.0-vig));
 
 
 

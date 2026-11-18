@@ -8,6 +8,8 @@
 // ranges (MODE_1_OR_2, motion_blur, contrast) are written low to high; HARD_TRANSITIONS direction is not read by the
 // body (dropped). ⚡ syn_OnBeat (the kick draws the lines) is flash-gated. PASSES: FLOAT added (the donor's default
 // target is HDR).
+// Our detector's logic (user 2026-11-18): one line rides syn_Intensity (the energy macro, its default binding; x 1 at
+// .5 = the track's mean): motion_blur x (1.25 - .5 x it), so a full track holds the diamonds' trails longer.
 /*{
   "TITLE": "Filter Blown",
   "CREDIT": "Meebs",
@@ -167,7 +169,8 @@ vec4 firstPass() {
   //   retCol = _loadMedia();
   // }
 
-  return vec4(mix(oldCol.rgb, newCol.rgb, motion_blur*motion_blur*motion_blur), oldCol.a);
+  float mb = motion_blur*(1.25-0.5*syn_Intensity); // VJW: syn_Intensity lengthens the trails
+  return vec4(mix(oldCol.rgb, newCol.rgb, mb*mb*mb), oldCol.a);
   // return retCol;
 }
 

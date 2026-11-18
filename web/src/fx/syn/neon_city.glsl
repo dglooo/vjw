@@ -7,7 +7,9 @@
 // pan rests at 0 (cam_pan_x / _y); the bang wave (trigger_wave, wave_speed) is dropped: wave_start_z / wave_elapsed
 // stay at the script's rest values. height: the donor's default 2 is under its own MIN 2.1 (MIN written 2).
 // syn_Spectrum is the adapter's FFT row (linear here); syn_Media is black (no media input yet): no billboards.
-// ⚡ the four Hits (lighting_mode Hits: the windows) are flash-gated.
+// Our detector's logic (user 2026-11-18): the built-in runs lighting_mode Hits (the kick, the snare and the hats
+// light their towers) and one added line keeps a floor of lit windows between the hits: lit_frac + .6 x syn_Intensity
+// (the donor's energy macro, its default binding: never overridden). ⚡ the four Hits (the windows) are flash-gated.
 /*{
   "TITLE": "Neon City by Night",
   "CREDIT": "mrange",
@@ -475,6 +477,7 @@ vec4 dpass0() {
              : band<3.             ? syn_MidHighPresence
              :                       syn_HighPresence);
     }
+    lit_frac+=.6*syn_Intensity; // VJW: a floor of lit windows between the hits (syn_Intensity: the energy macro)
     lit_frac+=2.*exp(-wave_elapsed*.4)*exp(-wave_dist*.7);
     x1=HH.w<density&&isr&&(P.y<(2.*H-0.02)*min(lit_frac,0.99));
     if(x0||x1) {

@@ -7,6 +7,8 @@
 // syn_Presence), spin_time 3.5 * time_rate * syn_Presence, bass_count 0.0075 * 0.5 * 15 * time_rate * syn_Hits per
 // frame (x 60); its bass_time and portal_time are not read by the body. syn_UserImage and the media are black (no
 // media input yet). ⚡ syn_Hits (x2 on the walls' colour) and syn_HighHits (auto_overlay) are flash-gated.
+// Our detector's logic (user 2026-11-18): the sphere morph rides syn_Intensity (the energy macro, its default
+// binding): perspective + .8 x (it - .5), so the room bends when the track is fuller than its mean.
 /*{
   "TITLE": "Skaiwalker OG",
   "CREDIT": "Psybernautics",
@@ -285,7 +287,7 @@ vec3 render()
     ssp.xy = _rotate(ssp.xy, -script_time*0.05);
     ssp.yz = _rotate(ssp.yz, dynamic_time*0.025);
     ssp.xz = _rotate(ssp.xz, dynamic_time*0.05);
-    rd = mix(rd, normalize(ssp), mix(perspective, syn_MidHighPresence*syn_Presence, auto_morph));
+    rd = mix(rd, normalize(ssp), mix(clamp(perspective+0.8*(syn_Intensity-0.5), 0.0, 0.95), syn_MidHighPresence*syn_Presence, auto_morph)); // VJW: syn_Intensity bends the room
     vec3 lp = ro + vec3(0.0, 0.0, 7.5);
     vec2 t = march(ro, rd);
     vec2 tSave = t;

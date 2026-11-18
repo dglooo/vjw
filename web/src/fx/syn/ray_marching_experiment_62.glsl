@@ -5,7 +5,9 @@
 // 0.75 * bass_time * (0.1 * syn_BassLevel^2 + 0.2 * syn_BassPresence + 0.01) per frame (no dt) = the clock per second
 // at the donor's 60 fps (x 60). speed_direction is a traveler (the adapter's clock). flatten: the donor's reversed
 // range (1 to -1) is written -1 to 1. The media texture is off (no media input yet). ⚡ syn_Hits (the `flashing`
-// light, off by default) is flash-gated.
+// light; the built-in turns it on) is flash-gated.
+// Our detector's logic (user 2026-11-18): one line rides syn_Intensity (the energy macro, its default binding; x 1 at
+// .5 = the track's mean): fov_mod x (.8 + .4 x it), so a full track widens the lens.
 /*{
   "TITLE": "Ray Marching Experiment 62",
   "CREDIT": "aiekick",
@@ -133,7 +135,7 @@ vec4 renderMainImage() {
 	vec3 z = normalize(cv-ro);
   vec3 x = normalize(cross(cu,z));
 	vec3 y = cross(z,x);
-  float fov = .9*2.5*pow(fov_mod,2.0);
+  float fov = .9*2.5*pow(fov_mod*(0.8+0.4*syn_Intensity),2.0); // VJW: syn_Intensity widens the lens
 	vec3 rd = normalize(fov * (uv.x * x + uv.y * y) + z);
     
   float s = 1., d = 0., extraLight = 0.0;
