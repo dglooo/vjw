@@ -823,3 +823,63 @@ Every finding C1–C11 and N1–N3 has at least one ID. Every R1–R7 has at lea
   - `HIT_RATE_TOL` = every band within ±10 % of its 60 fps rate at 30 / 120 / 144 fps (pooled spread ≤ 10 %);
   - the resume-edge burst count = 0; Hits in 0–2 s after a resume within 0.9–1.1× of the no-pause rate;
   - `LEVEL_RATE_TOL` ±0.05 stays a proposal (measured p50 within ±0.01).
+
+## S4 coverage (2026-11-18)
+Input: `agents/planner/plan_audio_donor_mode.md` (595 lines, master `245a291`): `## Deltas` (L33–52), `## Parameters` (L54–72), `## Steps` (S1.1–S5.1, L139–489), `## S6 (lead)` (L490–518), `## Coverage index` (L535–559), `## Assumptions` (L579–590). I grepped every test ID in the step bodies, mapped each to its owning step, and read the bodies of S1.1–S2.5, S3.2, S4.1–S4.3 and S5.1. The plan was not edited.
+
+### 1. Ownership (check 1): PASS
+- Coder-owned matrix IDs: 45. Each has exactly one owning step. The index totals agree: S1.1 (T1a, c, h, j, k, l, m, n), S1.2 (T1b, g, i, p, q), S1.3 (T1d, e, f, o, r), S1.4 (T4a–c), S1.5 (T3a, T3b, T6a–c), S2.1 (T5, T7a–d, T8a–c), S2.3 (T2a, b, c, g), S2.4 (T2e, f), S2.5 (T2h, i), S3.2 (T2d), S5.1 (T3c, T9a). Count: 39 unit + 5 contract + 1 performance (T1o).
+- T7a and T8a are also named as proof in S2.2. That is a reference, not an owner, so it is not a duplicate.
+- Plan-added PA1–PA4 are not in the matrix. They are acceptable extras.
+- Lead-owned: 21 IDs. G-LINT, G-TYPE, G-TEST → S6 row 1. H1 → row 5. H1b, H3, H5, H6b, H6c → row 4. H2 → row 6. H4a–c, H7 → row 3. H4d, H8 → row 8. H6a → row 2. M3, M4 → row 7. G-R80 and H9 → row 11, N/A by lead ruling. All placed or ruled.
+- User-owned: M1 (row 10, optional) and M2 (row 10). Placed.
+
+### 2. Coverage of requirements and findings (check 2): PASS at ID level, with weak spots in §4 of this section
+- R1: S1.4 (T4a–c), S1.1 (T1k), S1.3 (T1e), S1.5 (T3b), S2.1 (T7c), S2.3 (T2b), S2.4 (T2f), H1, H1b, H6c.
+- R2: S1.2 (T1p), S1.3 (T1d, T1f), S2.3 (T2a, T2g), S2.5 (T2h, T2i), S3.2 (T2d), H4a.
+- R3: S1.1 (T1a, c, h, l, m), S1.2 (T1b, g, q), S1.3 (T1r), H4b, H1.
+- R4: S1.3 (T1o), H3, H5, H7.
+- R5: S5.1 (T9a, T3c), H4d, H8, G-TEST.
+- R6: S2.1 (T5, T7a, b, d, T8a–c), S2.2 (wiring), H2, H1 (c), M4.
+- R7: S1.5 (T6a–c), G-LINT, G-TYPE, G-TEST, H5, H6a.
+- C1: T7a–d, H2. C2: T1i, T1j. C5: T1g, H4c. C6: T7a–c, H1 (c, d). C7: T2c, T8a–c. C8: T6b, H5. C9: T2e, T2f. C10: T1k, H6c. C11: T1l–n, H4a, H3 (weak, see §3 below). N2: H2. N3: T7b.
+
+### 3. Deltas 1, 2, 4, 5: can each test still FAIL? (check 3)
+- **Delta 1 (bind pin, `:72–73`): PASS, with a condition.** The key list must stay an exact equality (`toEqual` on the full list), not a subset check. The count may become `+ 31`. A subset check would let a missing key pass.
+- **Delta 2 (calib pins): PASS.** T6a compares against an explicit expression (SOURCE_IDS minus bands, presence and donor ids), not against `rows(0)` itself. T6b and T6c stay fail-able.
+- **Delta 4 (T5 synthetic train): PASS.** A per-input budget gives about 6 passes per second together, so the 3/s check fails. The step also asserts refused onsets > 0, which proves the train is over budget.
+- **Delta 5a (T2g): FAIL as written; fix required.** The reference is built with `donorChain`, the code under test, so a wrong chain is matched by its own reference. And if ours bytes equal the donor bytes on the fixture, a `pushTrail` that records ours at w 1 still passes. Fix: write the swapped-source binding literally in the test, and assert on the fixture that ours bytes ≠ donor bytes.
+- **Delta 5b (T1j, AM tone and Level swing): PASS, with a condition.** A broken silence hold inflates sigma, which collapses the swing, so the ≥ 0.5 arm can fail. The 0.5 threshold is a proxy for sigma ≤ 2× and is not calibrated. Condition: the coder prints the pre-pause swing, and it must sit clearly above 0.5, or the proxy does not bite. The "< 0.5 with paused" arm checks the discriminator only; it must not count as a product pass.
+- **Delta 5c (T9a moved to `donor.test.ts`): PASS.**
+
+### 4. Parameters (check 4), and the other weak spots
+- `HIT_DT` 0.030 s, `THETA` 2.25, `EDGE_SKIP` 0.025 s: match the lead ruling and the gaps lane (G1, G4).
+- `HIT_RATE_TOL` ±10 % per band: the ruling is on record at 30 / 120 / 144 fps. The plan gates only 120 and 144 (T1g, H4c); the 30 Hz value is report-only. **Mismatch (F5).**
+- `SILENT_RMS`: the plan names the predicate but gives no value. The value is the existing constant `SILENT_RMS` in `audio/arrange` (−60 dBFS, cited at `app.ts:36`). Name it in the table (minor).
+- `LEVEL_RATE_TOL`: the ruling keeps it as a proposal. The design's own test seam (Level at 30 fps within a tolerance of 60 fps) has no row in the plan. **Missing (F8).**
+- T1i: the ruling asks for Hits in 0–2 s after a resume within 0.9–1.1× of the no-pause rate. The plan's T1i asserts ≥ 0.50 over 5 s only. **Mismatch (F6).**
+- T1g: the per-band ruling needs all four bands. The plan checks BassHits and HighHits only. H4c says every band, so the gap is in T1g only (F7).
+- C11 Intensity, weak: H4b (S6 row 3) says "Intensity body > break ≥ 6/7". score-v2 prints two Intensity rows. The full-band `Intensity` gives 6/7, but its p50 gap ≥ .2 holds on only 2/7 drops. `xInt3` (bass-weighted, the product's form) gives 7/7 and 6/7. So the wrong form passes H4b as written. T1l tests the `intensity` helper only, not what `update()` writes to `syn_Intensity` (F2).
+- H4a scope, weak: "each printed value within 0.01 of score-v2" cannot hold for the whole file. Five blocks are not product outputs: the R1 cold start (warm core), the PrimeBang bang list (the prototype's own Hits; 39 false bangs in total; ours is `fired`), the P4 block (S5.1 runs after S4), the P6 block (not built), and the prototype cost line. The plan also omits the PrimeBang check from the matrix: rising edges of `syn_PrimeBang` equal our fired count per track (3, 1, 1) (F3).
+- H9 (N/A ruling, row 11): the frozen-pair reasoning is right to the letter. No native gains an input, and no ported scene reads `syn_PrimeBang` (delta 7). But S2.2 changes the `render()` path of every bound SYN input in ours mode, and S2.5 changes `syn_FadeInOut` to a uniform in 16 scenes. In ours mode only the unit golden T7c guards this. The S2.2 check ("looks as on master") is subjective, and no pixel check exists in ours mode (F9, lead call).
+- Consistency note (no action): the H9 ruling says the scenes reading `syn_PrimeBang` re-roll, an intended look change. Delta 7 says no ported scene reads them today, so that change is empty. Both can hold.
+- T1c, assumption 6 (`## Assumptions`): "If Level releases instead, the coder reports the measured sum." That turns an assertion into a report, which cannot fail. S1.1 item 4 already sets Level to 0 while `silent`, so the fallback should go. **Blocks (F1).**
+
+### 5. Verdict: FAIL
+Fixes needed in the plan (the test-architect does not edit the plan):
+- F1. Delete the report fallback in `## Assumptions` item 6, so T1c's sum must hold.
+- F2. C11 Intensity: H4b names the `xInt3` row for the product's Intensity and adds the p50 gap ≥ .2 criterion (≥ 6/7). Add an assert that `update()` writes `syn_Intensity` equal to the helper on a constant-input run, or record that H4b carries the wiring check.
+- F3. H4a: name the rows scored (the R3 Level block, the R3 sections block, the beats block). Exclude the cold-start, prototype-PrimeBang, P4 and P6 blocks. Add: rising edges of `syn_PrimeBang` = our fired count per track (3, 1, 1).
+- F4. T2g (S2.3): literal swapped binding; fixture where ours bytes ≠ donor bytes.
+- F5. HIT_RATE_TOL at 30 fps: align the plan (gate 30 Hz in T1g and H4c) or amend the ruling on record. The gaps lane shows 30 Hz within ±10 % (pooled spread 4–9 %), so gating it costs little.
+- F6. T1i: add the ruling's 0–2 s check (within 0.9–1.1× of the no-pause rate), or amend the ruling on record.
+- F7. T1g: check all four bands (Bass, Mid, MidHigh, High).
+- F8. Add the design's Level-rate seam (Level at 30 fps within LEVEL_RATE_TOL of 60 fps), or record its omission.
+- F9 (MEDIUM, lead call). Add one ours-mode pixel pair (bit-identical before and after S2.2 and S2.5, on one syn built-in that reads `syn_FadeInOut` and one with bound inputs), or rule that T7c alone covers the render-path change.
+
+Conditions (not blocking; the step body must say so): T1j prints the pre-pause swing; the bind pin stays an exact equality; `SILENT_RMS` is named with its source in the parameter table.
+
+### 6. What holds
+T1a–T1r, T2a–T2i, T3a–c, T4a–c, T5, T6a–c, T7a–d, T8a–c and T9a each name a bad input or a threshold in the plan text, and each can fail. The exceptions are F1, F2 and F4.
+
+STATE entry: test-architect S4 coverage on plan `245a291`. IDs complete (45 coder, 21 lead, 2 user; none missing or duplicated). VERDICT FAIL with 9 fixes (F1–F9), led by the T1c fallback, C11 Intensity in H4b, H4a scope with PrimeBang = fired, and the T2g reference. S5 is blocked until the planner or lead rules F1–F9.
