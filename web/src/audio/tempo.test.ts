@@ -32,7 +32,7 @@ function train(bpm: number, seconds: number, { jitter = 0, drop = 0, spurious = 
  * band on test tracks: an exponential floor (mean 1: one track then reads ACF prominence ~7, two non-beatmatched ones ~4.3, as
  * measured) plus each hit at its hop and 40% of it on the next (~13 + 5).
  */
-function feed(src: TempoSource, hits: Hit[], seconds: number, onsets = true) {
+function feed(src: TempoSource, hits: Hit[], seconds: number, onsets = true, each?: (t: number) => void) {
   const rnd = lcg(99)
   const odf = Float32Array.from({ length: Math.ceil(seconds / HOP) + 8 }, () => -Math.log(1 - rnd()))
   for (const h of hits) {
@@ -41,6 +41,7 @@ function feed(src: TempoSource, hits: Hit[], seconds: number, onsets = true) {
   }
   let next = 0
   for (let i = 0; i + 8 <= odf.length; i += 8) {
+    each?.(i * HOP) // before the batch: its onsets and ODF come after
     for (; next < hits.length && hits[next].t <= (i + 7) * HOP; next++) if (onsets) src.push(hits[next])
     src.pushOdf(odf.subarray(i, i + 8), i * HOP, HOP)
   }
@@ -275,4 +276,28 @@ describe('the start settle', () => {
     const gap = [2, 2.5] // beat 5 out: 0.69 s from beat 4 to beat 6
     expect(first(odf([[beat(6), 50]], gap))).not.toEqual(first(odf([], gap)))
   })
+})
+
+// A file's seek or resume (app.ts): the music jumps under the window. A scrub half a beat on at 10 s, 174 BPM.
+test('seek(t): no confident reading on the old grid after it; the new grid reads confident within 2 s', () => {
+  const half = 30 / 174
+  const hits = [...train(174, 10), ...train(174, 20).map((h) => ({ ...h, t: h.t + half })).filter((h) => h.t >= 10)]
+  const TOL = 60 / 174 / 8 // sync.ts's ±⅛ beat: a reading this close to a grid merges into it
+  const after = (seek: boolean) => {
+    const src = createTempoSource({ minBpm: 120, maxBpm: 240 }) // 174 in the fold, as under DnB
+    const out: { t: number; old: boolean; now: boolean; confidence: number }[] = []
+    let last: ReturnType<TempoSource['read']> = null
+    feed(src, hits, 20, true, (t) => {
+      if (seek && t >= 10 && t < 10 + 8 * HOP) src.seek(t)
+      const r = src.read()
+      if (t >= 10 && r && r !== last) out.push({ t, old: offGrid(r.anchor, 174, 0.2) < TOL, now: offGrid(r.anchor, 174, 0.2 + half) < TOL, confidence: r.confidence })
+      last = r
+    })
+    return out
+  }
+  const stale = (rs: ReturnType<typeof after>) => rs.filter((r) => r.old && r.confidence >= 0.3) // sync.ts LOCK
+  expect(stale(after(false)).length).toBeGreaterThan(0) // without it the old phase reads confident for a while
+  expect(stale(after(true))).toEqual([])
+  const back = after(true).find((r) => r.now && r.confidence >= 0.3)!
+  expect(back.t - 10).toBeLessThan(2) // measured 1.43 s: 5 of the 16 beats on the new grid
 })
