@@ -4,6 +4,7 @@
 // VeeJay Wizard, 2026: ported for fx/syn.ts. Changes: GLSL ES 3.00 literals; `0.04 * i` → `0.04 * float(i)`.
 // A Gray-Scott reaction-diffusion: passes 0–3 step it twice a frame (buffA → buffA2 → buffB → buffB2, FLOAT), the
 // screen pass shades buffB2. The hats (syn_HighHits) feed it; the bang controls (pulse_out, grow, …) rest at 0.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Sprinkles",
   "CREDIT": "sheltron ft. Meebs",

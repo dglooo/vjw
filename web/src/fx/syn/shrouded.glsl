@@ -9,6 +9,7 @@
 // the field's cycle). SMOOTH_TRANSITIONS (the colour regimes cReg0..cReg4, re-rolled by the donor on a musical
 // transition) are static controls here: cReg0 on. The media input is a stub. ⚡ syn_HighHits is flash-gated: a hit
 // lights one colour layer (highCol2).
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Shrouded",
   "CREDIT": "Felix Woitzel ft. Meebs",
