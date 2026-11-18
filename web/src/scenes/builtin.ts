@@ -1346,6 +1346,51 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:entombed-silicon-dreams', name: 'Entombed Silicon Dreams', star: false, // dnb · mrange, CC0 · ⚡ syn_BassHits (the ring = our FFT)
     layers: [{ gen: { ref: 'syn/entombed_silicon_dreams', bind: syn('syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
   },
+  // Donor port lane B4a (2026-11-18, the media stub: syn_Media is black). The stars follow the B2b rule above.
+  {
+    v: 1, id: 'builtin:filter-blown', name: 'Filter Blown', star: false, // dnb · Meebs · ⚡ syn_OnBeat (the kick's diamond lines)
+    layers: [{ gen: { ref: 'syn/filter_blown', bind: syn('syn_BPMSin2', 'syn_BPMConfidence', 'syn_BassLevel', 'syn_HighHits', 'syn_OnBeat', 'syn_ToggleOnBeat', 'syn_BPMSin4', 'syn_Presence', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:fuzzy-signal', name: 'Fuzzy Signal', star: false, // dnb · Meebs · ⚡ syn_HighHits (the hats' CMY glitch)
+    layers: [{ gen: { ref: 'syn/fuzzy_signal', bind: syn('syn_Presence', 'syn_HighHits', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:hextunnel', name: 'HexTunnel', star: false, // dnb · sheltron
+    layers: [{ gen: { ref: 'syn/hextunnel', values: { media_scale: 0.03 }, bind: syn('syn_Presence', 'syn_BassLevel', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }], // media_scale: the noise image as broad patches (.5, the donor's default for a video, is a fine speckle)
+  },
+  {
+    v: 1, id: 'builtin:fire-tunnel', name: 'Fire Tunnel', star: false, // dnb · aiekick, CC BY-NC-SA 3.0 · ⚡ syn_BassHits (the kick's fire bands)
+    layers: [{ gen: { ref: 'syn/fire_tunnel', bind: syn('syn_HighPresence', 'syn_HighHits', 'syn_BassPresence', 'syn_BassLevel', 'syn_BassHits', 'syn_MidPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:ray-marching-experiment-62', name: 'Ray Marching Experiment 62', star: false, // dnb · aiekick, CC BY-NC-SA 3.0
+    layers: [{ gen: { ref: 'syn/ray_marching_experiment_62', bind: syn('syn_HighHits', 'syn_Presence', 'syn_Hits', 'syn_BassLevel', 'syn_BassPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.3 }],
+  },
+  {
+    v: 1, id: 'builtin:mandelbrot-decoration', name: 'Mandelbrot Decoration', star: false, // dnb · Shane (the lit layer steps per beat)
+    layers: [{ gen: { ref: 'syn/mandelbrot_decoration', bind: syn('syn_MidHighLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:circuit-bending', name: 'Circuit Bending', star: false, // dnb · mojovideotech + Meebs, CC BY-NC-SA 3.0 · ⚡ syn_HighHits ← snare: the cyan circuits light up
+    layers: [{ gen: { ref: 'syn/circuit_bending', bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_BassHits', 'syn_BassPresence', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:primitiv-logik', name: 'PRIMITIV_logik', star: false, // dnb · Meebs (a shape per two beats)
+    layers: [{ gen: { ref: 'syn/primitiv_logik', bind: syn('syn_HighHits', 'syn_OnBeat', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:deeper-v2', name: 'Deeper V2', star: false, // dnb · Meebs (the bass flies the corridor: a clock)
+    layers: [{ gen: { ref: 'syn/deeper_v2', bind: syn('syn_OnBeat', 'syn_MidHighLevel', 'syn_HighHits', 'syn_BassLevel', 'syn_Intensity', 'syn_BassPresence', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.35 }],
+  },
+  {
+    v: 1, id: 'builtin:neon-city', name: 'Neon City by Night', star: false, // dnb · mrange (path tracing; the windows = our FFT)
+    layers: [{ gen: { ref: 'syn/neon_city', bind: syn('syn_BassHits', 'syn_MidHighHits', 'syn_HighHits', 'syn_MidHits', 'syn_BassPresence', 'syn_MidPresence', 'syn_MidHighPresence', 'syn_HighPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:skaiwalker-og', name: 'Skaiwalker OG', star: false, // dnb · Psybernautics · ⚡ syn_Hits ← snare (40 ms rise): x2 on the walls' colour
+    layers: [{ gen: { ref: 'syn/SkaiWalkerOG', bind: { ...syn('syn_Presence', 'syn_BassPresence', 'syn_MidHighPresence', 'syn_MidHighLevel', 'syn_HighHits', 'syn_HighPresence'), syn_Hits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
