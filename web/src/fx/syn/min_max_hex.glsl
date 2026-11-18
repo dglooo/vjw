@@ -5,6 +5,7 @@
 // clock script_time (it adds per frame × dt·60: per second 300·speed·(1.3·Hits³ + .02·Presence)); its script_accum is
 // read by no line and dropped. mask_type (the donor's HARD_TRANSITIONS uniform, re-rolled on a scene change) is a
 // control. ⚡ syn_HighHits (the hats) is flash-gated: flashing_mode's random white cells.
+// res .75 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Min Max Hex",
   "CREDIT": "Meebs",

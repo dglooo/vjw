@@ -5,6 +5,7 @@
 // (20·(Level + Presence)·dt/60). Dropped: its everyOtherBeat (read by no line) and the auto_cycle / cycle re-roll of
 // the two dropdowns on syn_PrimeBang (a non-public event, no data form): the controls auto_cycle and cycle are gone,
 // distortion_type and color_scheme stay manual.
+// res .4 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Overload",
   "CREDIT": "Alex Rowe",

@@ -5,6 +5,7 @@
 // initialized `uniform vec2 mousePos` is a global. syn_BassExpoCurve (a non-public donor name: the RGB split's zoom)
 // is approximated as syn_BassLevel². Controls: mirror_change (a bang counter: each press steps the mirror mode) is a
 // 0…6 slider; color_low / color_high get defaults (the donor file has none).
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "EXOplanet",
   "CREDIT": "Meebs ft. WAHa_06x36",

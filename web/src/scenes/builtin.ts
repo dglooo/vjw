@@ -1114,16 +1114,19 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
         // the level moves over .8 s: a build's bass ramp steps the exp(6·B) light less (I-FL1 8 → 4 steps in 1 s); ⚡ the hit
         bind: { ...syn('syn_BassHits'), syn_BassLevel: { ...SYN_BIND.syn_BassLevel, attack: 0.8, release: 0.8 } },
       },
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25,
+      // res .85 (was .25, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85,
     }],
   },
   {
     v: 1, id: 'builtin:dark-twister', name: 'Dark Twister', star: true, // dnb · mrange, CC0
-    layers: [{ gen: { ref: 'syn/dark_twister', bind: syn('syn_BassLevel', 'syn_BassHits', 'syn_Hits', 'syn_BassPresence', 'syn_MidPresence', 'syn_MidHighPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }], // ⚡ syn_BassHits
+    // res .85 (was .25, 2026-11-19, agents/guides/guide_syn_res_085.md): max_steps 90 → 60
+    layers: [{ gen: { ref: 'syn/dark_twister', bind: syn('syn_BassLevel', 'syn_BassHits', 'syn_Hits', 'syn_BassPresence', 'syn_MidPresence', 'syn_MidHighPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }], // ⚡ syn_BassHits
   },
   {
     v: 1, id: 'builtin:kaleidowhoa-man', name: 'KaleidoWHOA, MAN', star: true, // dnb · Meebs (syn_BeatTime: the beat count, unbound)
-    layers: [{ gen: { ref: 'syn/kaleidowhoa_man', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Presence', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.4 }],
+    // res .85 (was .4, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/kaleidowhoa_man', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Presence', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   // Port lane B2a (2026-11-17): the scenes with clocks and manual control decisions (each file's header says which).
   {
@@ -1133,16 +1136,19 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:min-max-hex', name: 'Min Max Hex', star: false, // dnb · Meebs ⚡ syn_HighHits · Library-only: billed p95 8.63 ms (res 1), 9.28 (res .75) > 7.5; I-FL1 2/s
-    layers: [{ gen: { ref: 'syn/min_max_hex', bind: syn('syn_BPMSin2', 'syn_HighHits', 'syn_Presence', 'syn_BassLevel', 'syn_HighPresence', 'syn_OnBeat', 'syn_Hits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75 }],
+    // res .85 (was .75, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/min_max_hex', bind: syn('syn_BPMSin2', 'syn_HighHits', 'syn_Presence', 'syn_BassLevel', 'syn_HighPresence', 'syn_OnBeat', 'syn_Hits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:overload', name: 'Overload', star: false, // dnb · Alex Rowe · Library-only: billed p95 7.82 ms (res .5), 7.61 (res .4) > 7.5; I-FL1 1/s
     // syn_HighLevel tops at .4: the rings' level is pow(level, 3.5 + 5·high), and DnB's hats would keep them dark
-    layers: [{ gen: { ref: 'syn/overload', bind: { ...syn('syn_BassLevel', 'syn_BassHits', 'syn_HighHits', 'syn_Level', 'syn_MidHits', 'syn_Presence'), syn_HighLevel: { ...SYN_BIND.syn_HighLevel, max: 0.4 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.4 }],
+    // res .85 (was .4, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/overload', bind: { ...syn('syn_BassLevel', 'syn_BassHits', 'syn_HighHits', 'syn_Level', 'syn_MidHits', 'syn_Presence'), syn_HighLevel: { ...SYN_BIND.syn_HighLevel, max: 0.4 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:beamers', name: 'Beamers', star: false, // dnb · sheltron · Library-only: billed p95 12.99 ms (res 1), 10.62 (res .5) > 7.5, not pixel-bound in this session; I-FL1 2/s (1 at res 1)
-    layers: [{ gen: { ref: 'syn/beamers', bind: syn('syn_Presence', 'syn_BassPresence', 'syn_BassHits', 'syn_BassLevel', 'syn_Level', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/beamers', bind: syn('syn_Presence', 'syn_BassPresence', 'syn_BassHits', 'syn_BassLevel', 'syn_Level', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:fractilian-foundation', name: 'Fractilian Foundation', star: true, // dnb · mojovideotech, CC BY-NC-SA 3.0 · I-FL1 1/s, billed p95 6.68 ms
@@ -1150,11 +1156,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:hex-array', name: 'Hex Array', star: true, // dnb · sheltron (syn_BeatTime: the beat count, unbound) · I-FL1 1/s, billed p95 4.77 ms
-    layers: [{ gen: { ref: 'syn/hex_array' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/hex_array' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:gpu-melter', name: 'GPU Melter', star: true, // dnb · Meebs ⚡ syn_HighHits · I-FL1 3/s, billed p95 1.61 ms at res .4 (7.45 at res .5: the two readings disagree, re-measure alone)
-    layers: [{ gen: { ref: 'syn/gpu_melter', bind: syn('syn_BassLevel', 'syn_HighHits', 'syn_MidPresence', 'syn_OnBeat', 'syn_BassPresence', 'syn_HighPresence', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.4 }],
+    // res .85 (was .4, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/gpu_melter', bind: syn('syn_BassLevel', 'syn_HighHits', 'syn_MidPresence', 'syn_OnBeat', 'syn_BassPresence', 'syn_HighPresence', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:neuron-proximitors', name: 'Neuron Proximitors', star: true, // dnb · patu x Meebs ⚡ syn_HighHits · I-FL1 3/s, billed p95 4.33 ms
@@ -1167,7 +1175,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:exoplanet', name: 'EXOplanet', star: true, // dnb · Meebs ft. WAHa_06x36 · I-FL1 2/s, billed p95 6.43 ms
     // syn_Intensity (the planet's radius, 2 + 9·x) = SYN's max(energy, build, drop): big in a drop's body, small in a break
-    layers: [{ gen: { ref: 'syn/exoplanet', bind: { ...syn('syn_BPMSin4', 'syn_HighHits', 'syn_BassLevel', 'syn_BassHits', 'syn_HighLevel', 'syn_Level') } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+    // res .85 (was .25, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/exoplanet', bind: { ...syn('syn_BPMSin4', 'syn_HighHits', 'syn_BassLevel', 'syn_BassHits', 'syn_HighLevel', 'syn_Level') } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   // Donor port lane B1b (2026-11-17). The star rule of that run: I-FL1 ≤ 3 luma steps in 1 s (30 s audit on
   // dnb174-arr) AND billed p95 ≤ 7.5 ms (20 s + the own/flash tail, M4 1728×1117 @2, five lanes on the GPU, so the
