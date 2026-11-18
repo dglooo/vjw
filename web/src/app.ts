@@ -4,7 +4,7 @@ import { createArrangement, shouldCut, SILENT_RMS, type ArrangeOut } from './aud
 import { BAND_COUNT, createEnergy, rms } from './audio/energy'
 import { createFeatures } from './audio/features'
 import { meter } from './audio/meter' // the HUD's input meter (dsp_linein_2026-11-16 fix 5): fed here, read live by the overlay
-import { analyser, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, inputLatency, odfQueue, onsetQueue, recDest } from './audio/input'
+import { analyser, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, inputLatency, odfQueue, onsetQueue, player, recDest, togglePlay } from './audio/input'
 import { PRESETS, snapOctave, type Band, type PresetId } from './audio/presets'
 import { activePreset, bandKey, createSettings, workletBands } from './audio/settings'
 import { createSync, ZERO_SYNC } from './audio/sync'
@@ -39,6 +39,7 @@ const SILENCE = 0.02 // S4.3 knob: all three levels below this = silence → the
 const PAUSE = 1
 const CONFIDENT = 0.6 // knob (Q4 default): (c) is trusted above this, for bar lines and the overlay's BPM alike
 const NUDGE_MS = 10 // `,` / `.`
+const SKIP = 10 // s: the file transport's `-` / `=`
 const DEBUG = location.search.includes('debug')
 // ?debug&preset=dnb: pick the active preset from the URL (plan S3.2, a CP6 dev hook). Deliberately not written to
 // settings/localStorage — a later load without the param stays on the user's pick.
@@ -167,6 +168,13 @@ addEventListener('keydown', (e) => {
     case 'KeyB':
       sync.downbeat(heard())
       break
+    case 'KeyP': // the file transport (the overlay's buttons do the same)
+      if (store.getSnapshot().source?.kind === 'file') togglePlay()
+      break
+    case 'Minus':
+    case 'Equal':
+      if (store.getSnapshot().source?.kind === 'file') player.currentTime += e.code === 'Equal' ? SKIP : -SKIP // the element clamps to the track
+      break
     case 'KeyF':
       if (DEBUG) {
         dropAt = f.time // ?debug: one force-flash (a fresh drop → postFor's flash peaks), no cut
@@ -239,6 +247,19 @@ const style = createStyle()
 const arrangement = createArrangement()
 let arrangeOut: ArrangeOut = { build: 0, drop: 0, heat: 0, energy: 0, sparse: false, fired: null, confirmed: null }
 let dropAt = -Infinity
+// The file transport: a seek or a resume moves the music's phase under the grid, so the grid restarts from the new spot
+// (tempo: the window and the start settle; sync: no grid until a fresh lock). A seek also lands in another section of
+// the track: the arrangement restarts its section for a second (arrange.ts SEEK). A pause needs nothing: the paused
+// element feeds digital silence, so PAUSE reads it as on line-in.
+const regrid = () => {
+  tempo.seek(ctx.currentTime) // the worklet's clock, which stamps the ODF and the onsets
+  sync.reset()
+}
+player.addEventListener('play', regrid)
+player.addEventListener('seeked', () => {
+  regrid()
+  arrangement.seek(performance.now() / 1000) // f.time's clock
+})
 // energy.ts's 30 Hz–16 kHz log grid: the first band at/above 4 kHz; `high` = the sum of those bands (S5.3).
 const highStart = Math.ceil((BAND_COUNT * Math.log(4000 / 30)) / Math.log(16000 / 30))
 let styleOut: StyleOut = { detected: null, scores: { dnb: 0, dubstep: 0, techno: 0 }, confidence: 0 } // before the first update: __style reads it

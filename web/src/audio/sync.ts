@@ -37,7 +37,7 @@ const PARTNER = 0.01
 const TAP_GAP = 2 // s: a longer pause starts a new tap count
 const TAPS = 4 // intervals in the tap median
 
-export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncControls & { at(audioNow: number): Sync; feed(o: Onset): void } {
+export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncControls & { at(audioNow: number): Sync; feed(o: Onset): void; reset(): void } {
   const o = { ...DEFAULTS, ...opts }
   const out: Sync = { ...ZERO_SYNC } // at() returns this object every call
   let period = 0 // s; 0 = no grid
@@ -63,6 +63,11 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
     const n = Math.floor(beatAt(t))
     anchor = timeOf(n)
     anchorBeat = n
+  }
+  /** No grid (bpm 0): the next lock counts beats from 0. The lead (nudge) stays: it is the output's, not the music's. */
+  function reset() {
+    period = conf = smooth = downbeatOffset = 0
+    pending = null
   }
   /** A new grid on (bpm, beat time `at`), numbered on from the old one. */
   function lock(bpm: number, at: number, confidence: number) {
@@ -105,6 +110,7 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
   }
 
   return {
+    reset, // a file's seek or resume: the music's phase moved
     feed(on) {
       now = Math.max(now, on.t)
       if (!period) return
@@ -131,8 +137,7 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
       const bar = 4 * period
       const idle = (audioNow - lastHit) / bar // bars without an onset on the grid
       if (idle > o.holdBars) {
-        period = conf = smooth = downbeatOffset = 0 // the next lock counts beats from 0
-        pending = null
+        reset()
         return ZERO_SYNC
       }
       const weak = weakSince === null ? 0 : (audioNow - weakSince) / bar

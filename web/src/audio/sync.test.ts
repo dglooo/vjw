@@ -8,7 +8,7 @@ const P = 60 / 128
 /** A TempoSource stub: `set` publishes a new reading object, which read() returns until the next `set`. */
 function stub() {
   let r: TempoReading | null = null
-  return { push() {}, pushOdf() {}, setRange() {}, families: () => [], read: () => r, set: (x: TempoReading) => void (r = { ...x }) }
+  return { push() {}, pushOdf() {}, setRange() {}, seek() {}, families: () => [], read: () => r, set: (x: TempoReading) => void (r = { ...x }) }
 }
 type Controller = ReturnType<typeof createSync>
 
@@ -109,6 +109,16 @@ describe('grid and manual controls', () => {
     expect(offMs(s, 20 * P + 0.01)).toBeCloseTo(0, 1)
     s.nudge(-20)
     expect(offMs(s, 20 * P - 0.01)).toBeCloseTo(0, 1)
+  })
+
+  test("reset() (a file's seek or resume): no grid at once; the next lock counts from beat 0, the nudge kept", () => {
+    const { s, src } = locked()
+    s.nudge(10) // the grid 10 ms later
+    run(s, 0, 16 * P, grid(0, 16 * P))
+    s.reset()
+    expect(s.at(16 * P)).toEqual({ bpm: 0, beat: 0, bar: 0, confidence: 0 })
+    src.set({ bpm: 128, anchor: 20, confidence: 0.9 })
+    expect(s.at(20).beat).toBeCloseTo(-0.01 / P, 9) // beat 0 at the anchor, 10 ms late (numbered on, it would read ≈ 42.7)
   })
 })
 
