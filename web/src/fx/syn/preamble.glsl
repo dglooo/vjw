@@ -5,31 +5,34 @@
 // Generated from the five files (scratchpad/donor-vs2/preamble.py): one top-level item per line; ES 3.00 literal fixes
 // (no implicit int -> float); `_xy`, `_uv`, `_uvc` are set by main() (an ES 3.00 global initializer must be constant).
 // No media input and no meta-control chain yet: each helper that reads syn_Media, syn_UserImage, syn_MediaType or a
-// meta-control uniform (_Hue, _Media_Scale, ...) is a stub of the same signature returning zero / false (listed first).
+// meta-control uniform (_Hue, _Media_Scale, ...) is a hand-written stub of the same signature (listed first) returning
+// what the donor's returns at rest: no media (type 0, black 1 x 1), every meta-control neutral (brightness, contrast,
+// gamma, master, media scale 1; hue, saturation, invert 0; no mirror, no colour limit, alpha off; images zoom to fill).
 #define syn_Prefs_ZoomOrFit 1.0 // the app preference: images zoom to fill (no bars)
 vec2 _xy, _uv, _uvc; // gl_FragCoord.xy; / RENDERSIZE; centred, y -.5...5 and x on the same unit
-// The media and meta-control stubs (first: the helpers below call them):
+// The media and meta-control stubs (first: the helpers below call them). At rest the donor's hue/saturation pass clamps
+// to 0..1 (an rgb -> hsv -> rgb round trip) and its master clamps; the media reads are black; the rest pass through.
 bool _isMediaActive() { return false; }
-vec2 _flipMediaCoords(vec2 pos) { return vec2(0.0); }
-vec2 _applyMediaScale(vec2 uv) { return vec2(0.0); }
-vec2 _mediaSize() { return vec2(0.0); }
-float _ratioFix(float wr, float hr) { return 0.0; }
-vec4 _imageToMask(vec4 colIn) { return vec4(0.0); }
-vec2 _correctUserImageCoords(vec2 uv) { return vec2(0.0); }
-vec4 _applyMaster(vec4 colIn) { return vec4(0.0); }
-vec4 _applyBrightness(vec4 colIn) { return vec4(0.0); }
-vec4 _applyGamma(vec4 colIn) { return vec4(0.0); }
-vec4 _applyContrast(vec4 color) { return vec4(0.0); }
-vec4 _applyMediaContrast(vec4 color) { return vec4(0.0); }
-vec4 _applyMediaGamma(vec4 color) { return vec4(0.0); }
-vec4 _applyMediaHueSaturation(vec4 color) { return vec4(0.0); }
-vec4 _applyHueSaturation(vec4 colIn) { return vec4(0.0); }
-vec4 _applyInvert(vec4 colIn) { return vec4(0.0); }
-vec4 _applyInvertMedia(vec4 colIn) { return vec4(0.0); }
-vec4 _applyDichrome(vec4 colIn) { return vec4(0.0); }
-vec2 _applyVerticalMirroring(vec2 posIn) { return vec2(0.0); }
-vec2 _applyHorizontalMirroring(vec2 posIn) { return vec2(0.0); }
-vec4 _applyAlpha(vec4 colorIn) { return vec4(0.0); }
+vec2 _flipMediaCoords(vec2 pos) { return pos; }
+vec2 _applyMediaScale(vec2 uv) { return uv; }
+vec2 _mediaSize() { return vec2(1.0); }
+float _ratioFix(float wr, float hr) { return syn_Prefs_ZoomOrFit > 0.5 ? max(wr, hr) : min(wr, hr); }
+vec4 _imageToMask(vec4 colIn) { return vec4(step(0.5, dot(colIn.rgb, vec3(0.2126, 0.7152, 0.0722)))); }
+vec2 _correctUserImageCoords(vec2 uv) { return uv; }
+vec4 _applyMaster(vec4 colIn) { return clamp(colIn, 0.0, 1.0); }
+vec4 _applyBrightness(vec4 colIn) { return colIn; }
+vec4 _applyGamma(vec4 colIn) { return colIn; }
+vec4 _applyContrast(vec4 color) { return color; }
+vec4 _applyMediaContrast(vec4 color) { return color; }
+vec4 _applyMediaGamma(vec4 color) { return color; }
+vec4 _applyMediaHueSaturation(vec4 color) { return vec4(clamp(color.rgb, 0.0, 1.0), color.a); }
+vec4 _applyHueSaturation(vec4 colIn) { return vec4(clamp(colIn.rgb, 0.0, 1.0), colIn.a); }
+vec4 _applyInvert(vec4 colIn) { return colIn; }
+vec4 _applyInvertMedia(vec4 colIn) { return colIn; }
+vec4 _applyDichrome(vec4 colIn) { return colIn; }
+vec2 _applyVerticalMirroring(vec2 posIn) { return posIn; }
+vec2 _applyHorizontalMirroring(vec2 posIn) { return posIn; }
+vec4 _applyAlpha(vec4 colorIn) { return vec4(colorIn.rgb, 1.0); }
 vec4 _loadMedia() { return vec4(0.0); }
 vec4 _loadMedia(vec2 offset) { return vec4(0.0); }
 vec4 _textureMedia(vec2 uv) { return vec4(0.0); }
@@ -42,7 +45,7 @@ vec4 _textureMedia(vec2 uv, float lod) { return vec4(0.0); }
 vec4 _loadMediaAsMask(float lod) { return vec4(0.0); }
 vec4 _loadMediaAsMask(vec2 offset, float lod) { return vec4(0.0); }
 vec4 _textureMediaAsMask(vec2 uv, float lod) { return vec4(0.0); }
-vec4 _applyHueSaturationContrast(vec4 colIn) { return vec4(0.0); }
+vec4 _applyHueSaturationContrast(vec4 colIn) { return vec4(clamp(colIn.rgb, 0.0, 1.0), colIn.a); }
 vec4 _edgeDetectMedia() { return vec4(0.0); }
 vec4 _edgeDetectSobelMedia() { return vec4(0.0); }
 // The helpers:

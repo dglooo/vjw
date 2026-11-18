@@ -8,12 +8,13 @@
 // pressed value). Passes: firstFB (the flow), secondFB (its blur), vertBlur (the colours), horBlur, the screen.
 // The pass targets WRAP repeat: scene.json names no WRAP, and OpenGL's initial wrap is GL_REPEAT (the donor's engine is
 // OpenGL 3.3 core), so the scene most likely ran repeating; our default is clamp. Seen on milk_honey_smoke_bile:
-// clamped, its field is vertical bands within 6 s; repeating, it looks like its thumbnail.
+// clamped, its field is vertical bands within 6 s; repeating, it looks like its thumbnail. FLOAT false on every pass
+// (adapter step 3: no FLOAT key = HDR): half-float showed no visible change and billed p95 2.3 -> 8.7-10.4 ms.
 /*{
   "TITLE": "Churning",
   "CREDIT": "Victor S.",
   "TAGS": ["rainbow", "feedback", "media", "morphing", "colorful", "groovy", "psychedelic", "donor"],
-  "PASSES": [{"TARGET": "firstFB", "WRAP": "repeat"}, {"TARGET": "secondFB", "WRAP": "repeat"}, {"TARGET": "vertBlur", "WRAP": "repeat"}, {"TARGET": "horBlur", "WRAP": "repeat"}],
+  "PASSES": [{"TARGET": "firstFB", "WRAP": "repeat", "FLOAT": false}, {"TARGET": "secondFB", "WRAP": "repeat", "FLOAT": false}, {"TARGET": "vertBlur", "WRAP": "repeat", "FLOAT": false}, {"TARGET": "horBlur", "WRAP": "repeat", "FLOAT": false}],
   "CONTROLS": [
     {"NAME": "turbulence", "TYPE": "toggle", "DEFAULT": 0.0, "MIN": 0.0, "MAX": 1.0},
     {"NAME": "plasma", "TYPE": "toggle", "DEFAULT": 0.0, "MIN": -0.5, "MAX": 0.0},

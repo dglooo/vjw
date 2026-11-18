@@ -74,11 +74,11 @@ void main() {
   outColor = texture(uSrc, gl_FragCoord.xy / uRes);
 }`)
 
-/** A color-only target, linear filtering, clamped (`tex`: twgl's minMag/wrap otherwise, kept across fit()): RGBA8, or
+/** A color-only target, linear filtering, clamped (`tex`: twgl's min/minMag/wrap otherwise, kept across fit()): RGBA8, or
  *  half-float with `hdr` where the GPU renders to it. A
  *  `persistent` one keeps its content when fit() resizes it, resampled into the new size (design E2: trails survive a
  *  governor step). Every target starts cleared: WebGL zero-fills new textures. fit() may leave the target bound. */
-export function renderTarget(hdr = false, persistent = false, tex: { minMag?: number; wrap?: number } = {}) {
+export function renderTarget(hdr = false, persistent = false, tex: { min?: number; minMag?: number; wrap?: number } = {}) {
   const attach = [{ ...(hdr && HALF ? { internalFormat: gl.RGBA16F, format: gl.RGBA, type: gl.HALF_FLOAT } : { format: gl.RGBA, type: gl.UNSIGNED_BYTE }), ...tex }]
   const fb = createFramebufferInfo(gl, attach, 1, 1)
   return Object.assign(fb, {

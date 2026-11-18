@@ -61,3 +61,19 @@
 - **Controls:** `bang counter` and `traveler` work with no edits (override a traveler's speed with a same-name `VJW_CLOCK` entry). xy scalar defaults, colours without a default, and bang DEFAULT 1 are fixed in the adapter. Copy `HARD_TRANSITIONS` / `SMOOTH_TRANSITIONS` into the header (port.py does not yet); they become static controls. Per-scene workarounds from B1/B2 are harmless (declared controls win).
 - **Still unsupported:** `FILTER mipmap` passes (entombed_silicon_dreams, logo_grid_pulses), pass `TYPE float` (lost_in_the_sauce), `syn_LevelTrail` / `syn_InputLevel` (audio_indicators). Report these and leave them.
 - **Measurement:** with several lanes on the GPU, billed p95 reads 1.2–1.9× high: take the lowest run; a solo rerun decides borderline stars.
+
+## Update after adapter step 3 (`syn-adapter-3`, 2026-11-18)
+- Preamble: the meta-control stubs return the neutral result, and `_loadImage` / `_textureImage` work.
+- Passes: no FLOAT key means HDR (half float). Write `FLOAT: false` only where 8-bit is faithful or HDR costs frame time (churning). `TYPE float` is HDR. `FILTER mipmap` works.
+- New feeds: `syn_LevelTrail` (256 frames; r all, g bass, b mid, a high; newest at x = 1), `syn_InputLevel` (the HUD meter, linear), `syn_BassExpoCurve` (subBody²).
+- Controls:
+  - A `slider speed` control is a clock; its panel input is `<name>_`.
+  - A bang rests at its MIN.
+  - A toggle whose DEFAULT lies between MIN and MAX starts at MIN (when DEFAULT is 0) or at MAX.
+  - A `FRAMECOUNT` compare with an int literal compiles.
+  - A dropdown with VALUES still reads its index: map it in the body.
+- Raws: Toggle / RandomOnBeat, BeatTime (one step per beat), BPMTwitcher, Intensity = max(energy, build, drop), InputLevel and BassExpoCurve are raws. They are not inputs and do not go in `bind`. Hits peak at 1. SOFT_* = attack .04 × 6.
+- Built-ins: a built-in may also bind its scene's controls. To make a size or bang control ride `build` or `drop`, bind the control directly in builtin.ts and leave the body as the donor wrote it (see tunnel_beauty_6, traced_tunnel, raymarched_reflections).
+- Media is still a stub. If a look needs a logo, add your own IMAGES file and read it through `_loadImage`.
+- Donor scenes assume a 16:9 frame; our stage is 1.55. Anything at `|_uvc.x|` > .77 is off-screen.
+- If a dropped track never plays, run Chrome with `--disable-audio-output` (env `ARGS`).

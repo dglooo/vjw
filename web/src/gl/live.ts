@@ -18,6 +18,7 @@ import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { pairsByTarget, sizeExpr } from '../fx/isf'
+import { pushTrail, TRAIL } from '../fx/syn'
 import { clockStep } from '../clock'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
@@ -54,8 +55,9 @@ export interface Live {
  *  naming one TARGET share a read/write pair, swapped after each of them draws (design E2): a PERSISTENT one reads its
  *  last frame, a later pass what the previous one wrote, and no pass samples the texture it draws into. `w`/`h`: the
  *  size the targets were fitted for. `frames`: a shader's FRAMEINDEX, its own draws so far (0 on its first). `images`:
- *  a synScene's IMAGES textures as they load (null: a native, or freed, when a later load deletes its own). */
-interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number; images: WebGLTexture[] | null }
+ *  a synScene's IMAGES textures as they load (null: a native, or freed, when a later load deletes its own); its
+ *  syn_LevelTrail texture is one of them, `trail` its texels and level states. */
+interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number; images: WebGLTexture[] | null; trail?: { t: WebGLTexture; bytes: Uint8Array; states: BindState[] } }
 /** A built layer: its nodes (a null one blacks the layer out), its live opacity/speed (bindable) and res, its clock,
  *  the reused FrameInput copy a native reads, its own target once `res` < 1, and the editor's mute (black too). `mask`
  *  (camera CP1): the doc's; `release` gives back the camera user a masked layer holds (K-3), idempotent. */
@@ -104,6 +106,11 @@ function toyLog(fs: string, prefixLines: number) {
   const log = gl.getShaderInfoLog(sh)?.trim() || 'failed to link'
   gl.deleteShader(sh)
   return log.replace(/(ERROR|WARNING): (\d+):(\d+)/g, (_, k: string, s: string, n: string) => `${k}: ${s}:${Number(n) - prefixLines}`)
+}
+/** A FILTER mipmap target's levels from its level 0 (fx/syn.ts): after each draw into it, and after fit(). */
+const mips = (t: Target) => {
+  gl.bindTexture(gl.TEXTURE_2D, t.attachments[0])
+  gl.generateMipmap(gl.TEXTURE_2D)
 }
 const free = (t: Target) => {
   gl.deleteFramebuffer(t.framebuffer)
@@ -205,13 +212,18 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       u[`_${name}_imgSize`] = AUDIO_SIZE
     }
     const at = pairsByTarget(passes) // passes naming one TARGET share a pair, built to its first pass's FLOAT/PERSISTENT
-    const tex = (p: PassDef) => ({ ...(p.filter && { minMag: gl.NEAREST }), ...(p.wrap && { wrap: gl.REPEAT }) }) // a synScene TARGET's sampling
+    const tex = (p: PassDef) => ({ ...(p.filter === 'nearest' && { minMag: gl.NEAREST }), ...(p.filter === 'mipmap' && { min: gl.LINEAR_MIPMAP_LINEAR }), ...(p.wrap && { wrap: gl.REPEAT }) }) // a synScene TARGET's sampling
     const pairs = passes.map((p, j) => (at[j] === j ? [renderTarget(p.float, p.persistent, tex(p)), renderTarget(p.float, p.persistent, tex(p))] : null))
     const x: Node = { def, info, u, events, passes: passes.map((p, j) => ({ p, pair: at[j] < 0 ? null : pairs[at[j]] })), w: 0, h: 0, frames: 0, images: [] }
     // ponytail: each node loads its own copy, so a library tile bakes (1 frame) before its images land; share a cache
     // by URL if the tiles show it.
     for (const [name, src] of Object.entries(textures)) {
       u[name] = src === 'audio' ? audioTex.toy : black
+      if (src === 'trail') {
+        const bytes = new Uint8Array(4 * TRAIL)
+        x.trail = { t: createTexture(gl, { width: TRAIL, height: 1, src: bytes, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE }), bytes, states: [0, 1, 2, 3].map(() => ({ y: 0 })) }
+        x.images!.push((u[name] = x.trail.t))
+      }
       if (src[0] !== '/') continue
       image(src).then((t) => {
         if (!x.images) return gl.deleteTexture(t) // freed while it loaded
@@ -282,6 +294,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       const tw = dim(p.width, vars, w)
       const th = dim(p.height, vars, h)
       for (const t of pair) t.fit(tw, th)
+      if (p.filter === 'mipmap') pair.forEach(mips) // fit() redefines level 0 only: the old levels leave it incomplete
       n.u[p.target!] = pair[0].attachments[0] // a persistent fit() swaps in a new texture
       n.u[`_${p.target}_imgSize`] = [tw, th]
     }
@@ -306,7 +319,12 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       n.u.inputImage = src // the previous draw; unused by a generator
       const { clocks, raws } = n.def as ShaderDef // a synScene's audio clocks (on the layer's clock) and frame values
       if (clocks) for (const c of clocks) n.u[c.u] = clockStep((n.u[c.u] as number | undefined) ?? 0, c.rate, n.u, c.frame ? 1 : dt) // an event reads 1 on its draw
-      if (raws) for (const [k, read] of raws) n.u[k] = read(f)
+      if (raws) for (const [k, read] of raws) n.u[k] = read(f, s)
+      if (n.trail) {
+        pushTrail(n.trail.bytes, n.trail.states, s, f.dt)
+        gl.bindTexture(gl.TEXTURE_2D, n.trail.t)
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TRAIL, 1, gl.RGBA, gl.UNSIGNED_BYTE, n.trail.bytes)
+      }
       for (let j = 0; j < n.passes.length; j++) {
         const { p, pair } = n.passes[j]
         out = pair ? pair[1] : dst
@@ -316,6 +334,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
         n.u.PASSINDEX = j
         draw(n.info!, n.u)
         if (!pair) continue
+        if (p.filter === 'mipmap') mips(out)
         pair.reverse() // what it drew is now the one later passes (and the next frame) read
         n.u[p.target!] = pair[0].attachments[0]
       }

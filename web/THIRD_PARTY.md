@@ -171,12 +171,13 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `transitions/Swirl.glsl` | Sergey Kosarevsky | https://github.com/gl-transitions/gl-transitions/blob/master/transitions/Swirl.glsl | MIT |
 | `transitions/crossfade.glsl` | VeeJay Wizard (own) | - | MIT (own) |
 
-### syn (72)
+### syn (75)
 
 | path | author | source | license |
 |---|---|---|---|
 | `syn/PLUS.glsl` | Meebs | donor/visual_system_2/scenes/release/PLUS.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/alien_cavern.glsl` | aiekick (Stephane Cuillerdier) | donor/visual_system_2/scenes/release/alien_cavern.synScene | CC BY-NC-SA 3.0 Unported (the author's lines are kept below; non-commercial, share-alike) |
+| `syn/audio_indicators.glsl` | the donor app (its built-in audio monitor, AUDIO_INDICATORS_SCENE_TITLE; research_donor_visual_system_2 §6) | donor/visual_system_2/scenes/release/audio_indicators.synScene | unknown (shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/beamers.glsl` | sheltron | donor/visual_system_2/scenes/release/beamers.synScene | unknown (the donor's CREDIT names sheltron only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/beats_in_4d.glsl` | mrange (Mårten Rånge) | donor/visual_system_2/scenes/release/beats_in_4d.synScene | CC0 1.0 Universal (the dedication is kept below) |
 | `syn/biopsy.glsl` | Meebs ft. Flexi | donor/visual_system_2/scenes/release/biopsy.synScene | unknown (the donor's CREDIT names Meebs ft. Flexi only; shipped inside a commercial app; personal use, ⚠️ check before release) |
@@ -211,6 +212,8 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `syn/kaleidowhoa_man.glsl` | Meebs | donor/visual_system_2/scenes/release/kaleidowhoa_man.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/kifs_flythrough.glsl` | Shane (the body's title comment: "KIFS Flythrough") | donor/visual_system_2/scenes/release/kifs_flythrough.synScene | unknown (no licence in the file; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/lattix.glsl` | Anonymous | donor/visual_system_2/scenes/release/lattix.synScene | unknown (the donor's CREDIT names "Anonymous" only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/logo_grid_pulses.glsl` | UFFFD x Meebs | donor/visual_system_2/scenes/release/logo_grid_pulses.synScene | unknown (the donor's CREDIT only; shipped inside a commercial app; personal use, ⚠️ check before release) |
+| `syn/lost_in_the_sauce.glsl` | Keijiro Takahashi x Meebs | donor/visual_system_2/scenes/release/lost_in_the_sauce.synScene | unknown (the donor's CREDIT only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/meta_experiment_3.glsl` | aiekick (Stephane Cuillerdier) | donor/visual_system_2/scenes/release/meta_experiment_3.synScene | CC BY-NC-SA 3.0 Unported (the file's own notice is kept below) |
 | `syn/milk_honey_smoke_bile.glsl` | Victor S. | donor/visual_system_2/scenes/release/milk_honey_smoke_bile.synScene | unknown (the donor's CREDIT names Victor S. only; shipped inside a commercial app; personal use, ⚠️ check before release) |
 | `syn/min_max_hex.glsl` | Meebs (the triangle tiling adapted from mattz, https://www.shadertoy.com/view/4d2GzV) | donor/visual_system_2/scenes/release/min_max_hex.synScene | unknown (the donor's CREDIT names Meebs only; shipped inside a commercial app; personal use, ⚠️ check before release) |

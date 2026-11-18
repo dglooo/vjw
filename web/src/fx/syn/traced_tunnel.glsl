@@ -6,8 +6,8 @@
 // syn_Media is black (no media yet): the walls keep image3. The bangs (FOV_bump, scan_x, scan_z) rest at 0.
 // sampleNum 12 -> 8 (the author's own "Eight is enough"): billed p95 10.8 ms at 12 samples, res .25.
 // ⚡ syn_HighHits is flash-gated: with auto_flasher on (off by default) the hats blank bands of the walls.
-// Our detector's logic (user 2026-11-18): the size control rides a source: FOV - .45 x syn_Intensity, which the
-// built-in binds to `build` (a build widens the lens: the tunnel stretches; it eases back after the drop).
+// Our detector's logic (user 2026-11-18): the size control rides a source: the built-in binds FOV to `build` (1 ->
+// .55: a build widens the lens, the tunnel stretches; it eases back after the drop).
 /*{
   "TITLE": "Traced Tunnel",
   "CREDIT": "Shane",
@@ -302,7 +302,7 @@ vec4 renderMainImage() {
         #ifdef DEPTH_OF_FIELD
         // Depth of field. Spreading out the sample, according to screen depth.
         ro.xy += offs*DOF;
-        vec3 r = normalize(vec3(_uvc - offs*DOF/DOFDist, FOV+FOV_bump-0.45*syn_Intensity)); // VJW: syn_Intensity widens the lens (the built-in: build)
+        vec3 r = normalize(vec3(_uvc - offs*DOF/DOFDist, FOV+FOV_bump));
         #else
         vec3 r = normalize(vec3(uv - offs/RENDERSIZE.y, 1));
         #endif

@@ -5,8 +5,8 @@
 // media yet): the media stripes (tex3D) add nothing. PASSES: FLOAT added (the donor's default target is HDR; ours is
 // 8-bit unless FLOAT). Reversed ranges (flatten, simplify: MIN 1, MAX 0) are written low to high.
 // ⚡ syn_OnBeat (the kick) is flash-gated: it lights the tunnel's far walls (x .3 at rest, x 1 on the hit).
-// Our detector's logic (user 2026-11-18): the size control rides a source: the tunnel's diameter x (1 + .5 x
-// syn_Intensity), which the built-in binds to `build` (a build swells the tunnel; it eases back after the drop).
+// Our detector's logic (user 2026-11-18): the size control rides a source: the built-in binds diameter to `build`
+// (.35 -> .525 = x 1.5: a build swells the tunnel; it eases back after the drop). Body unchanged.
 /*{
   "TITLE": "Tunnel Beauty 6",
   "CREDIT": "aiekick",
@@ -95,7 +95,7 @@ float df(vec3 p)
   p += q;
 
 	p = mix(p, p*RotZ(p.z * 0.045+q.x*churner), flatten);
-  return diameter*(1.0+0.5*syn_Intensity)*40.0 - abs(p.y*0.5); // VJW: syn_Intensity swells the tunnel (the built-in: build)
+  return diameter*40.0 - abs(p.y*0.5);
 }
 
 vec3 nor( vec3 pos, float prec )
