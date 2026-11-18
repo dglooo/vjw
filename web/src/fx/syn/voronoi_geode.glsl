@@ -4,6 +4,7 @@
 // VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES agate1/agate2 from public/syn/voronoi_geode/images/). The script's
 // one clock is per second already: script_time += 2 · speed_motion² · syn_HighHits² · dt.
 // ⚡ syn_BassHits (the kick) is flash-gated: it lifts the environment map's green x3.
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Voronoi Geode",
   "CREDIT": "Shane",

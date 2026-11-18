@@ -10,6 +10,7 @@
 // OpenGL 3.3 core), so the scene most likely ran repeating; our default is clamp. Seen on milk_honey_smoke_bile:
 // clamped, its field is vertical bands within 6 s; repeating, it looks like its thumbnail. FLOAT false on every pass
 // (adapter step 3: no FLOAT key = HDR): half-float showed no visible change and billed p95 2.3 -> 8.7-10.4 ms.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Churning",
   "CREDIT": "Victor S.",

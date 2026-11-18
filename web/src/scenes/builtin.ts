@@ -1227,11 +1227,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   // (Library-only until a solo run).
   {
     v: 1, id: 'builtin:voronoi-geode', name: 'Voronoi Geode', star: true, // dnb · Shane (IMAGES: agate1/agate2)
-    layers: [{ gen: { ref: 'syn/voronoi_geode', bind: syn('syn_HighHits', 'syn_Presence', 'syn_BassHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }], // ⚡ syn_BassHits
+    // res .85 (was .25, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/voronoi_geode', bind: syn('syn_HighHits', 'syn_Presence', 'syn_BassHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }], // ⚡ syn_BassHits
   },
   {
     v: 1, id: 'builtin:bouncy-hexagons', name: 'Bouncy Hexagons', star: false, // dnb · mrange, CC0 (syn_Spectrum, IMAGES t_fbm)
-    layers: [{ gen: { ref: 'syn/bouncy_hexagons', bind: syn('syn_BassPresence', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+    // res .85 (was .25, 2026-11-19, agents/guides/guide_syn_res_085.md): max_marches_1 90 → 60
+    layers: [{ gen: { ref: 'syn/bouncy_hexagons', bind: syn('syn_BassPresence', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   // Lane B1a (2026-11-17, the bulk import): 10 more. A hit that lights the frame rides the snare or the kick, never the
   // hats (⚡ lets 3 onsets/s through: hats would pass at random). The feedback scenes run at res .5 (the donor's own
@@ -1248,7 +1250,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:alien-cavern', name: 'Alien Cavern', star: true, // dnb · aiekick, CC BY-NC-SA 3.0
     layers: [{
       gen: { ref: 'syn/alien_cavern', values: { flashing: 1 }, bind: { ...syn('syn_Presence', 'syn_BPMSin4', 'syn_BassLevel', 'syn_Level'), syn_HighHits: SOFT_SNARE } }, // ⚡ syn_HighHits ← snare: the ridges light up
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25,
+      // res .85 (was .25, 2026-11-19, agents/guides/guide_syn_res_085.md): march cap 200 → 120
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85,
     }],
   },
   {
@@ -1270,33 +1273,39 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:churning', name: 'Churning', star: true, // dnb · Victor S.
     layers: [{
       gen: { ref: 'syn/churning', values: { colRegSel: 0.1 }, bind: { ...syn('syn_HighLevel', 'syn_BassLevel', 'syn_BassHits', 'syn_ToggleOnBeat', 'syn_RandomOnBeat', 'syn_BPMTri2', 'syn_Level', 'syn_HighPresence', 'syn_BassPresence'), syn_HighHits: SYN_BIND.syn_Hits } }, // syn_HighHits ← snare
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+      // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85,
     }],
   },
   {
     v: 1, id: 'builtin:compound-iris', name: 'Compound Iris', star: true, // dnb · Meebs
-    layers: [{ gen: { ref: 'syn/compound_iris', bind: syn('syn_BassPresence', 'syn_MidPresence', 'syn_BPMSin2', 'syn_HighPresence', 'syn_HighHits', 'syn_Level', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.35 }],
+    // res .85 (was .35, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/compound_iris', bind: syn('syn_BassPresence', 'syn_MidPresence', 'syn_BPMSin2', 'syn_HighPresence', 'syn_HighHits', 'syn_Level', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:dispersion', name: 'Dispersion', star: true, // dnb · cornusammonis
-    layers: [{ gen: { ref: 'syn/dispersion', bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_HighLevel', 'syn_Level'), syn_HighHits: SOFT_KICK } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }], // ⚡ syn_HighHits ← kick: the stripes pump
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): SAMPLES 34 → 16
+    layers: [{ gen: { ref: 'syn/dispersion', bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_HighLevel', 'syn_Level'), syn_HighHits: SOFT_KICK } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }], // ⚡ syn_HighHits ← kick: the stripes pump
   },
   {
     v: 1, id: 'builtin:fluid-body', name: 'Fluid Body', star: true, // dnb · Victor S.
-    layers: [{ gen: { ref: 'syn/fluid_body', bind: syn('syn_BassHits', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_HighHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.33 }],
+    // res .85 (was .33, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/fluid_body', bind: syn('syn_BassHits', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_HighHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:glassier', name: 'Glassier', star: true, // dnb · Felix Woitzel
     layers: [{
       gen: { ref: 'syn/glassier', values: { cReg4: 1 }, bind: { ...syn('syn_BassHits', 'syn_RandomOnBeat', 'syn_OnBeat', 'syn_ToggleOnBeat', 'syn_HighLevel', 'syn_BassLevel', 'syn_BassPresence', 'syn_Level'), syn_HighHits: SYN_BIND.syn_Hits } }, // syn_HighHits ← snare: the brush's push
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.35,
+      // res .85 (was .35, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85,
     }],
   },
   {
     // Library-only (unstarred, the flash-audit rule): the snare's glow is most of its light. I-FL1 read 3, 4 and 4
     // steps in 1 s at rises of 0 and 40 ms, and 3 (the cap, in the snare roll) at the 80 ms kept here: no margin.
     v: 1, id: 'builtin:glob', name: 'Glob', star: false, // dnb · Nimitz
-    layers: [{ gen: { ref: 'syn/glob', bind: { ...syn('syn_Level'), syn_HighHits: { ...SOFT_SNARE, attack: 0.08 }, syn_BassHits: { ...SOFT_KICK, attack: 0.08 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }], // ⚡ syn_HighHits ← snare, syn_BassHits (the kick)
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/glob', bind: { ...syn('syn_Level'), syn_HighHits: { ...SOFT_SNARE, attack: 0.08 }, syn_BassHits: { ...SOFT_KICK, attack: 0.08 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }], // ⚡ syn_HighHits ← snare, syn_BassHits (the kick)
   },
   {
     v: 1, id: 'builtin:milk-honey-smoke-bile', name: 'Milk, Honey, Smoke, Bile', star: true, // dnb · Victor S.
@@ -1304,7 +1313,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       // ⚡ syn_BassHits at full: the kick's drag drop is what keeps the field in blobs (softened to .8 over 3 frames, it
       // went flat within 12 s)
       gen: { ref: 'syn/milk_honey_smoke_bile', bind: syn('syn_HighLevel', 'syn_HighPresence', 'syn_MidLevel', 'syn_BassHits', 'syn_MidPresence', 'syn_MidHighLevel', 'syn_MidHighPresence', 'syn_RandomOnBeat', 'syn_OnBeat', 'syn_Level') },
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
+      // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85,
     }],
   },
   // Lane B2b (clocks + manual-control decisions; each file's header says what its script.js / bang / traveler became).
@@ -1321,7 +1331,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:lattix', name: 'Lattix', star: true, // dnb · Anonymous (the kick lunges the camera: a clock)
-    layers: [{ gen: { ref: 'syn/lattix', bind: syn('syn_OnBeat', 'syn_Presence', 'syn_HighHits', 'syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/lattix', bind: syn('syn_OnBeat', 'syn_Presence', 'syn_HighHits', 'syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:myoplasm', name: 'Myoplasm', star: true, // dnb · Alex Rowe
@@ -1329,11 +1340,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:scaffold-fractal', name: 'Scaffold Fractal', star: true, // dnb · Meebs (after kabuto / s1e) · ⚡ syn_HighHits
-    layers: [{ gen: { ref: 'syn/scaffold_fractal', bind: syn('syn_Presence', 'syn_HighHits', 'syn_Level', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/scaffold_fractal', bind: syn('syn_Presence', 'syn_HighHits', 'syn_Level', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:swarm-meebs', name: 'Swarm (Meebs)', star: false, // dnb · Meebs (40 particles: a FLOAT state row); builtin:swarm is our own
-    layers: [{ gen: { ref: 'syn/swarm', bind: syn('syn_HighHits', 'syn_Presence', 'syn_BPMSin2', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }], // Library-only: billed p95 8.7 ms at res .5 (40 particles per pixel; 15.5 ms at res 1, the governor steps to .6)
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/swarm', bind: syn('syn_HighHits', 'syn_Presence', 'syn_BPMSin2', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }], // Library-only: billed p95 8.7 ms at res .5 (40 particles per pixel; 15.5 ms at res 1, the governor steps to .6)
   },
   {
     v: 1, id: 'builtin:deeper', name: 'Deeper', star: true, // dnb · Meebs (the bass flies the corridor: a clock)
@@ -1348,14 +1361,16 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
         // 1 s and 22 in 30 s at attack 0, 1 and 1 here). res: billed p95 11.1 ms at 1 (its raymarch pass is .53 of it)
         bind: { ...syn('syn_BassLevel', 'syn_HighPresence', 'syn_Presence', 'syn_BassPresence'), syn_HighHits: { ...SYN_BIND.syn_HighHits, attack: 0.12, release: 0.3 } },
       },
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.6,
+      // res .85 (was .6, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85,
     }],
   },
   {
     // Library-only: billed p95 13.1 ms at res .25 (14.5 at .5, 13.3 at .3: each with the governor at .6, so few scale-1
     // samples; its 50-step raymarch is 7.5 of 11.6 ms at res .3). Re-measure with the GPU alone before starring.
     v: 1, id: 'builtin:entombed-silicon-dreams', name: 'Entombed Silicon Dreams', star: false, // dnb · mrange, CC0 · ⚡ syn_BassHits (the ring = our FFT)
-    layers: [{ gen: { ref: 'syn/entombed_silicon_dreams', bind: syn('syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+    // res .85 (was .25, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/entombed_silicon_dreams', bind: syn('syn_BassLevel', 'syn_BassHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   // Lane B3a (IMAGES scenes on adapter step 2; each file's header says what its script.js / transitions / media became).
   // Starred = I-FL1 (max luma steps > .10 in 1 s, 30 s of dnb174-arr) <= 3 and billed p95 <= 7.5 ms (5 lanes on the GPU,

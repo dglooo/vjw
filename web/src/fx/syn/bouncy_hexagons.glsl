@@ -5,6 +5,7 @@
 // the adapter's FFT row (its .z: the donor's smoothed one, ours unsmoothed); syn_UserImage is black (no media yet), the
 // media_mode code stays off behind syn_MediaType 0. The script's clocks add per frame (no dt): restated per second at
 // the donor's 60 fps (x 60). ES 3.00 literals: *13 → *13.0, *8 → *8.0, *2* → *2.0*, vec2(textureSize(...)).
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): max_marches_1 90 → 60
 /*{
   "TITLE": "Bouncy Hexagons",
   "CREDIT": "mrange",
@@ -86,7 +87,8 @@ vec3 hsv2rgb(vec3 c) {
 #define HSV2RGB(c)  (c.z * mix(hsv2rgb_K.xxx, clamp(abs(fract(c.xxx + hsv2rgb_K.xyz) * 6.0 - hsv2rgb_K.www) - hsv2rgb_K.xxx, 0.0, 1.0), c.y))
 
 const float
-  max_marches_1 = 90.
+  // VJW: was 90 (res .25 → .85, agents/guides/guide_syn_res_085.md)
+  max_marches_1 = 60.
 , tolerance_1   = 1e-3
 , max_depth_1   = 100.
 , normal_eps_1  = 1e-3

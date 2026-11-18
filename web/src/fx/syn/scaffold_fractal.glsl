@@ -4,6 +4,7 @@
 // VeeJay Wizard, 2026: ported for fx/syn.ts, body unchanged. script.js (not run): its script_time is not read by
 // the body; down_rot_scr / right_rot_scr (the smoothed bang counters, 90 degrees a press) are plain sliders in
 // quarter turns, the smoothing is dropped. ⚡ syn_HighHits (the x11 depth-band light) is flash-gated.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Scaffold Fractal",
   "CREDIT": "Meebs",

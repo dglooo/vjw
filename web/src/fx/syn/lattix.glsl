@@ -9,6 +9,7 @@
 // smoothed bang counters, 90 degrees a press) are plain sliders in quarter turns; the smoothing is dropped.
 // PASSES: FLOAT added: the donor's default target is HDR (its thumbnail is white where .6 x the ray length is above
 // 1), ours is 8-bit unless FLOAT.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "lattix",
   "CREDIT": "Anonymous",

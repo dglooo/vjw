@@ -7,6 +7,7 @@
 // (x 60). fly_in_out (a traveler slider) = a clock on the new fly_speed slider. The script's camera_pos / camera_look
 // are not read by the body. PASSES: FLOAT added (the donor's default target is HDR: lattix and swarm show it; ours
 // is 8-bit unless FLOAT); WRAP clamp (a repeating target draws the bloom's edge taps as a line on the frame's border).
+// res .6 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Deeper",
   "CREDIT": "Meebs",
