@@ -5,6 +5,7 @@
 // public/syn/circuit_bending/images/). script.js (not run) restated: script_time adds rate * (0.1 + syn_BassLevel +
 // syn_BassHits + syn_BassPresence) * dt = the clock below, per second. noise: the donor's reversed range (2 to .2) is
 // written .2 to 2. syn_Media is black (no media input yet). ⚡ syn_HighHits (the cyan circuits' light) is flash-gated.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Circuit Bending",
   "CREDIT": "mojovideotech",

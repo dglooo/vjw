@@ -11,6 +11,7 @@
 // Our detector's logic (user 2026-11-18): the donor's bang rides a source: the built-in binds pulse_pillars to `drop`
 // (1 at rest -> 0 on the drop: the drop fuses the cubes into pillars; they part again as it fades). Geometry only: no
 // light is added.
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): maxIterationsShad 24 → 12
 /*{
   "TITLE": "Raymarched Reflections",
   "CREDIT": "Shane",
@@ -218,7 +219,8 @@ float traceRef(vec3 ro, vec3 rd){
 float softShadow(vec3 ro, vec3 lp, float k){
 
     // More would be nicer. More is always nicer, but not really affordable... Not on my slow test machine, anyway.
-    const int maxIterationsShad = 24; 
+    // VJW: was 24 (res .25 → .85, agents/guides/guide_syn_res_085.md)
+    const int maxIterationsShad = 12;
     
     vec3 rd = (lp-ro); // Unnormalized direction ray.
 

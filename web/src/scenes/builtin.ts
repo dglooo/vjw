@@ -1486,7 +1486,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:raymarched-reflections', name: 'Raymarched Reflections', star: true, // dnb · Shane (the sub flies the cubes: a clock)
     // override: pulse_pillars ← drop (1 → 0): the drop fuses the cubes into pillars (the donor's bang); geometry, no light
-    layers: [{ gen: { ref: 'syn/raymarched_reflections', bind: { ...syn('syn_BassLevel'), pulse_pillars: { source: 'drop', amount: 1, attack: 0.04, release: 1.5, min: 1, max: 0 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+    // res .85 (was .25, 2026-11-19, agents/guides/guide_syn_res_085.md): maxIterationsShad 24 → 12
+    layers: [{ gen: { ref: 'syn/raymarched_reflections', bind: { ...syn('syn_BassLevel'), pulse_pillars: { source: 'drop', amount: 1, attack: 0.04, release: 1.5, min: 1, max: 0 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   // Lane B4b, the six media scenes: Library-only, each NEEDS A MEDIA INPUT (backlog 8, video files as a source). The
   // adapter's media is a black stub, so they draw their no-media fallback or nothing; parse + compile checked, not
@@ -1567,12 +1568,14 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:mandelbrot-decoration', name: 'Mandelbrot Decoration', star: false, // dnb · Shane (the lit layer steps per beat) · I-FL1 1/s, billed p95 12.53 ms at res .5 (7.74 at .25, 11.85 at .35: bound by the view, not by the pixels): Library-only
     // control binds: zoom ← build (a build zooms in), pulser ← drop (the donor's bang: a ring sweeps through the layers)
-    layers: [{ gen: { ref: 'syn/mandelbrot_decoration', bind: { ...syn('syn_MidHighLevel', 'syn_Level'), zoom: { source: 'build', amount: 1, attack: 1, release: 2, min: 1.4, max: 1 }, pulser: { source: 'drop', amount: 1, attack: 0.04, release: 1.5, min: 0, max: 1 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): AA 2 → 1
+    layers: [{ gen: { ref: 'syn/mandelbrot_decoration', bind: { ...syn('syn_MidHighLevel', 'syn_Level'), zoom: { source: 'build', amount: 1, attack: 1, release: 2, min: 1.4, max: 1 }, pulser: { source: 'drop', amount: 1, attack: 0.04, release: 1.5, min: 0, max: 1 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:circuit-bending', name: 'Circuit Bending', star: true, // dnb · mojovideotech + Meebs, CC BY-NC-SA 3.0 · ⚡ syn_HighHits ← snare (40 ms rise): the cyan circuits light up · I-FL1 2/s, billed p95 3.27 ms
     // control bind: fully_open ← drop (the drop blows the structure open; it closes over 1.5 s)
-    layers: [{ gen: { ref: 'syn/circuit_bending', bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_BassHits', 'syn_BassPresence', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE, fully_open: { source: 'drop', amount: 1, attack: 0.04, release: 1.5, min: 0, max: 1 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/circuit_bending', bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_BassHits', 'syn_BassPresence', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE, fully_open: { source: 'drop', amount: 1, attack: 0.04, release: 1.5, min: 0, max: 1 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:primitiv-logik', name: 'PRIMITIV_logik', star: true, // dnb · Meebs (a shape per two beats) · I-FL1 1/s, billed p95 4.38 ms at res .6 (11.93 at 1)
