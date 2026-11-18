@@ -8,7 +8,7 @@ const P = 60 / 128
 /** A TempoSource stub: `set` publishes a new reading object, which read() returns until the next `set`. */
 function stub() {
   let r: TempoReading | null = null
-  return { push() {}, pushOdf() {}, setRange() {}, families: () => [], read: () => r, set: (x: TempoReading) => void (r = { ...x }) }
+  return { push() {}, pushOdf() {}, setRange() {}, seek() {}, families: () => [], read: () => r, set: (x: TempoReading) => void (r = { ...x }) }
 }
 type Controller = ReturnType<typeof createSync>
 
@@ -109,6 +109,20 @@ describe('grid and manual controls', () => {
     expect(offMs(s, 20 * P + 0.01)).toBeCloseTo(0, 1)
     s.nudge(-20)
     expect(offMs(s, 20 * P - 0.01)).toBeCloseTo(0, 1)
+  })
+
+  test("seek() (a file's seek or resume): hidden at once, its tempo kept; a ⅔ reading never locks it, the first at its tempo re-anchors at once", () => {
+    const { s, src } = locked(174)
+    run(s, 0, 8 * (60 / 174), grid(0, 8 * (60 / 174), 60 / 174))
+    s.seek()
+    expect(s.at(3)).toMatchObject({ bpm: 174, confidence: 0 })
+    src.set({ bpm: 116, anchor: 3.05, confidence: 0.9 }) // the two-step's ⅔ lag: a fresh lock would take it
+    expect(s.at(3.1)).toMatchObject({ bpm: 174, confidence: 0 })
+    src.set({ bpm: 87.2, anchor: 3.2, confidence: 0.5 }) // the new spot: our tempo an octave down, 0.2 s off our phase
+    const f = s.at(3.2)
+    expect(f.bpm).toBeCloseTo(174.4, 6) // folded into our octave
+    expect(f.beat - Math.round(f.beat)).toBeCloseTo(0, 9) // on the reading's beat, not 8 beats later
+    expect(f.confidence).toBeGreaterThan(0)
   })
 })
 

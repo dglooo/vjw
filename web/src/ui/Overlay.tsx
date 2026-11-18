@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from 'react'
 import { meter, setEditor } from '../app'
-import { allowDevices, selectDevice, start } from '../audio/input'
+import { allowDevices, player, selectDevice, start, togglePlay } from '../audio/input'
 import { FLOOR } from '../audio/meter'
 import { allowCameras, selectCamera, setVideo } from '../camera/camera'
 import { badge } from '../quality'
-import { store, type UiSnapshot } from '../store'
+import { clock, store, type UiSnapshot } from '../store'
 import './overlay.css'
 
 const HIDE_MS = 2500 // knob: the bar fades this long after the last mouse move or key press
@@ -51,6 +51,49 @@ function Level() {
       <meter ref={bar} aria-label="Input level" min={FLOOR} max={0} low={-6} high={-3} optimum={FLOOR} />
       <span ref={num} />
     </span>
+  )
+}
+
+const EVENTS = ['timeupdate', 'durationchange', 'play', 'pause', 'emptied'] as const
+/** A focused control eats the hotkeys (app.ts skips keys aimed at an input), and Chrome focuses a clicked button. */
+const release = () => (document.activeElement as HTMLElement | null)?.blur()
+
+/** The file transport: −10 s, play / pause, +10 s, the scrub bar and the time (keys: app.ts `-` `P` `=`). Its own
+ *  render on the player's events (timeupdate ≈ 4 Hz while playing), so nothing else re-renders on the clock. */
+function Transport() {
+  const [, tick] = useReducer((n: number) => n + 1, 0)
+  useEffect(() => {
+    for (const e of EVENTS) player.addEventListener(e, tick)
+    return () => EVENTS.forEach((e) => player.removeEventListener(e, tick))
+  }, [])
+  const d = player.duration
+  return (
+    <>
+      <button title="−10 s · −" onClick={() => (player.currentTime -= 10)}>
+        −10
+      </button>
+      <button title="Play / pause · P" aria-label={player.paused ? 'Play' : 'Pause'} onClick={togglePlay}>
+        {player.paused ? '▶' : '❚❚'}
+      </button>
+      <button title="+10 s · =" onClick={() => (player.currentTime += 10)}>
+        +10
+      </button>
+      <input
+        type="range"
+        aria-label="Position"
+        min={0}
+        max={Number.isFinite(d) ? d : 0}
+        step="any"
+        value={player.currentTime}
+        onChange={(e) => {
+          player.currentTime = +e.target.value // a scrub: one seek per move
+          tick() // the controlled thumb stays where it was dragged
+        }}
+      />
+      <span className="time">
+        {clock(player.currentTime)} / {clock(d)}
+      </span>
+    </>
   )
 }
 
@@ -164,6 +207,12 @@ export function Overlay() {
         <span className="quality">{badge(s)}</span>
         {s.recording && <span className="rec">REC</span>}
       </div>
+      {s.source?.kind === 'file' && (
+        // a second bar at the bottom, fading with the top one: hidden, it neither shows nor takes the pointer
+        <div className={shown ? 'bar transport' : 'bar transport hidden'} onPointerUp={release}>
+          <Transport />
+        </div>
+      )}
       {d && (
         <div className="debug">
           {(['l', 'r'] as const).map((ch) => (
