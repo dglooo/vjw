@@ -4,7 +4,19 @@
 // VeeJay Wizard, 2026: ported for fx/syn.ts (IMAGES image3 / image48 from public/syn/traced_tunnel/images/). Change
 // for ES 3.00: (max(small_circles, 1.0)-1) -> -1.0. script.js (not run) is empty (its one clock is commented out).
 // syn_Media is black (no media yet): the walls keep image3. The bangs (FOV_bump, scan_x, scan_z) rest at 0.
-// sampleNum 12 -> 8 (the author's own "Eight is enough"): billed p95 10.8 ms at 12 samples, res .25.
+// Sharpness (2026-11-18): the scene ran at res .25 with 8 samples and read as mush. The built-in now runs it at .75:
+// - sampleNum 12 -> 1 (it was 8). One path per pixel at res .75 is 9 x the pixels and 1.1 x the paths of 8 per pixel
+//   at .25, so the tile edges are sharp. The price: a frosted tile's scatter is fine grain where the donor averages 12
+//   samples.
+// - focused DEFAULT 0 -> 1 (the donor's own switch). Its lens blur is (1 - syn_Presence) x .1: the donor's Presence
+//   rests near 1 while music plays, our `energy` rests at .5, so the tunnel sat half out of focus at any res.
+//   focused 0 brings the lens back, as grain (1 sample cannot average a lens).
+// - The same picture in fewer GPU operations (each marked VJW in the body): the planes' rotation once per bounce (it ran
+//   in each of the 4 plane tests), no next ray after the last bounce, the fog and the scatter falloff once per sample,
+//   the tile colour by one sin and one cos, pow(x, 8.) by three squarings; the flasher, the scans, the circles, the
+//   camera look and the planes' rotation run only when their control is on.
+// Billed p95, same-session 20 s holds with the GPU shared: 6.3 ms at res .75 (the 8-sample file at .25: 6.7), 7.2 at
+// .85, 8.4 at 1 (7.0 with the GPU quiet).
 // ⚡ syn_HighHits is flash-gated: with auto_flasher on (off by default) the hats blank bands of the walls.
 // Our detector's logic (user 2026-11-18): the size control rides a source: the built-in binds FOV to `build` (1 ->
 // .55: a build widens the lens, the tunnel stretches; it eases back after the drop).
@@ -18,7 +30,7 @@
   "VJW_FLASH": ["syn_HighHits"],
   "CONTROLS": [
     {"NAME": "auto_camera", "TYPE": "toggle", "DEFAULT": 0, "MIN": 0, "MAX": 1},
-    {"NAME": "focused", "TYPE": "toggle smooth", "DEFAULT": 0, "MIN": 0, "MAX": 1},
+    {"NAME": "focused", "TYPE": "toggle smooth", "DEFAULT": 1, "MIN": 0, "MAX": 1},
     {"NAME": "cam_look", "TYPE": "xy smooth", "DEFAULT": [0, 0], "MIN": [-1, -1], "MAX": [1, 1]},
     {"NAME": "FOV", "TYPE": "slider smooth", "DEFAULT": 1, "MIN": 0.1, "MAX": 3},
     {"NAME": "FOV_bump", "TYPE": "bang smooth", "DEFAULT": 0, "MIN": 0, "MAX": 0.4},
@@ -118,7 +130,7 @@
 
 
 // Sample number: Higher is better, but slower. Eight is enough. :)
-const int sampleNum = 8; // VJW: was 12 (frame time; the comment above: "Eight is enough")
+const int sampleNum = 1; // VJW: was 12 (the header: 1 sample per pixel at 3 x the linear res, not 8 at res .25)
 
 
 // 2D rotation.
@@ -200,7 +212,7 @@ vec3 rotateZ(vec3 p, float angle)
 // a better way, so if someone knows of a more robust formula, I'd 
 // love to use it.
 float rayPlane(vec3 ro, vec3 rd, vec3 n, float d){
-    rd = rotateZ(rd, rotate_planes*PI);
+    // VJW: rd arrives rotated (rotateZ(rd, rotate_planes*PI), once per bounce: it ran in each of the 4 tests)
 
     float t = 1e8;
     //float retval = 0.; // Inside or outside the object. Not used here.
@@ -222,7 +234,8 @@ float rayPlane(vec3 ro, vec3 rd, vec3 n, float d){
 }
 
 float udBox(in vec2 p, in vec2 b){
-	return mix(length(max(abs(p) - b + .1, 0.)) - .1, length(p)-0.5+(max(small_circles, 1.0)-1.0), min(small_circles, 1.0));
+	float box = length(max(abs(p) - b + .1, 0.)) - .1;
+	return small_circles > 0. ? mix(box, length(p)-0.5+(max(small_circles, 1.0)-1.0), min(small_circles, 1.0)) : box; // VJW: the circle only when on
 }
 
 // Used for polar mapping various shapes.
@@ -277,6 +290,8 @@ vec4 renderMainImage() {
     
     // Initialize the scene color to zero.
      vec3 col = vec3(0);
+    mat2 planeRot = mat2(1.);
+    if (rotate_planes != 0.) planeRot = r2(rotate_planes*PI); // VJW: v*r2(a) = rotateZ(v, a).xy
 
 
     // Taking a few samples, which is not much different to standard antialiasing. The main 
@@ -311,8 +326,10 @@ vec4 renderMainImage() {
         cam(ro, tm, tickTm);
         cam(r, tm, tickTm);
         
-        r = rotateX(r, cam_look.y*PI);
-        r = rotateY(r, -cam_look.x*PI);
+        if (cam_look != vec2(0.)) { // VJW: only when on (4 trig calls per pixel)
+            r = rotateX(r, cam_look.y*PI);
+            r = rotateY(r, -cam_look.x*PI);
+        }
 
         ro.z += ca.z;
 
@@ -321,6 +338,7 @@ vec4 renderMainImage() {
 
         // Fog distance.
         float fogD = 1e5;
+        vec3 fog = vec3(0); float scat = 0.; // VJW: the fog and the scatter falloff, set with fogD (they ran in every bounce)
 
 
         // Reflective bounces. Just three here.
@@ -331,16 +349,17 @@ vec4 renderMainImage() {
             // I'll tidy this up later.; 
             //
             vec4 pl; // Vector storage for the four planes.
-            pl.x = rayPlane(ro, r, vec3(0, 1, 0), 1.); // Bottom.
-            pl.y = rayPlane(ro, r, vec3(0, -1, 0), 1.); // Top.
-            pl.z = mix(rayPlane(ro, r, vec3(1, 0, 0), 1.), 100.0, flat_space*flat_space); // Left.
-            pl.w = mix(rayPlane(ro, r, vec3(-1, 0, 0), 1.), 100.0, flat_space*flat_space); // Right.
+            vec3 rr = vec3(r.xy*planeRot, r.z); // VJW: = rotateZ(r, rotate_planes*PI)
+            pl.x = rayPlane(ro, rr, vec3(0, 1, 0), 1.); // Bottom.
+            pl.y = rayPlane(ro, rr, vec3(0, -1, 0), 1.); // Top.
+            pl.z = mix(rayPlane(ro, rr, vec3(1, 0, 0), 1.), 100.0, flat_space*flat_space); // Left.
+            pl.w = mix(rayPlane(ro, rr, vec3(-1, 0, 0), 1.), 100.0, flat_space*flat_space); // Right.
            
             // Minimum plane distance.
             float d = min(min(pl.x, pl.y), min(pl.z, pl.w));
     
             // Set the fog distance on the first pass.
-            if(i==0) fogD = d;
+            if(i==0) { fogD = d; fog = vec3(1.35+syn_BassLevel*2.5, 1.35, 1.35)/(1. + fogD*fogD*.05); scat = exp(-fogD*.05); }
 
             // Hit position.
             vec3 p = ro + r*d;
@@ -381,7 +400,9 @@ vec4 renderMainImage() {
             float sh = clamp(.5 - patDist/.2, 0., 1.);
        
             // Subtle coloring.
-            vec3 sqCol = .85 + .3*cos((hash21(id + .2)*2.)*6.2831 + vec3(0, 1, 2));
+            float hue = (hash21(id + .2)*2.)*6.2831;
+            // VJW: = .85 + .3*cos(hue + vec3(0, 1, 2)) by cos(a + b) = cos a cos b - sin a sin b (2 trig calls, not 3)
+            vec3 sqCol = .85 + .3*(cos(hue)*vec3(1, .5403023, -.4161468) - sin(hue)*vec3(0, .8414710, .9092974));
             sampleCol = mix(vec3(0), sqCol*sh, (1. - smoothstep(0., .005, patDist)));
  
             ////
@@ -419,19 +440,22 @@ vec4 renderMainImage() {
             // break;
             
             // Apply the textures to the sample color. 
-            sampleCol *= tx*tx2*3.*mix(1.0, syn_HighHits, auto_flasher*(0.5+0.5*sin(length(p.xz)*0.25+syn_BassTime*0.4))); 
-            
-            sampleCol += sampleCol*500.0*scan_x*_pulse(p.x*0.1, scan_x, 0.1);
+            sampleCol *= tx*tx2*3.;
+            // VJW: the flasher and the two scans run only when on (at rest each is x 1 / + 0: the same picture)
+            if (auto_flasher > 0.) sampleCol *= mix(1.0, syn_HighHits, auto_flasher*(0.5+0.5*sin(length(p.xz)*0.25+syn_BassTime*0.4)));
 
-            sampleCol = mix(sampleCol, 20.0*sampleCol.brg, scan_z*_pulse(1.0-p.z*0.1+ro.z*0.1, scan_z, 0.1));
+            if (scan_x > 0.) sampleCol += sampleCol*500.0*scan_x*_pulse(p.x*0.1, scan_x, 0.1);
+
+            if (scan_z > 0.) sampleCol = mix(sampleCol, 20.0*sampleCol.brg, scan_z*_pulse(1.0-p.z*0.1+ro.z*0.1, scan_z, 0.1));
 
             // Some fakish point lighting. 
             // Light direction vector. The light is 3 units up from the camera, which
             // coincides with the depth of field distance.
             vec3 ld = normalize(ca + vec3(0, 0, 3) - p);
             float dif = max(dot(ld, n), 0.); // Diffuse.
-            float spe = pow(max(dot(reflect(ld, -n), -r), 0.), 8.); // Specular.
-            float fre = pow(max(1. - abs(dot(r, n))*.5, 0.), 1.); // Fresnel.
+            float spe = max(dot(reflect(ld, -n), -r), 0.); // Specular.
+            spe *= spe; spe *= spe; spe *= spe; // VJW: = pow(spe, 8.)
+            float fre = max(1. - abs(dot(r, n))*.5, 0.); // Fresnel. VJW: was pow(.., 1.)
             
             sampleCol *= (dif + vec3(1, .9, .7)*spe*4. + vec3(.5, .7, 1)*fre);
                 
@@ -445,7 +469,7 @@ vec4 renderMainImage() {
             
             
             // Applying some fog.
-            sampleCol *= vec3(1.35+syn_BassLevel*2.5, 1.35, 1.35)/(1. + fogD*fogD*.05);
+            sampleCol *= fog;
          
 
             
@@ -458,6 +482,7 @@ vec4 renderMainImage() {
 
    
             // Calculate the reflection vector for the next pass.
+            if (i == 2) break; // VJW: the last bounce needs no next ray
             
             #ifdef PURE_REFLECTION
             
@@ -479,7 +504,7 @@ vec4 renderMainImage() {
             // to some heuristics. In this case, a random opaque factor for the 
             // tile, the tile shade, pattern border, fog... I made it up as I 
             // went along. :)
-            r = normalize(mix(ref, r, (hash21(tuv)*.0 + h*.1*sh)*exp(-fogD*.05)));
+            r = normalize(mix(ref, r, (h*.1*sh)*scat)); // VJW: the donor's `hash21(tuv)*.0 +` dropped
             
             // Ensuring random reflection. I normally use other logic, but it works
             // well enough in W23 and Nusan's examples, so it'll do. :)
