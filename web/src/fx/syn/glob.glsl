@@ -6,6 +6,7 @@
 // palettes, faded in at a scene change) are controls here.
 // ⚡ syn_HighHits and syn_BassHits are flash-gated: a hit lifts the bright colour (highcolor) and dims the dark one
 // (lowcolor) of every march step.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Glob",
   "CREDIT": "Nimitz",

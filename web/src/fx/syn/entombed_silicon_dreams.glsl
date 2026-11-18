@@ -8,6 +8,7 @@
 // x syn_BassLevel) per second = the donor's rate at a half-level bass. PASSES: FILTER mipmap dropped (the body reads
 // its targets by texelFetch level 0 only; fx/syn.ts has no mipmapped target). ⚡ syn_BassHits (B, the tombs' glow)
 // is flash-gated.
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Entombed Silicon Dreams",
   "CREDIT": "mrange",

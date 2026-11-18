@@ -5,6 +5,7 @@
 // donor's values (droppers / cylinders 1 = hidden). script.js sets script_time and script_bass_time, which main.glsl
 // never reads: no clock. No media input: the sky's media term is zero.
 // ⚡ syn_HighHits is flash-gated: with `flashing` on, a hit thins the cavern shell (the ridges light up).
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): march cap 200 → 120
 /*{
   "TITLE": "Alien Cavern",
   "CREDIT": "aiekick",
@@ -243,7 +244,8 @@ vec4 scn(vec4 col, vec3 ro, vec3 rd)
 	vec4 glow = vec4(0.0);
 
 	//MAPPING
-	for(int i=0;i<200;i++)
+	// VJW: was 200 (res .25 → .85, agents/guides/guide_syn_res_085.md)
+	for(int i=0;i<120;i++)
 	{
 		if(s<DPrec.x||s>DPrec.y) break;
 		vec2 dat = map(p);

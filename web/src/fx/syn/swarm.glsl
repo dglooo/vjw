@@ -9,6 +9,7 @@
 // transition) are toggles (the donor's third twitcherType value is unreachable in its own code). color_palette (a
 // bang counter) is a slider over the 10 palettes. secondBuffer: FLOAT added: the donor's default target is HDR (the
 // trails add up to 8, read as data.r / 8; its thumbnail shows the whole palette), ours is 8-bit unless FLOAT.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Swarm",
   "CREDIT": "Meebs",

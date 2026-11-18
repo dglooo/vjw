@@ -10,6 +10,7 @@
 // The pass targets WRAP repeat: scene.json names no WRAP, and OpenGL's initial wrap is GL_REPEAT (the donor's engine is
 // OpenGL 3.3 core), so the scene most likely ran repeating; our default is clamp. Seen on milk_honey_smoke_bile:
 // clamped, its field is vertical bands within 6 s; repeating, it looks like its thumbnail.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): SAMPLES 34 → 16
 /*{
   "TITLE": "Dispersion",
   "CREDIT": "cornusammonis",
@@ -325,7 +326,8 @@ vec4 secondPass()
 float DISP_SCALE = (-1.0+2.0*switch_direction)*sign(aberration_amount)*aberration_amount*aberration_amount;
 
 // chromatic dispersion samples
-#define SAMPLES 34
+// VJW: was 34 (res .5 → .85, agents/guides/guide_syn_res_085.md)
+#define SAMPLES 16
 
 // contrast
 #define SIGMOID_CONTRAST 8.0

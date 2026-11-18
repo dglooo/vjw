@@ -9,6 +9,7 @@
 // The pass targets WRAP repeat: scene.json names no WRAP, and OpenGL's initial wrap is GL_REPEAT (the donor's engine is
 // OpenGL 3.3 core), so the scene most likely ran repeating; our default is clamp. Seen on milk_honey_smoke_bile:
 // clamped, its field is vertical bands within 6 s; repeating, it looks like its thumbnail.
+// res .33 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Fluid Body",
   "CREDIT": "Victor S.",
