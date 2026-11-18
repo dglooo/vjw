@@ -6,6 +6,7 @@
 // past |_uvc.x| .80, inside a 16:9 frame only (± .89): at our 1728 x 1118 stage (± .77) the frame stayed black, so the
 // line test scales _uvc.x to the 16:9 edges. ES 3.00: int literals in float maths. ⚡ syn_OnBeat (the kick doubles the
 // lines that feed the sauce) is flash-gated.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Lost in the Sauce",
   "CREDIT": "Keijiro Takahashi x Meebs",

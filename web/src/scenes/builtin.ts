@@ -1499,7 +1499,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // widens through a build. res .75 (was .25, the mush): the file traces 1 sample per pixel, not 8 (its header), so 9 x
     // the pixels cost the same billed time. Same-session 20 s holds, GPU shared: .25 x 8 samples p95 6.7 ms, .75 6.3,
     // .85 7.2, 1 8.4 (7.0 with the GPU quiet): raise res here if the frame time allows
-    layers: [{ gen: { ref: 'syn/traced_tunnel', bind: { ...syn('syn_Presence', 'syn_BPMSin2', 'syn_BassLevel', 'syn_Level', 'syn_MidHighLevel', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE, FOV: { source: 'build', amount: 1, attack: 1, release: 2, min: 1, max: 0.55 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75 }],
+    // res .85 (was .75, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/traced_tunnel', bind: { ...syn('syn_Presence', 'syn_BPMSin2', 'syn_BassLevel', 'syn_Level', 'syn_MidHighLevel', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE, FOV: { source: 'build', amount: 1, attack: 1, release: 2, min: 1, max: 0.55 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:raymarched-reflections', name: 'Raymarched Reflections', star: true, // dnb · Shane (the sub flies the cubes: a clock)
@@ -1539,11 +1540,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:logo-grid-pulses', name: 'Logo Grid Pulses', star: true, // UFFFD x Meebs · ⚡ syn_BassHits, syn_OnBeat · the logo: our wordmark (IMAGES) · I-FL1 2/s, billed p95 5.22 ms
     // the auto re-roll knobs at 0: the donor's default modes (diagonal lines x zigzag) hold; some re-rolled pairs leave the
     // frame almost empty (fill up x expanding waves). Raise them to .15 for the donor's re-roll (every 32 bars here).
-    layers: [{ gen: { ref: 'syn/logo_grid_pulses', values: { grid_auto_transition: 0, pulse_auto_transition: 0 }, bind: syn('syn_BassLevel', 'syn_BPMSin4', 'syn_BPMConfidence', 'syn_HighHits', 'syn_OnBeat', 'syn_BassHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/logo_grid_pulses', values: { grid_auto_transition: 0, pulse_auto_transition: 0 }, bind: syn('syn_BassLevel', 'syn_BPMSin4', 'syn_BPMConfidence', 'syn_HighHits', 'syn_OnBeat', 'syn_BassHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:lost-in-the-sauce', name: 'Lost in the Sauce', star: true, // Keijiro Takahashi x Meebs · ⚡ syn_OnBeat (no media: the side lines feed it) · I-FL1 1/s, billed p95 3.72 ms
-    layers: [{ gen: { ref: 'syn/lost_in_the_sauce', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/lost_in_the_sauce', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     // Library-only: the donor's audio monitor (spectrum, waveform, the level trail, the input meter), a tool, not a look
@@ -1564,24 +1567,28 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:fuzzy-signal', name: 'Fuzzy Signal', star: true, // dnb · Meebs · ⚡ syn_HighHits (the hats' CMY glitch) · I-FL1 3/s, billed p95 5.18 ms at res .25 (9.01 at .3, 11.87 at .5)
     // control binds: glitch_constant ← build (the signal breaks up through a build), anger_shake ← drop (the donor's bang: the picture shakes)
-    layers: [{ gen: { ref: 'syn/fuzzy_signal', bind: { ...syn('syn_Presence', 'syn_HighHits', 'syn_BassLevel'), glitch_constant: { source: 'build', amount: 1, attack: 1, release: 2, min: 0, max: 0.6 }, anger_shake: { source: 'drop', amount: 1, attack: 0.04, release: 1.5, min: 0, max: 1 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+    // res .85 (was .25, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/fuzzy_signal', bind: { ...syn('syn_Presence', 'syn_HighHits', 'syn_BassLevel'), glitch_constant: { source: 'build', amount: 1, attack: 1, release: 2, min: 0, max: 0.6 }, anger_shake: { source: 'drop', amount: 1, attack: 0.04, release: 1.5, min: 0, max: 1 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:hextunnel', name: 'HexTunnel', star: true, // dnb · sheltron · I-FL1 3/s, billed p95 3.95 ms
     // media_scale: the noise image as broad patches (.5, the donor's default for a video, is a fine speckle).
     // control bind: radius ← build (a build narrows the hexagons' opening)
-    layers: [{ gen: { ref: 'syn/hextunnel', values: { media_scale: 0.03 }, bind: { ...syn('syn_Presence', 'syn_BassLevel', 'syn_HighLevel'), radius: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.6, max: 0.3 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/hextunnel', values: { media_scale: 0.03 }, bind: { ...syn('syn_Presence', 'syn_BassLevel', 'syn_HighLevel'), radius: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.6, max: 0.3 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:fire-tunnel', name: 'Fire Tunnel', star: true, // dnb · aiekick, CC BY-NC-SA 3.0 · ⚡ syn_BassHits (the kick's fire bands) · I-FL1 1/s, billed p95 6.1 ms at res .7 (7.55 and 12.37 at 1)
     // control bind: constriction ← build (a build thickens the fire)
-    layers: [{ gen: { ref: 'syn/fire_tunnel', bind: { ...syn('syn_HighPresence', 'syn_HighHits', 'syn_BassPresence', 'syn_BassLevel', 'syn_BassHits', 'syn_MidPresence'), constriction: { source: 'build', amount: 1, attack: 1, release: 2, min: 1, max: 1.6 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.7 }],
+    // res .85 (was .7, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/fire_tunnel', bind: { ...syn('syn_HighPresence', 'syn_HighHits', 'syn_BassPresence', 'syn_BassLevel', 'syn_BassHits', 'syn_MidPresence'), constriction: { source: 'build', amount: 1, attack: 1, release: 2, min: 1, max: 1.6 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:ray-marching-experiment-62', name: 'Ray Marching Experiment 62', star: true, // dnb · aiekick, CC BY-NC-SA 3.0 · ⚡ syn_Hits ← snare (40 ms rise): the spiral lights up · I-FL1 1/s, billed p95 6.51 ms at res .25 (7.18 and 8.08 at .3; I-FL1 read at .3)
     // the donor's own switches: flashing = the snare lights the spiral, highhits_ridges = the hats ripple its ridges.
     // control bind: fov_mod ← build (a build widens the lens)
-    layers: [{ gen: { ref: 'syn/ray_marching_experiment_62', values: { flashing: 1, highhits_ridges: 1 }, bind: { ...syn('syn_HighHits', 'syn_Presence', 'syn_BassLevel', 'syn_BassPresence'), syn_Hits: SOFT_SNARE, fov_mod: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.6, max: 0.85 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+    // res .85 (was .25, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/ray_marching_experiment_62', values: { flashing: 1, highhits_ridges: 1 }, bind: { ...syn('syn_HighHits', 'syn_Presence', 'syn_BassLevel', 'syn_BassPresence'), syn_Hits: SOFT_SNARE, fov_mod: { source: 'build', amount: 1, attack: 1, release: 2, min: 0.6, max: 0.85 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:mandelbrot-decoration', name: 'Mandelbrot Decoration', star: false, // dnb · Shane (the lit layer steps per beat) · I-FL1 1/s, billed p95 12.53 ms at res .5 (7.74 at .25, 11.85 at .35: bound by the view, not by the pixels): Library-only
@@ -1598,24 +1605,28 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:primitiv-logik', name: 'PRIMITIV_logik', star: true, // dnb · Meebs (a shape per two beats) · I-FL1 1/s, billed p95 4.38 ms at res .6 (11.93 at 1)
     // the donor's own switch: bass_twitcher = the kick twitches the shape. control bind: radius ← build (a build swells the shape)
-    layers: [{ gen: { ref: 'syn/primitiv_logik', values: { bass_twitcher: 1 }, bind: { ...syn('syn_HighHits', 'syn_OnBeat', 'syn_BassLevel'), radius: { source: 'build', amount: 1, attack: 1, release: 2, min: 1.4, max: 1.9 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.6 }],
+    // res .85 (was .6, 2026-11-19, agents/guides/guide_syn_res_085.md): SAMPLES 32 → 16
+    layers: [{ gen: { ref: 'syn/primitiv_logik', values: { bass_twitcher: 1 }, bind: { ...syn('syn_HighHits', 'syn_OnBeat', 'syn_BassLevel'), radius: { source: 'build', amount: 1, attack: 1, release: 2, min: 1.4, max: 1.9 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:deeper-v2', name: 'Deeper V2', star: true, // dnb · Meebs (the bass flies the corridor: a clock) · I-FL1 1/s, billed p95 6.76 ms
     // control bind: jump_forward ← drop (the donor's bang: the drop throws the camera down the corridor)
-    layers: [{ gen: { ref: 'syn/deeper_v2', bind: { ...syn('syn_OnBeat', 'syn_MidHighLevel', 'syn_HighHits', 'syn_BassLevel', 'syn_BassPresence', 'syn_Level'), jump_forward: { source: 'drop', amount: 1, attack: 0.04, release: 1.5, min: 0, max: 1 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.35 }],
+    // res .85 (was .35, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/deeper_v2', bind: { ...syn('syn_OnBeat', 'syn_MidHighLevel', 'syn_HighHits', 'syn_BassLevel', 'syn_BassPresence', 'syn_Level'), jump_forward: { source: 'drop', amount: 1, attack: 0.04, release: 1.5, min: 0, max: 1 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:neon-city', name: 'Neon City by Night', star: false, // dnb · mrange (path tracing) · ⚡ the four Hits: the windows · I-FL1 3/s, billed p95 15.25 ms at res .35, the governor at .6 (11.48 at .25, 15.98 at .5): Library-only
     // the donor's own switch: lighting_mode 1 (Hits) = the kick, the snare and the hats light their towers (0 = its FFT:
     // on our linear FFT only 2 % of the towers). control bind: height_mul ← build (a build lifts the lit windows)
-    layers: [{ gen: { ref: 'syn/neon_city', values: { lighting_mode: 1 }, bind: { ...syn('syn_BassHits', 'syn_MidHighHits', 'syn_HighHits', 'syn_MidHits', 'syn_BassPresence', 'syn_MidPresence', 'syn_MidHighPresence', 'syn_HighPresence'), height_mul: { source: 'build', amount: 1, attack: 1, release: 2, min: 1.5, max: 2 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.35 }],
+    // res .85 (was .35, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/neon_city', values: { lighting_mode: 1 }, bind: { ...syn('syn_BassHits', 'syn_MidHighHits', 'syn_HighHits', 'syn_MidHits', 'syn_BassPresence', 'syn_MidPresence', 'syn_MidHighPresence', 'syn_HighPresence'), height_mul: { source: 'build', amount: 1, attack: 1, release: 2, min: 1.5, max: 2 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:skaiwalker-og', name: 'Skaiwalker OG', star: true, // dnb · Psybernautics · ⚡ syn_Hits ← snare (40 ms rise): x2 on the walls' colour · I-FL1 3/s, billed p95 4.65 ms
     // the donor's own switch: auto_bubble = the lens bubbles with the sub's presence. control bind: perspective ← build
     // (a build bends the room toward its sphere map)
-    layers: [{ gen: { ref: 'syn/SkaiWalkerOG', values: { auto_bubble: 1 }, bind: { ...syn('syn_Presence', 'syn_BassPresence', 'syn_MidHighPresence', 'syn_MidHighLevel', 'syn_HighHits', 'syn_HighPresence'), syn_Hits: SOFT_SNARE, perspective: { source: 'build', amount: 1, attack: 1, release: 2, min: 0, max: 0.6 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/SkaiWalkerOG', values: { auto_bubble: 1 }, bind: { ...syn('syn_Presence', 'syn_BassPresence', 'syn_MidHighPresence', 'syn_MidHighLevel', 'syn_HighHits', 'syn_HighPresence'), syn_Hits: SOFT_SNARE, perspective: { source: 'build', amount: 1, attack: 1, release: 2, min: 0, max: 0.6 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
 ]
 

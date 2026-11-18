@@ -20,6 +20,7 @@
 // ⚡ syn_HighHits is flash-gated: with auto_flasher on (off by default) the hats blank bands of the walls.
 // Our detector's logic (user 2026-11-18): the size control rides a source: the built-in binds FOV to `build` (1 ->
 // .55: a build widens the lens, the tunnel stretches; it eases back after the drop).
+// res .75 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Traced Tunnel",
   "CREDIT": "Shane",

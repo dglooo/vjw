@@ -9,6 +9,7 @@
 // = the clocks below, per second at the donor's 60 fps (x 60). The script's camera objects are not read by the body.
 // The media texture is off (no media input yet). ⚡ syn_HighHits (lights_react, light_chaser) and syn_OnBeat (the dot
 // field) are flash-gated.
+// res .35 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Deeper V2",
   "CREDIT": "Meebs",

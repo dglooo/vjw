@@ -7,6 +7,7 @@
 // is active the walls read the scene's own image30 (public/syn/hextunnel/images/30.png; the donor ships it, its own
 // lookups are commented out). The last pow() clamps its base at 0 (a negative base is undefined in ES 3.00: NaN on
 // Metal; the donor's GL shows black there, as 0 does).
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "HexTunnel",
   "CREDIT": "sheltron",

@@ -4,6 +4,7 @@
 // VeeJay Wizard, 2026: ported for fx/syn.ts. Changes: floor(x*16) -> 16.0 (ES 3.00); the body is the donor's
 // otherwise. No media input yet: the scene draws its own diamond pattern (the donor's no-media branch).
 // ⚡ syn_HighHits (the hats' CMY glitch fringes) is flash-gated.
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Fuzzy Signal",
   "CREDIT": "Meebs",

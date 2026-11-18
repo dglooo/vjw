@@ -6,6 +6,7 @@
 // at the donor's 60 fps (x 60). speed_direction is a traveler (the adapter's clock). flatten: the donor's reversed
 // range (1 to -1) is written -1 to 1. The media texture is off (no media input yet). ⚡ syn_Hits (the `flashing`
 // light, off by default) is flash-gated.
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Ray Marching Experiment 62",
   "CREDIT": "aiekick",

@@ -7,6 +7,7 @@
 // const_speed and spin are travelers (the adapter's clocks). Controls: the donor's reversed ranges (sharpness,
 // planes_only) are written low to high. syn_Media is black (no media input yet). ⚡ syn_BassHits (the kick's fire
 // bands) and syn_HighHits (the media's light) are flash-gated. PASSES: FLOAT added (the donor's default target is HDR).
+// res .7 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Fire Tunnel",
   "CREDIT": "aiekick",
