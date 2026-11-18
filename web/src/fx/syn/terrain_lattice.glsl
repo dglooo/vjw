@@ -5,7 +5,9 @@
 // IMAGES entry image3 is dropped (the body reads it in comments only, so no file is shipped). syn_Media is black (no
 // media yet): the floor and the pipes keep their colours (floor_col, pipe_col). PASSES: FLOAT added (the donor's
 // default target is HDR; ours is 8-bit unless FLOAT). The kick (syn_OnBeat) swells the pipes: geometry, measured
-// under I-FL1 (see the built-in).
+// under I-FL1 (see the built-in). Our detector's logic (user 2026-11-18) needs no body change: the built-in turns on
+// the donor's own switches (auto_perturb: the terrain's height x syn_Presence = energy; split_amt with auto_split:
+// the colour split x syn_BassLevel^3 = the sub).
 /*{
   "TITLE": "Terrain Lattice",
   "CREDIT": "Shane",

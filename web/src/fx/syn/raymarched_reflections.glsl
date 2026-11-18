@@ -8,6 +8,9 @@
 // into pillars along the flight on the way through 0) is a slider resting at 1 (the adapter's bang rests at 0 = always
 // pillars). FOV's reversed range (MIN 1, MAX 0) is written low to high. syn_Media is black (no media yet):
 // media_color / media_reflect mix towards black.
+// Our detector's logic (user 2026-11-18): the donor's bang rides a source: p.z x pulse_pillars x (1 - syn_Intensity),
+// which the built-in binds to `drop` (the drop fuses the cubes into pillars; they part again as it fades). Geometry
+// only: no light is added.
 /*{
   "TITLE": "Raymarched Reflections",
   "CREDIT": "Shane",
@@ -148,7 +151,7 @@ float map(vec3 p)
     // Repeat factor. If irregularity isn't your thing, you can get 
     // rid of "rnd" to line things up again.
     p = fract(p + rnd*irregularity*3.0) - .5;
-    p.z *= pulse_pillars;
+    p.z *= pulse_pillars*(1.0-syn_Intensity); // VJW: syn_Intensity fuses the cubes into pillars (the built-in: drop)
     p.z *= z_stretch;
     // Rounded spherical boxes. The following is made up, but kind of
     // makes sense. Box, minus a bit of sphericalness, gives you a 

@@ -7,6 +7,8 @@
 // texMirror calls. script.js (not run) restated per second (it multiplies by dt): bass_time += rate x (1 + 2 x
 // syn_Level + syn_Presence + syn_Hits + syn_BassPresence + 2 x syn_BassHits); its script_time is not read by the
 // body. Reversed ranges (direction, position) are written low to high.
+// Our detector's logic (user 2026-11-18): the intensity control rides a source: the noise's strength x (.6 + .8 x
+// syn_Intensity) (energy: x 1 at .5), so the water churns harder as the track fills up.
 /*{
   "TITLE": "Waterly",
   "CREDIT": "Shady Headstash",
@@ -81,7 +83,7 @@ float fbm( vec3 p )
 // --- End of: Created by inigo quilez --------------------
 float mynoise ( vec3 p)
 {
-    return noise(p*scale)*(6.0*intensity);
+    return noise(p*scale)*(6.0*intensity*(0.6+0.8*syn_Intensity)); // VJW: syn_Intensity (energy) drives the strength
 }
 float myfbm( vec3 p )
 {
