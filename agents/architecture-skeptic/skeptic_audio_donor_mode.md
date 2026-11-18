@@ -83,3 +83,54 @@
 
 ## Sources
 - MDN, `Window.requestAnimationFrame()`: the callback rate "will generally match the display refresh rate … 120hz, and 144hz are also widely used"; rAF is paused in background tabs. https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame
+
+## Recheck (2026-11-18)
+
+### Freshness
+- Input: design L299–366, `## Skeptic response (2026-11-18)` (rev 2), at master `5403fb5`. HEAD is now `9050184`, a STATE commit. `web/src` at HEAD is the B4a merge `9a6b399`.
+- Correction to my first `## Freshness`: B4a merged into the main checkout while I was reading, so my code anchors come from the B4a tree, not from `73284b2`. I re-read every anchor this recheck relies on at HEAD, and all of them hold: `builtin.ts:32–33, :1115, :1255, :1340, :1061–1062`, `deeper.glsl:358`, `live.ts:71, :188, :381–384`, `syn.ts:283`, `post.ts:46–58`, `app.ts:39, :313`.
+- Correction to §1 / §2: "86 files" means 85 donor scenes plus `preamble.glsl`.
+- The pointer at design L335 to `design_audio_donor_mode.response2.md` dangles: that file does not exist. The C3–C11 content is at L337–366 of the design itself.
+
+### Per finding
+| ID | Status | Why (evidence) |
+|---|---|---|
+| C1 HIGH | **closed** | **Order:** `boundStep` applies `flashGate` last (L309–311, L318). T7a fails for "gate, then mix" (6 crossings instead of ≤ 3). **Shaping:** the donor chain is the same binding with `source: name` (L313), so attack, release, amount, min and max survive. T7b fails for a bypass (100 % on frame 1 instead of ≤ 35 %). **Canvas:** `{ ...SYN_BIND.syn_BPMTri, amount: 0 }` with shape and rate removed evaluates to clamp(0 · x) = 0 at w 1 (T7d). **Deeper (no ⚡):** its attack .12 now shapes the donor value. **Guard:** `Object.hasOwn(SYN_BIND, name)` admits only `syn_*` names, so the serpent and shatter inputs named like sources get no donor chain. That is correct, but it is untested (see C7). Remaining issues: N1–N3 (LOW). |
+| C2 | closed | Rev 2 adds `DonorIn.silent`, holds the stats while silent and unsets `prev` on the first non-silent frame. T1 tests the edge. Constraint for the G1 lane: only the instant predicate keeps C2 closed (item 4). |
+| C3 | closed | H2 gets a run at ≥ 185 BPM, the I-FL1 metric and refused onsets. The fix paths for raws and clocks are named: `syn.ts:283` accepts them, a raw gets a node `FlashState`, and a listed clock keeps our rate. |
+| C4 | closed | The text now says the budget is app-wide (`live.ts:71`). H2 reports refusals per input and per scene. The remedy is the OnBeat divisor, a core constant the lead sets. |
+| C5 | closed | Hits now tick at most once per `HIT_DT`, with the flux taken against the last Hits tick. T1 checks 30 / 60 / 120 / 144 fps within ±25 %. Two parameter notes follow in item 4. |
+| C6 | closed | `boundStep` is pure and reachable from Vitest. T7a–c fail if the order, the shaping or our own path breaks. H1 counts luma steps across each switch. The chain construction stays in `live.ts` (see C7). |
+| C7 | **open (MEDIUM)** | The bound-input guard moved into `bindInto` (`live.ts:240–257`), which no Vitest reaches. T2's `synValue('kick', …)` case now covers the raw path only, because `synValue` is kept for raws (L319). T7d's "an input named kick has no donor" cannot fail at the `boundStep` level: `boundStep` receives `x` with or without `donor` as the caller built it. **What is at stake at HEAD:** builtin:neuro-serpent binds `bass ← band8` and `presence ← reeseLevel` (`builtin.ts:1061–1062`). A guard that builds a donor chain for every input (source = input name) would rewire these in donor mode to `s.bass` and to `s.presence`, the camera presence, which is 0 when no camera runs. **Fix:** export one pure helper, for example `donorChain(name, b): Binding \| undefined` beside `SYN_BIND`, and use it in `bindInto`. Test it with three asserts: `donorChain('bass', serpentBass) === undefined`; Canvas's BPMTri gives amount 0, no shape and no rate; a clock binding gives `undefined`. |
+| C8 | closed | The donor rows are listed only while `src.donorMix > 0`. The calibration step is gated on billed p95 ≤ 5 ms in donor mode, with the 10 Hz text upload as the fallback. |
+| C9 | closed | Two `clockStep` calls, with dt·(1 − w) and dt·w, give the exact blend (`clock.ts:17–25` is linear in dt). T2 bounds the change in Δ to < 10 % across w .49 → .51. |
+| C10 | closed | `fade` now starts at 1. T1 checks FadeInOut ≥ .9 at 1 s with music from frame 0. |
+| C11 | closed | The core contract now states the Intensity, PrimeBang and InputLevel formulas. H4 compares the `xInt3` row, and H3 adds p99 and max. |
+
+### New findings (LOW)
+| ID | Severity | Claim | Evidence | Failure scenario | Falsification | Recommended change |
+|---|---|---|---|---|---|---|
+| N1 | LOW | R6 as written is still unmet for Hits that light a frame without a ⚡ input: rev 2 restores their shaping, not their gating. | `deeper.glsl:358` (`topLight *= syn_HighHits`, no VJW_FLASH). A grep finds 57 (scene, Hits name) pairs in `fx/syn` where the scene reads a Hits name its VJW_FLASH does not list. Spec R6 says a donor Hits source "never drives light except through a flash-gated ⚡ input". | In donor mode, Deeper's donor HighHits light the frame through an ungated input shaped by its .12 s attack. This is as safe as our mode, since donor HighHits (91–107/min) are rarer than our hats (133–148/min). But R6 as written fails at S6. | Check R6 against Deeper at S6. | The lead records R6's operative reading: "a donor Hits source reaches light only through a ⚡ input or through the scene's audited shaping, verified by H2's I-FL1 metric in donor mode". |
+| N2 | LOW | 12 overrides move `syn_HighHits` from our hats to our snare or kick. Their shaping and their I-FL1 audit were tuned at that rarer source's rate. Rev 2 feeds the same shaping donor HighHits, which fire 2.3–4.7× as often. | `builtin.ts`: 12 × `syn_HighHits: SOFT_*`; `:1405` says the light "rides the snare (SOFT_SNARE), never the hats". dsp §A2: our snare fires 23–40/min, donor HighHits 91–107/min. `flashGate` caps onsets (≤ 3/s), not luma steps. | Alien Cavern in donor mode gets ≈ 1.5–1.8 shaped hits/s instead of .4–.7. Each onset makes ≈ 1 luma step > .10, so the worst second can reach 3–4 steps, against an I-FL1 limit of 3. ⚠️ Estimate. | Run the S6 I-FL1 audit in donor mode on all 12 scenes (this is H2's full scope). | Keep H2 at "every syn built-in" with the I-FL1 metric (design L161 plus C3). The C1 S6 check on 3 scenes (L328) must not replace it. If a scene fails, lengthen the attack in its override; this tightens our mode too. |
+| N3 | LOW | T7b's "≤ 35 % on the first frame" holds for a ⚡ input for a different reason than the design gives. `flashGate` holds a rise below .5 at the previous value and passes the value of the onset frame. The gated output is therefore 0 on frame 1 and ≈ .57 on frame 2. | `post.ts:48` (below ON, `blocked = false`), `:57` (`return min(y, prev)`), `:53` (the onset frame passes `y`). With attack .04 at 60 fps, the shaped value is .341, then .566. | A reviewer reads "34 % per frame" as the I-FL1 guarantee for ⚡ hits. The real step is ≈ .57 × the hit's light gain in one frame, in both modes, as it is today. | Run T7b's input through `flashGate` and print frames 1–3: 0, .566, .566. | Keep T7b's bypass check and add an assert that frame 2 is ≤ .6. The I-FL1 guarantee stays the S6 / H2 luma audit. |
+
+### Item 3: "I-FL1 shaping outranks Goal 2's 'no mapping'"
+- **This is mostly a spec deviation.** Detection is unchanged: the values in `src` that R2 and R3 measure are the core's. Only the read point shapes them. The lead records the deviation (design L366).
+- **Two fidelity deviations, not correctness breaks:**
+  - Double smoothing. SYN's Level attack .05 / release .15 runs on top of the core's 30 / 150 ms, and `slow()` (1 / 2 s) runs on top of Presence's τ 2 s (the designer's S5 note, L355). R3 was measured on unshaped values, but its 10–20 s section windows barely move.
+  - The ×1.35 amount saturates donor hits above .74 to 1, so part of the z-graded hit height is lost. The same effect resolves G2.
+- **One correctness risk:** N2, the overrides that remap the source now see the donor's rate. H2's full scope covers it.
+
+### Item 4: what still depends on the audio-dsp numbers
+- **Nothing in the structure.** `update()`, the fields of `DonorIn`, `boundStep` and the module map are fixed (design L354 holds).
+- **The lane must respect two constraints:**
+  1. **`DonorIn.silent` must use the instant predicate** (`frameRms ≤ SILENT_RMS`, `app.ts:313`), not `paused` (`PAUSE = 1` s, `app.ts:39`). With `paused`, 60 frames at −120 dB enter the stats before `silent` turns true. The σ of the 10 s stats then grows to ≈ 24 dB and takes ≈ 30 s to come back within 2× of normal, so Level reads flat after every pause. The σ of the 60 s stats grows to ≈ 10 dB and takes minutes to recover, so Presence and Intensity read flat. ⚠️ Estimate, assuming a normal σ of ≈ 4 dB. The `paused` option would reopen C2.
+  2. **The Hits tick needs a tolerance.** At 120 Hz, two frames last 16.66 ms, which is less than `HIT_DT` = 16.67 ms. A strict "≥ `HIT_DT`" rule then ticks every 3rd frame (25 ms), or alternates 2 and 3 frames under rAF jitter. A mixed tick period breaks the idea of one θ per period. Tick at ≥ `HIT_DT` − 2 ms instead: 120 Hz then ticks every 2nd frame, 144 Hz every 3rd (20.8 ms). At 30 fps the tick cannot be shorter than 33 ms, so only θ(33 ms) can compensate. If T1's ±25 % fails at 30 fps, record it as a deviation of the opt-in '30' mode (`app.ts:293`); no module changes.
+- G3 sets one expression, in the P4 step only.
+
+### Verdict (recheck)
+**PASS with findings: the lead may pick Variant A rev 2.**
+- No BLOCKER or HIGH is open: C1 is closed.
+- **1 MEDIUM open:** C7. Export and test the donor-chain guard before S5.
+- **3 new LOW:** N1 (R6 operative reading), N2 (H2 scope), N3 (T7b frame 2).
+- S4 waits only for the audio-dsp parameters (the G1 + C2 predicate, and `HIT_DT` / θ for G4 + C5), under the two constraints above.

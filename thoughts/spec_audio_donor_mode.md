@@ -41,3 +41,9 @@
 - Band edges, window lengths, thresholds and decays: S1 proposes them from the donor docs + our tracks.
 - Whether donor mode runs in the worklet or on the main thread. Donor mode analyses on the render tick, while ours runs on the audio clock.
 - Part B scope: which of P4, P6 and deviance hits are worth it.
+
+## Lead record (2026-11-18, the S2 pick: Variant A rev 2, `design_audio_donor_mode.md` § Lead pick)
+- **Goal 1 deviation:** the Reactivity / AudioSpeed knobs go to the backlog. No R-ID covers them, and they are unmeasured.
+- **Goal 2 deviation:** donor values pass through each input's own binding (attack, release, amount) before the flash gate, so donor mode = the donor's detection with our envelope shaping. Flash safety (I-FL1) outranks "no mapping".
+- **R6 working reading:** a donor value drives light only through a flash-gated ⚡ input, or through the scene's audited shaping that passes the H2 donor-mode flash audit over every syn built-in.
+

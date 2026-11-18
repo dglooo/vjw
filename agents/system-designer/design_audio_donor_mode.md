@@ -332,7 +332,7 @@ export function boundStep(x: Chain & { donor?: Chain; flash?: FlashState }, s: S
 - **Change (core contract):** `DonorIn.silent: boolean`, set by app.ts, so both detectors use one silence rule. While silent, every stat holds. On the first non-silent frame `prev` is unset: no flux, no flux stat. T1 adds the edge: after 5 s silent, no frame has ≥ 2 band triggers, and hits per min recover to ≥ 50 %.
 - **audio-dsp before S4:** yes, the running G1 lane. It sets one parameter: the predicate behind `silent` (`frameRms ≤ SILENT_RMS` at once, my default; or `paused`, which is 1 s late, `app.ts:39`).
 
-C3–C11, the audio-dsp parameters and the decisions are in `design_audio_donor_mode.response2.md`.
+C3–C11, the audio-dsp parameters and the decisions follow below.
 
 ### C3–C11
 | ID | Verdict, evidence | Design change (rev 2) | audio-dsp before S4 |
@@ -364,3 +364,24 @@ C3–C11, the audio-dsp parameters and the decisions are in `design_audio_donor_
 7. **Part B: P4 last, P6 backlog** [agree]. P4 adds one line-in alignment check.
 8. **Before S4:** G1 + C2 and G4 + C5 block it. G2 does not (1 of 86 files; × 1.35 now applies to donor hits). G3 blocks only the P4 step.
 9. **New, to record:** I-FL1 shaping outranks spec Goal 2's "no mapping" (C1).
+
+## Lead pick (2026-11-18)
+**FINAL PICK: Variant A rev 2** (the body as amended by `## Skeptic response`; the response overrides the body where they differ, e.g. the withdrawn "donor mode bypasses an override" sentence and T5 → T7). Skeptic recheck PASS with findings (`skeptic_audio_donor_mode.md` § Recheck).
+Decisions:
+1. Variant A rev 2: the read point is `boundStep` in `gl/post.ts`; `flashGate` runs last.
+2. Spectrum CPU state is warm; only the upload is gated by the mode.
+3. The Reactivity / AudioSpeed knobs go to the backlog. This deviates from spec Goal 1, and the spec records it.
+4. The donor groups are always listed in the Sources tab and Panel. The calibration scene lists the donor rows only while `donorMix > 0` (C8); that step is gated on billed p95 ≤ 5 ms.
+5. Silence keeps the donor's fade to black, and `fade` starts at 1 (C10). `DonorIn.silent` = the instant test `frameRms ≤ SILENT_RMS`, not `paused` (recheck §4).
+6. Light gating = `VJW_FLASH` plus the upgraded H2:
+   - H2 covers EVERY syn built-in in donor mode (N2);
+   - H2 uses the I-FL1 luma-step metric and counts refused onsets;
+   - H2 adds a run at ≥ 185 BPM.
+   - The working reading of R6 (N1): light is flash-gated, or the scene's audited shaping passes H2.
+7. Part B: P4 `kickAccent` is the last step, an unbound extra source with a line-in alignment check. P6 goes to the backlog. Deviance hits are skipped.
+8. S4 takes the audio-dsp numbers as parameters (the silent predicate, `HIT_DT` with a ≥ HIT_DT − 2 ms tolerance, theta). G3 gates only the P4 step.
+9. I-FL1 shaping outranks spec Goal 2 "no mapping": donor mode = their detection, our envelope shaping. The spec records it.
+- Mandatory plan items from the recheck:
+  - **C7:** export a pure `donorChain(name, b)` from `gl/post.ts` (or `live.ts`). Test it with 3 asserts: a syn name gets a chain; `kick` / `build` / `bass` on a native get none; a `clock` binding gets none.
+  - **N3:** T7b adds a frame-2 assert (≤ .6).
+
