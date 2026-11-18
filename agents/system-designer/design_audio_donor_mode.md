@@ -295,3 +295,72 @@ sequenceDiagram
 
 ## Recommendation
 Pick **Variant A**. It is the smallest change that meets R1–R7: one pure module, one settings field, one helper and four touch points in `gl/live.ts`, with no new abstraction. It is the only variant that gives the 2 s crossfade, leaves every flash state untouched and makes every syn scene follow the mode, edited copies included. It reuses the S1 evidence as it stands, because the core keeps the prototype's model, input and tick. Variant B buys a truthful Panel, but it loses the crossfade and the edited copies. Variant C buys frame-rate independence, but it voids the measured numbers and departs from the donor's own model, which is the point of the epic. The open risks of A are DSP constants (G1, G2, G4) and one flash audit (H2). None of them can change the module map.
+
+## Skeptic response (2026-11-18)
+Design rev 2. Source: `agents/architecture-skeptic/skeptic_audio_donor_mode.md` §1. **All 11 findings are accepted; none is rebutted. Variant A stays.** The cited code lines were re-read in the working tree at master `86db11e` (B4a merged after the skeptic's `73284b2`; its line numbers match this tree). Not re-read: `audio/presets.ts:35`, `audio/tempo.ts:44`, `score-v2.txt`.
+
+### C1 (HIGH): accept
+**Evidence.** `scenes/builtin.ts:28–33` (SOFT_SNARE / SOFT_KICK attack .04), `:1338–1340` (Deeper attack .12), `:1113–1115`, `:1253–1255`; `fx/syn/deeper.glsl:358` (`topLight *= syn_HighHits`, no ⚡ list). Rev 1 counted onsets only. I-FL1 also limits the rise per frame, and that limit lives in these overrides.
+
+**Revised read-point contract** (rev 2 of `### Contracts`, of the "binding" row in `### How SYN switches`, and of `### Flash path`). It withdraws "Donor mode bypasses an override on a `syn_*` input", and `synValue` for bound inputs.
+```ts
+// gl/post.ts: pure, next to flashGate and heatStep
+export interface Chain { b: Binding; state: BindState }
+/** One bound input this frame. Ours: evaluate(b). A SYN input also has `donor`: the SAME binding with its source
+ *  swapped to the input's own name, with its own state. The two shaped outputs crossfade by w. The flash gate is LAST. */
+export function boundStep(x: Chain & { donor?: Chain; flash?: FlashState }, s: Sources, w: number, onsets: number[], dt: number, t: number): number
+```
+- `bindInto` (`gl/live.ts:240–257`) builds `donor` only when `Object.hasOwn(SYN_BIND, name)`. Its binding is `{ ...b, source: name, shape: undefined, rate: undefined }`. Its state survives a rebind, as `state` and `flash` do (`:253–255`).
+- Two refinements to the skeptic's `{ ...b, source: name }`:
+  1. `shape` and `rate` are dropped: a donor BPMSin / Tri value is already shaped. Canvas's `amount: 0` still parks it.
+  2. A `clock` binding gets no `donor` chain. Grep finds none on a `syn_*` input in `scenes/builtin.ts`.
+- The donor chain runs on every frame of a non-tile instance, so it is warm at the switch. A tile has w 0 and skips it.
+- `render()` (`gl/live.ts:381–383`) becomes one call: `y = boundStep(x, s, w, onsets, f.dt, f.time)`.
+- `pushTrail` swaps the source in the same way (4 more states). `synValue` stays for raws only.
+- **Effect:** a scene override and SYN's own amount (× 1.35, × 6), attack, release and range now shape the donor value. Spec Goal 2 then means "no source mapping". The lead records that I-FL1 shaping outranks "no mapping".
+
+**The test that fails on a wrong order** (new T7 in `gl/post.test.ts`; it replaces T5 and covers C6):
+- **T7a, order:** a ⚡ SYN input; ours silent; donor = 6 frame-sharp hits in 1 s; w 1. The output rises through .5 at most 3 times. "Gate, then mix" gives 6 and fails.
+- **T7b, shaping:** an override with attack .04 and amount 6; one donor hit; w 1; 60 fps. The first frame rises by ≤ 35 % of the step (1 − e^(−dt/.04) = .341). A bypass gives 100 % and fails.
+- **T7c:** at w 0 the output equals `flashGate(evaluate(b))` exactly: ours is unchanged.
+- **T7d:** a `tri` binding with amount 0 stays 0 at w 1 (Canvas). An input named `kick` has no `donor`; w 1 changes nothing (C7).
+
+**audio-dsp before S4:** no. S6 runs the skeptic's falsification: the I-FL1 audit in donor mode on Deeper, Alien Cavern and Dispersion (≤ 3 on each).
+
+### C2
+- **Accept.** `scratchpad/dsp-donor/donor-model.ts:62, :69–72`: the edge frame's flux (about +80 dB on every band) fires all bands and enters σF.
+- **Change (core contract):** `DonorIn.silent: boolean`, set by app.ts, so both detectors use one silence rule. While silent, every stat holds. On the first non-silent frame `prev` is unset: no flux, no flux stat. T1 adds the edge: after 5 s silent, no frame has ≥ 2 band triggers, and hits per min recover to ≥ 50 %.
+- **audio-dsp before S4:** yes, the running G1 lane. It sets one parameter: the predicate behind `silent` (`frameRms ≤ SILENT_RMS` at once, my default; or `paused`, which is 1 s late, `app.ts:39`).
+
+C3–C11, the audio-dsp parameters and the decisions are in `design_audio_donor_mode.response2.md`.
+
+### C3–C11
+| ID | Verdict, evidence | Design change (rev 2) | audio-dsp before S4 |
+|---|---|---|---|
+| C3 | accept. `fx/syn.ts:281–284` throws for a name outside `inputs`; my "`:284` accepts it" was wrong | H2: one run at ≥ 185 BPM; the I-FL1 metric (luma steps > .10 in any 1 s ≤ 3); refused onsets per input. Fix paths, built only if H2 asks: `:283` also takes a raw or clock name; a listed raw is gated with a node `FlashState`; a listed clock keeps our rate | No |
+| C4 | accept. `gl/live.ts:71, :188`: the budget is app-wide | Text: "the app-wide onset budget" (TL;DR, R1 item 3, A4). H2 reports refusals per input and scene. Remedy: a core constant, the OnBeat divisor (1 or 2), set by the lead from that report | No |
+| C5 | accept. `quality.ts:9`, `app.ts:292–293`: we render at the display rate | Core clause: Hits run on an internal Hits tick, at most once per `HIT_DT` (default 1/60 s); flux = band dB now − at the last Hits tick. Level, decays and clocks stay per frame. T1's rate test covers Hits at 30 / 60 / 120 / 144 fps (± 25 % of 60 fps) | Yes, the G4 lane: `HIT_DT`, and θ per tick period |
+| C6 | accept. `gl/live.ts:381–388` is out of Vitest's reach | `boundStep` + T7. H1 also counts luma steps > .10 across each switch (≤ 3 in any 1 s) | No |
+| C7 | accept. `scenes/shatter.ts:695–701`, `serpent.ts:675–684` | The guard is structural: `donor` exists only for a `SYN_BIND` name. `synValue` guards on `Object.hasOwn(SYN, name)`. T2 adds `synValue('kick', 0.3, { kick: 0.9 }, 1) === 0.3` | No |
+| C8 | accept. `scenes/calib.ts:15, :40` | The calibration lists the donor rows only while `src.donorMix > 0`. Its step is gated on billed p95 ≤ 5 ms in donor mode; over that, the text uploads at 10 Hz | No (a frame-time run) |
+| C9 | accept. `clock.ts:17–25` | `gl/live.ts:321`: two `clockStep` calls, `dt·(1 − w)` on our rate and `dt·w` on the donor rate. This replaces "switches at mix ≥ .5". T2: across w .49 → .51 the per-frame Δ changes by < 10 % | No |
+| C10 | accept. `donor-model.ts:45` starts `fade` at 0 | Core clause: `fade` starts at 1. T1: music from frame 0 gives FadeInOut ≥ .9 at 1 s. Presence and Intensity boot cold, as our 60 s means do | No |
+| C11 | accept. `donor-model.ts:89, :93` | Core contract, in full: Intensity = clamp(.5 + 2.5·(EMA 6 s of (.8·N60 Bass + .2·N60 High) − .5)); PrimeBang = 1 at `g.fired`, then e^(−t/.3 s); InputLevel = clamp((`g.peakDb` + 60)/60). H4 compares the `xInt3` row. H3 adds p99 and max | No |
+
+**Module map, rev 2:** `gl/post.ts` (`boundStep`) and `scenes/calib.ts` (mode-aware rows) join the changed files: 2 new, 11 changed. Effort stays M.
+
+### What the audio-dsp numbers set
+- **G1 / C2:** the predicate behind `DonorIn.silent`. **G4 / C5:** `HIT_DT`, and θ per tick period; the Hits tick is internal to the core. **G3:** the 0..1 map of `kickAccent`, one expression in the core.
+- No number changes `update()`, `DonorIn`'s fields, `boundStep` or the module map.
+- S5 tuning, no lane: the chain adds SYN's smoothing to a donor value (Presence: `slow()` on top of the core's τ 2 s). If it lags by eye, lower the core's `PRES_TAU`.
+
+### Decision needed, restated (the skeptic's rating in brackets)
+1. **Variant A, with the rev 2 read point** [agree after C1; B and C carry C1 too].
+2. **Spectrum CPU state warm, upload gated** [agree]. Unchanged.
+3. **Reactivity and AudioSpeed to backlog** [agree]. The lead logs the deviation from spec Goal 1.
+4. **Donor groups:** always in the Sources tab and the Panel [agree]. Changed: the calibration lists them only in donor mode (C8).
+5. **Silence: keep the donor's fade to black** [only after C2 and G1 close]. It now depends on the G1 lane; `fade` starts at 1 (C10).
+6. **Event-class gate: `VJW_FLASH` plus the upgraded H2** [agree with C3 and C4]. The blanket gate is dropped: it limits onsets, not the rise time.
+7. **Part B: P4 last, P6 backlog** [agree]. P4 adds one line-in alignment check.
+8. **Before S4:** G1 + C2 and G4 + C5 block it. G2 does not (1 of 86 files; × 1.35 now applies to donor hits). G3 blocks only the P4 step.
+9. **New, to record:** I-FL1 shaping outranks spec Goal 2's "no mapping" (C1).
