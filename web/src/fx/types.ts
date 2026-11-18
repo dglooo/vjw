@@ -1,4 +1,4 @@
-import type { Binding } from '../bind'
+import type { Binding, Sources } from '../bind'
 import type { Rate } from '../clock'
 import type { FrameInput } from '../frame'
 
@@ -14,8 +14,9 @@ export interface Input { name: string; type: InputType; label?: string; default?
 /** `flash`: the inputs that brighten on a hit, gated by live.ts through flashGate (WCAG 2.3.1); ISF header `VJW_FLASH`.
  *  `tags`: an ISF file's raw CATEGORIES, beside the reduced `category` (the library's tag filter, 2b S3.1). */
 export interface EffectDef { id: string; name: string; kind: Kind; category?: Category; tags?: readonly string[]; credit: string; inputs: readonly Input[]; bind?: Readonly<Record<string, Binding>>; flash?: readonly string[] }
-/** `filter`/`wrap`: a synScene TARGET's sampling (fx/syn.ts); linear and clamp without. */
-export interface PassDef { target?: string; persistent: boolean; float: boolean; width?: string; height?: string; filter?: 'nearest'; wrap?: 'repeat' }
+/** `filter`/`wrap`: a synScene TARGET's sampling (fx/syn.ts); linear and clamp without. `mipmap`: trilinear, its levels
+ *  generated after each draw (live.ts). */
+export interface PassDef { target?: string; persistent: boolean; float: boolean; width?: string; height?: string; filter?: 'nearest' | 'mipmap'; wrap?: 'repeat' }
 /** A synScene clock (fx/syn.ts): uniform `u` stepped by clock.ts each frame, its rate read from the node's values.
  *  `frame`: one step per frame, not per second (a bang counter: + 1 on its event's draw). */
 export interface Clock { u: string; rate: Rate; frame?: true }
@@ -23,8 +24,9 @@ export interface Clock { u: string; rate: Rate; frame?: true }
  *  A synScene's `clocks` and `raws` (uniforms read from the frame) are set by live.ts before its passes. */
 export interface ShaderDef extends EffectDef {
   glsl: 100 | 300; vs: string; fs: string; passes: readonly PassDef[]; unsupported?: string
-  clocks?: readonly Clock[]; raws?: readonly (readonly [uniform: string, read: (f: FrameInput) => number])[]
+  clocks?: readonly Clock[]; raws?: readonly (readonly [uniform: string, read: (f: FrameInput, s: Sources) => number])[]
   /** A synScene's samplers besides its TARGETs, bound by live.ts: an IMAGES file's URL (black until it loads), 'audio'
-   *  (the toy texture: row 0 FFT, row 1 waveform) or 'black' (the media stub). */
-  textures?: Readonly<Record<string, 'audio' | 'black' | `/${string}`>>
+   *  (the toy texture: row 0 FFT, row 1 waveform), 'black' (the media stub) or 'trail' (syn_LevelTrail: the node's own
+   *  level history, fx/syn.ts pushTrail). */
+  textures?: Readonly<Record<string, 'audio' | 'black' | 'trail' | `/${string}`>>
 }
