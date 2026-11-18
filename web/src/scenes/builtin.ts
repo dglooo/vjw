@@ -1449,13 +1449,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   // synScene adapter step 3: the ports its features unblocked (each file's header says what its script.js became).
   {
-    v: 1, id: 'builtin:logo-grid-pulses', name: 'Logo Grid Pulses', star: true, // UFFFD x Meebs · ⚡ syn_BassHits, syn_OnBeat · the logo: our wordmark (IMAGES)
+    v: 1, id: 'builtin:logo-grid-pulses', name: 'Logo Grid Pulses', star: true, // UFFFD x Meebs · ⚡ syn_BassHits, syn_OnBeat · the logo: our wordmark (IMAGES) · I-FL1 2/s, billed p95 5.22 ms
     // the auto re-roll knobs at 0: the donor's default modes (diagonal lines x zigzag) hold; some re-rolled pairs leave the
     // frame almost empty (fill up x expanding waves). Raise them to .15 for the donor's re-roll (every 32 bars here).
     layers: [{ gen: { ref: 'syn/logo_grid_pulses', values: { grid_auto_transition: 0, pulse_auto_transition: 0 }, bind: syn('syn_BassLevel', 'syn_BPMSin4', 'syn_BPMConfidence', 'syn_HighHits', 'syn_OnBeat', 'syn_BassHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   {
-    v: 1, id: 'builtin:lost-in-the-sauce', name: 'Lost in the Sauce', star: true, // Keijiro Takahashi x Meebs · ⚡ syn_OnBeat (no media: the side lines feed it)
+    v: 1, id: 'builtin:lost-in-the-sauce', name: 'Lost in the Sauce', star: true, // Keijiro Takahashi x Meebs · ⚡ syn_OnBeat (no media: the side lines feed it) · I-FL1 1/s, billed p95 3.72 ms
     layers: [{ gen: { ref: 'syn/lost_in_the_sauce', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   {

@@ -2,8 +2,10 @@
 // Author: Keijiro Takahashi x Meebs
 // License: unknown (the donor's CREDIT only; shipped inside a commercial app; personal use, ⚠️ check before release)
 // VeeJay Wizard, 2026: ported for fx/syn.ts (adapter step 3: pass TYPE float = our HDR target). No script.js. The media
-// input is a stub (black): the media_* controls do nothing and the sauce feeds on its own side lines. ES 3.00: int
-// literals in float maths. ⚡ syn_OnBeat (the kick doubles the lines that feed the sauce) is flash-gated.
+// input is a stub (black): the media_* controls do nothing and the sauce feeds on its own side lines. Those lines sit
+// past |_uvc.x| .80, inside a 16:9 frame only (± .89): at our 1728 x 1118 stage (± .77) the frame stayed black, so the
+// line test scales _uvc.x to the 16:9 edges. ES 3.00: int literals in float maths. ⚡ syn_OnBeat (the kick doubles the
+// lines that feed the sauce) is flash-gated.
 /*{
   "TITLE": "Lost in the Sauce",
   "CREDIT": "Keijiro Takahashi x Meebs",
@@ -183,7 +185,7 @@ vec4 renderMain(void)
         float fade = 0.05;
         float thickness = mix(0.905, 0.7, feed_thickness);
 
-        float cVal = smoothstep(thickness, thickness+fade, abs(_uvc.x - dx));
+        float cVal = smoothstep(thickness, thickness+fade, abs(_uvc.x * 1.7778 * RENDERSIZE.y / RENDERSIZE.x - dx)); // VJW: the donor's 16:9 edges at any aspect
         vec3 lineCol = vec3(0.0);
 
         float cVal2 = _sqPulse(_uv.x, 0.5, 0.01);
