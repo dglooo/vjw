@@ -385,3 +385,20 @@ Decisions:
   - **C7:** export a pure `donorChain(name, b)` from `gl/post.ts` (or `live.ts`). Test it with 3 asserts: a syn name gets a chain; `kick` / `build` / `bass` on a native get none; a `clock` binding gets none.
   - **N3:** T7b adds a frame-2 assert (≤ .6).
 
+
+### Lead addendum: parameters from `dsp_donor_mode_gaps_2026-11-18.md` (2026-11-18)
+These are adopted as parameters, and the structure is unchanged (the skeptic's recheck §4 holds).
+- **Silence (G1 / C2).** `DonorIn.silent` uses the instant test `frameRms ≤ SILENT_RMS`, which is `app.ts` L313's own test without the 1 s debounce.
+  - While silent, every stat holds, and so do the Presence and Intensity accumulators.
+  - For 25 ms after a quiet-to-music edge, `prev = NaN` and no stat takes the frame (`EDGE_SKIP = 0.025 s`).
+  - A file start is the same edge.
+  - Measured: 0/14 bursts; Hits 0.98–1.01× of the no-pause rate.
+- **Frame rate (G4 / C5).** The flux, its 2 s stats and the trigger run only on a Hits tick. A tick fires when ≥ `HIT_DT = 0.030 s` have passed since the last tick, and the flux is measured against the last tick. `θ = 2.25`.
+  - Level, the hit decay, Presence and the clocks stay per frame.
+  - The skeptic's sub-tick and its fixed-lag form are both rejected; they measured a 109–339 % spread.
+  - Measured: a pooled spread of 4–9 %, every band within ±10 % of its 60 fps rate.
+  - Cost: a hit lands ≤ 33 ms late.
+- **kickAccent (G3, the P4 step only).** On a kick frame, `a = min(1, 0.7·10^((L − μ)/20))`, then `μ += (L − μ)/8`.
+  - L = the dB power of analyser bins 1–3, the max of this frame and the one before.
+  - Between kicks the value decays as `a·e^(−age/0.12 s)`.
+  - It stays an unbound extra source.

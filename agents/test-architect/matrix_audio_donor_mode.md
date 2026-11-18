@@ -817,3 +817,9 @@ Every finding C1–C11 and N1–N3 has at least one ID. Every R1–R7 has at lea
 - **H9:** N/A as a frozen pair. In both modes, the scenes that read `syn_PrimeBang` / `syn_PrimeAndBang` now re-roll on our `fired` / `build`, which is an intended look change; log it in the plan.
 - **Test-count baseline:** 722 (master `c68a5ef`), not 487.
 - **H7 (40 ms p95 latency) and H8 (21.3 ms line-in offset):** accepted as thresholds marked ⚠️ assumption. Any change to them goes on record at S6.
+- **Parameters (from `dsp_donor_mode_gaps_2026-11-18.md`; the design § Lead addendum):**
+  - `SILENT_RMS` = the app's existing constant (instant test, no debounce); `EDGE_SKIP` = 25 ms;
+  - `HIT_DT` = 30 ms (tick when ≥ 30 ms since the last tick); `θ` = 2.25;
+  - `HIT_RATE_TOL` = every band within ±10 % of its 60 fps rate at 30 / 120 / 144 fps (pooled spread ≤ 10 %);
+  - the resume-edge burst count = 0; Hits in 0–2 s after a resume within 0.9–1.1× of the no-pause rate;
+  - `LEVEL_RATE_TOL` ±0.05 stays a proposal (measured p50 within ±0.01).
