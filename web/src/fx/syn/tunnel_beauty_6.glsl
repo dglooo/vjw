@@ -7,6 +7,7 @@
 // ⚡ syn_OnBeat (the kick) is flash-gated: it lights the tunnel's far walls (x .3 at rest, x 1 on the hit).
 // Our detector's logic (user 2026-11-18): the size control rides a source: the built-in binds diameter to `build`
 // (.35 -> .525 = x 1.5: a build swells the tunnel; it eases back after the drop). Body unchanged.
+// res .6 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Tunnel Beauty 6",
   "CREDIT": "aiekick",

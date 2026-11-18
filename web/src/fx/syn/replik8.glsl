@@ -6,6 +6,7 @@
 // float(j) / float(iters), smoothstep(0, 1, x) -> smoothstep(0.0, 1.0, x). No script.js. The media input is a stub
 // here (_isMediaActive() is false), so the rings stay grayscale. PASSES: FLOAT added (the donor's default target is
 // HDR; ours is 8-bit unless FLOAT). ⚡ syn_HighHits is flash-gated: with `flashing` on, a hit adds 100 x colour^5.
+// res .6 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "replik8",
   "CREDIT": "Meebs",

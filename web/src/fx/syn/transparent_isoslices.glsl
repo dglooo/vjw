@@ -7,6 +7,7 @@
 // bass_morph^2. Controls: size_voxels' reversed range (the donor's MIN 50, MAX .1) is written .1 to 50. The media
 // input is a stub here. watery_tex reads texIn by vjwLoadImage (the preamble's _loadImage is black: its _ratioFix is
 // a zero stub). ⚡ syn_HighHits is flash-gated: a hit adds 50 x colour^3 x flashing on a depth band.
+// res .3 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Transparent Isoslices",
   "CREDIT": "Shane",

@@ -14,6 +14,7 @@
 // The field's start (the donor: TIME < .2) is also a cleared target's (alpha 0: a resize clears our targets), so
 // it starts again; a live texel writes alpha 1. The media input is a stub here. ⚡ syn_HighHits is flash-gated: a
 // hit deepens the wires (deeper = brighter).
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Molten",
   "CREDIT": "Meebs ft. Flexi",

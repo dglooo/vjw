@@ -8,6 +8,7 @@
 // under I-FL1 (see the built-in). Our detector's logic (user 2026-11-18) needs no body change: the built-in turns on
 // the donor's own switches (auto_perturb: the terrain's height x syn_Presence = energy; split_amt with auto_split:
 // the colour split x syn_BassLevel^3 = the sub).
+// res .8 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Terrain Lattice",
   "CREDIT": "Shane",

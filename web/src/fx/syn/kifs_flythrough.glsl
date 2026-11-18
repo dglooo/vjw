@@ -7,6 +7,7 @@
 // (2 x syn_BassLevel + syn_BassPresence + 2 x syn_BassHits) x rate_in. Controls: size's reversed range (the donor's
 // MIN .05, MAX -.2) is written -.2 to .05. The media input is a stub here. PASSES: FLOAT added (the donor's default
 // target is HDR; ours is 8-bit unless FLOAT).
+// res .6 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): maxIterationsShad 16 → 8
 /*{
   "TITLE": "KIFS Flythrough",
   "CREDIT": "Shane",
@@ -267,7 +268,8 @@ float calculateAO(in vec3 pos, in vec3 nor)
 float softShadow(vec3 ro, vec3 lp, float k){
 
     // More would be nicer. More is always nicer, but not really affordable... Not on my slow test machine, anyway.
-    const int maxIterationsShad = 16; 
+    // VJW: was 16 (res .6 → .85, agents/guides/guide_syn_res_085.md)
+    const int maxIterationsShad = 8; 
     
     vec3 rd = (lp-ro); // Unnormalized direction ray.
 

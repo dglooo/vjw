@@ -7,6 +7,7 @@
 // with syn_ToggleOnBeat, 0 = they follow the bass level. HARD_TRANSITIONS grouping_size is a static control (no
 // re-roll on a musical transition). No media input: the planet reflects skyTex.
 // ⚡ syn_Hits is flash-gated: with DISCO on, a hit lights the hexagons of one hue.
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "HEXOplanet",
   "CREDIT": "aiekick",
