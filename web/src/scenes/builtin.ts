@@ -1166,11 +1166,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:neuron-proximitors', name: 'Neuron Proximitors', star: true, // dnb · patu x Meebs ⚡ syn_HighHits · I-FL1 3/s, billed p95 4.33 ms
-    layers: [{ gen: { ref: 'syn/neuron_proximitors', bind: syn('syn_OnBeat', 'syn_Level', 'syn_Hits', 'syn_BassLevel', 'syn_HighHits', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+    // res .85 (was .25, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/neuron_proximitors', bind: syn('syn_OnBeat', 'syn_Level', 'syn_Hits', 'syn_BassLevel', 'syn_HighHits', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:thresholder', name: 'Thresholder', star: true, // dnb · Kyle Grover ⚡ syn_BassHits · I-FL1 1/s, billed p95 3.79 ms
-    layers: [{ gen: { ref: 'syn/thresholder', bind: syn('syn_BPMSin4', 'syn_BassHits', 'syn_BassLevel', 'syn_MidHighLevel', 'syn_HighPresence', 'syn_HighLevel', 'syn_MidLevel', 'syn_BassPresence', 'syn_Presence', 'syn_MidHighPresence', 'syn_Hits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/thresholder', bind: syn('syn_BPMSin4', 'syn_BassHits', 'syn_BassLevel', 'syn_MidHighLevel', 'syn_HighPresence', 'syn_HighLevel', 'syn_MidLevel', 'syn_BassPresence', 'syn_Presence', 'syn_MidHighPresence', 'syn_Hits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:exoplanet', name: 'EXOplanet', star: true, // dnb · Meebs ft. WAHa_06x36 · I-FL1 2/s, billed p95 6.43 ms
@@ -1200,11 +1202,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:sprinkles', name: 'Sprinkles', star: true, // dnb · sheltron ft. Meebs · I-FL1 2/s · billed p95 4.07 ms
-    layers: [{ gen: { ref: 'syn/sprinkles', bind: syn('syn_HighHits', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/sprinkles', bind: syn('syn_HighHits', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:square-shoals', name: 'SquareShoals', star: false, // dnb · Alex Rowe · Library-only: billed p95 7.86 and 4.38 ms in two runs (med 1.47, 2.59), I-FL1 1/s
-    layers: [{ gen: { ref: 'syn/square_shoals', bind: syn('syn_Hits', 'syn_HighHits', 'syn_OnBeat', 'syn_BassLevel', 'syn_ToggleOnBeat', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/square_shoals', bind: syn('syn_Hits', 'syn_HighHits', 'syn_OnBeat', 'syn_BassLevel', 'syn_ToggleOnBeat', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:sun-set', name: 'Sun_Set', star: true, // dnb · Meebs · I-FL1 2/s · billed p95 5.82 ms
@@ -1212,7 +1216,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:turbo-encabulator-fluid', name: 'Turbo Encabulator Fluid', star: false, // dnb · cornusammonis · Library-only: billed p95 6.94 and 11.16 ms in two runs (med 5.88, 10.23), I-FL1 1/s
-    layers: [{ gen: { ref: 'syn/turbo_encabulator_fluid', bind: syn('syn_BPMTri2', 'syn_BPMConfidence', 'syn_BassPresence', 'syn_ToggleOnBeat', 'syn_Level', 'syn_HighHits', 'syn_BassHits', 'syn_OnBeat', 'syn_Presence', 'syn_HighPresence', 'syn_HighLevel', 'syn_BassLevel', 'syn_MidLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/turbo_encabulator_fluid', bind: syn('syn_BPMTri2', 'syn_BPMConfidence', 'syn_BassPresence', 'syn_ToggleOnBeat', 'syn_Level', 'syn_HighHits', 'syn_BassHits', 'syn_OnBeat', 'syn_Presence', 'syn_HighPresence', 'syn_HighLevel', 'syn_BassLevel', 'syn_MidLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:circles5', name: 'Circles5', star: true, // dnb · Keijiro Takahashi · I-FL1 3/s · billed p95 4.82 ms
@@ -1220,7 +1225,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:hills-eels', name: 'Hills, Eels', star: true, // dnb · Victor S. · I-FL1 1/s · billed p95 3.29 ms
-    layers: [{ gen: { ref: 'syn/hills_eels', bind: syn('syn_BassLevel', 'syn_MidPresence', 'syn_MidHighPresence', 'syn_HighPresence', 'syn_Intensity', 'syn_BassHits', 'syn_MidHits', 'syn_MidHighHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/hills_eels', bind: syn('syn_BassLevel', 'syn_MidPresence', 'syn_MidHighPresence', 'syn_HighPresence', 'syn_Intensity', 'syn_BassHits', 'syn_MidHits', 'syn_MidHighHits') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   // Adapter step 2's proofs (IMAGES, the media stub, syn_Spectrum), res .25, I-FL1 PASS both. Billed p95 with other lanes
   // on the GPU (it only adds time: the lower run bounds the cost): geode 5.5 ms (≤ 7.5: starred), hexagons 7.7 / 12.6 ms
@@ -1390,7 +1396,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // the donor's script re-rolls its three dropdowns per transition; held here on colour tears, moving in, waving (its
     // defaults are the still white feathers). res: billed p95 8.6 ms at 1
     v: 1, id: 'builtin:boreal', name: 'Boreal', star: true, // dnb · Alex Rowe (the scanner's phase: a clock)
-    layers: [{ gen: { ref: 'syn/boreal', values: { image_select: 2, wind_movement: 0, warp_type: 0 }, bind: syn('syn_Intensity', 'syn_MidHighPresence', 'syn_BassHits', 'syn_BassPresence', 'syn_BassLevel', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75 }],
+    // res .85 (was .75, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/boreal', values: { image_select: 2, wind_movement: 0, warp_type: 0 }, bind: syn('syn_Intensity', 'syn_MidHighPresence', 'syn_BassHits', 'syn_BassPresence', 'syn_BassLevel', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     // res: billed p95 10.4 ms at 1 (its clouds are a third of the layer: soft at .5)
@@ -1400,7 +1407,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:cosmic-dust', name: 'Cosmic Dust', star: true, // dnb · Kali x Meebs · ⚡ syn_HighHits, syn_MidHighHits (res: billed p95 12.7 ms at 1)
-    layers: [{ gen: { ref: 'syn/cosmic_dust', bind: syn('syn_BassLevel', 'syn_MidLevel', 'syn_HighHits', 'syn_MidHighHits', 'syn_HighPresence', 'syn_MidPresence', 'syn_Level', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/cosmic_dust', bind: syn('syn_BassLevel', 'syn_MidLevel', 'syn_HighHits', 'syn_MidHighHits', 'syn_HighPresence', 'syn_MidPresence', 'syn_Level', 'syn_HighLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:dynamical-flame', name: 'Dynamical Flame', star: true, // dnb · cornusammonis · ⚡ syn_HighHits
@@ -1412,7 +1420,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // 30 s, as SYN binds them: the drop's first hit steps the luma up and back in two frames, 4 steps in 1 s with the
     // two every scene shows at the drop; 2 here)
     v: 1, id: 'builtin:gaussian-smoothlife', name: 'Gaussian SmoothLife', star: true, // dnb · cornusammonis · ⚡ syn_HighHits ← snare, syn_BassHits ← kick
-    layers: [{ gen: { ref: 'syn/gaussian_smoothlife', values: { scale: 1.13 }, bind: { ...syn('syn_Presence', 'syn_BassLevel'), syn_HighHits: SOFT_SNARE, syn_BassHits: SOFT_KICK } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75 }],
+    // res .85 (was .75, 2026-11-19, agents/guides/guide_syn_res_085.md): scale 1.13 → 1.2 (kernel in texels: 1.3 x sqrt(.85))
+    layers: [{ gen: { ref: 'syn/gaussian_smoothlife', values: { scale: 1.2 }, bind: { ...syn('syn_Presence', 'syn_BassLevel'), syn_HighHits: SOFT_SNARE, syn_BassHits: SOFT_KICK } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:glitch-meebs', name: 'Glitch (Meebs)', star: true, // dnb · Meebs ft. XOR · ⚡ syn_OnBeat, syn_HighHits; builtin:glitch is our own
@@ -1444,7 +1453,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:stained-glass', name: 'Stained Glass', star: true, // dnb · Meebs (IMAGES colorNoise)
     // syn_RandomOnBeat: SYN's per-beat value, flipped over the beat's first 15 % (adapter step 3: a raw on our grid at
     // full swing; the binding that eased it over .83 s like script.js's random_spot is gone)
-    layers: [{ gen: { ref: 'syn/stained_glass', bind: { ...syn('syn_Presence', 'syn_BassLevel', 'syn_BassPresence', 'syn_HighLevel') } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/stained_glass', bind: { ...syn('syn_Presence', 'syn_BassLevel', 'syn_BassPresence', 'syn_HighLevel') } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:transparent-isoslices', name: 'Transparent Isoslices', star: true, // dnb · Shane · ⚡ syn_HighHits ← snare
@@ -1460,7 +1470,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:redrum', name: 'REDRUM', star: true, // dnb · Meebs · ⚡ syn_HighHits ← snare
     // more_blood 2 (the donor's top): at its default 1 the frame stays near black here (median luma .004 on dnb174-arr):
     // the donor also splats on a hat hit >= .99, which our 40 ms snare rise never reaches, so the kick alone splats
-    layers: [{ gen: { ref: 'syn/redrum', values: { more_blood: 2 }, bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_OnBeat', 'syn_Level', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/redrum', values: { more_blood: 2 }, bind: { ...syn('syn_BassLevel', 'syn_Presence', 'syn_OnBeat', 'syn_Level', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:vein-melter', name: 'Vein Melter', star: true, // dnb · cornusammonis (a FLOAT field, 40 advection steps)
@@ -1471,7 +1482,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:shrouded', name: 'Shrouded', star: true, // dnb · Felix Woitzel ft. Meebs · ⚡ syn_HighHits ← snare
-    layers: [{ gen: { ref: 'syn/shrouded', bind: { ...syn('syn_Presence', 'syn_BassLevel', 'syn_BPMSin2', 'syn_MidHighPresence', 'syn_BassPresence', 'syn_HighPresence', 'syn_MidPresence', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
+    layers: [{ gen: { ref: 'syn/shrouded', bind: { ...syn('syn_Presence', 'syn_BassLevel', 'syn_BPMSin2', 'syn_MidHighPresence', 'syn_BassPresence', 'syn_HighPresence', 'syn_MidPresence', 'syn_MidLevel', 'syn_MidHighLevel', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     v: 1, id: 'builtin:molten', name: 'Molten', star: true, // dnb · Meebs ft. Flexi · ⚡ syn_HighHits ← snare (the camera: clocks)

@@ -6,6 +6,7 @@
 // the width × the full height here: our pass sizes scale with the target, and it needs 2 columns × 72 rows at any
 // size. A fresh (resized) target re-seeds the particles (the donor seeds on its first 4 frames only).
 // ⚡ syn_HighHits (the hats) is flash-gated: flashing_lines lights the segments by it.
+// res .25 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Neuron Proximitors",
   "CREDIT": "patu x Meebs",

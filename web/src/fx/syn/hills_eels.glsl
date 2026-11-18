@@ -6,6 +6,7 @@
 // loop's index is float(i); the screen pass is opaque. fb0/fb1 (FLOAT, 1920x1920 of the donor's 1920x1080 frame) are
 // the feedback pair, the screen pass draws the zoetrope copies of fb0. Both targets WRAP repeat (added: the zoetrope
 // reads fb1 at x + 2/7 each frame; on a clamped target the frame stayed black here).
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Hills, Eels",
   "CREDIT": "Victor S.",

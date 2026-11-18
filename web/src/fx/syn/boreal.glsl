@@ -7,6 +7,7 @@
 // syn_HighHits) scanner_audio_rate + 2.5 scanner_const_rate) / 5 = the clock below, per second. Dropped: the script's
 // re-roll of the three dropdowns on a musical transition (auto_cycle / cycle: no data form; both controls removed).
 // _textureImage -> vjwTextureImage (see below). PASSES: FLOAT added (the donor's default target is HDR).
+// res .75 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Boreal",
   "CREDIT": "Alex Rowe",

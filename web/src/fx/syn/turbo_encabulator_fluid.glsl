@@ -7,6 +7,7 @@
 // media_pulse) rest at 0: the field still seeds itself on its first 3 frames. No media input: the media_* controls
 // do nothing. light_pos and tracer_control (xy) give one number for both axes in the donor: pairs here.
 // Passes 0 and 1 step the fluid (BuffB → BuffA → BuffB, FLOAT), the screen pass colours BuffA.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Turbo Encabulator Fluid",
   "CREDIT": "cornusammonis",

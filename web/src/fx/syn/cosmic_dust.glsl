@@ -6,6 +6,7 @@
 // script.js is empty. PASSES keep the donor's FLOAT false (the feedback is written for a clamped target). No media
 // input: the logo terms are zero.
 // ⚡ syn_HighHits (the fifth star layer) and syn_MidHighHits (the swirling white stars) are flash-gated.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Cosmic Dust",
   "CREDIT": "Kali x Meebs",

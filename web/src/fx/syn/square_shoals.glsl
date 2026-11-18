@@ -8,6 +8,7 @@
 // panel sliders here, at the donor's first values; each is rounded to its whole number (the body tests `== 1.0`).
 // paint_position (xy) gives one number for both axes in the donor: pairs here.
 // Pass 0 = the wave equation (backbuffer, FLOAT), the screen pass lights it. syn_Hits (the snare) drives the sources.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "SquareShoals",
   "CREDIT": "Alex Rowe",

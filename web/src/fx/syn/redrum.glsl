@@ -9,6 +9,7 @@
 // per beat), ours counts on. Controls: less_blood's reversed range (the donor's MIN 1, MAX 0) is written 0 to 1.
 // The three wall images are read by vjwLoadImage (the preamble's _loadImage is black: its _ratioFix is a zero stub).
 // The media input is a stub here. ⚡ syn_HighHits is flash-gated: a hit lifts the whole frame x (1 + 5 x hit).
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "REDRUM",
   "CREDIT": "Meebs",

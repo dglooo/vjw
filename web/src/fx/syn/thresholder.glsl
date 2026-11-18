@@ -13,6 +13,7 @@
 // palette 4's 100 / syn_BassTime is guarded (NaN in silence); palette 1 (the default) reads TIME + 1500 s (its three
 // phases coincide at TIME 0: grey for the first minutes; the donor's app clock is minutes old when a scene shows). ⚡ syn_BassHits (the kick) is flash-gated: it turns the
 // synth's hue.
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Thresholder",
   "CREDIT": "Kyle Grover",

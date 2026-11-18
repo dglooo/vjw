@@ -10,6 +10,7 @@
 // stops the clock). The pattern is sized in the donor pass's pixels (720 high): uv is scaled by 720 / RENDERSIZE.y,
 // so it looks the same at any res. The media input is a stub here. PASSES: FLOAT added (the donor's default target is
 // HDR; ours is 8-bit unless FLOAT).
+// res .5 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): res only
 /*{
   "TITLE": "Stained Glass",
   "CREDIT": "Meebs",

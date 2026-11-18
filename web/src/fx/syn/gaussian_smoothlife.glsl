@@ -7,6 +7,7 @@
 // No media input: the media feed is zero.
 // ⚡ syn_HighHits (a hit switches the picture from the blurred field to the hard one, and speeds the timestep) and
 // syn_BassHits (a hit moves the survival bounds s1 / s2) are flash-gated.
+// res .75 → .85 (2026-11-19, agents/guides/guide_syn_res_085.md): scale 1.13 → 1.2 (kernel in texels: 1.3 x sqrt(.85))
 /*{
   "TITLE": "Gaussian SmoothLife",
   "CREDIT": "cornusammonis",
