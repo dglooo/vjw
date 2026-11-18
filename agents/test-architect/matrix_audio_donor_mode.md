@@ -834,7 +834,7 @@ Input: `agents/planner/plan_audio_donor_mode.md` (595 lines, master `245a291`): 
 - Lead-owned: 21 IDs. G-LINT, G-TYPE, G-TEST → S6 row 1. H1 → row 5. H1b, H3, H5, H6b, H6c → row 4. H2 → row 6. H4a–c, H7 → row 3. H4d, H8 → row 8. H6a → row 2. M3, M4 → row 7. G-R80 and H9 → row 11, N/A by lead ruling. All placed or ruled.
 - User-owned: M1 (row 10, optional) and M2 (row 10). Placed.
 
-### 2. Coverage of requirements and findings (check 2): PASS at ID level, with weak spots in §4 of this section
+### 2. Coverage of requirements and findings (check 2): PASS at ID level, with weak spots in §3 and §4 of this section
 - R1: S1.4 (T4a–c), S1.1 (T1k), S1.3 (T1e), S1.5 (T3b), S2.1 (T7c), S2.3 (T2b), S2.4 (T2f), H1, H1b, H6c.
 - R2: S1.2 (T1p), S1.3 (T1d, T1f), S2.3 (T2a, T2g), S2.5 (T2h, T2i), S3.2 (T2d), H4a.
 - R3: S1.1 (T1a, c, h, l, m), S1.2 (T1b, g, q), S1.3 (T1r), H4b, H1.
@@ -883,3 +883,37 @@ Conditions (not blocking; the step body must say so): T1j prints the pre-pause s
 T1a–T1r, T2a–T2i, T3a–c, T4a–c, T5, T6a–c, T7a–d, T8a–c and T9a each name a bad input or a threshold in the plan text, and each can fail. The exceptions are F1, F2 and F4.
 
 STATE entry: test-architect S4 coverage on plan `245a291`. IDs complete (45 coder, 21 lead, 2 user; none missing or duplicated). VERDICT FAIL with 9 fixes (F1–F9), led by the T1c fallback, C11 Intensity in H4b, H4a scope with PrimeBang = fired, and the T2g reference. S5 is blocked until the planner or lead rules F1–F9.
+
+### Recheck (2026-11-18)
+Input: `agents/planner/plan_audio_donor_mode.md` `## Coverage fixes (2026-11-18)` (L597–620, master `afdae05`), and the plan rows it cites (S1.1 T1l/T1j, S1.2 T1g/T1i/PA5, S2.2/S2.5 H9b, S6 row 3 H4a/H4b/H4c). Checked against `scratchpad/dsp-donor/out/score-v2.txt` and `web/src/fx/syn/` (the four scene files exist: `glob`, `alien_cavern`, `audio_indicators`, `deeper`).
+
+Verdict: **FAIL, 1 blocking item and 2 conditions.**
+
+#### The five fixture choices
+1. **T1l arm (b), ±1 dB alternating baseline, then Bass +1.6 / High −1.6 dB: PASS.** The baseline gives sigma 1 dB, so N60 is 0.9 and 0.1 as the fix states. Intensity is about 0.74 (the EMA is about 0.60; the formula gives 0.74). A full-band .5/.5 form reads 0.50 and fails the 0.03 tolerance. An EMA that starts at 1 instead of 0.5 moves the value by more than 0.03 and fails too. The arm discriminates.
+2. **T1i, four bands summed, zeros 100 ms after a beat: PASS.** Run B has about 5–12 triggers in 0–2 s. A broken edge gives a burst of about 4 extra triggers in run A, so A/B is about 1.3–1.6 and falls outside [0.9, 1.1]. The ±10 % band is about ±1 trigger at the low end, so the coder prints both counts.
+3. **PA5, gated at p10/p50/p90 within 0.05: CONDITION.** The correct core gives 0.01. But the bad input the fix names (a smoother not scaled by `dt`) is claimed to be caught, not shown. Nothing runs the mutant. Requirement: a mutant run (attack and release per frame, not per second) must fail PA5, and its printed shifts go in the report, the way T1g has its mutant check.
+4. **H9b, control-pair floor as the pass line: CONDITION.** The fix makes the pass line the control's floor when the control is not bit-stable. Then a change smaller than the jitter passes. The STATE 2026-11-07 precedent shows about 2.7 % FFT-quantum jitter on audio-reactive frames, so the floor may be nonzero on `syn/glob` and `syn/deeper`. Requirements: define the metric (max absolute byte difference, not the mean), capture deterministically (fixed audio time and state), and run a mutant (one bound input moved by one unit at w 0) that must fail. If the control is 0, the pass line is 0 and H9b PASSes as written.
+5. **T1j, AM at 0.5 Hz with 4 s swing windows: PASS.** Two periods fit in 4 s. For ±6 dB at σ ≈ 4.2 dB, the Level amplitude is about 0.35, so the pre-pause p90−p10 is about 0.67 (above 0.5). With a silence-inflated σ near 24 dB, the swing falls to about 0.1 and fails the ≥ 0.5 arm. The 150 ms release does not flatten a 2 s period.
+
+#### H4a, Hits, and the score-v2 blocks: FAIL (blocking)
+- The planner's claim "H4a compares no Hits row" is wrong for the R3 Level block. Its header is "R3 Level rest (median …) **and Hits per minute vs our kick**". Each track row carries `H/min` values for all, Bass, Mid, MidHigh and High, plus a "BassHits vs kick (±34 ms)" line. The F3 rule compares that whole block within 0.01. So H4a compares Hits rows, and the 30 ms tick and θ 2.25 move exactly those numbers. Under the rule as written, the coder either fails H4a or changes the reference.
+- Fix: in the R3 Level block, compare only the `L` values (the Level medians and the p10/p90 brackets). Exclude the `H/min` fields and the `BassHits vs kick` lines. Name the excluded fields in the step.
+- The R3 sections block has no Hits row (Presence, Intensity, xInt2, xInt3, Level, n60, energy). The beats block has no Hits row. Both are fine as written.
+- Hits are scored elsewhere: H4b (BassHits per kick in [0.8, 2.0]) and H4c (every band at 30, 120 and 144 Hz within ±10 % of 60 Hz). Both are on S6 row 3, as the planner notes say. Confirmed.
+
+#### Stale body text (no action beyond the fix section)
+- L556 still says "45 coder-owned IDs"; the fix section says 46 (45 + H9b), which overrides it.
+- L131 and L197 still describe the T1g two-band rule and the frozen contract; the F5+F7 fix overrides them.
+- Under the planner's rule, the fix section wins. That is acceptable, but the body should be corrected at the next plan edit.
+
+#### Blocking item
+- **B1. H4a must exclude the Hits fields of the R3 Level block** (see above). Until it does, H4a either fails on the 30 ms tick or the coder edits the reference.
+
+#### Conditions
+- **C1. PA5 mutant.** The non-dt-scaled smoother must fail PA5. Print the shifts.
+- **C2. H9b metric and mutant.** Define the metric, capture deterministically, and run a one-unit mutant at w 0 that must fail. If the control is 0, the pass line is 0.
+
+Verdict: **FAIL.** B1 blocks. C1 and C2 are conditions on the step bodies. The other fixture choices (T1l arm b, T1i, T1j) hold as written.
+
+STATE entry: test-architect recheck of `## Coverage fixes` (plan `afdae05`): 4 of 5 fixtures hold (T1l arm b, T1i, T1j, H4b/H4c score Hits). PA5 and H9b need mutant or floor conditions. H4a's R3 Level block carries H/min and BassHits-vs-kick values, which the 30 ms tick moves. VERDICT FAIL, 1 blocking (B1), 2 conditions (C1, C2).

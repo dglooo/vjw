@@ -571,7 +571,7 @@ A fix that H2 asks for is a new step, planned from the H2 report. Examples: a na
 | S2 test matrix | PASS | test-architect | Lead-recorded: done, 68 rows + lead rulings. `agents/test-architect/matrix_audio_donor_mode.md` (`4ca52d4`) | - |
 | S3 spike + user | N/A | - | Not applicable: non-visual change, no feasibility spike asked (CLAUDE.md, Task tiers). The lead records N/A | - |
 | S4 plan | PASS (lead-reviewed, deltas ruled) | planner | `agents/planner/plan_audio_donor_mode.md` (18 parts) | - |
-| S4 coverage | UNKNOWN | test-architect | Not run. Input: `## Coverage index`, `## Deltas` | - |
+| S4 coverage | PASS (lead-closed: B1, C1, C2 applied verbatim, § Lead amendments) | test-architect | Not run. Input: `## Coverage index`, `## Deltas` | - |
 | S6 gates + harnesses | UNKNOWN | lead | Not run. `## S6 (lead)` rows 1-8 | - |
 | S6 AV QA | UNKNOWN | tester | Not run | - |
 | S7 user | N/A | user | Not applicable: non-visual. M1 is optional; M2 is the P4 look | - |
@@ -618,3 +618,15 @@ Conditions:
 Planner notes:
 - H4a compares no Hits row: G4 changed the tick and THETA, so the Hits rates of `score-v2.txt` moved. H4b and H4c score Hits.
 - S3.2's check scene id is `syn/audio_indicators` (underscores).
+
+## Lead amendments after the coverage recheck (2026-11-18)
+These apply the recheck's own fixes (matrix § S4 coverage › Recheck) word for word. They override the plan body and the coverage fixes above.
+- **B1 (H4a, S6 row 3 + S4.1 `score.py`):** in the R3 Level block of `score-v2.txt`, H4a compares only the `L` (Level rest) values within 0.01. It excludes every `H/min` field (all, Bass, Mid, MidHigh, High) and the "BassHits vs kick" line, because the 30 ms tick and θ 2.25 moved them on purpose. Hits are scored only by H4b (BassHits per kick in [0.8, 2.0]) and H4c (every band at 30 / 120 / 144 Hz within ±10 % of 60 Hz).
+- **C1 (PA5, S1.2):** the step adds one mutant run, a Level smoother not scaled by `dt`. PA5 must FAIL on it. The report prints the mutant's p10/p50/p90 shifts beside the correct core's.
+- **C2 (H9b, S2.2 + S2.5):**
+  - The metric is the max absolute byte difference over the frame (RGBA).
+  - Capture is deterministic: a fixed seek time, fixed clocks and the same fixture.
+  - A one-unit mutant at w 0 (one byte of one bound input's output shifted) must FAIL H9b.
+  - The pass line is 0 when the control pair is bit-stable. Otherwise it is the control pair's max difference, and the report gives both numbers.
+- **Stale body text (overridden here):** L556 "45 coder-owned" is now 46. L131 and L197 describe the old two-band T1g rule; T1g is the four-band rule in § Coverage fixes.
+- **Gate record:** S4 coverage = PASS (lead-closed). The recheck found 1 blocking item (B1) and 2 conditions (C1, C2), all applied above verbatim; the evidence is the matrix § S4 coverage › Recheck.
