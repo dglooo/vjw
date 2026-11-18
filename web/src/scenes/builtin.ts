@@ -1444,6 +1444,72 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     v: 1, id: 'builtin:molten', name: 'Molten', star: true, // dnb · Meebs ft. Flexi · ⚡ syn_HighHits ← snare (the camera: clocks)
     layers: [{ gen: { ref: 'syn/molten', bind: { ...syn('syn_BassLevel', 'syn_HighPresence', 'syn_BassPresence', 'syn_BPMSin4', 'syn_MidPresence', 'syn_HighLevel', 'syn_Level'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // Lane B4b (the media-stub batch; each file's header says what its script.js / bang / image became). Our detector's
+  // logic (user 2026-11-18): the syn(...) defaults (kick = bass hits, snare = any / mid hits, hats = high hits, subBody /
+  // reeseBody / energy = levels and presence, the beat grid = beat steps); a size or intensity control rides syn_Intensity
+  // (energy), rebound here to `build` (a swell) or `drop` (a hit) where the scene has one. A built-in binds syn_* names
+  // only (fx/syn.test.ts), so a control rides a source through that name in the scene's body.
+  // Starred = I-FL1 (max luma steps > .10 in 1 s, 30 s of dnb174-arr) <= 3 and billed p95 <= 7.5 ms (M4 1728x1118, the
+  // lowest run; the GPU was shared, the reference scene wireform+flash read 4.6-6.4 ms): tunnel-beauty-6 1 / 7.33 ms,
+  // waterly 2 / 5.99, traced-tunnel 1 / 5.4, raymarched-reflections 1 / 4.75. Library-only (frame time): terrain-lattice
+  // 1 / 7.9 at res .6 (12.3 at its .8).
+  {
+    v: 1, id: 'builtin:tunnel-beauty-6', name: 'Tunnel Beauty 6', star: true, // dnb · aiekick, CC BY-NC-SA 3.0 · ⚡ syn_OnBeat ← kick: the far walls light up
+    // overrides: syn_OnBeat's 40 ms rise (a light); syn_Intensity ← build: the tunnel's diameter swells through a build.
+    // res: billed p95 7.33 ms at .6 (9.59 at .75, 9.47 at 1, each with the GPU shared): raise it after a solo re-measure
+    layers: [{ gen: { ref: 'syn/tunnel_beauty_6', bind: { ...syn('syn_Presence', 'syn_BassPresence', 'syn_BPMSin4', 'syn_HighLevel', 'syn_BassLevel'), syn_OnBeat: SOFT_KICK, syn_Intensity: { source: 'build', amount: 1, attack: 1, release: 2, min: 0, max: 1 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.6 }],
+  },
+  {
+    v: 1, id: 'builtin:waterly', name: 'Waterly', star: true, // dnb · FabriceNeyret2 / Shady Headstash, CC BY-NC-SA 3.0 (the levels and the drums wind the flow: a clock; energy churns it: syn_Intensity). No override
+    layers: [{ gen: { ref: 'syn/waterly', bind: syn('syn_Level', 'syn_Presence', 'syn_Hits', 'syn_BassPresence', 'syn_BassHits', 'syn_Intensity') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    // Library-only: billed p95 7.9 ms at res .6 and 12.3 at .8 with these values (7.91 at .8 with the donor's defaults),
+    // each with the GPU shared (the reference scene read 4.6 ms). Re-measure with the GPU alone before starring.
+    // perturbation 2 (the donor's height at energy .5) read 11.4 ms with the governor at .85: left at 1.
+    v: 1, id: 'builtin:terrain-lattice', name: 'Terrain Lattice', star: false, // dnb · Shane (the kick swells the pipes). No override
+    // the donor's own switches: auto_perturb = the terrain's height x energy; split_amt .5 with its auto_split = a red /
+    // cyan fringe x the sub cubed (loud sub only; at 1 the pipes read as an anaglyph through a whole drop)
+    layers: [{ gen: { ref: 'syn/terrain_lattice', values: { auto_perturb: 1, split_amt: 0.5 }, bind: syn('syn_OnBeat', 'syn_Presence', 'syn_BassLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.8 }],
+  },
+  {
+    v: 1, id: 'builtin:traced-tunnel', name: 'Traced Tunnel', star: true, // dnb · Shane · ⚡ syn_HighHits ← snare (auto_flasher only)
+    // overrides: syn_HighHits ← snare, 40 ms rise (a light on the hats would flicker); syn_Intensity ← build: the lens
+    // widens through a build
+    layers: [{ gen: { ref: 'syn/traced_tunnel', bind: { ...syn('syn_Presence', 'syn_BPMSin2', 'syn_BassLevel', 'syn_Level', 'syn_MidHighLevel', 'syn_HighLevel'), syn_HighHits: SOFT_SNARE, syn_Intensity: { source: 'build', amount: 1, attack: 1, release: 2, min: 0, max: 1 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+  },
+  {
+    v: 1, id: 'builtin:raymarched-reflections', name: 'Raymarched Reflections', star: true, // dnb · Shane (the sub flies the cubes: a clock)
+    // override: syn_Intensity ← drop: the drop fuses the cubes into pillars (the donor's pulse_pillars bang); geometry, no light
+    layers: [{ gen: { ref: 'syn/raymarched_reflections', bind: { ...syn('syn_BassLevel'), syn_Intensity: { source: 'drop', amount: 1, attack: 0.04, release: 1.5, min: 0, max: 1 } } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.25 }],
+  },
+  // Lane B4b, the six media scenes: Library-only, each NEEDS A MEDIA INPUT (backlog 8, video files as a source). The
+  // adapter's media is a black stub, so they draw their no-media fallback or nothing; parse + compile checked, not
+  // flash- or frame-time-measured (measure them when media lands, before starring).
+  {
+    v: 1, id: 'builtin:equirectangular', name: 'Equirectangular', star: false, // needs a media input · Shady Headstash (no media: its own tile on a sphere)
+    layers: [{ gen: { ref: 'syn/equirectangular' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:sinusoidal-warp', name: 'Sinusoidal Warp', star: false, // needs a media input · Shane / Shady Headstash, CC BY-NC-SA 3.0 (no media: a textureless warp)
+    layers: [{ gen: { ref: 'syn/sinusoidal_warp', bind: syn('syn_Level', 'syn_Hits', 'syn_BassPresence') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:videofx-directionalblur', name: 'VideoFX Directional Blur', star: false, // needs a media input · the donor app (no media: a zoom-blurred grid)
+    layers: [{ gen: { ref: 'syn/videofx_directionalblur', bind: syn('syn_ToggleOnBeat', 'syn_Level', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:raw-video', name: 'Raw Video', star: false, // needs a media input · the donor app (no media: black)
+    layers: [{ gen: { ref: 'syn/raw_video' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:videofx-1', name: 'VideoFX 1', star: false, // needs a media input · the donor app (no media: its stripes) · ⚡ syn_HighHits ← snare (circle_pix only)
+    layers: [{ gen: { ref: 'syn/videofx_1', bind: { ...syn('syn_BassLevel', 'syn_Level'), syn_HighHits: SOFT_SNARE } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
+  {
+    v: 1, id: 'builtin:pxl-sort-1', name: 'Pxl Sort 1', star: false, // needs a media input · Meebs (no media: black; the kick refreshes the smear)
+    layers: [{ gen: { ref: 'syn/pxl_sort_1', bind: syn('syn_HighHits', 'syn_OnBeat') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
 ]
 
 // Camera CP2 (plan_camera S2.3, design D5): you in a TD scene. L0 is a TD scene's layer with its D1 bindings, and the
