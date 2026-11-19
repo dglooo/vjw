@@ -19,7 +19,8 @@
   pointer-events: auto;
 }
 
-/* The library (S3.1): search, chips and the try hint on top, staying while the tile grid scrolls under them. */
+/* The library (S3.1; scenes only, user 2026-11-19): the view chips and the search on top, staying while the tile grid
+   scrolls under them. */
 .editor > .library {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -82,7 +83,7 @@
 .library li {
   position: relative;
 }
-/* A grey name placeholder, 16:9, until S3.3 bakes the tile's still. The tried block's tile is marked. */
+/* A grey name placeholder, 16:9, until S3.3 bakes the tile's still. The scene on stage is outlined. */
 .library .pick {
   display: flex;
   flex-direction: column;
@@ -93,9 +94,6 @@
   overflow: hidden;
   text-align: left;
   background: #ffffff0f;
-}
-.library .pick small {
-  color: #d8d8d866;
 }
 /* Its still (S3.3) under the name: readback rows come bottom-up. */
 .library .pick {
@@ -111,26 +109,32 @@
   height: 100%;
   transform: scaleY(-1);
 }
-.library li.tried .pick {
+.library li.on .pick {
   outline: 2px solid #f2c14e;
   outline-offset: 1px;
 }
-.library .fav,
-.library .plus {
+/* Out of the rotation (a built-in starred off, the trash's): dimmed, still a click away. */
+.library li.off .pick {
+  opacity: 0.45;
+}
+/* ★ 🗑️ 🔧: a set mark stays on its tile, a badge; an unset one shows under the pointer only. */
+.library .marks {
   position: absolute;
   top: 3px;
+  right: 3px;
+  display: flex;
+  gap: 2px;
+}
+.library .marks button {
   padding: 0 4px;
   line-height: 16px;
   background: #0b0b0bcc;
 }
-.library .fav {
-  right: 3px;
+.library .marks button[aria-pressed='false'] {
+  opacity: 0.55;
 }
-.library .fav[aria-pressed='false'] {
-  color: #d8d8d855;
-}
-.library .plus {
-  right: 26px;
+.library li:not(:hover, :focus-within) .marks button[aria-pressed='false'] {
+  opacity: 0;
 }
 
 /* The builder (S2.2): the panel's controls (panel.css), larger. */

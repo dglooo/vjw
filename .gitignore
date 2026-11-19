@@ -10,3 +10,6 @@ scratchpad/
 
 # user music for real-track tuning (copyrighted; never commit)
 tracks/
+
+# the editor list's scene marks (web/vite.config.ts, dev): user data, the lead reads the working tree
+web/scene-marks.json

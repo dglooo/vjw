@@ -16,6 +16,9 @@ export interface DirectorOpts {
   confidentBars: number // … held for this many bars
   fallbackSeconds: number // otherwise: switch this many seconds after the last switch …
   fallbackTransition: number // … fading over this many seconds (←/→ too)
+  /** A scene cut to off the playlist holds this slot (its place in the list, library.slot), so one step on lands on
+   *  playlist[slot]; undefined, or no `slot`: the slot it cut from. */
+  slot?: (id: SceneId) => number | undefined
 }
 
 const DEFAULTS: DirectorOpts = {
@@ -102,6 +105,8 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
     },
     setPlaylist(ids) {
       // The shot (a fade too) plays on. A dropped current scene keeps its slot, clamped: the next switch continues there.
+      // ponytail: by index, so a scene off the playlist that a change before it shifts lands one off; ask opts.slot here
+      // too if that shows (bench.ts's own playlists would then need a slot of their own).
       const i = ids.indexOf(shot.to ?? shot.from)
       cur = i < 0 ? Math.min(cur, ids.length) : i
       playlist = ids
@@ -114,7 +119,7 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
       shot.to = null
       shot.mix = 0
       const i = playlist.indexOf(id)
-      if (i >= 0) cur = i // off the playlist, `cur` stays the slot it cut from: the next switch lands there
+      cur = i >= 0 ? i : (o.slot?.(id) ?? cur) // off the playlist: its slot, else the one it cut from; the next switch lands there
       last = null // the autopilot counts from the next update, as after a switch
     },
   }

@@ -161,6 +161,18 @@ describe('cut', () => {
     expect(d.update(70.1, ZERO_SYNC)).toMatchObject({ from: 'mine', to: 'spectrum' })
   })
 
+  test('off the playlist with opts.slot (its place in the list): → and peek go to the scene after it, ← to the one before', () => {
+    const d = createDirector(playlist, { slot: (id) => (id === 'mine' ? 2 : undefined) }) // 'mine' stands before particles
+    d.update(0, ZERO_SYNC)
+    d.cut('mine')
+    expect(d.peek()).toBe('particles')
+    d.next()
+    expect({ ...d.update(0.1, ZERO_SYNC) }).toEqual({ from: 'mine', to: 'particles', mix: 0 })
+    d.cut('mine')
+    d.prev()
+    expect({ ...d.update(0.2, ZERO_SYNC) }).toEqual({ from: 'mine', to: 'spectrum', mix: 0 })
+  })
+
   test('mid-fade it ends the fade; a listed scene becomes the current slot', () => {
     const d = createDirector(playlist)
     d.update(0, ZERO_SYNC)
