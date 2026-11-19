@@ -462,7 +462,7 @@ describe('Amen Shatter core: the bar cycle (C2, C6–C9, C13, C14, V10–V12)', 
   /** Rises (the core's rule) of a drum over a pair of hits `gap` s apart, the first at frame phase p/16, through
    *  features.fill and the user's sens (bind.ts gain(), as app.ts runs them). */
   function pairRises(drum: Drum, sens: number, p: number, gap = slotT(1)) {
-    const f = createFeatures(), out: Sources = {}, s = { v: 1 as const, auto: false, pick: null, sens: { [drum]: sens }, mute: [], custom: [] }
+    const f = createFeatures(), out: Sources = {}, s = { v: 1 as const, auto: false, pick: null, sens: { [drum]: sens }, mute: [], custom: [], analyser: 'ours' as const }
     const h = [0.1 + p / 16 / FPS, 0.1 + p / 16 / FPS + gap]
     let prev = 0, n = 0
     for (let i = 0; i < 30; i++) {

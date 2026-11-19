@@ -1,7 +1,7 @@
 import FFT from 'fft.js'
 import { expect, test } from 'vitest'
 import { SILENT_RMS } from './arrange'
-import { createDonor, DONOR_GROUPS, inputLevel, intensity, intensityStep, type DonorIn } from './donor'
+import { createDonor, DONOR_GROUPS, inputLevel, intensity, intensityStep, mixStep, type DonorIn } from './donor'
 import { rms } from './energy'
 import { burst, hats, kick, rng, room, SR } from './synth'
 
@@ -450,4 +450,29 @@ test('T1o: update() costs ≤ 0.5 ms at p95 over 3000 seeded noise frames, in ea
     console.log(`T1o run ${n}: p95 ${(1000 * pct(ms, 0.95)).toFixed(1)} µs per update()`)
     expect(pct(ms, 0.95)).toBeLessThanOrEqual(0.5)
   }
+})
+
+// --- S1.4: the mix ---
+
+test('PA2: mixStep goes 0 → 1 in 2.0 s at 60 fps; a re-toggle at 0.3 turns there; the value never leaves [0, 1]', () => {
+  const ramp = (from: number, target: number, frames: number, dt = DT) => {
+    const v = [from]
+    for (let i = 0; i < frames; i++) v.push(mixStep(v[i], target, dt))
+    return v
+  }
+  const up = ramp(0, 1, 121)
+  expect(up[119]).toBeLessThan(1) // 1.98 s
+  expect(up[120]).toBeCloseTo(1, 9) // 2.0 s
+  expect(up[121]).toBe(1)
+  for (let i = 1; i < up.length; i++) expect(up[i] - up[i - 1]).toBeLessThanOrEqual(DT / 2 + 1e-12)
+  const at = up.findIndex((x) => x >= 0.3) // the user flips back as the mix passes 0.3
+  const down = ramp(up[at], 0, 80)
+  expect(down[1]).toBeCloseTo(up[at] - DT / 2, 12) // on from where it is: no jump
+  expect(down[Math.ceil(up[at] / (DT / 2) + 1e-9)]).toBe(0) // ≈ 0.6 s later at 0, and it stays there
+  expect(down.at(-1)).toBe(0)
+  for (const v of [...up, ...down, ...ramp(0.5, 1, 3, 30), ...ramp(0.5, 0, 3, 30), mixStep(1, 1, DT), mixStep(0, 0, 0)]) {
+    expect(v).toBeGreaterThanOrEqual(0)
+    expect(v).toBeLessThanOrEqual(1)
+  }
+  expect(ramp(0.5, 1, 1, 30)[1]).toBe(1) // a 30 s frame (a hidden tab) lands on the target, not past it
 })

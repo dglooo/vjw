@@ -1,6 +1,7 @@
 // The rAF loop (Variant A): read (a) → drain (b) → (c) phase → director → engine.render. Per-frame data never goes
 // through React: the store hears about scene and lock changes, and gets the badge and the BPM at most 4×/s.
 import { createArrangement, shouldCut, SILENT_RMS, type ArrangeOut } from './audio/arrange'
+import { createDonor, mixStep, type DonorIn } from './audio/donor'
 import { BAND_COUNT, createEnergy, rms } from './audio/energy'
 import { createFeatures } from './audio/features'
 import { meter } from './audio/meter' // the HUD's input meter (dsp_linein_2026-11-16 fix 5): fed here, read live by the overlay
@@ -216,6 +217,12 @@ const f: FrameInput = {
 const src: Sources = {} // binding sources, refilled every frame
 const features = createFeatures() // kick/snare/hats envelopes from the worklet's hits (S1.4)
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
+// plan_audio_donor_mode S1.4: the donor-style core runs warm in every mode (spec R4) and writes its syn_* sources into
+// src each frame; src.donorMix (0 ours … 1 donor) ramps toward the stored mode in 2 s. Nothing reads them before CP2.
+const donor = createDonor(ctx.sampleRate, analyser.fftSize)
+const donorIn: DonorIn = { beat: 0, bpm: 0, confidence: 0, kick: false, fired: false, build: 0, peakDb: -Infinity, silent: true } // refilled per frame
+let donorMix = settings.get().analyser === 'donor' ? 1 : 0 // a stored donor mode starts at full mix
+let donorTarget = donorMix // the previous frame's target: a 0 → 1 turn seeds the core's beat count
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
 if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets }) // ?debug: the live binding sources, settings and the flash budget's onsets, for DevTools and browser checks
 // plan_camera CP1 (S1.2b): the camera's harness hooks — mask users, SegmentWorker constructions, frames posted to a
@@ -407,6 +414,21 @@ function frame(now: number) {
   src.energy = arrangeOut.energy // P2: the section level (dsp_formula_review_2026-11-17)
   camTick(now) // plan_camera S1.2b (D1): the camera host's life + its GL (upload, EMA, ref), before render() and presence
   src.presence = presence(camGate.area) // S1.1 (design D3): the gate's held area — stable through flood/strobe; rests at 0 with no camera
+  // S1.4 (donor mode): the core on this frame's grid, kick, arrangement, held peak and the instant silence test (G1, not
+  // PAUSE's 1 s), then the mix; both on the unscaled dt. A turn to donor counts the core's beats on from our grid's.
+  const donorOn = st.analyser === 'donor' ? 1 : 0
+  if (donorOn > donorTarget) donor.seedBeat(Math.floor(f.sync.beat))
+  donorTarget = donorOn
+  donorIn.beat = f.sync.beat
+  donorIn.bpm = f.sync.bpm
+  donorIn.confidence = f.sync.confidence
+  donorIn.kick = kickThisFrame
+  donorIn.fired = arrangeOut.fired !== null
+  donorIn.build = arrangeOut.build
+  donorIn.peakDb = meter.db
+  donorIn.silent = frameRms <= SILENT_RMS
+  donor.update(magDb, wave, f.dt, donorIn, src)
+  src.donorMix = donorMix = mixStep(donorMix, donorOn, f.dt)
   f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)
   if (arrangeOut.fired !== null) dropAt = f.time
   if (shouldCut(arrangeOut.confirmed, store.getSnapshot().hold)) director.cut(director.peek()) // a confident drop cuts once confirmed (0.5 s on, D3′), unless LOCK/panel
