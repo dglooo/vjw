@@ -4,6 +4,7 @@ import { clockRate, clockStep } from '../clock'
 import type { FrameInput } from '../frame'
 import { BUILTIN } from '../scenes/builtin'
 import { pairsByTarget, sizeExpr } from './isf'
+import { createDonor } from '../audio/donor'
 import { meter } from '../audio/meter'
 import { evaluate, type Binding, type Sources } from '../bind'
 import { hoist, parseSyn, pushTrail, SYN, SYN_BIND, synClock, synValue, TRAIL } from './syn'
@@ -124,11 +125,12 @@ describe('parseSyn', () => {
     const body = 'vec4 renderMain() { float s = texture(syn_Spectrum, _uv.x).g + textureLod( syn_Spectrum ,0.5, 0).b; return texture(noise, _uv) + texture(fbm, _uv) + texture(syn_Media, _uv) + texture(syn_UserImage, _uv) * s * syn_MediaType; }'
     const d = parseSyn(syn({ IMAGES: [{ NAME: 'noise', PATH: './images/noise.jpg' }, { NAME: 'fbm', PATH: 'fbm.png' }] }, body), 'syn/t')
     expect(d.unsupported).toBeUndefined()
-    expect(d.textures).toEqual({ noise: '/syn/t/images/noise.jpg', fbm: '/syn/t/fbm.png', syn_Spectrum: 'audio', syn_Media: 'black', syn_UserImage: 'black' })
+    expect(d.textures).toEqual({ noise: '/syn/t/images/noise.jpg', fbm: '/syn/t/fbm.png', syn_Spectrum: 'audio', _synSpectrumDonor: 'spectrum', syn_Media: 'black', syn_UserImage: 'black' })
     for (const t of ['noise', 'fbm', 'syn_Media', 'syn_UserImage', 'syn_Spectrum']) expect(d.fs).toContain(`uniform sampler2D ${t};`)
+    expect(d.fs.split('uniform sampler2D _synSpectrumDonor;')).toHaveLength(2) // declared once (a second one fails to compile)
     expect(d.fs).toContain('float s = _synSpectrum(_uv.x).g + _synSpectrum(0.5, 0).b;') // ES 3.00 has no sampler1D
-    // the spectrum's channels: r = g = b the toy texture's FFT row, a its waveform row
-    expect(d.fs).toContain('vec4 _synSpectrum(float x) { float f = texture(syn_Spectrum, vec2(x, 0.25)).r; return vec4(f, f, f, texture(syn_Spectrum, vec2(x, 0.75)).r); }')
+    // the spectrum's channels: ours r = g = b the toy texture's FFT row, a its waveform row; by _synMix the donor's rgba (S3.2)
+    expect(d.fs).toContain('vec4 _synSpectrum(float x) { float f = texture(syn_Spectrum, vec2(x, 0.25)).r; return mix(vec4(f, f, f, texture(syn_Spectrum, vec2(x, 0.75)).r), texture(_synSpectrumDonor, vec2(x, 0.5)), _synMix); }')
     expect(d.fs).toContain('#define syn_MediaType 0.0') // media code behind its guard stays off
   })
 
@@ -256,6 +258,41 @@ describe('SYN and the bundled scenes', () => {
       for (const k of keys) expect(d.inputs.map((i) => i.name), `${d.id} binds ${k}`).toContain(k) // a declared input: no stray or raw name
       for (const f of d.flash ?? []) expect(want, d.id).toContain(f)
     }
+  })
+
+  test('T2d: every syn_* name a bundled scene reads is in SYN, and each audio one is fed in donor mode', () => {
+    // Fed: a key the donor core writes (PA1), a clock with a donor rate, the donor Spectrum ('spectrum' texture), the
+    // LevelTrail ('trail': pushTrail's donor chains). Not audio: the feedback target, syn_MediaType, the black media.
+    const core: Sources = {}
+    createDonor(48000, 1024).update(new Float32Array(512).fill(-40), new Float32Array(1024), 1 / 60, { beat: 0, bpm: 0, confidence: 0, kick: false, fired: false, build: 0, peakDb: -40, silent: false }, core)
+    const missing: string[] = []
+    let n = 0
+    Object.entries(files).forEach(([path, src], i) => {
+      const s = src as string
+      const z = s.indexOf('*/')
+      const clocks = JSON.stringify(JSON.parse(s.slice(s.indexOf('/*') + 2, z)).VJW_CLOCK ?? {}) // a scene clock reads names too
+      const read = new Set([...`${s.slice(z + 2).replace(/\/\/.*|\/\*[\s\S]*?\*\//g, '')}${clocks}`.matchAll(/\bsyn_\w+/g)].map((m) => m[0]))
+      for (const name of read) {
+        const m = SYN[name]
+        n++
+        if (!m) missing.push(`${path}: ${name} (not in SYN)`)
+        else if ('target' in m || name === 'syn_MediaType' || ('texture' in m && m.texture === 'black')) continue
+        else if (!(Object.hasOwn(core, name) || ('clock' in m && 'donor' in m && !!m.donor) || ('texture' in m && m.texture === 'trail') || (name === 'syn_Spectrum' && defs[i].textures?._synSpectrumDonor === 'spectrum')))
+          missing.push(`${path}: ${name}`)
+      }
+    })
+    expect(missing).toEqual([])
+    expect(n).toBeGreaterThan(2 * defs.length) // the walk read every file
+  })
+
+  test('PA4: a scene that reads syn_Spectrum also samples the donor Spectrum (the \'spectrum\' texture) and declares _synMix', () => {
+    const readers = defs.filter((d) => d.textures?.syn_Spectrum)
+    expect(readers.map((d) => d.id)).toContain('syn/audio_indicators')
+    for (const d of readers) {
+      expect(d.textures, d.id).toMatchObject({ syn_Spectrum: 'audio', _synSpectrumDonor: 'spectrum' })
+      expect(d.fs, d.id).toContain('uniform float _synMix;')
+    }
+    expect(defs.filter((d) => d.textures?._synSpectrumDonor)).toHaveLength(readers.length) // only a reader samples it
   })
 })
 

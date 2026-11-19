@@ -20,7 +20,7 @@ import { createDirector } from './director'
 import { tiles } from './editor/tiles'
 import type { FrameInput } from './frame'
 import { catalog, transitions } from './fx/catalog'
-import { gpuMs, render, scenes, setAudio, setOutput, setTransition, stage } from './gl/engine'
+import { gpuMs, render, scenes, setAudio, setDonorSpectrum, setOutput, setTransition, stage } from './gl/engine'
 import { builds, flashOnsets, live, prepare, warm } from './gl/live'
 import { postFor } from './gl/post'
 import { library } from './library'
@@ -429,6 +429,7 @@ function frame(now: number) {
   donorIn.silent = frameRms <= SILENT_RMS
   donor.update(magDb, wave, f.dt, donorIn, src)
   src.donorMix = donorMix = mixStep(donorMix, donorOn, f.dt)
+  if (donorMix > 0) setDonorSpectrum(donor.spectrum) // S3.2: syn_Spectrum's donor half at this frame's mix; ours uploads nothing
   f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)
   if (arrangeOut.fired !== null) dropAt = f.time
   if (shouldCut(arrangeOut.confirmed, store.getSnapshot().hold)) director.cut(director.peek()) // a confident drop cuts once confirmed (0.5 s on, D3′), unless LOCK/panel
