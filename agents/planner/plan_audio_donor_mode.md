@@ -423,7 +423,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Depends on:** S3.2.
 
 
-### S4.1 [ ] S6 tooling A: fixtures and the offline parity replay
+### S4.1 [x] S6 tooling A: fixtures and the offline parity replay
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** the lead can run H4a, H4b, H4c and H7 on the product core.
 - **Files (scratch, git-ignored, never committed):** `scratchpad/donor-mode/gen-fixtures.mjs`, `scratchpad/dsp-donor/parity.ts`, `scratchpad/dsp-donor/score.py` (extended). No product file.
@@ -437,6 +437,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Tests:** none (scratch). GATES must stay green.
 - **Done-check:** GATES. `rolldown parity.ts -o out/parity.mjs -p node -f esm` builds. One run on `kick-train-120.wav` prints a latency line. The report gives the ffmpeg line that decodes the three tracks (the PCM was deleted; see gaps Freshness).
 - **Depends on:** S1.3. It can run beside S1.4-S3.3.
+- **Changed during implementation:** (1) `kick-train-120.wav`: 58 kicks from 1 s, every 0.5 s plus a seeded 0-33 ms delay each, so the H7 latency meets every phase of the 30 ms Hits tick. Both fixtures sit on a -51 dBFS room tone, so `silent` never fires. (2) A Hits event is a rise of the Hits value above its last frame's value, as in `audio/donor.test.ts`, because the core exposes no trigger flag. (3) H7 measures from the kick to the end of the analyser window (frame time + 20 ms LEAD). Its p95 counts only the kicks with a BassHits rise within 250 ms; `score.py` lists the missed kicks and does not gate them. (4) `python3 -I score.py` scores the parity outputs; `score.py s1` reprints `out/score-v2.txt` byte for byte. H4a compares 152 values and 23 counts. Our `syn_Intensity` is compared with the reference's `xInt3` column. (5) ffmpeg can pipe straight into parity (`/dev/stdin`), so no PCM file is needed.
 
 ### S4.2 [ ] S6 tooling B: the switch and flash harnesses
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
