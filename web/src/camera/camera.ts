@@ -126,7 +126,7 @@ export const camMask = {
 }
 /** The host's model, read at each spawn: the app's is the [R0] pick (Selfie, CPU); the probe sets it per arm, and its
  *  &fault= (S1.2b) goes to the next spawn only (`dead` to every spawn). */
-export const camHost = { model: 'selfie' as ModelId, delegate: 'CPU' as 'CPU' | 'GPU', base: '/', recycleMs: RECYCLE_MS, fault: '' }
+export const camHost = { model: 'selfie' as ModelId, delegate: 'CPU' as 'CPU' | 'GPU', base: import.meta.env.BASE_URL, recycleMs: RECYCLE_MS, fault: '' }
 // ?bench (K-9): one GL timer query around tick's camera GL → camGpuMs (ms, one per frame with camera GL; the D6 budget
 // is scene + this). ponytail: no GPU_DISJOINT_EXT check (reading it clears it for the engine's poll); a power-state
 // change can leave one bad sample.

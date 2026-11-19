@@ -62,7 +62,7 @@ function ensureHead() {
   if (headAsked) return;
   headAsked = true;
   if (typeof fetch !== 'function') return;
-  const urls = ['/vs3/visage/head_lo.bin', '/vs3/visage/head.bin']; // vjw: our static copies, was import.meta.url + document.baseURI
+  const urls = [import.meta.env.BASE_URL + 'vs3/visage/head_lo.bin', import.meta.env.BASE_URL + 'vs3/visage/head.bin']; // vjw: our static copies, was import.meta.url + document.baseURI
   // Every source failing (a dropped connection, a phone waking from
   // sleep) used to leave the scene blank for the session. Ask again
   // after a pause; update() calls ensureHead every frame.

@@ -1,10 +1,11 @@
 import react from '@vitejs/plugin-react'
+import { readFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
 import { defineConfig } from 'vitest/config'
 
-/** Dev only: web/scene-marks.json, the editor list's marks (library.ts), for the lead to act on. GET reads it (`null`
+/** Dev only: web/scene-marks.json, the editor list's marks and stars (library.ts), for the lead to act on. GET reads it (`null`
  *  when absent), POST writes it: a JSON object only, so a stray request cannot leave something the app cannot read. */
 const sceneMarks: Plugin = {
   name: 'scene-marks',
@@ -35,8 +36,22 @@ const sceneMarks: Plugin = {
   },
 }
 
+/** A build's default marks and stars (library.ts createLibrary `baked`, user 2026-11-20): web/scene-marks.json, the dev
+ *  mirror of the user's curation, as a JSON expression; `null` without one (git-ignored: a fresh clone, CI). */
+function marks() {
+  try {
+    return JSON.stringify(JSON.parse(readFileSync(new URL('./scene-marks.json', import.meta.url), 'utf8')))
+  } catch {
+    return 'null'
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
+  define: { __VJW_MARKS__: marks() },
+  // The deploy's secret sub-path (deploy/README.md): VJW_BASE=/<slug>/ npm run build. Code reaches public/ through
+  // import.meta.env.BASE_URL, never a bare '/'.
+  base: process.env.VJW_BASE || '/',
   plugins: [react(), sceneMarks],
   // The segmentation worker is classic (plan_camera S0.2, G1): MediaPipe's loader importScripts the self-hosted
   // wasm glue from public/, which a module worker can't do — Vite dev rewrites its import() fallback with ?import

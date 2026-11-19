@@ -11,7 +11,7 @@ import { fullscreenProgram, gl as stageGl } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
 import type { Spike } from '../three/host'
 
-const MODEL = '/models/Wolf.glb'
+const MODEL = `${import.meta.env.BASE_URL}models/Wolf.glb`
 /** The S1-T harness's switches and records (three/host.ts Spike). */
 export const MODEL_SPIKE: Spike = { entry: 0, skipCtorReset: false, diff: false, diffs: [], alpha: 0, info: null, list: null, readyAt: 0, draws: 0, drawMs: [] }
 type Host = Awaited<ReturnType<typeof import('../three/host').load>>

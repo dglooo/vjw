@@ -2,7 +2,8 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { SOURCE_IDS, type Binding } from './bind'
 import { parseScene, type LayerDoc, type SceneDoc } from './doc'
 import { docs, MUSIC_TIME, newShader, toyCode } from './edit'
-import { byName, createLibrary, type Db, type Disk } from './library'
+import { byName, createLibrary, GROUPS, type Db, type Disk } from './library'
+import { MILK_SCENES } from './milkdrop/presets'
 import { BUILTIN } from './scenes/builtin'
 
 const B: Binding = { source: 'bass', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }
@@ -16,8 +17,8 @@ type Lib = ReturnType<typeof createLibrary>
 const inOrder = (lib: Lib, ids: string[]) => ids.map((id) => lib.get(id)!).sort(byName).map((d) => d.id)
 
 /** What the browser keeps across a reload (IndexedDB rows, localStorage) and the downloads; `open()` is a page load.
- *  `marks`: the dev server's web/scene-marks.json (`text` undefined: none yet). */
-function browser(marks?: { text?: string; unreadable?: boolean }) {
+ *  `marks`: the dev server's web/scene-marks.json (`text` undefined: none yet). `baked`: a build's defaults. */
+function browser(marks?: { text?: string; unreadable?: boolean }, baked?: unknown) {
   const rows = new Map<string, unknown>()
   const kv = new Map<string, string>()
   const files: { name: string; text: string }[] = []
@@ -34,7 +35,7 @@ function browser(marks?: { text?: string; unreadable?: boolean }) {
     write: (text) => void (marks.text = text),
   }
   const open = () =>
-    createLibrary(db, { getItem: (k) => kv.get(k) ?? null, setItem: (k, v) => void kv.set(k, v) }, (name, text) => void files.push({ name, text }), disk)
+    createLibrary(db, { getItem: (k) => kv.get(k) ?? null, setItem: (k, v) => void kv.set(k, v) }, (name, text) => void files.push({ name, text }), disk, baked)
   return { rows, kv, files, open }
 }
 async function loaded(b = browser()) {
@@ -344,25 +345,109 @@ test('the list and the playlist (user 2026-11-19): one order by name; All plays 
   }
 })
 
+test('groups (user 2026-11-20): read off the nodes; every built-in in one, the camera scenes also in ours', () => {
+  const of = (d: SceneDoc) => Object.entries(GROUPS).filter(([, f]) => f(d)).map(([g]) => g)
+  const DJ = ['builtin:dj-over-tunnel', 'builtin:dj-inside', 'builtin:dj-ghost']
+  const MILK = MILK_SCENES.map((d) => d.id) // not by id: builtin:milk-honey-smoke-bile is a synScene
+  for (const d of BUILTIN) {
+    const id = d.id
+    const own = DJ.includes(id) ? ['ours', 'camera'] : MILK.includes(id) ? ['milk'] : id.startsWith('builtin:vs3-') ? ['vs3'] : null
+    if (own) expect(of(d), id).toEqual(own)
+    else expect([['ours'], ['vs2']], id).toContainEqual(of(d))
+  }
+  const count = (g: keyof typeof GROUPS) => BUILTIN.filter(GROUPS[g]).length
+  expect([count('vs3'), count('vs2'), count('camera'), count('mine')]).toEqual([37, 85, 3, 0]) // the donor port: 85 of 87
+  expect(of(BUILTIN.find((d) => d.id === 'builtin:vs3-limitless')!)).toEqual(['vs3']) // a vs3 filter over our tunnel
+  const plain = scene('x').layers[0]
+  expect(of(scene('u-1', { layers: [plain, { ...plain, gen: { ref: 'milk/x' } }] }))).toEqual(['milk', 'ours', 'mine'])
+  expect(of(newShader('void mainImage(out vec4 c, in vec2 p) {}'))).toEqual(['ours', 'mine'])
+})
+
+test('a group lists and plays all its scenes, starred or not, less the trash; the view narrows it; empty: every group', async () => {
+  const b = browser()
+  const lib = await loaded(b)
+  const VS3 = BUILTIN.filter((d) => d.id.startsWith('builtin:vs3-')).map((d) => d.id)
+  expect(BUILTIN.filter((d) => VS3.includes(d.id) && d.star)).toEqual([]) // all unstarred: All never plays them
+  expect(lib.group()).toBe('all')
+  lib.setGroup('vs3')
+  const list = inOrder(lib, VS3)
+  expect(lib.listed().map((d) => d.id)).toEqual(list)
+  expect(lib.playlist()).toEqual(list)
+  lib.mark('trash', VS3[0], true)
+  const rest = list.filter((id) => id !== VS3[0])
+  expect(lib.playlist()).toEqual(rest)
+  lib.setView('trash') // the group's trash lists, and plays the group's All
+  expect(lib.listed().map((d) => d.id)).toEqual([VS3[0]])
+  expect(lib.playlist()).toEqual(rest)
+  lib.setView('favourite')
+  expect(lib.playlist()).toEqual(rest) // no favourite in the group yet
+  lib.mark('favourite', VS3[1], true)
+  lib.mark('favourite', 'builtin:tunnel', true) // another group's
+  expect(lib.playlist()).toEqual([VS3[1]])
+  expect(b.open().group()).toBe('vs3')
+
+  lib.setView('all')
+  lib.setGroup('mine') // empty: every group, All's starred
+  expect(lib.listed()).toEqual([])
+  expect(lib.playlist()).toEqual(STARRED)
+  await lib.put(scene('u-1')) // unstarred, still plays in its group
+  expect(lib.playlist()).toEqual(['u-1'])
+  lib.setGroup('camera') // no live camera: nothing of it plays, so every group's All less the camera scenes
+  const DJ = ['builtin:dj-over-tunnel', 'builtin:dj-inside', 'builtin:dj-ghost']
+  expect(lib.playlist(true)).toEqual(inOrder(lib, DJ))
+  expect(lib.playlist(false)).toEqual(STARRED.filter((id) => !DJ.includes(id)))
+  for (const bad of ['"all"', '"toString"', '"favourite"', '{ oops', '5']) {
+    b.kv.set('vjw.group', bad)
+    expect(b.open().group()).toBe('all')
+  }
+})
+
 test('dev marks file (web/scene-marks.json): ours start it, each change mirrors it sorted, it wins at load, an unreadable one is left alone', async () => {
   const disk: { text?: string; unreadable?: boolean } = {}
   const b = browser(disk)
   b.kv.set('vjw.favs', JSON.stringify(['builtin:tunnel'])) // favourites from before the file
+  b.kv.set('vjw.stars', JSON.stringify({ 'builtin:tunnel': false, 'builtin:glitch': 0 })) // a corrupt star stays out
   const lib = await loaded(b)
-  expect(JSON.parse(disk.text!)).toEqual({ favourite: ['builtin:tunnel'], trash: [], rework: [] })
+  expect(JSON.parse(disk.text!)).toEqual({ favourite: ['builtin:tunnel'], trash: [], rework: [], stars: { 'builtin:tunnel': false } })
   lib.mark('trash', 'u-b', true)
   lib.mark('trash', 'u-a', true)
   lib.mark('rework', 'builtin:spectrum', true)
-  const marks = { favourite: ['builtin:tunnel'], trash: ['u-a', 'u-b'], rework: ['builtin:spectrum'] }
+  lib.setStar('builtin:demo-fluid', true)
+  const marks = { favourite: ['builtin:tunnel'], trash: ['u-a', 'u-b'], rework: ['builtin:spectrum'], stars: { 'builtin:demo-fluid': true, 'builtin:tunnel': false } }
   expect(disk.text).toBe(`${JSON.stringify(marks, null, 2)}\n`)
-  const wiped = browser(disk) // a browser data wipe: the file brings the marks back, into localStorage too
+  const wiped = browser(disk) // a browser data wipe: the file brings the marks and stars back, into localStorage too
   const again = await loaded(wiped)
   expect(again.marks()).toEqual({ favourite: new Set(marks.favourite), trash: new Set(marks.trash), rework: new Set(marks.rework) })
+  expect([again.get('builtin:demo-fluid')!.star, again.get('builtin:tunnel')!.star]).toEqual([true, false])
   expect(wiped.open().marks()).toEqual(again.marks())
+  expect(wiped.open().get('builtin:tunnel')!.star).toBe(false)
+  disk.text = JSON.stringify({ favourite: ['builtin:glitch'], trash: [], rework: [] }) // a file from before the stars
+  await loaded(wiped)
+  expect(JSON.parse(disk.text)).toEqual({ favourite: ['builtin:glitch'], trash: [], rework: [], stars: marks.stars }) // gets ours
   disk.unreadable = true
   const text = disk.text
   expect((await loaded(browser(disk))).marks().trash).toEqual(new Set())
   expect(disk.text).toBe(text)
+})
+
+test('a build bakes scene-marks.json in (user 2026-11-20): a stored mark or star beats it, it beats a built-in own star', async () => {
+  const baked = { favourite: ['builtin:glitch'], trash: ['builtin:tunnel'], rework: ['builtin:spectrum'], stars: { 'builtin:spectrum': false, 'builtin:demo-fluid': true, 'builtin:glitch': false } }
+  const b = browser(undefined, baked)
+  b.kv.set('vjw.favs', JSON.stringify(['builtin:particles'])) // stored
+  b.kv.set('vjw.rework', '{ oops') // corrupt: as none stored
+  b.kv.set('vjw.stars', JSON.stringify({ 'builtin:demo-fluid': false }))
+  const lib = await loaded(b)
+  expect(lib.marks()).toEqual({ favourite: new Set(['builtin:particles']), trash: new Set(['builtin:tunnel']), rework: new Set(['builtin:spectrum']) })
+  const star = (id: string) => lib.get(id)!.star
+  expect([star('builtin:demo-fluid'), star('builtin:spectrum'), star('builtin:particles')]).toEqual([false, false, true]) // stored, baked, own
+  expect(lib.playlist()).toEqual(STARRED.filter((id) => !['builtin:tunnel', 'builtin:spectrum', 'builtin:glitch'].includes(id)))
+  lib.setStar('builtin:glitch', true) // a visitor's change: stored, and only it, so a later build's defaults still reach the rest
+  expect(JSON.parse(b.kv.get('vjw.stars')!)).toEqual({ 'builtin:demo-fluid': false, 'builtin:glitch': true })
+  expect(b.open().get('builtin:glitch')!.star).toBe(true)
+  for (const junk of [null, 5, 'x', [1], { favourite: 'builtin:tunnel', stars: [true] }]) {
+    const none = await loaded(browser(undefined, junk)) // no defaults: today's library
+    expect([none.playlist(), none.marks().favourite]).toEqual([STARRED, new Set()])
+  }
 })
 
 test("setStar stars the panel's unsaved copy along, so a later save keeps it", async () => {

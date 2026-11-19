@@ -403,7 +403,7 @@ function ensureHead() {
   headAsked = true;
   if (typeof fetch !== 'function' || typeof location === 'undefined') { startSdfBuild(); return; }
   meshPending = true;
-  const urls = ['/vs3/visage/head.bin']; // vjw: our static copy, was import.meta.url + document.baseURI
+  const urls = [import.meta.env.BASE_URL + 'vs3/visage/head.bin']; // vjw: our static copy, was import.meta.url + document.baseURI
   const tryAt = (i) => fetch(urls[i])
     .then((r) => { if (!r.ok) throw new Error('head ' + r.status); return r.arrayBuffer(); })
     .then((buf) => { icData = parseHeadBin(buf); meshPending = false; })

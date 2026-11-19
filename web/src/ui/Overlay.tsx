@@ -122,7 +122,13 @@ export function Overlay() {
     }
   }, [])
 
-  if (s.editor || s.shader) return null // the editor screens have the whole window (2b S1)
+  // The editor screens have the whole window (2b S1) but the file transport, docked under them (user 2026-11-20)
+  if (s.editor || s.shader)
+    return s.source?.kind === 'file' ? (
+      <div className="bar transport docked" onPointerUp={release}>
+        <Transport />
+      </div>
+    ) : null
   return (
     <>
       <div className={shown ? 'bar' : 'bar hidden'}>

@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { director } from '../app'
 import { cam } from '../camera/camera'
-import { library, type Mark, type View } from '../library'
+import { library, type Group, type Mark, type View } from '../library'
 import { BUILTIN } from '../scenes/builtin'
 import { store } from '../store'
 import { H, tiles, visible, W } from './tiles'
 
 const VIEWS: readonly [View, string][] = [['all', 'All'], ['favourite', '★ Favourites'], ['trash', '🗑️ Trash'], ['rework', '🔧 Rework']]
+const GROUPS: readonly [Group, string][] = [
+  ['all', 'All groups'], ['milk', 'MilkDrop'], ['ours', 'Ours'], ['vs2', 'vs2 (donor)'], ['vs3', 'vs3 (new)'], ['camera', 'Camera'], ['mine', 'Mine'],
+]
 const MARKS: readonly [Mark, string, string][] = [
   ['favourite', '★', 'Favourite'],
   ['trash', '🗑️', 'Trash: out of All, the favourites and the rotation'],
@@ -45,7 +48,8 @@ function Still({ id }: { id: string }) {
 }
 
 /** The editor's library (user 2026-11-19: scenes only): the view on top (All, the favourites, the trash, the rework
- *  marks) and a name search over the scenes, by name, the order ←/→ and the autopilot walk (library.playlist). A tile
+ *  marks), the group (user 2026-11-20: one compact control, library.ts GROUPS) and a name search over the scenes, by
+ *  name, the order ←/→ and the autopilot walk (library.playlist). A tile
  *  opens its scene (it plays on after L), its ★ 🗑️ 🔧 mark it; one out of the rotation is dimmed, the one on stage
  *  outlined. Each a grey name tile until its still lands (S3.3); the hovered one moves (S3.4). */
 export function Library() {
@@ -72,6 +76,13 @@ export function Library() {
               {label}
             </button>
           ))}
+          <select aria-label="Group" value={library.group()} onChange={(e) => library.setGroup(e.target.value as Group)}>
+            {GROUPS.map(([g, label]) => (
+              <option key={g} value={g}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
         <input
           type="search"
