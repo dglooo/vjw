@@ -1803,6 +1803,12 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-synapse', name: 'vs3 Synapse', star: false,
     layers: [{ gen: { ref: 'native/vs3-synapse', bind: KICK_SNARE }, fx: [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: false } }, { ref: 'own/feedback-zoom', values: { decay: 0.9, rotate: -0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00097, max: 0.0034 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // anemone (row 194): persist .72 + zoom 1.03/s = own/feedback-zoom (the kick push to 1.195^(1/60) - 1), spin .3 = rotate
+  // -.0012. Its onHigh sparkle: ⚡ mid, the snare. The pointer steering is off (lib/common.js: a static pointer).
+  {
+    v: 1, id: 'builtin:vs3-anemone', name: 'vs3 Anemone', star: false,
+    layers: [{ gen: { ref: 'native/vs3-anemone', bind: KICK_SNARE }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.72, rotate: -0.0012 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00049, max: 0.003 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it

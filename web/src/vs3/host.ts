@@ -156,7 +156,8 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
 
 // The ported scenes (guide § Register): one line each. Looks from the original main.js FX_DEFAULTS rows 168, 178, 213;
 // 169 (mandala), 268 (tendril), 179 (citadel), 228 (descent),
-// 191 (oracle), 187 (idol), 208 (spacetime), 200 (ingot), 204 (gate), 171 (synapse).
+// 191 (oracle), 187 (idol), 208 (spacetime), 200 (ingot), 204 (gate), 171 (synapse),
+// 194 (anemone).
 export const VS3: readonly NativeDef[] = [
   vs3('ink', () => import('./kit/scenes/ink.js'), { palette: 'nocturne', bloomMul: 1.85, aber: 4, vignette: 0 }),
   vs3('relic', () => import('./kit/scenes/relic.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.4, vignette: 0.5 }),
@@ -171,4 +172,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('ingot', () => import('./kit/scenes/ingot.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.45 }),
   vs3('gate', () => import('./kit/scenes/gate.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.55 }),
   vs3('synapse', () => import('./kit/scenes/synapse.js'), { palette: 'nocturne', bloomMul: 1.7, aber: 1.5, vignette: 0.3, mid: true }),
+  vs3('anemone', () => import('./kit/scenes/anemone.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 2.4, vignette: 0.45, mid: true }),
 ]
