@@ -204,7 +204,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Changed during implementation:** (1) The core has no trigger output (frozen contract), so the tests count a hit event as a frame in which a `...Hits` value rises above its previous frame's value. The decay only lowers a value, so only a trigger raises it. (2) T1p uses a steady bed with no jitter, so the wrong-band count is exactly 0 (a jitter bed gives random crossings in every band). Its 10 kHz burst is 60 ms like the 60 Hz one, not the matrix row's 5 ms: a burst shorter than one frame falls between two 30 ms Hits ticks. (3) T1g reuses `audio/synth.ts` (`kick`, `hats`, `room`, `rng`) and `fft.js`. `synth.ts` now exports `burst` for the 300 Hz-5 kHz snare (one word; a test-only file). (4) The Hits tick clock also runs through silence and the edge window. After a pause the ticks keep the no-pause phase, so T1i's runs A and B tick on the same frames.
 
 
-### S1.3 [ ] Donor core C: beat family, Spectrum bytes, groups
+### S1.3 [x] Donor core C: beat family, Spectrum bytes, groups
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** the core is complete: 36 keys in `out`, the Spectrum bytes, `seedBeat`, `DONOR_GROUPS`.
 - **Files:** `web/src/audio/donor.ts`, `web/src/audio/donor.test.ts`.
@@ -231,6 +231,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
   - PA1 (plan-added): after one `update()`, `Object.keys(out)` is exactly the 31 ids plus `syn_BeatTime`, `syn_BPMTwitcher`, `syn_BPM`, `syn_BPMConfidence`, `syn_PrimeAndBang`.
 - **Done-check:** GATES.
 - **Depends on:** S1.2.
+- **Changed during implementation:** (1) Five points differ from the prototype; the plan text holds in each. The Spectrum floors `magDb` at -120 dB: in the prototype a -Infinity bin (digital silence, also `app.ts:208`'s first frames) sets its min to -Infinity, so g and b stay NaN for good. The kick gap counts this frame's `dt`, so kicks are >= 0.25 s apart exactly; the prototype allowed 0.25 s plus one frame. `age` starts at Infinity, so OnBeat and BPMTwitcher read exactly 0 before the first beat. The Toggle / Random ease starts from the core's own last value, not from the caller's `out`. The held BPM is clamped to 50-220 before it times the ease and the freewheel. (2) Tests beyond the list: T1r has a second arm (no grid: the kick train steps BeatTime, a flam 0.1 s after every 4th kick does not). A new test, "S1.3 item 4", checks that Toggle flips and that Random takes `lcg(seed)`'s next value, both eased over 0.2 s, for seeds 1 and 2. T1f also asserts that the g and b bytes are above 0 after 1 s of noise follows the silence: a mutant without the -120 dB floor fails it, because Uint8Array stores NaN as 0. T1k checks all 36 keys on the dt-0 frame. (3) `DONOR_GROUPS` is typed `readonly SourceGroup[]` (`bind.ts`, the same shape as the contract's type). `spectrum` has fftSize / 2 texels (512 at FFT 1024). As in the prototype, the b blur skips texels 0 and 511 (they stay 0).
 
 
 ### S1.4 [ ] The `analyser` setting, the warm core in `app.ts`, the mix

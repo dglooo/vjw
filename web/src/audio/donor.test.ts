@@ -1,7 +1,7 @@
 import FFT from 'fft.js'
 import { expect, test } from 'vitest'
 import { SILENT_RMS } from './arrange'
-import { createDonor, inputLevel, intensity, intensityStep, type DonorIn } from './donor'
+import { createDonor, DONOR_GROUPS, inputLevel, intensity, intensityStep, type DonorIn } from './donor'
 import { rms } from './energy'
 import { burst, hats, kick, rng, room, SR } from './synth'
 
@@ -11,8 +11,11 @@ const DT = 1 / 60
 const BASS = [1, 4] as const // [start, end)
 const HIGH = [128, 342] as const
 const IN: DonorIn = { beat: 0, bpm: 0, confidence: 0, kick: false, fired: false, build: 0, peakDb: -6, silent: false }
-const KEYS = ['', 'Bass', 'Mid', 'MidHigh', 'High'].flatMap((b) => [`syn_${b}Level`, `syn_${b}Presence`, `syn_${b}Hits`])
-  .concat(['syn_Intensity', 'syn_FadeInOut', 'syn_BassExpoCurve', 'syn_PrimeBang', 'syn_PrimeAndBang', 'syn_InputLevel'])
+/** The 31 listed ids of design L109–114 in their order, written out here (PA1's reference), and the 5 unlisted keys. */
+const IDS = ['Level', 'Hits', 'Presence'].flatMap((k) => ['', 'Bass', 'Mid', 'MidHigh', 'High'].map((b) => `syn_${b}${k}`)).concat(
+  ['syn_Intensity', 'syn_FadeInOut', 'syn_BassExpoCurve', 'syn_PrimeBang', 'syn_InputLevel'],
+  ['syn_OnBeat', 'syn_ToggleOnBeat', 'syn_RandomOnBeat', 'syn_BPMSin', 'syn_BPMSin2', 'syn_BPMSin4', 'syn_BPMSin8', 'syn_BPMTri', 'syn_BPMTri2', 'syn_BPMTri4', 'syn_BPMTri8'])
+const UNLISTED = ['syn_BeatTime', 'syn_BPMTwitcher', 'syn_BPM', 'syn_BPMConfidence', 'syn_PrimeAndBang']
 
 const lcg = (s = 1) => () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 2 ** 32
 const pct = (a: number[], p: number) => [...a].sort((x, y) => x - y)[Math.round(p * (a.length - 1))]
@@ -20,8 +23,8 @@ const swing = (a: number[]) => pct(a, 0.9) - pct(a, 0.1)
 
 /** A fresh core. `run(g)` runs one frame on `mag`; `step(db, g)` fills every bin with `db` first. Both return `out`,
  *  the same object every frame. */
-function rig() {
-  const d = createDonor(48000, 1024)
+function rig(seed?: number) {
+  const d = createDonor(48000, 1024, seed)
   const mag = new Float32Array(512)
   const wave = new Float32Array(1024)
   const out: Record<string, number> = {}
@@ -33,7 +36,7 @@ function rig() {
     mag.fill(db)
     return run(g, dt)
   }
-  return { mag, out, run, step }
+  return { d, mag, wave, out, run, step }
 }
 
 test('T1a: a tone with ±1 dB jitter rests mid-range: the median of syn_Level over 20–60 s is in [0.40, 0.70]', () => {
@@ -104,7 +107,7 @@ test('T1k: music from frame 0: FadeInOut is 1 at the start and ≥ 0.90 at 1 s; 
   const r = lcg()
   const o = step(-40, {}, 0) // the app's first frame: dt 0
   expect(o.syn_FadeInOut).toBe(1)
-  for (const id of KEYS) expect(Number.isFinite(o[id]), id).toBe(true)
+  for (const id of [...IDS, ...UNLISTED]) expect(Number.isFinite(o[id]), id).toBe(true)
   for (let k = 0; k < 60; k++) step(-40 + 2 * r() - 1)
   expect(o.syn_FadeInOut).toBeGreaterThanOrEqual(0.9)
 })
@@ -238,9 +241,9 @@ const HIT_RATE_TOL = 0.1 // ±, relative to the 60 Hz rate (gaps G4 ruling)
 const LEVEL_RATE_TOL = 0.05 // ±, absolute (coverage fix F8; measured 0.01 on the 3 tracks)
 const BLACKMAN = Float32Array.from({ length: 1024 }, (_, i) => 0.42 - 0.5 * Math.cos((2 * Math.PI * i) / 1024) + 0.08 * Math.cos((4 * Math.PI * i) / 1024))
 
-/** Runs a fresh core over `x` at `fps`; `each` gets every frame's `out`, its `silent` and its end time, s. */
-function replay(x: Float32Array, fps: number, each: (o: Record<string, number>, silent: boolean, t: number) => void) {
-  const d = createDonor(SR, 1024)
+/** Runs a core (a fresh one by default) over `x` at `fps`; `each` gets every frame's `out`, its `silent` and its end
+ *  time, s. */
+function replay(x: Float32Array, fps: number, each: (o: Record<string, number>, silent: boolean, t: number) => void, d = createDonor(SR, 1024)) {
   const fft = new FFT(1024)
   const spec = fft.createComplexArray()
   const w = new Float32Array(1024)
@@ -336,4 +339,115 @@ test('T1i: a 5 s `silent` pause in the train: no edge burst, and the Hits resume
   expect(ratio).toBeGreaterThanOrEqual(0.5)
   expect(nA / nB).toBeGreaterThanOrEqual(0.9)
   expect(nA / nB).toBeLessThanOrEqual(1.1)
+})
+
+// ---- S1.3 the beat family, the Spectrum bytes, the groups. The grid is a stub of audio/sync.ts's Sync (beat, bpm).
+test('T1d: a 174 BPM grid that re-anchors back at 30 s: BeatTime steps 0 or 1 per frame, never falls, once per beat', () => {
+  const { run } = rig()
+  const beatAt = (k: number) => (2.9 * k) / 60 + 0.25 - (k >= 1800 ? 0.5 : 0) // frame k at 60 Hz; at 30 s 87.25 → 86.75
+  expect(Math.floor(beatAt(1800))).toBeLessThan(Math.floor(beatAt(1799))) // the re-anchor: a floor(beat) count falls here
+  let [last, bad] = [0, 0]
+  for (let k = 1; k <= 3600; k++) {
+    const step = run({ bpm: 174, beat: beatAt(k), confidence: 1 }).syn_BeatTime - last
+    bad += +(step !== 0 && step !== 1)
+    last += step
+  }
+  console.log(`T1d: ${last} steps over 174 beats, ${bad} frames with a step outside {0, 1}`)
+  expect(bad).toBe(0)
+  expect(Math.abs(last - 174)).toBeLessThanOrEqual(1)
+})
+
+test('T1e: the grid at beat 3.2, then seedBeat(7): the next beat gives BeatTime 8', () => {
+  const { d, out, run } = rig()
+  run({ bpm: 174, beat: 3.2, confidence: 1 }) // the grid's first frame: no beat
+  d.seedBeat(7)
+  for (let k = 1; k <= 20; k++) run({ bpm: 174, beat: 3.2 + (2.9 * k) / 60, confidence: 1 }) // to 4.17: one new integer
+  expect(out.syn_BeatTime).toBe(8)
+})
+
+test('T1r: a 174 → 140 BPM ramp over 20 s: no frame steps by 2, |steps − beats| ≤ 1; with no grid the kicks step, a flam does not', () => {
+  // (a) the grid stub (its kick train is ignored); (b) bpm 0: the kick train, plus a flam 0.1 s after every 4th kick
+  for (const grid of [true, false]) {
+    const { run } = rig()
+    const flams = new Set<number>()
+    let [beat, last, bad] = [0, 0, 0]
+    for (let k = 1; k <= 1200; k++) {
+      const bpm = 174 - (34 * k) / 1200
+      const n = Math.floor(beat)
+      beat += (bpm * DT) / 60
+      const kick = Math.floor(beat) > n // our kick: on each new beat of the stub
+      if (kick && Math.floor(beat) % 4 === 0) flams.add(k + 6)
+      const step = run(grid ? { bpm, beat, confidence: 1, kick } : { kick: kick || flams.has(k) }).syn_BeatTime - last
+      bad += +(step !== 0 && step !== 1)
+      last += step
+    }
+    console.log(`T1r ${grid ? 'grid' : 'kicks + flams'}: ${last} steps over ${beat.toFixed(2)} beats`)
+    expect(bad).toBe(0)
+    expect(Math.abs(last - beat)).toBeLessThanOrEqual(1)
+  }
+})
+
+test('S1.3 item 4: per beat ToggleOnBeat flips 0 ↔ 1 and RandomOnBeat takes the next seeded value, both eased over 0.2 s', () => {
+  for (const seed of [1, 2]) {
+    const { run } = rig(seed)
+    const next = lcg(seed) // the core's LCG
+    for (let b = 0; b < 4; b++) { // no grid: a kick every 0.5 s
+      const o = run({ kick: true })
+      expect(Math.abs(o.syn_ToggleOnBeat - (b % 2))).toBeLessThan(0.01) // the beat frame: an ease, not a jump
+      for (let k = 0; k < 12; k++) run() // 0.2 s
+      expect(Math.abs(o.syn_ToggleOnBeat - ((b + 1) % 2))).toBeLessThan(0.01)
+      expect(o.syn_RandomOnBeat).toBeCloseTo(next(), 2)
+      for (let k = 0; k < 17; k++) run()
+    }
+  }
+})
+
+test('T1f: 10 s of white noise at −6 dBFS, then 2 s of digital silence: every value finite, every listed id in 0..1', () => {
+  const r = lcg()
+  const x = new Float32Array(12 * SR)
+  for (let i = 0; i < 10 * SR; i++) x[i] = Math.sqrt(3) * 0.5 * (2 * r() - 1) // uniform: RMS 0.5 (−6 dBFS)
+  const ids = DONOR_GROUPS.flatMap((g) => g.ids)
+  let bad = 0
+  const check = (o: Record<string, number>) => {
+    for (const v of Object.values(o)) bad += +!Number.isFinite(v)
+    for (const id of ids) bad += +!(o[id] >= 0 && o[id] <= 1)
+  }
+  const d = createDonor(SR, 1024)
+  replay(x, 60, check, d) // the last 2 s: every bin at −∞ dB, `silent`
+  const out: Record<string, number> = {}
+  d.update(new Float32Array(512).fill(-Infinity), new Float32Array(1024), 0, { ...IN, silent: true }, out) // then a dt of 0
+  check(out)
+  expect(bad).toBe(0)
+  expect(d.spectrum).toBeInstanceOf(Uint8Array) // bytes: integers in 0..255 by type
+  expect(d.spectrum).toHaveLength(2048)
+  // 1 s of noise again: g and b move. A −∞ dB min (not floored at −120 dB) would hold them at NaN (byte 0) for good.
+  replay(x.subarray(0, SR), 60, () => {}, d)
+  const top = (c: number) => Math.max(...d.spectrum.filter((_, j) => j % 4 === c))
+  expect(top(1)).toBeGreaterThan(0)
+  expect(top(2)).toBeGreaterThan(0)
+})
+
+test('PA1: one update() writes exactly the 31 listed ids and the 5 unlisted keys; DONOR_GROUPS is design L109–114 in order', () => {
+  expect(DONOR_GROUPS.map((g) => g.label)).toEqual(['donor levels', 'donor hits', 'donor presence', 'donor macros', 'donor beat'])
+  expect(DONOR_GROUPS.map((g) => g.ids.length)).toEqual([5, 5, 5, 5, 11])
+  expect(DONOR_GROUPS.flatMap((g) => g.ids)).toEqual(IDS)
+  expect(Object.keys(rig().step(-40)).sort()).toEqual([...IDS, ...UNLISTED].sort())
+})
+
+test('T1o: update() costs ≤ 0.5 ms at p95 over 3000 seeded noise frames, in each of 3 runs', () => {
+  const r = lcg()
+  for (let n = 1; n <= 3; n++) {
+    const { d, mag, wave, out } = rig()
+    const ms: number[] = []
+    for (let k = 0; k < 3000; k++) {
+      for (let i = 0; i < 512; i++) mag[i] = -40 + 6 * r() - 3
+      for (let i = 0; i < 1024; i++) wave[i] = 0.5 * (2 * r() - 1)
+      const g = { ...IN, bpm: 174, beat: (2.9 * k) / 60, confidence: 1 }
+      const t0 = performance.now()
+      d.update(mag, wave, DT, g, out)
+      ms.push(performance.now() - t0)
+    }
+    console.log(`T1o run ${n}: p95 ${(1000 * pct(ms, 0.95)).toFixed(1)} µs per update()`)
+    expect(pct(ms, 0.95)).toBeLessThanOrEqual(0.5)
+  }
 })
