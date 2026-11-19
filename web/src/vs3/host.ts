@@ -16,7 +16,7 @@
 // aberration. A scene that reads onMid / onHigh gets a second ⚡ `mid` (look.mid): its rise is both.
 import type { Sources } from '../bind'
 import { createBloom } from '../gl/bloom'
-import { fullscreenProgram, gl as stageGl } from '../gl/engine'
+import { copy, fullscreenProgram, gl as stageGl } from '../gl/engine'
 import { glState, PASS_LIST, restore } from '../gl/glstate'
 import { heatStep } from '../gl/post'
 import type { NativeDef } from '../gl/scene'
@@ -72,12 +72,13 @@ const FINISH = `#version 300 es
 precision highp float;
 uniform sampler2D uSrc;
 uniform vec2 uRes;
-uniform float uAber, uVig;
+uniform float uAber, uVig, uFaithful;
 out vec4 outColor;
 void main() { // donor engine/post-shaders.js FinishShader, the grain and the watermark left out
   vec2 uv = gl_FragCoord.xy / uRes, d = uv - 0.5, off = d * uAber * 0.003;
-  vec3 col = vec3(texture(uSrc, uv + off).r, texture(uSrc, uv).g, texture(uSrc, uv - off).b) * 1.4; // BRIGHTNESS 1.4
+  vec3 raw = vec3(texture(uSrc, uv + off).r, texture(uSrc, uv).g, texture(uSrc, uv - off).b), col = raw * 1.4; // BRIGHTNESS 1.4
   col /= 1.0 + dot(col, vec3(0.2126, 0.7152, 0.0722)) * 0.9; // the soft tone map: no palette whites out
+  col = mix(col, max(raw, 0.0), uFaithful); // a filter's picture skips the grade (original main.js:2130, uGainF 1)
   outColor = vec4(col * (1.0 - uVig * dot(d, d) * 2.4), 1.0);
 }`
 let finish: ReturnType<typeof fullscreenProgram> | undefined
@@ -92,10 +93,12 @@ async function open(gl: WebGL2RenderingContext) {
 }
 type Lib = Awaited<ReturnType<typeof open>>
 /** The donor scene as the host reads it (research §1). */
-interface Scene { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number } }
+interface Scene { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null } }
 
-/** FX_DEFAULTS' bloomMul and finish keys (original renderer/main.js:167+), SCENE_PALETTE (main.js:7780; else nocturne). */
-export interface Look { palette: string; bloomMul: number; aber: number; vignette: number; mid?: true }
+/** FX_DEFAULTS' bloomMul and finish keys (original renderer/main.js:167+), SCENE_PALETTE (main.js:7780; else nocturne).
+ *  `filter` (limitless): a filter native; the scene's `source` (a three ExternalTexture) gets the previous layer each
+ *  frame, shown as the original shows a dropped clip (its faithful path, main.js:2397): no grade, no resting bloom. */
+export interface Look { palette: string; bloomMul: number; aber: number; vignette: number; mid?: true; filter?: true }
 
 /** One scene's frame loop on its own RT; resolves once its programs compiled (rule 5: no compile on a visible frame). */
 async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) {
@@ -108,7 +111,8 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
   finish ??= fullscreenProgram(FINISH)
   const bloom = createBloom(gl)
   return {
-    draw(f: { width: number; height: number; dt: number; time: number }, hit: number, mid: number, src: Readonly<Sources>) {
+    draw(f: { width: number; height: number; dt: number; time: number }, hit: number, mid: number, src: Readonly<Sources>, input: WebGLTexture | null) {
+      if (sc.source) sc.source.sourceTexture = input // a filter's picture: the previous layer
       signal(src, hit, prev, s, mid, prevMid)
       s.kick = hot = heatStep(hot, hit, f.dt) // the kick as drawn (I-FL1); onKick stays on the raw rise
       prev = hit
@@ -126,11 +130,11 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
         })
       }, L.RENDER_LIST) // restores the engine's target and viewport
       const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null, keep = glState(gl, PASS_LIST) // GPU3D I-GL2
-      const b = sc.bloom, k = b ? (b.strength + s.energy * b.gain + hot * (b.kick ?? 0.35)) * look.bloomMul : 0
+      const b = sc.bloom, k = b ? ((look.filter ? 0 : b.strength) + s.energy * b.gain + hot * (b.kick ?? 0.35)) * look.bloomMul : 0 // a filter: no resting glow (main.js:15700)
       const lit = k > 0 ? bloom.apply(texture(rt), f.width, f.height, k) : texture(rt) // binds its own targets
       gl.bindFramebuffer(gl.FRAMEBUFFER, out)
       gl.viewport(0, 0, f.width, f.height)
-      finish!({ uSrc: lit, uRes: [f.width, f.height], uAber: look.aber * (0.22 + hot), uVig: look.vignette })
+      finish!({ uSrc: lit, uRes: [f.width, f.height], uAber: look.aber * (0.22 + hot), uVig: look.vignette, uFaithful: look.filter ? 1 : 0 })
       restore(gl, keep)
     },
     dispose() {
@@ -149,7 +153,7 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
   const ready = (gl: WebGL2RenderingContext) => Promise.all([(libs ??= open(gl)), load()])
   const flash = look.mid ? ['hit', 'mid'] : ['hit']
   return {
-    id: `native/vs3-${name}`, name: `vs3 ${name}`, kind: 'generator', credit: "vs3: the friends' three.js engine, used with permission; three.js r187 (MIT)",
+    id: `native/vs3-${name}`, name: `vs3 ${name}`, kind: look.filter ? 'filter' : 'generator', credit: "vs3: the friends' three.js engine, used with permission; three.js r187 (MIT)",
     inputs: flash.map((n) => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), // ⚡ the donor kick (+ onMid / onHigh): all a hit lights through
     flash,
     warm: () => ready(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden
@@ -158,8 +162,9 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
       ready(gl).then(([L, m]) => start(gl, L, m.default(), look)).then((r) => (gone ? r.dispose() : (run = r)), (e: unknown) => console.error(`native/vs3-${name}: the load failed`, e))
       return {
         hidden: () => !run,
-        draw(f, v, _src, s) {
-          run?.draw(f, v.hit as number, (v.mid as number | undefined) ?? 0, s ?? {})
+        draw(f, v, input, s) {
+          if (run) run.draw(f, v.hit as number, (v.mid as number | undefined) ?? 0, s ?? {}, input ?? null)
+          else if (input) copy({ uSrc: input, uRes: [f.width, f.height] }) // a filter passes its picture through until it runs
         },
         dispose() {
           gone = true
@@ -211,4 +216,7 @@ export const VS3: readonly NativeDef[] = [
   vs3('morphogen2', () => import('./kit/scenes/morphogen2.js'), { palette: 'glacial', bloomMul: 1, aber: 0.8, vignette: 0.05 }),
   vs3('locus', () => import('./kit/scenes/locus.js'), { palette: 'nocturne', bloomMul: 1.3, aber: 1.2, vignette: 0.4 }),
   vs3('vesica', () => import('./kit/scenes/vesica.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 0.6, vignette: 0.35 }),
+  vs3('grove', () => import('./kit/scenes/grove.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.2, vignette: 0.4 }), // row 226
+  // Row 170. A filter: the picture it bends is the layer under it (melt, the file's default mode; params are no inputs yet).
+  vs3('limitless', () => import('./kit/scenes/limitless.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 2, vignette: 0.3, filter: true }),
 ]
