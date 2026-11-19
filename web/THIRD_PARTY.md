@@ -391,6 +391,11 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `lib/noise-glsl.js` | the friends' engine; its GLSL: Ian McEwan / Ashima Arts, Stefan Gustavson (webgl-noise, https://github.com/ashima/webgl-noise) | donor/vs3/visual_kit/src/lib/noise-glsl.js | used with permission (2026-11-19); the GLSL: MIT |
 | `scenes/chorus.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/chorus.js (the frond texture moved above the factory; the head from /vs3/visage/) | used with permission (2026-11-19) |
 | `scenes/visage.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/visage.js (the frond texture moved above the factory; the head from /vs3/visage/; the fallback's blob Worker stripped) | used with permission (2026-11-19) |
+| `scenes/limitless3d.js` (limitless 3d) | the friends' engine | donor/vs3/visual_kit/src/scenes/limitless3d.js | used with permission (2026-11-19) |
+| `lib/limitless3d-stage.js` | the friends' engine | donor/vs3/visual_kit/src/lib/limitless3d-stage.js | used with permission (2026-11-19) |
+| `lib/model-load.js` | the friends' engine | donor/vs3/visual_kit/src/lib/model-load.js (the drop loaders' import()s stripped) | used with permission (2026-11-19) |
+| `lib/model-scans.js` | the friends' engine; fflate (101arrowz, vendored in three r187 `examples/jsm/libs/fflate.module.js`) | donor/vs3/visual_kit/src/lib/model-scans.js (the scan URL is /vs3/models/) | used with permission (2026-11-19); fflate: MIT |
+| `lib/model-shapes.js` | the friends' engine | donor/vs3/visual_kit/src/lib/model-shapes.js | used with permission (2026-11-19) |
 
 The scenes' binary assets, `public/vs3/`, copied from `donor/vs3/visual_kit/public/vendor/` with each folder's `LICENSE.txt`:
 

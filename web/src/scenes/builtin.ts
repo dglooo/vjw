@@ -1862,6 +1862,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-visage', name: 'vs3 Visage', star: false,
     layers: [{ gen: { ref: 'native/vs3-visage', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // limitless 3d (row 240: persist .25 left out): its default, the math knot in form mode (the three scans are not copied).
+  {
+    v: 1, id: 'builtin:vs3-limitless3d', name: 'vs3 Limitless 3D', star: false,
+    layers: [{ gen: { ref: 'native/vs3-limitless3d', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it

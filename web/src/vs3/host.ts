@@ -198,4 +198,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('sand', () => import('./kit/scenes/sand.js'), { palette: 'nocturne', bloomMul: 1.5, aber: 1.2, vignette: 0.35 }),
   vs3('chorus', () => import('./kit/scenes/chorus.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 1.2, vignette: 0.5 }),
   vs3('visage', () => import('./kit/scenes/visage.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 1.4, vignette: 0.5 }),
+  vs3('limitless3d', () => import('./kit/scenes/limitless3d.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.35 }),
 ]
