@@ -177,4 +177,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('morphogen2', () => import('./kit/scenes/morphogen2.js'), { palette: 'glacial', bloomMul: 1, aber: 0.8, vignette: 0.05 }),
   vs3('locus', () => import('./kit/scenes/locus.js'), { palette: 'nocturne', bloomMul: 1.3, aber: 1.2, vignette: 0.4 }),
   vs3('grove', () => import('./kit/scenes/grove.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.2, vignette: 0.4 }),
+  vs3('vesica', () => import('./kit/scenes/vesica.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 0.6, vignette: 0.35 }),
 ]

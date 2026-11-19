@@ -388,3 +388,5 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/morphogen2.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/morphogen2.js (the console panel and the logo canvas readback stripped) | used with permission (2026-11-19) |
 | `scenes/locus.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/locus.js | used with permission (2026-11-19) |
 | `scenes/grove.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/grove.js | used with permission (2026-11-19) |
+| `scenes/vesica.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/vesica.js | used with permission (2026-11-19) |
+| `lib/vesica-geometry.js` | the friends' engine | donor/vs3/visual_kit/src/lib/vesica-geometry.js | used with permission (2026-11-19) |
