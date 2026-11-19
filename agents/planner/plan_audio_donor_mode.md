@@ -171,7 +171,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Changed during implementation:** (1) `createDonor(sampleRate, fftSize)` has no `seed` yet, and the LCG and `ease()` are not ported. Their only readers (RandomOnBeat, ToggleOnBeat) come in S1.3, and `noUnusedLocals` / `noUnusedParameters` reject them unused. S1.3 adds `seed = 1` as the trailing optional parameter; no call changes. (2) The second `update()` parameter is named `_wave` until the S1.3 Spectrum reads it (`noUnusedParameters`). The positional signature is the frozen one, so the S1.1 tests stay valid. (3) `prev` (the flux's last dB, NaN in the edge window) comes with the flux in S1.2. S1.1 has the edge window that S1.2 reuses: `held = g.silent || t - edgeT < EDGE_SKIP`. While `held`, no stat takes the frame and Presence / Intensity hold (the prototype's `holdAcc` with `edge`). (4) The `Donor` interface is not declared yet: it needs `seedBeat` and `spectrum` (S1.3). The return type is inferred.
 
 
-### S1.2 [ ] Donor core B: Hits
+### S1.2 [x] Donor core B: Hits
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** the five Hits values exist and do not depend on the frame rate.
 - **Files:** `web/src/audio/donor.ts`, `web/src/audio/donor.test.ts`.
@@ -201,6 +201,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
   - Mutant check, run once and not committed: with `HIT_DT = 0`, T1g must fail. The report gives both sets of numbers.
 - **Done-check:** GATES.
 - **Depends on:** S1.1.
+- **Changed during implementation:** (1) The core has no trigger output (frozen contract), so the tests count a hit event as a frame in which a `...Hits` value rises above its previous frame's value. The decay only lowers a value, so only a trigger raises it. (2) T1p uses a steady bed with no jitter, so the wrong-band count is exactly 0 (a jitter bed gives random crossings in every band). Its 10 kHz burst is 60 ms like the 60 Hz one, not the matrix row's 5 ms: a burst shorter than one frame falls between two 30 ms Hits ticks. (3) T1g reuses `audio/synth.ts` (`kick`, `hats`, `room`, `rng`) and `fft.js`. `synth.ts` now exports `burst` for the 300 Hz-5 kHz snare (one word; a test-only file). (4) The Hits tick clock also runs through silence and the edge window. After a pause the ticks keep the no-pause phase, so T1i's runs A and B tick on the same frames.
 
 
 ### S1.3 [ ] Donor core C: beat family, Spectrum bytes, groups

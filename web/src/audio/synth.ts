@@ -25,7 +25,7 @@ function biquad(x: Float32Array, type: 'lp' | 'hp', f: number) {
 }
 
 /** White noise through 8-pole (48 dB/oct) edges, then a 1 ms sin² attack and an exponential decay. */
-function burst(r: () => number, len: number, decay: number, hp: number, lp?: number) {
+export function burst(r: () => number, len: number, decay: number, hp: number, lp?: number) {
   const x = Float32Array.from({ length: Math.round(len * SR) }, () => 2 * r() - 1)
   for (let i = 0; i < 4; i++) {
     biquad(x, 'hp', hp)
