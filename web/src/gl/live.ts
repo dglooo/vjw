@@ -219,7 +219,8 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     // ponytail: each node loads its own copy, so a library tile bakes (1 frame) before its images land; share a cache
     // by URL if the tiles show it.
     for (const [name, src] of Object.entries(textures)) {
-      u[name] = src === 'audio' ? audioTex.toy : black
+      u[name] = src === 'audio' ? audioTex.toy : src === 'spectrum' ? audioTex.donor : black
+      if (src === 'spectrum') u._synMix = 0 // the donor mix, set by run() each frame
       if (src === 'trail') {
         const bytes = new Uint8Array(4 * TRAIL)
         x.trail = { t: createTexture(gl, { width: TRAIL, height: 1, src: bytes, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE }), bytes, states: Array.from({ length: 8 }, () => ({ y: 0 })) } // ours, then the donor chains (pushTrail)
@@ -327,6 +328,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
         gl.bindTexture(gl.TEXTURE_2D, n.trail.t)
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TRAIL, 1, gl.RGBA, gl.UNSIGNED_BYTE, n.trail.bytes)
       }
+      if ('_synMix' in n.u) n.u._synMix = w // a 'spectrum' texture's node: ours … donor Spectrum (0 on a tile)
       for (let j = 0; j < n.passes.length; j++) {
         const { p, pair } = n.passes[j]
         out = pair ? pair[1] : dst
