@@ -110,6 +110,14 @@ export function SourcesTab() {
         </label>
         <Detected />
       </div>
+      {/* the detection the syn_* inputs follow (plan_audio_donor_mode S3.3); app.ts ramps src.donorMix toward it in 2 s */}
+      <label className="row">
+        <span>analyser</span>
+        <select value={s.analyser} onChange={(e) => settings.patch({ analyser: e.currentTarget.value as typeof s.analyser })}>
+          <option>ours</option>
+          <option>donor</option>
+        </select>
+      </label>
       {sourceGroups(s.custom).map((g) => {
         const all = g.ids.every((id) => s.mute.includes(id))
         const rows = g.ids.map((id) => {
@@ -118,7 +126,7 @@ export function SourcesTab() {
           const off = s.mute.includes(id)
           return (
             <div key={id} className={off ? 'row muted' : 'row'}>
-              <span>{name}</span>
+              <span title={name}>{name}</span>
               <meter data-src={id} min={0} max={1} value={0} />
               <input
                 type="range"
