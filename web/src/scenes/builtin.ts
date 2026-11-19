@@ -1748,9 +1748,15 @@ const VS3: readonly SceneDoc[] = [
   // .0032/frame (the donor samples its history turned by -angle, our effect by +rotate: the sign flips).
   // Billed p95 as above, with another lane's browser on the GPU (ink 16.4 and relic 15.1 in the same run, 6.7 and 7.1
   // alone): mandala 6.4-6.5 at res .5 (8.4 at .75, 13.4 at 1).
+  // tendril (row 268: persist .2 left out; the file's defaults: ring mode, the thumbnail is a cross-mode preset on a
+  // grey-blue palette): 19.0-21.1 at res .5 with relic at 14.7-19.9 in the same runs (16.4 at .4), so about relic's cost.
   {
     v: 1, id: 'builtin:vs3-mandala', name: 'vs3 Mandala', star: false,
     layers: [{ gen: { ref: 'native/vs3-mandala', bind: KICK_HIT }, fx: [{ ref: 'isf/Kaleidoscope', values: { sides: 9, center: [0.5, 0.5] } }, { ref: 'own/feedback-zoom', values: { decay: 0.75, rotate: 0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.0043, max: 0.0063 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vs3-tendril', name: 'vs3 Tendril', star: false,
+    layers: [{ gen: { ref: 'native/vs3-tendril', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
 ]
 
