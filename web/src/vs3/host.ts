@@ -179,4 +179,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('anemone', () => import('./kit/scenes/anemone.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 2.4, vignette: 0.45 }), // no `mid`: its onHigh is a sparkle, not worth the kicks the snare takes from the flash budget
   vs3('aurora', () => import('./kit/scenes/aurora.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
   vs3('blob', () => import('./kit/scenes/blob.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
+  vs3('echo', () => import('./kit/scenes/echo.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34, mid: true }),
 ]
