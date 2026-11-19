@@ -480,7 +480,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Done-check:** GATES. Each script completes a 10 s smoke run.
 - **Depends on:** S4.2.
 
-### S5.1 [ ] P4 `kickAccent` (the last step)
+### S5.1 [x] P4 `kickAccent` (the last step)
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** our detector gains an unbound extra source for the kick's loudness (spec R5, Part B). The user can then see it (M2).
 - **Files:** `web/src/audio/donor.ts`, `web/src/bind.ts` (+ `audio/donor.test.ts`, `bind.test.ts`). Scratch: `scratchpad/donor-mode/h8-p4-align.mjs`, and the P4 column in `scratchpad/dsp-donor/parity.ts`.
@@ -499,6 +499,8 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
   - `parity.ts` gains the P4 column for H4d (r and CV against the 150 Hz truth).
 - **Done-check:** GATES. Browser: the CP5 demo.
 - **Depends on:** S1.5, S4.1. It runs last.
+- **Changed during implementation:** (1) L is the core's own Bass band dB (bins 1-3 at 48 kHz / 1024), the mean bin power floored at -120 dB, not a second sum over bins 1-3. The mean-vs-sum offset (-4.8 dB) cancels in L - mu, and the floor keeps mu finite when a kick lands on digital silence. (2) T9a adds two asserts: the -6 dB probe puts its level one frame early (this pins "the max of this frame and the frame before"), and the next kick at the old level reads .763 (this pins mu's 1/8 step). Five mutants fail T9a (L of this frame only, tau .1, no clamp, N 4, mu start -6 dB). A `kick` -> `kickAccent` rebind in `scenes/builtin.ts` fails T3c. (3) `bind.test.ts:76` holds the count pin (`:73` at the plan's commit). (4) The scratch files are in the coder worktree's `scratchpad/` (the isolation blocks writes to the main checkout); the lead copies them out. `parity.ts` prints one P4 line: the before (kick CV), the after (kickAccent CV, p10/p50/p90), and r against the truth in both forms. `h8-p4-align.mjs` also takes `[seconds]` and `[file]` (a file-source contrast run), and it logs the analyser's Bass dB per frame.
+- **Finding for the lead (not a drift):** on line-in, the planned L form is erratic. Line-in drains a kick on arrival, so the drain frame's 1024-sample window holds only 0-17 ms of the kick, and the frame before holds none. On equal kicks (`kick-train-120.wav`, fake capture), the drain-frame kickAccent reads p10/p50/p90 .09/.92/1 (CV .49-.64, an L spread of 24-35 dB). The H8 offset still passes (p95 11.6-17.4 ms). The same window with 1 frame after the drain reads .67/.70/.72 (CV .02). A file source reads .67/.70/.72 with the planned form (CV .02, the offline value). The evidence is `scratchpad/donor-mode/out/h8-kick-train-120{,-file}.json`.
 
 
 ## S6 (lead): runner evidence

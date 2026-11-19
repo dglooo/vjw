@@ -31,7 +31,7 @@ export const PHASES: readonly string[] = ['beat', 'bar', 'lfo']
 
 const BANDS = Array.from({ length: BAND_COUNT }, (_, i) => `band${i}`)
 /** The keys `sources()` and features.ts's `fill()` fill, for the panel's list. */
-export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'sub', 'reese', 'wobble', 'wobbleDepth', 'reeseLevel', 'subBody', 'reeseBody', 'beat', 'bar', 'lfo', 'confidence', 'build', 'drop', 'energy', 'presence', ...DONOR_GROUPS.flatMap((g) => g.ids)] // build/drop/energy: the arrangement (S5.3, P2); presence: the camera (S1.1) — S6.3 lists them in a group; the donor core's 31 (app.ts, every mode)
+export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'kickAccent', 'sub', 'reese', 'wobble', 'wobbleDepth', 'reeseLevel', 'subBody', 'reeseBody', 'beat', 'bar', 'lfo', 'confidence', 'build', 'drop', 'energy', 'presence', ...DONOR_GROUPS.flatMap((g) => g.ids)] // kickAccent: the donor core writes it (P4, every mode), bound by no built-in; build/drop/energy: the arrangement (S5.3, P2); presence: the camera (S1.1) — S6.3 lists them in a group; the donor core's 31 (app.ts, every mode)
 
 export interface SourceGroup { label: string; ids: readonly string[] }
 /** The Scene tab's source-select optgroups (S6.3), mirroring the Sources tab's meter groups: the fixed ones, the
@@ -39,7 +39,7 @@ export interface SourceGroup { label: string; ids: readonly string[] }
 export const sourceGroups = (custom: readonly { id: string; name: string }[] = []): readonly SourceGroup[] => {
   const g: SourceGroup[] = [
     { label: 'levels', ids: ['bass', 'mid', 'treb'] },
-    { label: 'drums', ids: ['kick', 'snare', 'hats'] },
+    { label: 'drums', ids: ['kick', 'snare', 'hats', 'kickAccent'] }, // kickAccent last: the calibration row's hues stay
     { label: 'bass', ids: ['sub', 'reese', 'wobble', 'wobbleDepth', 'reeseLevel', 'subBody', 'reeseBody'] },
     { label: 'arrangement', ids: ['build', 'drop', 'energy'] },
     { label: 'timing', ids: ['onset', 'beat', 'bar', 'lfo', 'confidence'] },

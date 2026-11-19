@@ -427,11 +427,11 @@ test('T1f: 10 s of white noise at −6 dBFS, then 2 s of digital silence: every 
   expect(top(2)).toBeGreaterThan(0)
 })
 
-test('PA1: one update() writes exactly the 31 listed ids and the 5 unlisted keys; DONOR_GROUPS is design L109–114 in order', () => {
+test('PA1: one update() writes exactly the 31 listed ids, the 5 unlisted keys and kickAccent (P4); DONOR_GROUPS is design L109–114 in order', () => {
   expect(DONOR_GROUPS.map((g) => g.label)).toEqual(['donor levels', 'donor hits', 'donor presence', 'donor macros', 'donor beat'])
   expect(DONOR_GROUPS.map((g) => g.ids.length)).toEqual([5, 5, 5, 5, 11])
   expect(DONOR_GROUPS.flatMap((g) => g.ids)).toEqual(IDS)
-  expect(Object.keys(rig().step(-40)).sort()).toEqual([...IDS, ...UNLISTED].sort())
+  expect(Object.keys(rig().step(-40)).sort()).toEqual([...IDS, ...UNLISTED, 'kickAccent'].sort()) // S5.1: + kickAccent (P4, spec R5)
 })
 
 test('T1o: update() costs ≤ 0.5 ms at p95 over 3000 seeded noise frames, in each of 3 runs', () => {
@@ -475,4 +475,48 @@ test('PA2: mixStep goes 0 → 1 in 2.0 s at 60 fps; a re-toggle at 0.3 turns the
     expect(v).toBeLessThanOrEqual(1)
   }
   expect(ramp(0.5, 1, 1, 30)[1]).toBe(1) // a 30 s frame (a hidden tab) lands on the target, not past it
+})
+
+// --- S5.1: P4 kickAccent (gaps G3) ---
+
+/** A fresh core. kick(off, early): our kick, the Bass bins `off` dB from −20 dB over a −60 dB bed on the kick frame
+ *  (`early`: on the frame before it, as when the analyser runs ahead), then 29 bed frames; it returns kickAccent on the
+ *  kick frame and the 29 after. Every frame's value also goes into `all`. */
+function kicker(all: number[]) {
+  const { mag, run } = rig()
+  const frame = (db: number | null, kick = false) => {
+    mag.fill(-60)
+    if (db !== null) mag.fill(db, ...BASS)
+    const v = run({ kick }).kickAccent
+    all.push(v)
+    return v
+  }
+  const kick = (off: number, early = false) => {
+    frame(early ? -20 + off : null)
+    const v = [frame(early ? null : -20 + off, true)]
+    for (let k = 0; k < 29; k++) v.push(frame(null))
+    return v
+  }
+  return { frame, kick }
+}
+
+test('T9a: kickAccent after 20 kicks at one level: there 0.70, 6 dB lower 0.35, 6 dB higher 1; 1/e in 0.12 s; 0 before a kick; in [0, 1]', () => {
+  const all: number[] = []
+  const [a, b, c] = [kicker(all), kicker(all), kicker(all)]
+  for (let k = 0; k < 60; k++) expect(a.frame(null)).toBe(0) // 1 s of bed, no kick yet
+  for (const x of [a, b, c]) for (let n = 0; n < 20; n++) x.kick(0)
+  const at = a.kick(0)
+  const low = b.kick(-6, true)[0] // its level one frame early: L is the max of this frame and the one before
+  const high = c.kick(6)[0]
+  console.log(`T9a: at the mean ${at[0].toFixed(3)}, −6 dB ${low.toFixed(3)}, +6 dB ${high.toFixed(3)}`)
+  expect(at[0]).toBeCloseTo(0.7, 9)
+  expect(low).toBeCloseTo(0.35, 2) // .7 · 10^(−6/20) = .351
+  expect(high).toBe(1)
+  expect(b.kick(0)[0]).toBeCloseTo(0.7 * 10 ** (0.75 / 20), 9) // the −6 dB kick moved μ by 1/8 of it: the old level reads .763
+  at.forEach((v, k) => expect(v).toBeCloseTo(0.7 * Math.exp(-(k * DT) / 0.12), 9)) // e^(−age / .12 s), `kick`'s fall: 1/e at 0.12 s
+  // a seeded train: levels −80..0 dB, every 7th kick on digital silence (−∞ dB, floored at −120 dB), half of them early
+  const r = lcg()
+  const d = kicker(all)
+  for (let n = 0; n < 200; n++) d.kick(n % 7 ? 80 * r() - 60 : -Infinity, r() < 0.5)
+  expect(all.filter((v) => !(v >= 0 && v <= 1))).toEqual([]) // NaN fails too
 })
