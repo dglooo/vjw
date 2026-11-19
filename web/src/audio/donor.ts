@@ -1,11 +1,19 @@
-// Donor-mode analyser core (plan_audio_donor_mode S1.1–S1.2; dsp_donor_mode_2026-11-18 §A1, gaps G1 + G4). Pure, so
+// Donor-mode analyser core (plan_audio_donor_mode S1.1–S1.3; dsp_donor_mode_2026-11-18 §A1, gaps G1 + G4). Pure, so
 // Vitest runs it in Node. Ported from our own prototype `scratchpad/dsp-donor/donor-model.ts` with its options fixed (hold
 // 'music', holdAcc, edge 25 ms, Bass 30–150 Hz, flux 'sub' 30 ms, z 2.25). Every constant is ours: inferred and tuned on
 // 3 tracks, none is donor code.
-import type { Sources } from '../bind'
+import type { SourceGroup, Sources } from '../bind'
 
-/** One frame's inputs from app.ts (CP1 contract). S1.1 reads `fired`, `build`, `peakDb` and `silent`. */
+/** One frame's inputs from app.ts (CP1 contract): our grid (`beat`, `bpm`, `confidence`), our kick, the arrangement's
+ *  `fired` and `build`, the meter's held peak (dBFS) and app.ts's silence test. */
 export interface DonorIn { beat: number; bpm: number; confidence: number; kick: boolean; fired: boolean; build: number; peakDb: number; silent: boolean }
+
+/** The core (CP1 contract). `spectrum`: fftSize / 2 texels × RGBA (512 × 4 bytes at FFT 1024), rebuilt by update(). */
+export interface Donor {
+  update(magDb: Float32Array, wave: Float32Array, dt: number, g: DonorIn, out: Sources): void
+  seedBeat(n: number): void
+  readonly spectrum: Uint8Array
+}
 
 const HIT_DT = 0.03 // s: the Hits tick. The flux, its stats and the trigger run once this long has passed (gaps G4)
 const THETA = 2.25 // σ: a hit when the flux's z crosses it upward (gaps G4)
@@ -25,9 +33,26 @@ const FADE_FALL = 2.5 // s
 const BANG_TAU = 0.3 // s
 const FLUX = 2 // s: the flux's running mean/σ (Hits)
 const MAX_DT = 0.1 // s: a long frame (a hidden tab) steps like this one
+const ONBEAT_TAU = 0.1 // s
+const TWITCH_TAU = 0.05 // s: BPMTwitcher's rise to the new count
+const KICK_GAP = 0.25 // s: with no grid, our kick is a beat this long after the last one at the earliest
 
 const ema = (dt: number, tau: number) => 1 - Math.exp(-dt / tau)
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
+/** Logistic ease 0 → 1 over T s (ToggleOnBeat's flip, RandomOnBeat's jump). */
+const ease = (age: number, T: number) => 1 / (1 + Math.exp(-12 * (age / T - 0.5)))
+
+const per = (kind: string) => BANDS.map(([name]) => `syn_${name}${kind}`)
+/** The 31 donor sources (each 0..1) in five groups: design L109–114, in that order. */
+export const DONOR_GROUPS: readonly SourceGroup[] = [
+  { label: 'donor levels', ids: per('Level') },
+  { label: 'donor hits', ids: per('Hits') },
+  { label: 'donor presence', ids: per('Presence') },
+  { label: 'donor macros', ids: ['syn_Intensity', 'syn_FadeInOut', 'syn_BassExpoCurve', 'syn_PrimeBang', 'syn_InputLevel'] },
+  { label: 'donor beat', ids: ['syn_OnBeat', 'syn_ToggleOnBeat', 'syn_RandomOnBeat', 'syn_BPMSin', 'syn_BPMSin2', 'syn_BPMSin4', 'syn_BPMSin8', 'syn_BPMTri', 'syn_BPMTri2', 'syn_BPMTri4', 'syn_BPMTri8'] },
+]
+/** BPMSin / BPMTri over 1, 2, 4 and 8 beats; the keys are built once, so update() allocates nothing. */
+const CYCLES = [1, 2, 4, 8].map((n) => ({ n, sin: `syn_BPMSin${n > 1 ? n : ''}`, tri: `syn_BPMTri${n > 1 ? n : ''}` }))
 
 /** Running mean/σ: an EMA of τ s, a plain mean until the EMA is the slower. norm(): μ → .5, ±2σ → 0 / 1 (σ 0 reads 0 at μ). */
 function stats(tau: number) {
@@ -52,7 +77,7 @@ export const primeBang = (age: number) => Math.exp(-age / BANG_TAU)
 /** The meter's held sample peak, dBFS: −60..0 → 0..1. */
 export const inputLevel = (peakDb: number) => clamp((peakDb + 60) / 60)
 
-export function createDonor(sampleRate: number, fftSize: number) {
+export function createDonor(sampleRate: number, fftSize: number, seed = 1): Donor {
   const bin = (hz: number) => Math.min(fftSize / 2 - 1, Math.max(1, Math.round((hz * fftSize) / sampleRate)))
   const B = BANDS.map(([name, lo, hi, tau]) => ({
     lo: bin(lo), hi: bin(hi), s10: stats(SHORT), s60: stats(LONG), sf: stats(FLUX), lvl: 0, n60: 0.5, pres: 0.5,
@@ -60,10 +85,23 @@ export function createDonor(sampleRate: number, fftSize: number) {
   }))
   const [bass, high] = [B[1], B[4]]
   let [t, edgeT, wasSilent, int, fade, expo, bangAge, lastTick, tickDt] = [0, -Infinity, true, 0.5, 1, 0, Infinity, -Infinity, 0]
+  // the beat family: `age` s since the last beat, `lastN` the grid's last integer (NaN: no grid last frame), `bpm` held
+  let [beats, age, lastN, bpm, phase, tog, togFrom, togTo, rnd, rndFrom, rndTo] = [0, Infinity, NaN, 120, 0, 0, 0, 0, 0, 0, 0]
+  const rand = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32 // the seeded LCG, [0, 1)
+  // the Spectrum: per bin the decaying max / min of its +3 dB/oct level, the juiced g and the smooth b (floats), the bytes
+  const N = fftSize / 2
+  const [jMax, jMin, jg, jb] = [new Float32Array(N).fill(-100), new Float32Array(N).fill(-40), new Float32Array(N), new Float32Array(N)]
+  const spectrum = new Uint8Array(4 * N)
 
   return {
-    /** Writes the S1.1 keys and the five Hits into `out` (each 0..1); allocates nothing. `wave` feeds the Spectrum (S1.3). */
-    update(magDb: Float32Array, _wave: Float32Array, dt: number, g: DonorIn, out: Sources): void {
+    spectrum,
+    /** The next beat counts from `n` + 1 (app.ts seeds it from our grid as the donor mode comes in). */
+    seedBeat(n: number) {
+      beats = n
+    },
+    /** Writes the 36 keys into `out` (the 31 `DONOR_GROUPS` ids, BPMConfidence and PrimeAndBang 0..1; BeatTime,
+     *  BPMTwitcher and BPM counts) and rebuilds `spectrum`; allocates nothing. */
+    update(magDb: Float32Array, wave: Float32Array, dt: number, g: DonorIn, out: Sources): void {
       dt = Math.min(MAX_DT, Math.max(0, dt))
       t += dt
       if (wasSilent && !g.silent) edgeT = t
@@ -119,6 +157,63 @@ export function createDonor(sampleRate: number, fftSize: number) {
       out.syn_PrimeBang = primeBang(bangAge)
       out.syn_PrimeAndBang = clamp(g.build)
       out.syn_InputLevel = inputLevel(g.peakDb)
+
+      // Beats: a new integer of our grid's beat while it runs (a backward re-anchor fires none), else our kick KICK_GAP
+      // after the last beat. At most one per frame; BeatTime counts them.
+      age += dt
+      let beat: boolean
+      if (g.bpm > 0) {
+        const n = Math.floor(g.beat)
+        beat = n > lastN // false on the grid's first frame (NaN)
+        lastN = n
+        phase = g.beat
+        bpm = Math.min(220, Math.max(50, g.bpm))
+      } else {
+        beat = g.kick && age >= KICK_GAP
+        lastN = NaN
+        phase += (dt * bpm) / 60 // no grid: the cycles freewheel at the held BPM
+      }
+      if (beat) {
+        beats++
+        age = 0
+        togFrom = tog
+        togTo = 1 - togTo
+        rndFrom = rnd
+        rndTo = rand()
+      }
+      const k = ease(age, Math.min(0.2, 30 / bpm)) // the flip / jump takes ≤ 0.2 s, at most half a beat
+      tog = togFrom + (togTo - togFrom) * k
+      rnd = rndFrom + (rndTo - rndFrom) * k
+      out.syn_BeatTime = beats
+      out.syn_BPMTwitcher = beats - Math.exp(-age / TWITCH_TAU) // floor = BeatTime − 1; fract = the per-beat jump
+      out.syn_OnBeat = Math.exp(-age / ONBEAT_TAU)
+      out.syn_ToggleOnBeat = tog
+      out.syn_RandomOnBeat = rnd
+      out.syn_BPM = bpm
+      out.syn_BPMConfidence = g.confidence
+      for (const c of CYCLES) {
+        const p = phase / c.n - Math.floor(phase / c.n) // no confidence factor
+        out[c.sin] = 0.5 - 0.5 * Math.cos(2 * Math.PI * p)
+        out[c.tri] = 1 - Math.abs(2 * p - 1)
+      }
+
+      // Spectrum, per frame in every mode: r the bin's dB (−100..−30), g its +3 dB/oct level against its own decaying
+      // max / min (−.1 / +.05 dB per frame), EMA .5; b g's [1 2 1] / 4 blur, EMA .2; a the wave. −∞ dB (digital
+      // silence) is floored at −120 dB, so the min stays finite.
+      for (let i = 0; i < N; i++) {
+        const db = Math.max(-120, magDb[i])
+        const d = db + 3 * Math.log2(i + 1)
+        jMax[i] = Math.max(d, jMax[i] - 0.1)
+        jMin[i] = Math.min(d, jMin[i] + 0.05)
+        jg[i] += (clamp((d - jMin[i]) / (jMax[i] - jMin[i] || 1)) - jg[i]) * 0.5
+        spectrum[4 * i] = Math.round(255 * clamp((db + 100) / 70))
+        spectrum[4 * i + 1] = Math.round(255 * jg[i])
+        spectrum[4 * i + 3] = Math.round(255 * clamp(0.5 + 0.5 * (wave[i] ?? 0)))
+      }
+      for (let i = 1; i < N - 1; i++) {
+        jb[i] += ((jg[i - 1] + 2 * jg[i] + jg[i + 1]) / 4 - jb[i]) * 0.2
+        spectrum[4 * i + 2] = Math.round(255 * jb[i])
+      }
     },
   }
 }
