@@ -1,0 +1,10 @@
+plants.bin: four plants from "Anthurium Botany 01" by Poly Haven,
+https://polyhaven.com/a/anthurium_botany_01, released under CC0 1.0
+(public domain). Downloaded 2026-10-15 from dl.polyhaven.org (glTF
+geometry only, no textures). Reduced to positions and indices, scaled
+to 1.6 m tall, simplified by 3 cm vertex clustering and quantized to
+16 bits. Variants kept: anthurium_botany_01_a, 01_b, 04_d, 06_f.
+
+Format: 'LPLT', u32 plant count, then per plant: f32 half extents
+x y z, u32 vertex count, u32 index count, i16 xyz per vertex (padded to
+4 bytes), u16 indices (padded to 4 bytes).

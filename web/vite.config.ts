@@ -44,6 +44,6 @@ export default defineConfig({
   worker: { format: 'iife' },
   // The dep scanner doesn't crawl worklet imports (plan S1.2) nor the copied vs3 scenes (vs3/kit/): a bare import
   // found at runtime re-optimizes and fails that scene's first load with a 504 (guide_vs3_port.md § 3).
-  optimizeDeps: { include: ['fft.js', 'three/examples/jsm/postprocessing/Pass.js'] },
+  optimizeDeps: { include: ['fft.js', 'three/examples/jsm/postprocessing/Pass.js', 'three/examples/jsm/libs/fflate.module.js', 'three/examples/jsm/utils/BufferGeometryUtils.js'] },
   test: { environment: 'node', include: ['src/**/*.test.ts'], testTimeout: 20_000 }, // synthetic-audio tests take ≤ 2.6 s idle, up to ~4× that on a loaded machine; the 5 s default flaked
 })

@@ -1850,6 +1850,29 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-sand', name: 'vs3 Sand', star: false,
     layers: [{ gen: { ref: 'native/vs3-sand', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // Batch 4, the asset scenes (2026-11-19, user: add them all, no track checks, fix later; their files in public/vs3/):
+  // no stills, no frame time, res .5; edgeAA has no equivalent. chorus (row 235: persist .15 left out): its head loads on
+  // the first frame, the bare background until it lands.
+  {
+    v: 1, id: 'builtin:vs3-chorus', name: 'vs3 Chorus', star: false,
+    layers: [{ gen: { ref: 'native/vs3-chorus', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // visage (row 232: persist .3 left out): the same, its close-up head.
+  {
+    v: 1, id: 'builtin:vs3-visage', name: 'vs3 Visage', star: false,
+    layers: [{ gen: { ref: 'native/vs3-visage', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // limitless 3d (row 240: persist .25 left out): its default, the math knot in form mode (the three scans are not copied).
+  {
+    v: 1, id: 'builtin:vs3-limitless3d', name: 'vs3 Limitless 3D', star: false,
+    layers: [{ gen: { ref: 'native/vs3-limitless3d', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // main stage (row 259: persist .3 left out; palette vapor; msaa 4 and fxHint steady have no equivalent): its LED wall is
+  // off, its default, and draws no other scene here.
+  {
+    v: 1, id: 'builtin:vs3-lasers', name: 'vs3 Main Stage', star: false,
+    layers: [{ gen: { ref: 'native/vs3-lasers', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
