@@ -54,3 +54,9 @@
 - 2026-11-19 catalog: no rotate effect (mandala mirror drift missing), no FXAA (citadel/descent/oracle/idol raw silhouettes).
 - 2026-11-19 vs3-ink: `rotate: 0.001` turns opposite to the donor (cosmetic under the quad mirror).
 - 2026-11-19 dev ops: worktrees share `web/node_modules/.vite`; a per-worktree `cacheDir` would stop lanes rewriting each other's optimized deps.
+- 2026-11-19 vs3 host bloom ≈ 1/5–1/25 of the donor's (donor UnrealBloom ≈ 9 × strength² above luma .3, 5 mips; ours strength × (b − .5)/b, 4 levels). Patch `scratchpad/vs3/bloom-donor.patch` (hunk 2 needs `hit` → `hot`); H2 before merge.
+- 2026-11-19 vs3 ⚡ `mid` shares the 3/s flash budget with the kick (synapse: 7/35 kicks refused in 30 s); anemone sparkle, flow note/hat comets, sand onMid accents are off.
+- 2026-11-19 vs3 batch 3 (aurora, blob, echo, flow, fract, signal, sand) never ran on audio; echo and sand are black in silence; `s.specHi` is a stand-in (32 bands, no AGC/floor), `s.wave` not fed (signal scope/vector/lissajous dead).
+- 2026-11-19 vs3 host frees no scene-built textures (signal leaks 4 DataTextures per layer creation); S1-T GL diff not re-run for scenes with three built-in materials (aurora, blob, echo, flow, signal, synapse).
+- 2026-11-19 vs3 kick drawn through `heatStep` (40 ms slew) on all vs3 scenes: softer kick (peak ≈ .67, ≈ 80 ms late); batch 1 stills predate it. Scenes without a FX_DEFAULTS row get `own/feedback-zoom` at decay .5 (the floor).
+- 2026-11-19 test flake: `audio/donor.test.ts` T1o wall-clock budget (p95 .617 vs .5 ms) fails under load, passes alone.
