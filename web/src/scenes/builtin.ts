@@ -1800,6 +1800,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-fluid', name: 'vs3 Fluid', star: false,
     layers: [{ gen: { ref: 'native/vs3-fluid', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // forge (row 196: persist .35 left out): 65 k instanced shards on a boids ping-pong sim; s.air = syn_HighLevel.
+  {
+    v: 1, id: 'builtin:vs3-forge', name: 'vs3 Forge', star: false,
+    layers: [{ gen: { ref: 'native/vs3-forge', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
