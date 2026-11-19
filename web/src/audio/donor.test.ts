@@ -520,3 +520,32 @@ test('T9a: kickAccent after 20 kicks at one level: there 0.70, 6 dB lower 0.35, 
   for (let n = 0; n < 200; n++) d.kick(n % 7 ? 80 * r() - 60 : -Infinity, r() < 0.5)
   expect(all.filter((v) => !(v >= 0 && v <= 1))).toEqual([]) // NaN fails too
 })
+
+// --- S5.1b: T9b (dsp_kickaccent_linein_2026-11-19 §4, pick c): line-in drains a kick before the analyser window holds it ---
+test('T9b: a kick whose Bass lands after the kick frame is raised to its height there, on the kick frame\'s clock; the hold closes at the first frame >= 16 ms on', () => {
+  const late = (dt: number) => {
+    const { mag, run } = rig()
+    const frame = (db: number | null, kick = false) => {
+      mag.fill(-60)
+      if (db !== null) mag.fill(db, ...BASS)
+      return run({ kick }, dt).kickAccent
+    }
+    /** our kick on a bed frame; its Bass (-20 + off dB) lands `lag` frames later; returns kickAccent from the kick frame */
+    return (off: number, lag: number) => {
+      const v = [frame(null, true)]
+      for (let k = 1; k < 30; k++) v.push(frame(k === lag ? -20 + off : null))
+      return v
+    }
+  }
+  const k60 = late(DT)
+  for (let n = 0; n < 20; n++) k60(0, 1) // μ settles at −20 dB
+  const v = k60(0, 1)
+  expect(v[0]).toBeLessThan(0.1) // the kick frame holds none of it: a low first height (.007)
+  expect(v[1]).toBeCloseTo(0.7 * Math.exp(-DT / 0.12), 9) // raised one frame on, falling from the kick frame
+  expect(k60(-6, 1)[1]).toBeCloseTo(0.7 * 10 ** (-6 / 20) * Math.exp(-DT / 0.12), 9)
+  expect(k60(0, 2).every((x) => x < 0.1)).toBe(true) // 33 ms on at 60 fps: the hold has closed
+  const k144 = late(1 / 144)
+  for (let n = 0; n < 20; n++) k144(0, 3) // 20.8 ms on: the first frame >= 16 ms, still in the hold
+  expect(k144(0, 3)[3]).toBeCloseTo(0.7 * Math.exp(-3 / 144 / 0.12), 9)
+  expect(k144(0, 4).every((x) => x < 0.1)).toBe(true) // 27.8 ms on: closed
+})
