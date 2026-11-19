@@ -2,7 +2,8 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { SOURCE_IDS, type Binding } from './bind'
 import { parseScene, type LayerDoc, type SceneDoc } from './doc'
 import { docs, MUSIC_TIME, newShader, toyCode } from './edit'
-import { byName, createLibrary, type Db, type Disk } from './library'
+import { byName, createLibrary, GROUPS, type Db, type Disk } from './library'
+import { MILK_SCENES } from './milkdrop/presets'
 import { BUILTIN } from './scenes/builtin'
 
 const B: Binding = { source: 'bass', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }
@@ -341,6 +342,63 @@ test('the list and the playlist (user 2026-11-19): one order by name; All plays 
   for (const bad of ['"toString"', '"nope"', '{ oops', '5']) {
     b.kv.set('vjw.view', bad)
     expect(b.open().view()).toBe('all')
+  }
+})
+
+test('groups (user 2026-11-20): read off the nodes; every built-in in one, the camera scenes also in ours', () => {
+  const of = (d: SceneDoc) => Object.entries(GROUPS).filter(([, f]) => f(d)).map(([g]) => g)
+  const DJ = ['builtin:dj-over-tunnel', 'builtin:dj-inside', 'builtin:dj-ghost']
+  const MILK = MILK_SCENES.map((d) => d.id) // not by id: builtin:milk-honey-smoke-bile is a synScene
+  for (const d of BUILTIN) {
+    const id = d.id
+    const own = DJ.includes(id) ? ['ours', 'camera'] : MILK.includes(id) ? ['milk'] : id.startsWith('builtin:vs3-') ? ['vs3'] : null
+    if (own) expect(of(d), id).toEqual(own)
+    else expect([['ours'], ['vs2']], id).toContainEqual(of(d))
+  }
+  const count = (g: keyof typeof GROUPS) => BUILTIN.filter(GROUPS[g]).length
+  expect([count('vs3'), count('vs2'), count('camera'), count('mine')]).toEqual([37, 85, 3, 0]) // the donor port: 85 of 87
+  expect(of(BUILTIN.find((d) => d.id === 'builtin:vs3-limitless')!)).toEqual(['vs3']) // a vs3 filter over our tunnel
+  const plain = scene('x').layers[0]
+  expect(of(scene('u-1', { layers: [plain, { ...plain, gen: { ref: 'milk/x' } }] }))).toEqual(['milk', 'ours', 'mine'])
+  expect(of(newShader('void mainImage(out vec4 c, in vec2 p) {}'))).toEqual(['ours', 'mine'])
+})
+
+test('a group lists and plays all its scenes, starred or not, less the trash; the view narrows it; empty: every group', async () => {
+  const b = browser()
+  const lib = await loaded(b)
+  const VS3 = BUILTIN.filter((d) => d.id.startsWith('builtin:vs3-')).map((d) => d.id)
+  expect(BUILTIN.filter((d) => VS3.includes(d.id) && d.star)).toEqual([]) // all unstarred: All never plays them
+  expect(lib.group()).toBe('all')
+  lib.setGroup('vs3')
+  const list = inOrder(lib, VS3)
+  expect(lib.listed().map((d) => d.id)).toEqual(list)
+  expect(lib.playlist()).toEqual(list)
+  lib.mark('trash', VS3[0], true)
+  const rest = list.filter((id) => id !== VS3[0])
+  expect(lib.playlist()).toEqual(rest)
+  lib.setView('trash') // the group's trash lists, and plays the group's All
+  expect(lib.listed().map((d) => d.id)).toEqual([VS3[0]])
+  expect(lib.playlist()).toEqual(rest)
+  lib.setView('favourite')
+  expect(lib.playlist()).toEqual(rest) // no favourite in the group yet
+  lib.mark('favourite', VS3[1], true)
+  lib.mark('favourite', 'builtin:tunnel', true) // another group's
+  expect(lib.playlist()).toEqual([VS3[1]])
+  expect(b.open().group()).toBe('vs3')
+
+  lib.setView('all')
+  lib.setGroup('mine') // empty: every group, All's starred
+  expect(lib.listed()).toEqual([])
+  expect(lib.playlist()).toEqual(STARRED)
+  await lib.put(scene('u-1')) // unstarred, still plays in its group
+  expect(lib.playlist()).toEqual(['u-1'])
+  lib.setGroup('camera') // no live camera: nothing of it plays, so every group's All less the camera scenes
+  const DJ = ['builtin:dj-over-tunnel', 'builtin:dj-inside', 'builtin:dj-ghost']
+  expect(lib.playlist(true)).toEqual(inOrder(lib, DJ))
+  expect(lib.playlist(false)).toEqual(STARRED.filter((id) => !DJ.includes(id)))
+  for (const bad of ['"all"', '"toString"', '"favourite"', '{ oops', '5']) {
+    b.kv.set('vjw.group', bad)
+    expect(b.open().group()).toBe('all')
   }
 })
 

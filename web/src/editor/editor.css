@@ -30,7 +30,8 @@
   scrollbar-color: #ffffff2e transparent;
 }
 .library button,
-.library input {
+.library input,
+.library select {
   font: inherit;
   color: inherit;
   background: #161616;
@@ -59,7 +60,8 @@
   flex-wrap: wrap;
   gap: 4px;
 }
-.library .chips button {
+.library .chips button,
+.library .chips select {
   padding: 1px 7px;
   border-radius: 10px;
   color: #d8d8d8a6;

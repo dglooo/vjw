@@ -1,7 +1,7 @@
 // The scene library (design E4, contract CP6): the user's scenes in IndexedDB, the user's stars over the built-ins and
-// the list's marks and view in localStorage, the autopilot's playlist from the list, and one JSON file to export and
-// import every user scene. The browser side is four seams (`Db`, `Kv`, `download`, `Disk`), so the logic runs in Vitest
-// without a browser.
+// the list's marks, view and group in localStorage, the autopilot's playlist from the list, and one JSON file to export
+// and import every user scene. The browser side is four seams (`Db`, `Kv`, `download`, `Disk`), so the logic runs in
+// Vitest without a browser.
 import { parseLibrary, parseScene, type LibraryFile, type SceneDoc, type SceneId } from './doc'
 import { docs } from './edit'
 import { BUILTIN } from './scenes/builtin'
@@ -31,6 +31,22 @@ const CAMERA = new Set(['native/camera', 'native/outline'])
 const needsCamera = (d: SceneDoc) => d.layers.some((l) => l.mask || [l.gen, ...l.fx].some((n) => CAMERA.has(n.ref)))
 const isBuiltin = (id: SceneId) => id.startsWith('builtin:')
 const byCreated = (a: SceneDoc, b: SceneDoc) => (a.created ?? 0) - (b.created ?? 0)
+const uses = (d: SceneDoc, prefix: string) => d.layers.some((l) => [l.gen, ...l.fx].some((n) => n.ref.startsWith(prefix)))
+const vs2 = (d: SceneDoc) => uses(d, 'syn/')
+const vs3 = (d: SceneDoc) => uses(d, 'native/vs3-')
+/** The list's groups (user 2026-11-20), read off a scene's nodes, never tagged: a scene sits in each one it matches.
+ *  vs2: the donor's synScenes; vs3: the friends' three.js scenes; ours: a generator of ours in a scene of neither. */
+export const GROUPS = {
+  milk: (d: SceneDoc) => uses(d, 'milk/'),
+  ours: (d: SceneDoc) => !vs2(d) && !vs3(d) && d.layers.some((l) => /^(native|own|isf|toy)\//.test(l.gen.ref)),
+  vs2,
+  vs3,
+  camera: needsCamera,
+  mine: (d: SceneDoc) => !isBuiltin(d.id),
+}
+/** What the list shows of the view: every group, or one group's scenes. */
+export type Group = 'all' | keyof typeof GROUPS
+const GROUP = 'vjw.group'
 
 /** A user scene, checked as an import is, so whatever is stored loads back. A built-in's id is not a user scene's. */
 function own(x: unknown) {
@@ -62,6 +78,8 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
   const file = () => `${JSON.stringify(Object.fromEntries(MARK_IDS.map((m) => [m, [...marks[m]].sort()])), null, 2)}\n`
   const v = stored(VIEW)
   let view = (typeof v === 'string' && Object.hasOwn(MARKS, v) ? v : 'all') as View
+  const g = stored(GROUP)
+  let group = (typeof g === 'string' && Object.hasOwn(GROUPS, g) ? g : 'all') as Group
   // The built-ins with the user's stars: our own shallow copies, so a star changes in place.
   const builtin = new Map<SceneId, SceneDoc>(BUILTIN.map((b) => {
     const s = stars[b.id]
@@ -69,21 +87,26 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
   }))
   const all = () => [...user.values()].sort(byCreated)
   const get = (id: SceneId): SceneDoc | undefined => user.get(id) ?? builtin.get(id)
-  /** The scenes view `w` lists, built-in and user alike, in the list's order. */
-  function listed(w: View = view) {
+  /** The scenes view `w` lists of group `g`, built-in and user alike, in the list's order. */
+  function listed(w: View = view, g: Group = group) {
     const { trash } = marks
     const shows = (d: SceneDoc) => (w === 'trash' ? trash.has(d.id) : !trash.has(d.id) && (w === 'all' || marks[w].has(d.id)))
-    return [...builtin.values(), ...user.values()].filter(shows).sort(byName)
+    return [...builtin.values(), ...user.values()].filter((d) => shows(d) && (g === 'all' || GROUPS[g](d))).sort(byName)
   }
-  /** The autopilot's and ←/→'s order: the view's list (user 2026-11-19) less the scenes out of rotation. All: the
-   *  starred scenes (a built-in starred off, the heavy and utility ones, stays out); a mark's view: its scenes, starred
-   *  or not; the trash's: All's. `camLive` false: a scene that needs the camera sits out (user 2026-11-16: it played as
-   *  a duplicate); a manual pick (director.cut) still opens it. An empty view plays All; nothing in All: the built-ins
-   *  starred by default, trashed or not, as the director needs a non-empty playlist (plan S2.1). */
+  /** The autopilot's and ←/→'s order: the list of the view and the group (user 2026-11-19, 2026-11-20) less the scenes
+   *  out of rotation. View All: in every group the starred scenes (a built-in starred off, the heavy and utility ones,
+   *  stays out), in one group all its scenes; a mark's view: its scenes, starred or not; the trash's: All's. `camLive`
+   *  false: a scene that needs the camera sits out (user 2026-11-16: it played as a duplicate); a manual pick
+   *  (director.cut) still opens it. An empty view plays the group's All, an empty group every group's; nothing there:
+   *  the built-ins starred by default, trashed or not, as the director needs a non-empty playlist (plan S2.1). */
   function playlist(camLive = true): SceneId[] {
     const on = (d: SceneDoc) => camLive || !needsCamera(d)
-    const rotation = (w: View) => listed(w).filter((d) => on(d) && (w === 'all' ? d.star : w !== 'trash')).map((d) => d.id)
-    for (const p of [rotation(view), rotation('all')]) if (p.length) return p
+    const rotation = (w: View, g: Group) =>
+      listed(w, g).filter((d) => on(d) && (w === 'all' ? g !== 'all' || d.star : w !== 'trash')).map((d) => d.id)
+    for (const [w, g] of [[view, group], ['all', group], ['all', 'all']] as const) {
+      const p = rotation(w, g)
+      if (p.length) return p
+    }
     return [...BUILTIN].sort(byName).filter((d) => d.star && on(d)).map((d) => d.id)
   }
 
@@ -156,6 +179,13 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
     setView(w: View) {
       view = w
       kv.setItem(VIEW, JSON.stringify(w))
+      notify()
+    },
+    /** The list's group, kept over a reload; the playlist follows it. */
+    group: () => group,
+    setGroup(g: Group) {
+      group = g
+      kv.setItem(GROUP, JSON.stringify(g))
       notify()
     },
     listed,
