@@ -49,6 +49,11 @@ export function setValue(doc: SceneDoc, p: NodePath, input: string, v: Value | u
   return old
 }
 
+/** Several of one node's inputs at once (a preset, presets.ts): exactly those keys. Returns their old values (undefined:
+ *  the default), for undo. */
+export const setValues = (doc: SceneDoc, p: NodePath, values: Readonly<Record<string, Value | undefined>>) =>
+  Object.fromEntries(Object.entries(values).map(([k, v]) => [k, setValue(doc, p, k, v)]))
+
 /** Binds a node's input (`name`, or `name.i` for one component) or a layer's opacity/speed; null unbinds it. */
 export function setBinding(doc: SceneDoc, p: NodePath, key: string, b: Binding | null) {
   const d = editable(doc)

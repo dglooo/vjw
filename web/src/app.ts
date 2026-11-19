@@ -22,7 +22,7 @@ import { tiles } from './editor/tiles'
 import type { FrameInput } from './frame'
 import { catalog, transitions } from './fx/catalog'
 import { gpuMs, render, scenes, setAudio, setDonorSpectrum, setOutput, setTransition, stage } from './gl/engine'
-import { builds, flashOnsets, live, prepare, warm } from './gl/live'
+import { builds, flashOnsets, live, panel, prepare, warm } from './gl/live'
 import { postFor } from './gl/post'
 import { library } from './library'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
@@ -158,6 +158,11 @@ addEventListener('keydown', (e) => {
       break
     case 'ArrowRight':
       director.next()
+      break
+    case 'ArrowUp': // the edited scene's presets (presets.ts): ←/→ the scenes, ↑/↓ the looks of one
+    case 'ArrowDown':
+      e.preventDefault()
+      panel.stepPreset(e.code === 'ArrowDown' ? 1 : -1)
       break
     case 'Space': {
       const hold = !store.getSnapshot().hold

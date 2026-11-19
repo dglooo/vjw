@@ -38,8 +38,14 @@
   cursor: none; /* the cursor hides with the bar */
 }
 
+/* Save as preset… (Panel.tsx PresetSelect): a name field in place of the select */
+.bar .preset {
+  display: flex;
+  gap: 6px;
+}
 .bar select,
-.bar button {
+.bar button,
+.bar .preset input {
   max-width: 40ch;
   padding: 5px 8px;
   font: inherit;

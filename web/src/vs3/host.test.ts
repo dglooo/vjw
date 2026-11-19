@@ -3,7 +3,7 @@
 import { expect, test, vi } from 'vitest'
 import { defaults } from '../doc'
 import type { Input } from '../fx/types'
-import { paramInputs, put, screen, signal, specHi, VS3, type Signal } from './host'
+import { PALETTES, paramInputs, put, screen, signal, specHi, VS3, type Signal } from './host'
 
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, gl: {} })) // takes the page's canvas + WebGL at import
 
@@ -91,6 +91,7 @@ test('params.json = every registered scene\'s rows (regenerate: npx vitest run -
     put(P, ps, defaults({ ...d, inputs: ps })) // the values an untouched node draws with
     expect(P, d.id).toEqual(sc.params ?? {}) // so an existing built-in renders as before
   }
+  expect(PALETTES).toEqual((await import('./kit/lib/palette.js')).PRESETS.map((p: { name: string }) => p.name)) // the palette select's indices
   vi.unstubAllGlobals()
   expect(Object.values(rows).flat().length).toBeGreaterThan(200)
   const json = `{\n${Object.entries(rows).map(([k, v]) => `${JSON.stringify(k)}: [${v.map((i) => `\n  ${JSON.stringify(i)}`).join(',')}\n]`).join(',\n')}\n}\n`

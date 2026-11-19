@@ -21,6 +21,7 @@ import { pairsByTarget, sizeExpr } from '../fx/isf'
 import { donorChain, pushTrail, synClock, synValue, TRAIL } from '../fx/syn'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
+import { factory, presetOf, savable } from '../presets'
 import { store } from '../store'
 import { edits } from '../undo'
 import { audioTex, copy, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
@@ -573,6 +574,12 @@ const op = {
     l.set(p, input, v)
     return old
   },
+  setValues(p: edit.NodePath, values: Readonly<Record<string, Value | undefined>>) {
+    const l = edited()
+    const old = edit.setValues(l.doc, p, values)
+    for (const [k, v] of Object.entries(values)) l.set(p, k, v)
+    return old
+  },
   setBinding(p: edit.NodePath, key: string, b: Binding | null) {
     const l = edited()
     const old = edit.setBinding(l.doc, p, key, b)
@@ -605,6 +612,36 @@ export const panel = {
   setValue(p: edit.NodePath, input: string, v: Value) {
     const old = op.setValue(p, input, v)
     edits.record({ undo: shown(() => op.setValue(p, input, old)), redo: shown(() => op.setValue(p, input, v)), key: `${p.layer}/${p.node}/${input}` })
+  },
+  /** A preset (presets.ts) onto node `p`: exactly its values, one undo step; the panel's controls start again from them. */
+  setValues(p: edit.NodePath, values: Readonly<Record<string, Value>>) {
+    const old = op.setValues(p, values)
+    edits.record({ undo: shown(() => op.setValues(p, old)), redo: shown(() => op.setValues(p, values)) })
+    rerender()
+  },
+  /** The edited scene's node with presets: the first layer's generator with any (the factory's, then the user's from
+   *  `factory` on). `now`: the one its values match, undefined: custom. Undefined before Start, or with none. */
+  presetNode() {
+    if (!store.getSnapshot().edited) return undefined
+    for (const [layer, { gen }] of edited().doc.layers.entries()) {
+      const def = catalog.get(gen.ref), own = factory(gen.ref)
+      const list = [...own, ...library.presets(gen.ref)]
+      if (!def || !list.length) continue
+      const cur = { ...defaults(def), ...gen.values }
+      return { path: { layer, node: 'gen' } as edit.NodePath, ref: gen.ref, def, list, factory: own.length, cur, now: presetOf(list, cur) }
+    }
+  },
+  /** presetNode()'s next (1) or previous (-1) preset; from custom the first or the last (keys ↓ / ↑, app.ts). */
+  stepPreset(d: 1 | -1) {
+    const t = panel.presetNode()
+    if (!t) return
+    const n = t.list.length, i = t.now ? t.list.indexOf(t.now) : d > 0 ? -1 : n
+    panel.setValues(t.path, t.list[(i + d + n) % n].values)
+  },
+  /** presetNode()'s values as the user's preset `name`, over one of that name. */
+  savePreset(name: string) {
+    const t = panel.presetNode()
+    if (t) library.savePreset(t.ref, name, savable(t.def, t.cur))
   },
   /** An event's trigger: it fires on the node's next draw only (run() clears it), and never reaches the doc or undo. */
   pulse: (p: edit.NodePath, input: string) => edited().set(p, input, true),

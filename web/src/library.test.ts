@@ -450,6 +450,29 @@ test('a build bakes scene-marks.json in (user 2026-11-20): a stored mark or star
   }
 })
 
+test('user presets (presets.ts): saved per ref after a reload, a name saved again moves to the end, delete; mirrored and baked as the marks', async () => {
+  const disk: { text?: string } = {}
+  const b = browser(disk)
+  const lib = await loaded(b)
+  const ref = 'native/vs3-tendril'
+  lib.savePreset(ref, 'a', { mode: 1, fill: 0.2 })
+  lib.savePreset(ref, 'b', { mode: 2, fill: 0.4 })
+  lib.savePreset(ref, 'a', { mode: 3, fill: 0.6 }) // over a: it moves to the end
+  lib.savePreset('native/vs3-locus', 'c', { shape: 0.5 })
+  const tendril = [{ name: 'b', values: { mode: 2, fill: 0.4 } }, { name: 'a', values: { mode: 3, fill: 0.6 } }]
+  expect((await loaded(b)).presets(ref)).toEqual(tendril) // a reload
+  expect(JSON.parse(disk.text!).presets).toEqual({ [ref]: tendril, 'native/vs3-locus': [{ name: 'c', values: { shape: 0.5 } }] })
+  lib.deletePreset('native/vs3-locus', 'c')
+  expect(lib.presets('native/vs3-locus')).toEqual([])
+  expect(Object.keys(JSON.parse(disk.text!).presets)).toEqual([ref]) // an empty ref leaves the file
+  const wiped = await loaded(browser(disk)) // a browser data wipe: the dev file brings them back
+  expect(wiped.presets(ref)).toEqual(tendril)
+  const baked = browser(undefined, { presets: { [ref]: [{ name: 'x', values: { fill: 1 } }, { name: 'bad', values: { fill: 'no' } }, { values: {} }] } })
+  expect((await loaded(baked)).presets(ref)).toEqual([{ name: 'x', values: { fill: 1 } }]) // a build's defaults, the corrupt ones left out
+  baked.kv.set('vjw.presets', JSON.stringify({ [ref]: [{ name: 'y', values: { fill: 0 } }] }))
+  expect((await loaded(baked)).presets(ref)).toEqual([{ name: 'y', values: { fill: 0 } }]) // a stored one beats them
+})
+
 test("setStar stars the panel's unsaved copy along, so a later save keeps it", async () => {
   const lib = await loaded()
   docs.set('builtin:tunnel', structuredClone(BUILTIN[0]))
