@@ -6,6 +6,7 @@ import { BAND_COUNT } from '../audio/energy'
 import { BIND_DEFAULTS, bindable, PHASES, sourceGroups, type Binding, type Shape } from '../bind'
 import { defaults, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
+import { donorChain } from '../fx/syn'
 import type { Input, Kind, Value } from '../fx/types'
 import { live, panel, type NodePath } from '../gl/live'
 import { library } from '../library'
@@ -138,6 +139,8 @@ export function Param({ label, bind, children }: { label: string; bind?: Bindabl
               ))}
             </select>
             <AutoHint source={b.source} />
+            {/* S3.3: in donor mode this input reads the donor core's value through this binding (live.ts, same test) */}
+            {s.analyser === 'donor' && donorChain(bind.k, b) && <span className="hint">donor</span>}
             {b.shape && !b.clock && (
               <select aria-label="Shape" defaultValue={b.shape} onChange={(e) => send({ ...now(), shape: e.target.value as Shape })}>
                 {SHAPES.map((s) => <option key={s}>{s}</option>)}
