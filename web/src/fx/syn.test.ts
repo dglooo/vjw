@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { SOURCE_IDS } from '../bind'
 import { clockRate, clockStep } from '../clock'
 import type { FrameInput } from '../frame'
@@ -8,6 +8,13 @@ import { meter } from '../audio/meter'
 import { evaluate, type Binding, type Sources } from '../bind'
 import { hoist, parseSyn, pushTrail, SYN, SYN_BIND, synClock, synValue, TRAIL } from './syn'
 import PREAMBLE from './syn/preamble.glsl?raw'
+import { catalog } from './catalog'
+
+// T2h walks the catalog: its natives take the page's WebGL, Butterchurn and the audio input at import (gl/scene.test.ts)
+vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, program: () => ({}), renderTarget: () => ({ fit() {} }), gl: {} }))
+vi.mock('butterchurn', () => ({ default: {} }))
+vi.mock('../audio/input', () => ({ analyser: {}, ctx: {} }))
+vi.mock('twgl.js', async (real: () => Promise<object>) => ({ ...(await real()), createTexture: () => ({}) }))
 
 const syn = (header: object, body: string) => `// Source: test\n/*${JSON.stringify(header)}*/\n${body}`
 const BODY = `// syn_BassTime only in a comment
@@ -44,9 +51,9 @@ describe('parseSyn', () => {
     ])
     expect(d.bind).toEqual({ syn_BassHits: SYN_BIND.syn_BassHits, syn_Presence: SYN_BIND.syn_Presence, syn_MidLevel: SYN_BIND.syn_MidLevel })
     expect(d.bind!.syn_BassHits.source).toBe('kick')
-    expect(d.raws!.map(([n]) => n)).toEqual(['syn_BeatTime'])
-    expect(d.raws![0][1]({ sync: { beat: 7.25 } } as FrameInput, {})).toBe(7) // + 1 per beat (the donor's steps), not a 0..1 binding
-    for (const u of ['uniform float syn_BassHits;', 'uniform vec2 speed;', 'uniform vec4 tint_;\n#define tint tint_.rgb', 'uniform float ct;', 'uniform float syn_MidTime;', 'uniform float syn_BeatTime;', '#define syn_FadeInOut 1.0', '_COLOR_OUT_ = renderMain();'])
+    expect(d.raws!.map(([n]) => n)).toEqual(['syn_FadeInOut', 'syn_BeatTime'])
+    expect(d.raws!.map(([, read]) => read({ sync: { beat: 7.25 } } as FrameInput, {}))).toEqual([1, 7]) // FadeInOut: ours 1, a uniform the donor fade feeds (S2.5); BeatTime + 1 per beat (the donor's steps), not a 0..1 binding
+    for (const u of ['uniform float syn_BassHits;', 'uniform vec2 speed;', 'uniform vec4 tint_;\n#define tint tint_.rgb', 'uniform float ct;', 'uniform float syn_MidTime;', 'uniform float syn_BeatTime;', 'uniform float syn_FadeInOut;', '_COLOR_OUT_ = renderMain();'])
       expect(d.fs).toContain(u)
     expect(d.fs.startsWith('#version 300 es\n')).toBe(true)
     expect(d.fs).toContain('if (PASSINDEX == 0) return') // the donor's float compare, as our int
@@ -218,16 +225,16 @@ describe('parseSyn', () => {
   })
 
   test('unsupported: every gap listed at once; a porter slip still throws', () => {
-    const d = parseSyn(syn({ PASSES: [{ TARGET: 'b', FILTER: 'cubic', TYPE: 'half' }] }, 'float x = syn_PrimeBang;'), 'syn/a')
-    expect(d.unsupported!.split('; ')).toEqual(['syn_PrimeBang (not a public donor name)', 'pass b: TYPE half', 'pass b: FILTER cubic'])
+    const d = parseSyn(syn({ PASSES: [{ TARGET: 'b', FILTER: 'cubic', TYPE: 'half' }] }, 'float x = syn_Nope;'), 'syn/a')
+    expect(d.unsupported!.split('; ')).toEqual(['syn_Nope (not a public donor name)', 'pass b: TYPE half', 'pass b: FILTER cubic'])
     expect(() => parseSyn(syn({ VJW_CLOCK: { t: [['nope']] } }, ''), 'syn/b')).toThrow(/^syn\/b: VJW_CLOCK reads nope/)
     expect(() => parseSyn(syn({ VJW_FLASH: ['ghost'] }, ''), 'syn/d')).toThrow(/^syn\/d: VJW_FLASH/)
   })
 })
 
 describe('SYN and the bundled scenes', () => {
-  test('SYN maps the 44 public donor names (+ BassExpoCurve, InputLevel); its bindings read known sources, no onset/treb (an own built-in binds neither)', () => {
-    expect(Object.keys(SYN)).toHaveLength(46)
+  test('SYN maps the 44 public donor names (+ BassExpoCurve, InputLevel, PrimeBang, PrimeAndBang); its bindings read known sources, no onset/treb (an own built-in binds neither)', () => {
+    expect(Object.keys(SYN)).toHaveLength(48)
     for (const b of Object.values(SYN_BIND)) {
       expect(SOURCE_IDS).toContain(b.source)
       expect(['onset', 'treb']).not.toContain(b.source)
@@ -317,5 +324,20 @@ describe('the donor rate at the SYN clocks (plan S2.4, finding C9)', () => {
     expect(ct.donor).toBeUndefined()
     expect(synClock(0.3, ct, u, 1 / 60, 1)).toBe(synClock(0.3, ct, u, 1 / 60, 0))
     expect(synClock(0.3, ct, u, 1 / 60, 1)).toBe(clockStep(0.3, ct.rate, u, 1 / 60))
+  })
+})
+
+describe('the SYN names (plan S2.5)', () => {
+  test('T2i: syn_PrimeBang and syn_PrimeAndBang are bound inputs (our fired, our build: the same in both modes)', () => {
+    const d = parseSyn(syn({}, 'vec4 renderMain() { return vec4(syn_PrimeBang + syn_PrimeAndBang); }'), 'syn/prime')
+    expect(d.unsupported).toBeUndefined()
+    expect(d.bind).toEqual({ syn_PrimeBang: { source: 'syn_PrimeBang', amount: 1, attack: 0, release: 0, min: 0, max: 1 }, syn_PrimeAndBang: { source: 'build', amount: 1, attack: 0, release: 0, min: 0, max: 1 } })
+  })
+
+  test('T2h: no def outside fx/syn/ declares an input named syn_* (design A7: a donor chain follows the input name)', () => {
+    const defs = [...catalog.values()]
+    expect(defs.filter((d) => 'create' in d).length).toBeGreaterThan(20) // the natives are really there
+    expect(defs.filter((d) => !d.id.startsWith('syn/')).flatMap((d) => d.inputs.filter((i) => i.name.startsWith('syn_')).map((i) => `${d.id}: ${i.name}`))).toEqual([])
+    expect(defs.some((d) => d.id.startsWith('syn/') && d.inputs.some((i) => i.name.startsWith('syn_')))).toBe(true) // the walk sees syn_ inputs where they live
   })
 })

@@ -87,9 +87,11 @@ export const SYN: Readonly<Record<string, Syn>> = {
   syn_BPMTri4: lfo('tri', 1 / 4),
   syn_BPMTri8: lfo('tri', 1 / 8),
   syn_Intensity: { raw: (_, s) => Math.max(s.energy ?? 0, s.build ?? 0, s.drop ?? 0) }, // swells through a build, peaks on the drop
-  syn_FadeInOut: { value: 1 }, // the donor's fade to black in silence: none (a library tile bakes one frame; the preview stays lit)
+  syn_FadeInOut: { raw: () => 1 }, // the donor's fade to black in silence: ours none; a uniform, so donor mode feeds its fade (a library tile stays ours: w 0, lit)
   syn_BassExpoCurve: { raw: (_, s) => (s.subBody ?? 0) ** 2 }, // not public (exoplanet): growth on a sustained bass
   syn_InputLevel: { raw: () => 10 ** (meter.db / 20) }, // not public (audio_indicators): the HUD meter's held peak, linear ⚠️
+  syn_PrimeBang: b('syn_PrimeBang', 0, 0), // not public (overload): the donor core's bang on our `fired` (a drop), both modes
+  syn_PrimeAndBang: b('build', 0, 0), // not public: our build (the donor core's is our build too)
   syn_MediaType: { value: 0 }, // no media input yet: syn_Media and syn_UserImage are black, the preamble's media helpers stubs
   syn_FinalPass: { target: true },
   // The donor's 1D FFT texture (research §4): .r the raw FFT, .g the FFT, .b a smoothed ("juiced") one, .a the waveform.
