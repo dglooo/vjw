@@ -1825,6 +1825,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-locus', name: 'vs3 Locus', star: false,
     layers: [{ gen: { ref: 'native/vs3-locus', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // grove (row 226: persist .3 left out): an instanced fractal forest walk (float + RGBA8 data textures, anisotropy 8); the mouse look is dead (scenePointer stub), the hat sparkle waits for onHigh.
+  {
+    v: 1, id: 'builtin:vs3-grove', name: 'vs3 Grove', star: false,
+    layers: [{ gen: { ref: 'native/vs3-grove', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
