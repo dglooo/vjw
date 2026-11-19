@@ -150,7 +150,7 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
 
 // The ported scenes (guide § Register): one line each. Looks from the original main.js FX_DEFAULTS rows 168, 178, 213;
 // 169 (mandala), 268 (tendril), 179 (citadel), 228 (descent),
-// 191 (oracle).
+// 191 (oracle), 187 (idol).
 export const VS3: readonly NativeDef[] = [
   vs3('ink', () => import('./kit/scenes/ink.js'), { palette: 'nocturne', bloomMul: 1.85, aber: 4, vignette: 0 }),
   vs3('relic', () => import('./kit/scenes/relic.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.4, vignette: 0.5 }),
@@ -160,4 +160,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('citadel', () => import('./kit/scenes/citadel.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.4, vignette: 0.45 }),
   vs3('descent', () => import('./kit/scenes/descent.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 0.5, vignette: 0.3 }),
   vs3('oracle', () => import('./kit/scenes/oracle.js'), { palette: 'nocturne', bloomMul: 1.4, aber: 1.4, vignette: 0.55 }),
+  vs3('idol', () => import('./kit/scenes/idol.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 1.6, vignette: 0.5 }),
 ]
