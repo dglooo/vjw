@@ -54,7 +54,7 @@
 - 2026-11-19 catalog: no rotate effect (mandala mirror drift missing), no FXAA (citadel/descent/oracle/idol raw silhouettes).
 - 2026-11-19 vs3-ink: `rotate: 0.001` turns opposite to the donor (cosmetic under the quad mirror).
 - 2026-11-19 dev ops: worktrees share `web/node_modules/.vite`; a per-worktree `cacheDir` would stop lanes rewriting each other's optimized deps.
-- 2026-11-19 vs3 host bloom ≈ 1/5–1/25 of the donor's (donor UnrealBloom ≈ 9 × strength² above luma .3, 5 mips; ours strength × (b − .5)/b, 4 levels). Patch `scratchpad/vs3/bloom-donor.patch` (hunk 2 needs `hit` → `hot`); H2 before merge.
+- ✅ RESOLVED 2026-11-20 (`vs3-look-analyser`: 9k², luma .3, 8 levels) — 2026-11-19 vs3 host bloom ≈ 1/5–1/25 of the donor's (donor UnrealBloom ≈ 9 × strength² above luma .3, 5 mips; ours strength × (b − .5)/b, 4 levels). Patch `scratchpad/vs3/bloom-donor.patch` (hunk 2 needs `hit` → `hot`); H2 before merge.
 - 2026-11-19 vs3 ⚡ `mid` shares the 3/s flash budget with the kick (synapse: 7/35 kicks refused in 30 s); anemone sparkle, flow note/hat comets, sand onMid accents are off.
 - 2026-11-19 vs3 batch 3 (aurora, blob, echo, flow, fract, signal, sand) never ran on audio; echo and sand are black in silence; `s.specHi` is a stand-in (32 bands, no AGC/floor), `s.wave` not fed (signal scope/vector/lissajous dead).
 - 2026-11-19 vs3 host frees no scene-built textures (signal leaks 4 DataTextures per layer creation); S1-T GL diff not re-run for scenes with three built-in materials (aurora, blob, echo, flow, signal, synapse).
@@ -77,3 +77,6 @@
 - 2026-11-20 deploy: Let's Encrypt renewal is manual (stop, renew, copy, start); the image build needs network for the MediaPipe pose model (storage.googleapis.com).
 - 2026-11-20 groups: an explicit Camera pick without a camera plays All's starred (camera scenes sit out without a camera).
 - 2026-11-20 test flake: `donor.test.ts` T1o (wall-clock p95 ≤ .5 ms) failed again under parallel load (.503); passes alone and on rerun. Loosen or move to a bench.
+- 2026-11-20 vs3 bloom at the donor's default heat/react: idol, citadel, synapse read ≈ 2× their thumbnail's mean luma (synapse's presets run heat ≤ .13). Fix if washed out: per-scene heat from the first factory preset. Thumbnails are factory-preset renders with their own palettes (ink glacial, citadel orchid, mandala moss, synapse ember, visage oxide…); only chorus follows its preset (sodium).
+- 2026-11-20 vs3 analyser mode: the user's kick/snare gain + mute do not reach vs3 scenes (`hear()` overwrites both); Library tiles skip `hear()`; the core's onMid fires ≈ 4/s on DnB and competes with the kick for the 3/s flash budget; spec[30], `wave`, `loud`, `kick-rise.js` not ported. Chorus shows crowns (growth .5) although its thumb has bare heads. Idol/citadel late frames 24 and 10 / 1190 in both modes.
+- 2026-11-20 guide_vs3_port.md needs updates: § Register (chorus palette exception), § Signal (vs3 mode, `hear()`), § Traps (bloom 9k², luma .3, 8 levels).
