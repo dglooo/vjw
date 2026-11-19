@@ -1787,6 +1787,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-spacetime', name: 'vs3 Spacetime', star: false,
     layers: [{ gen: { ref: 'native/vs3-spacetime', bind: KICK_HIT }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.55, rotate: 0 }, bind: { zoom: { ...KICK_ZOOM, min: 0.0008, max: 0.0033 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // ingot (row 200) and gate (row 204): persist .3 left out.
+  {
+    v: 1, id: 'builtin:vs3-ingot', name: 'vs3 Ingot', star: false,
+    layers: [{ gen: { ref: 'native/vs3-ingot', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
