@@ -399,6 +399,18 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `lib/model-shapes.js` | the friends' engine | donor/vs3/visual_kit/src/lib/model-shapes.js | used with permission (2026-11-19) |
 | `lib/laser-stage.js` | the friends' engine | donor/vs3/visual_kit/src/lib/laser-stage.js (the plants from /vs3/lasers/) | used with permission (2026-11-19) |
 | `lib/laser-rig.js` | the friends' engine | donor/vs3/visual_kit/src/lib/laser-rig.js | used with permission (2026-11-19) |
+| `scenes/crystal.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/crystal.js | used with permission (2026-11-19) |
+| `scenes/pearl.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/pearl.js | used with permission (2026-11-19) |
+| `scenes/spiral.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/spiral.js | used with permission (2026-11-19) |
+| `lib/recursive-flight.js` | the friends' engine | donor/vs3/visual_kit/src/lib/recursive-flight.js (chooseSplit() also runs at creation) | used with permission (2026-11-19) |
+| `scenes/fluid.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/fluid.js | used with permission (2026-11-19) |
+| `scenes/forge.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/forge.js | used with permission (2026-11-19) |
+| `scenes/pelt.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/pelt.js | used with permission (2026-11-19) |
+| `scenes/wisp.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/wisp.js | used with permission (2026-11-19) |
+| `scenes/morphogen2.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/morphogen2.js (the console panel and the logo canvas readback stripped) | used with permission (2026-11-19) |
+| `scenes/locus.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/locus.js | used with permission (2026-11-19) |
+| `scenes/vesica.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/vesica.js | used with permission (2026-11-19) |
+| `lib/vesica-geometry.js` | the friends' engine | donor/vs3/visual_kit/src/lib/vesica-geometry.js | used with permission (2026-11-19) |
 
 The scenes' binary assets, `public/vs3/`, copied from `donor/vs3/visual_kit/public/vendor/` with each folder's `LICENSE.txt`:
 

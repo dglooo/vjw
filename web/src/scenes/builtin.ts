@@ -1873,6 +1873,55 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-lasers', name: 'vs3 Main Stage', star: false,
     layers: [{ gen: { ref: 'native/vs3-lasers', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // Batch 2a (2026-11-19; user: add them all, no track checks yet, so no frame times here). crystal, pearl, spiral
+  // (rows 254, 255, 270: persist 0, no fx): lib/recursive-flight.js, split float passes sized by the layer RT.
+  {
+    v: 1, id: 'builtin:vs3-crystal', name: 'vs3 Crystal', star: false,
+    layers: [{ gen: { ref: 'native/vs3-crystal', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vs3-pearl', name: 'vs3 Pearl', star: false,
+    layers: [{ gen: { ref: 'native/vs3-pearl', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vs3-spiral', name: 'vs3 Spiral', star: false,
+    layers: [{ gen: { ref: 'native/vs3-spiral', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // fluid (row 172: persist .4 left out): a Navier-Stokes dye sim + a 262 k point cloud; its hat splat waits for onHigh.
+  {
+    v: 1, id: 'builtin:vs3-fluid', name: 'vs3 Fluid', star: false,
+    layers: [{ gen: { ref: 'native/vs3-fluid', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // forge (row 196: persist .35 left out): 65 k instanced shards on a boids ping-pong sim; s.air = syn_HighLevel.
+  {
+    v: 1, id: 'builtin:vs3-forge', name: 'vs3 Forge', star: false,
+    layers: [{ gen: { ref: 'native/vs3-forge', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // pelt (row 217: persist .3 left out): ~110 k instanced fur ribbons; the mouse brush is dead (scenePointer stub), the hat sparkle waits for onHigh.
+  {
+    v: 1, id: 'builtin:vs3-pelt', name: 'vs3 Pelt', star: false,
+    layers: [{ gen: { ref: 'native/vs3-pelt', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // wisp (row 222: persist .5 with zoom 1, a 3-4 frame ghost, left out): a 1 M particle wanderer (1024^2 state); the cursor lock is dead (scenePointer stub), the hat sparkle waits for onHigh.
+  {
+    v: 1, id: 'builtin:vs3-wisp', name: 'vs3 Wisp', star: false,
+    layers: [{ gen: { ref: 'native/vs3-wisp', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // morphogen 2.0 (row 265: persist .2 left out; SCENE_PALETTE glacial): a reaction-diffusion relief; its console rows and logo input are stripped, the mouse paint is dead (scenePointer stub).
+  {
+    v: 1, id: 'builtin:vs3-morphogen2', name: 'vs3 Morphogen 2.0', star: false,
+    layers: [{ gen: { ref: 'native/vs3-morphogen2', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // locus (row 251: persist .45 left out): a GPU particle swarm (MRT state) holding 34 formations; it stays on formation 0 (its params are no inputs yet), the drag is dead (scenePointer stub).
+  {
+    v: 1, id: 'builtin:vs3-locus', name: 'vs3 Locus', star: false,
+    layers: [{ gen: { ref: 'native/vs3-locus', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // vesica (row 247: persist .08 left out; lib/vesica-geometry.js): compass strokes drawn kick by kick, mode flower of 7 (its params are no inputs yet); it fades after 3 s of silence; the hat node flashes and the snare swing wait for onHigh/onMid.
+  {
+    v: 1, id: 'builtin:vs3-vesica', name: 'vs3 Vesica', star: false,
+    layers: [{ gen: { ref: 'native/vs3-vesica', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it

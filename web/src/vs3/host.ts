@@ -200,4 +200,15 @@ export const VS3: readonly NativeDef[] = [
   vs3('visage', () => import('./kit/scenes/visage.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 1.4, vignette: 0.5 }),
   vs3('limitless3d', () => import('./kit/scenes/limitless3d.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.35 }),
   vs3('lasers', () => import('./kit/scenes/lasers.js'), { palette: 'vapor', bloomMul: 1, aber: 0, vignette: 0.2 }),
+  // Batch 2a (2026-11-19). Rows 254 (crystal), 255 (pearl), 270 (spiral): lib/recursive-flight.js.
+  vs3('crystal', () => import('./kit/scenes/crystal.js'), { palette: 'nocturne', bloomMul: 0.8, aber: 0, vignette: 0.2 }),
+  vs3('pearl', () => import('./kit/scenes/pearl.js'), { palette: 'nocturne', bloomMul: 0.8, aber: 0, vignette: 0.2 }),
+  vs3('spiral', () => import('./kit/scenes/spiral.js'), { palette: 'nocturne', bloomMul: 0.8, aber: 0, vignette: 0.2 }),
+  vs3('fluid', () => import('./kit/scenes/fluid.js'), { palette: 'nocturne', bloomMul: 1.3, aber: 1.4, vignette: 0.3 }),
+  vs3('forge', () => import('./kit/scenes/forge.js'), { palette: 'nocturne', bloomMul: 0.9, aber: 0.8, vignette: 0.4 }),
+  vs3('pelt', () => import('./kit/scenes/pelt.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.5 }),
+  vs3('wisp', () => import('./kit/scenes/wisp.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.6, vignette: 0.28 }),
+  vs3('morphogen2', () => import('./kit/scenes/morphogen2.js'), { palette: 'glacial', bloomMul: 1, aber: 0.8, vignette: 0.05 }),
+  vs3('locus', () => import('./kit/scenes/locus.js'), { palette: 'nocturne', bloomMul: 1.3, aber: 1.2, vignette: 0.4 }),
+  vs3('vesica', () => import('./kit/scenes/vesica.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 0.6, vignette: 0.35 }),
 ]
