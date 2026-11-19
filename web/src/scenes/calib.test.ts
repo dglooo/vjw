@@ -1,33 +1,45 @@
 // Calibration (user 2026-11-17, Tier S): the tile set, the layout, the beat grid's ticks and the per-tile inputs. The
 // Canvas2D drawing itself is the browser check.
 import { expect, test, vi } from 'vitest'
+import { DONOR_GROUPS } from '../audio/donor'
 import { SOURCE_IDS, sourceGroups } from '../bind'
 import { defaults } from '../doc'
 import { BUILTIN } from './builtin'
-import { calib, inputs, layout, ROWS, ticks } from './calib'
+import { calib, inputs, layout, rows, ticks } from './calib'
 
 vi.mock('../milkdrop/native', () => ({})) // takes the page's WebGL at import; the def and the seams need none
 
-const IDS = ROWS.flat()
+const IDS = rows(0).flat()
+const DONOR = DONOR_GROUPS.flatMap((g) => g.ids)
 
-test('tiles: every source but the bands and the camera, each once, a row per source group', () => {
-  expect([...IDS].sort()).toEqual(SOURCE_IDS.filter((id) => !/^band\d+$/.test(id) && id !== 'presence').sort())
+test('T6a tiles: every source but the bands, the camera and the donor ids, each once, a row per source group', () => {
+  expect([...IDS].sort()).toEqual(SOURCE_IDS.filter((id) => !/^band\d+$/.test(id) && id !== 'presence' && !DONOR.includes(id)).sort())
   expect(new Set(IDS).size).toBe(IDS.length)
-  expect(ROWS).toHaveLength(sourceGroups().length - 2) // all the groups but `camera` and `band`
+  expect(rows(0)).toHaveLength(sourceGroups().length - 2 - DONOR_GROUPS.length) // all the groups but `camera`, `band` and the donor ones
+  expect(IDS.filter((id) => DONOR.includes(id))).toEqual([]) // ours mode shows no donor tile (skeptic C8)
 })
 
-test('layout: the tiles sit under the header, inside the stage, none on another; every row spans the width, the rows the height', () => {
+test('T6b: above 0 the 5 donor rows follow ours, each of the 31 donor ids once', () => {
+  const all = rows(0.5).flat()
+  expect(rows(0.5).slice(0, rows(0).length)).toEqual(rows(0))
+  for (const id of DONOR) expect(all.filter((x) => x === id), id).toHaveLength(1)
+  expect(all).toHaveLength(IDS.length + 31)
+})
+
+test.each([0, 1])('layout (T6c at 1) of rows(%d): the tiles sit under the header, inside the stage, none on another; every row spans the width, the rows the height', (mix) => {
   const [w, h, gap, top] = [1728, 1118, 13, 73]
-  const r = layout(ROWS, w, h, gap, top)
+  const r = layout(rows(mix), w, h, gap, top)
   const e = 1e-9
-  expect(r).toHaveLength(IDS.length)
+  expect(r).toHaveLength(rows(mix).flat().length)
   for (const a of r) {
     expect(a.x).toBeGreaterThanOrEqual(gap)
     expect(a.y).toBeGreaterThanOrEqual(top + gap)
+    expect(a.x + a.w).toBeLessThanOrEqual(w - gap + e)
+    expect(a.y + a.h).toBeLessThanOrEqual(h - gap + e)
     for (const b of r) if (a !== b) expect(a.x + a.w <= b.x + e || b.x + b.w <= a.x + e || a.y + a.h <= b.y + e || b.y + b.h <= a.y + e).toBe(true)
   }
   let i = 0
-  for (const row of ROWS) {
+  for (const row of rows(mix)) {
     i += row.length
     expect(r[i - 1].x + r[i - 1].w).toBeCloseTo(w - gap) // the row's last tile ends a gap from the right edge
     expect(r[i - 1].h).toBeCloseTo(r[0].h) // equal rows

@@ -1,5 +1,6 @@
 // Bindings (design E3): the per-frame source numbers in an open registry, and the source → shape → amount →
 // attack/release → range chain that drives one parameter. Pure, so Vitest runs it in Node.
+import { DONOR_GROUPS } from './audio/donor' // one-way: donor.ts imports types only from here
 import { BAND_COUNT } from './audio/energy'
 import type { AudioSettings } from './audio/settings'
 import { clockRate, clockStep, type Rate } from './clock'
@@ -30,7 +31,7 @@ export const PHASES: readonly string[] = ['beat', 'bar', 'lfo']
 
 const BANDS = Array.from({ length: BAND_COUNT }, (_, i) => `band${i}`)
 /** The keys `sources()` and features.ts's `fill()` fill, for the panel's list. */
-export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'sub', 'reese', 'wobble', 'wobbleDepth', 'reeseLevel', 'subBody', 'reeseBody', 'beat', 'bar', 'lfo', 'confidence', 'build', 'drop', 'energy', 'presence'] // build/drop/energy: the arrangement (S5.3, P2); presence: the camera (S1.1) — S6.3 lists them in a group
+export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'sub', 'reese', 'wobble', 'wobbleDepth', 'reeseLevel', 'subBody', 'reeseBody', 'beat', 'bar', 'lfo', 'confidence', 'build', 'drop', 'energy', 'presence', ...DONOR_GROUPS.flatMap((g) => g.ids)] // build/drop/energy: the arrangement (S5.3, P2); presence: the camera (S1.1) — S6.3 lists them in a group; the donor core's 31 (app.ts, every mode)
 
 export interface SourceGroup { label: string; ids: readonly string[] }
 /** The Scene tab's source-select optgroups (S6.3), mirroring the Sources tab's meter groups: the fixed ones, the
@@ -43,6 +44,7 @@ export const sourceGroups = (custom: readonly { id: string; name: string }[] = [
     { label: 'arrangement', ids: ['build', 'drop', 'energy'] },
     { label: 'timing', ids: ['onset', 'beat', 'bar', 'lfo', 'confidence'] },
     { label: 'camera', ids: ['presence'] }, // S1.1: the camera's presence (never in an Auto-style map, D3)
+    ...DONOR_GROUPS, // the donor-mode analyser's sources (plan_audio_donor_mode S1.5)
   ]
   if (custom.length) g.push({ label: 'custom', ids: custom.map((c) => c.id) })
   g.push({ label: 'band', ids: [...BANDS] })

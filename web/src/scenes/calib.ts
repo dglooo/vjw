@@ -1,7 +1,8 @@
 // Calibration (user 2026-11-17, Tier S): what the analyser hears, one tile per source, to judge by eye whether it reads
 // the track right. The tiles are bind.ts sourceGroups() minus the camera and the bands, a row per group, so a new source
-// shows up by itself. A tile: its label, the live value, a shape, and the last 4 s of the source over the beat grid (a
-// thin line per beat, a heavier one per bar, opacity = the grid's confidence). The shape is driven through the binding
+// shows up by itself; the donor groups only while the donor mix is above 0, view-only (rows()). A tile: its label, the
+// live value, a shape, and the last 4 s of the source over the beat grid (a thin line per beat, a heavier one per bar,
+// opacity = the grid's confidence). The shape is driven through the binding
 // chain (bind.ts evaluate()), so a tile's attack / release are a binding's: it moves as a bound parameter would, and
 // the phases (beat, bar, lfo) read as a binding's falling saw. A smoothed tile also draws that level as a thin ink
 // line over its history. Header: tempo, the beat in the bar, the grid's confidence, the detected genre, the HUD input
@@ -14,10 +15,11 @@
 // Each tile is its own labelled chart, so the eight hues repeat across rows.
 // ponytail: the whole stage is redrawn and uploaded every frame; if a 4K fixed-quality stage ever bills too much, cap
 // the canvas (copy() scales it) or move the shapes to a shader and upload the text at 10 Hz.
+import { DONOR_GROUPS } from '../audio/donor'
 import { FLOOR, meter } from '../audio/meter'
 import { PRESETS } from '../audio/presets'
 import { evaluate, sourceGroups, type Binding, type BindState, type Sources } from '../bind'
-import type { Input } from '../fx/types'
+import type { Input, Value } from '../fx/types'
 import type { NativeDef } from '../gl/scene'
 import { copy } from '../milkdrop/native'
 import { store } from '../store'
@@ -36,19 +38,27 @@ const [GOOD, WARNING, CRITICAL] = ['#0ca30c', '#fab219', '#d03b3b'] // the input
 const FONT = 'ui-monospace, Menlo, monospace' // fixed-width: a changing value does not shift
 const NONE: Sources = {}
 
-/** The tiles, a row per source group (bind.ts): every source but the camera's and the bands. */
-export const ROWS: readonly (readonly string[])[] = sourceGroups().filter((g) => g.label !== 'camera' && g.label !== 'band').map((g) => g.ids)
+const OURS = sourceGroups().filter((g) => g.label !== 'camera' && g.label !== 'band' && !DONOR_GROUPS.includes(g)).map((g) => g.ids)
+const ALL = [...OURS, ...DONOR_GROUPS.map((g) => g.ids)]
+/** The tiles, a row per source group (bind.ts): every source but the camera's and the bands. The 5 donor rows follow
+ *  only while the donor mix is above 0 (skeptic C8), so ours mode shows the tiles it always had. */
+export const rows = (donorMix: number): readonly (readonly string[])[] => (donorMix > 0 ? ALL : OURS)
 // Row j starts 3 hues on, so neighbours in a row are neighbours in the palette and a source appended to a group repaints nothing.
-const TILES = ROWS.flatMap((ids, j) => ids.map((id, i) => ({ id, rgb: PALETTE[(3 * j + i) % PALETTE.length], shape: `${id}Shape`, attack: `${id}Attack`, release: `${id}Release`, color: `${id}Color`, size: `${id}Size` })))
+const TILES = ALL.flatMap((ids, j) => ids.map((id, i) => ({ id, len: Math.max(...ids.map((x) => x.length)), rgb: PALETTE[(3 * j + i) % PALETTE.length], shape: `${id}Shape`, attack: `${id}Attack`, release: `${id}Release`, color: `${id}Color`, size: `${id}Size` })))
+const OWN = OURS.flat().length // the first OWN tiles have inputs; the donor tiles follow them
 
 /** Five inputs per tile, folded under its name in the panel. Unbound on purpose: the view shows the source, not a mix. */
-export const inputs: Input[] = TILES.flatMap((t) => [
+const five = (t: (typeof TILES)[number]): Input[] => [
   { name: t.shape, group: t.id, label: 'shape', type: 'long', values: SHAPES.map((_, i) => i), labels: SHAPES, default: FIRST[t.id] ?? METER, bindable: false },
   { name: t.attack, group: t.id, label: 'attack s', type: 'float', min: 0, max: 0.5, default: 0, bindable: false }, // 0 = at once: the source as it is
   { name: t.release, group: t.id, label: 'release s', type: 'float', min: 0, max: 2, default: 0, bindable: false },
   { name: t.color, group: t.id, label: 'colour', type: 'color', default: [...t.rgb.map((x) => x / 255), 1] }, // alpha = the tile's brightness
   { name: t.size, group: t.id, label: 'size', type: 'float', min: 0.2, max: 1, default: 0.9, bindable: false }, // 1 = the shape's whole area
-])
+]
+export const inputs: Input[] = TILES.slice(0, OWN).flatMap(five)
+/** A donor tile is view-only (plan S1.5): no panel inputs; it draws with their defaults (the meter, attack and release
+ *  0, its palette colour, size 0.9). */
+const FIXED: Readonly<Record<string, Value>> = Object.fromEntries(TILES.slice(OWN).flatMap(five).map((x) => [x.name, x.default!]))
 
 export interface Rect { x: number; y: number; w: number; h: number }
 /** The tiles' rects in a w × h stage, in the rows' order: equal rows under `top`, a row's tiles equal, `gap` px between
@@ -73,9 +83,12 @@ export function ticks(ring: Float32Array, head: number, out: Float32Array): numb
   return k
 }
 
-/** A tile's parts, px: the header line (label left, value right), the shape's area on the left, the history right. */
-function parts(r: Rect) {
-  const fs = Math.min(0.14 * r.h, r.w / 11.5) // the text's px: a narrow tile shrinks it ('wobbleDepth 0.00' fits)
+/** A tile's parts, px: the header line (label left, value right), the shape's area on the left, the history right.
+ *  `len`: the longest label in the tile's row, chars. */
+function parts(r: Rect, len: number) {
+  // the text's px: a narrow tile shrinks it ('wobbleDepth 0.00' fits), a row with a longer label by 0.6 em a char
+  // (monospace): 'syn_ToggleOnBeat 0.00' in an 11-tile row
+  const fs = Math.min(0.14 * r.h, r.w / (11.5 + 0.6 * Math.max(0, len - 11)))
   const pad = 0.5 * fs
   const ay = r.y + pad + 1.4 * fs // the body's top
   const ah = r.y + r.h - pad - ay
@@ -100,7 +113,11 @@ export const calib: NativeDef = {
     const bars = new Float32Array(N)
     const tBeat = new Float32Array(64) // 4 s of beats up to 960 BPM
     const tBar = new Float32Array(16)
-    let geo: ReturnType<typeof parts>[] = []
+    let geo: ReturnType<typeof parts>[] = [] // the shown tiles' parts: rows(donorMix), a prefix of TILES
+    // ponytail: a hidden tile's rings stop, so a donor row shown again (S3.3's switch) replays its old 4 s once; clear
+    // its rings on show if that reads wrong.
+    let shown: typeof st = [] // … and their states
+    let laid: unknown // the rows `geo` was laid out for
     let [head, acc, last, textAge] = [0, 0, NaN, TEXT]
     let [bpmText, infoText, inText, hfont] = ['', '', '', '']
     /** One set of grid lines over every tile's history; `acc` slides them between two samples. */
@@ -128,19 +145,22 @@ export const calib: NativeDef = {
         const { width: w, height: h } = f
         const gap = Math.round(0.012 * h)
         const top = Math.round(0.065 * h) // the header's height
-        if (cv.width !== w || cv.height !== h) {
+        const rs = rows(s.donorMix ?? 0)
+        if (cv.width !== w || cv.height !== h || rs !== laid) { // a new stage, or the donor rows come or go
           cv.width = w
           cv.height = h
-          geo = layout(ROWS, w, h, gap, top).map(parts)
+          geo = layout((laid = rs), w, h, gap, top).map((r, i) => parts(r, TILES[i].len))
+          shown = st.slice(0, geo.length)
           hfont = `600 ${(0.5 * top).toFixed(1)}px ${FONT}`
         }
         // Real time from the audio clock: f.dt is the layer's (its speed, the arrangement's heat). NaN at first → 0.
         const dt = Math.min(Math.max(f.audioNow - last, 0), 0.1) || 0
         last = f.audioNow
-        for (let i = 0; i < st.length; i++) {
-          const q = st[i]
-          q.b.attack = v[TILES[i].attack] as number
-          q.b.release = v[TILES[i].release] as number
+        for (let i = 0; i < shown.length; i++) {
+          const q = shown[i]
+          const tv = i < OWN ? v : FIXED
+          q.b.attack = tv[TILES[i].attack] as number
+          q.b.release = tv[TILES[i].release] as number
           q.x = evaluate(q.raw, s, q.sRaw, dt)
           q.y = evaluate(q.b, s, q.s, dt)
           q.hi = Math.max(q.hi, q.x)
@@ -148,7 +168,7 @@ export const calib: NativeDef = {
         }
         const pushed = acc + dt * HZ >= 1
         for (acc += dt * HZ; acc >= 1; acc--) { // HZ samples per s at any frame rate; each holds the peak since the last
-          for (const q of st) {
+          for (const q of shown) {
             q.xs[head] = q.hi
             q.ys[head] = q.y
           }
@@ -156,11 +176,11 @@ export const calib: NativeDef = {
           bars[head] = f.sync.bar
           head = (head + 1) % N
         }
-        if (pushed) for (const q of st) q.hi = 0
+        if (pushed) for (const q of shown) q.hi = 0
         const { bpm, bar, confidence } = f.sync
         if ((textAge += dt) >= TEXT) {
           textAge = 0
-          for (const q of st) {
+          for (const q of shown) {
             q.text = q.peak.toFixed(2)
             q.peak = 0
           }
@@ -220,11 +240,12 @@ export const calib: NativeDef = {
         }
         c.stroke()
         const { muted } = store.getSnapshot() // the Sources tab's mute: such a tile reads 0, dimmed and labelled
-        for (let i = 0; i < st.length; i++) {
+        for (let i = 0; i < shown.length; i++) {
           const t = TILES[i]
-          const q = st[i]
+          const q = shown[i]
           const g = geo[i]
-          const col = v[t.color] as readonly number[]
+          const tv = i < OWN ? v : FIXED
+          const col = tv[t.color] as readonly number[]
           const rgb = (byte(col[0]) << 16) | (byte(col[1]) << 8) | byte(col[2])
           if (rgb !== q.rgb) q.css = `#${(q.rgb = rgb).toString(16).padStart(6, '0')}`
           const off = muted.includes(t.id)
@@ -251,10 +272,10 @@ export const calib: NativeDef = {
           // The shape, at the level as drawn (`y`), within radius R of its area's centre.
           const cx = g.ax + g.aw / 2
           const cy = g.ay + g.ah / 2
-          const R = ((v[t.size] as number) * Math.min(g.aw, g.ah)) / 2
+          const R = ((tv[t.size] as number) * Math.min(g.aw, g.ah)) / 2
           const y = q.y
           c.lineWidth = 1.5 * u
-          switch (v[t.shape] as number) {
+          switch (tv[t.shape] as number) {
             case PULSE: // a disc that grows and brightens, inside its full-scale ring
               c.globalAlpha = 0.25 * a
               c.beginPath()
