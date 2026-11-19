@@ -1805,6 +1805,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-forge', name: 'vs3 Forge', star: false,
     layers: [{ gen: { ref: 'native/vs3-forge', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // pelt (row 217: persist .3 left out): ~110 k instanced fur ribbons; the mouse brush is dead (scenePointer stub), the hat sparkle waits for onHigh.
+  {
+    v: 1, id: 'builtin:vs3-pelt', name: 'vs3 Pelt', star: false,
+    layers: [{ gen: { ref: 'native/vs3-pelt', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
