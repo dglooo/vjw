@@ -33,7 +33,7 @@ export function signal(src: Readonly<Sources>, hit: number, prev: number, out: S
   out.highs = src.syn_MidHighLevel ?? 0 // 2-6 kHz (donor: 1.9-3.8 k)
   out.energy = src.syn_Level ?? 0 // 30-16 kHz (donor: band energy × loudness)
   out.air = src.syn_HighLevel ?? 0 // 6-16 kHz (donor: the 7.7 kHz octave); forge's glint
-  // ponytail: no snare/hat impulse yet. They add light (pelt/wisp/grove's sparkle, fluid's hat splat, vesica's accents),
+  // ponytail: no snare/hat impulse yet. They add light (pelt/wisp's sparkle, fluid's hat splat, vesica's accents),
   // so they need a flash-gated input (guide § 6), and a second gated input spends the kick's ≤ 3/s budget. Upgrade:
   // gated `mid`/`high` inputs bound to snare/hats, their rises here.
   out.onMid = out.onHigh = 0
@@ -176,6 +176,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('wisp', () => import('./kit/scenes/wisp.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.6, vignette: 0.28 }),
   vs3('morphogen2', () => import('./kit/scenes/morphogen2.js'), { palette: 'glacial', bloomMul: 1, aber: 0.8, vignette: 0.05 }),
   vs3('locus', () => import('./kit/scenes/locus.js'), { palette: 'nocturne', bloomMul: 1.3, aber: 1.2, vignette: 0.4 }),
-  vs3('grove', () => import('./kit/scenes/grove.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.2, vignette: 0.4 }),
   vs3('vesica', () => import('./kit/scenes/vesica.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 0.6, vignette: 0.35 }),
 ]
