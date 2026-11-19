@@ -107,6 +107,15 @@ function toyLog(fs: string, prefixLines: number) {
   gl.deleteShader(sh)
   return log.replace(/(ERROR|WARNING): (\d+):(\d+)/g, (_, k: string, s: string, n: string) => `${k}: ${s}:${Number(n) - prefixLines}`)
 }
+/** A Shadertoy node for this code once it compiles, else why not: too long, or its compile log in the code's lines.
+ *  ponytail: every code the shader editor compiles stays cached for the session (toyDef's def, program()'s entry: a
+ *  good one's GL program, a bad one's null), one per compile; evict the superseded ones if a long session weighs. */
+function toyNode(code: string, credit: string): NodeDoc | string {
+  if (code.length > CODE_MAX) return `${code.length} chars: a shader holds at most ${CODE_MAX}`
+  const gen: NodeDoc = { ref: `toy/${crypto.randomUUID()}`, code, credit }
+  const { vs, fs, prefixLines } = toyDef(gen)
+  return program(vs, fs) ? gen : toyLog(fs, prefixLines) // compiled into the cache, where node() finds it
+}
 /** A FILTER mipmap target's levels from its level 0 (fx/syn.ts): after each draw into it, and after fit(). */
 const mips = (t: Target) => {
   gl.bindTexture(gl.TEXTURE_2D, t.attachments[0])
@@ -628,11 +637,20 @@ export const panel = {
   /** A pasted Shadertoy `mainImage` (spec §4.4, design E5) as a new top layer. Returns why not (too long, its compile
    *  log with the paste's line numbers, 4 layers), or null once the layer plays. */
   pasteToy(code: string, credit: string) {
-    if (code.length > CODE_MAX) return `${code.length} chars: a paste holds at most ${CODE_MAX}`
-    const gen: NodeDoc = { ref: `toy/${crypto.randomUUID()}`, code, credit }
-    const { vs, fs, prefixLines } = toyDef(gen)
-    if (!program(vs, fs)) return toyLog(fs, prefixLines) // compiled into the cache, where addLayer's node() finds it
+    const gen = toyNode(code, credit)
+    if (typeof gen === 'string') return gen
     return insertLayer(edit.newLayer(gen)) ? null : 'The scene has 4 layers: remove one first'
+  },
+  /** The shader editor (vs3 port): the edited scene's bottom layer plays this Shadertoy code once it compiles, one undo
+   *  step (the same code and credit: none). Returns why not, as pasteToy, or when that layer plays no Shadertoy (the
+   *  scene before the editor's draft lands); null once it plays. The layer's clock runs on, so iTime never restarts. */
+  setToy(code: string, credit: string) {
+    const old = edited().doc.layers[0].gen
+    if (!old.ref.startsWith('toy/')) return 'No shader scene on stage yet'
+    const gen = toyNode(code, credit)
+    if (typeof gen === 'string') return gen
+    if (old.code !== code || old.credit !== credit) panel.setGen(0, gen)
+    return null
   },
   // Storage (design E4, plan S6.1). Each resolves to an error message, or null once stored.
   /** The edited scene into the library, its tile baked again (a Save as's new id bakes as any new block). A built-in

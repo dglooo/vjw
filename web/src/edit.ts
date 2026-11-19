@@ -129,6 +129,22 @@ export function newScene(gen: NodeDoc): SceneDoc {
   return d
 }
 
+/** iTime on the music (after the friends' vs3 shader scene, where any pasted shader surges on the drop): a shader
+ *  editor layer's clock runs at 0.6× between kicks and leaps on each one (2×, back in 0.3 s). Its layer's speed
+ *  binding, so the editor (L) changes or removes it. */
+export const MUSIC_TIME: Binding = { source: 'kick', amount: 1, attack: 0.02, release: 0.3, min: 0.6, max: 2 }
+
+/** The shader editor's New (vs3 port): New's draft, its one layer playing Shadertoy `code` on MUSIC_TIME. */
+export function newShader(code: string): SceneDoc {
+  const d = newScene({ ref: `toy/${crypto.randomUUID()}`, code, credit: '' })
+  d.name = 'New shader'
+  d.layers[0].bind = { speed: { ...MUSIC_TIME } }
+  return d
+}
+
+/** The Shadertoy code of a scene's bottom layer, when it plays one: what the shader editor opens. */
+export const toyCode = (d: SceneDoc) => (d.layers[0].gen.ref.startsWith('toy/') ? d.layers[0].gen.code : undefined)
+
 /** Removes a layer and returns it, unless it is the last one: false then, nothing changed. */
 export function removeLayer(doc: SceneDoc, i: number) {
   if (doc.layers.length <= 1) return false

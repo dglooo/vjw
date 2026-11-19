@@ -30,6 +30,7 @@ export interface UiSnapshot {
   nodeErrors: string[] // that scene's build errors (unknown refs, compile logs, bad bindings)
   style: { detected: Genre | null; confidence: number } // the classifier's pick, 4×/s (S4.3); the badge reads it (S6.2)
   editor: boolean // the editor screen (2b, design S1): key L or the bar button, set through app.ts `setEditor`
+  shader: boolean // the shader editor (vs3 port): key G or the bar button, set through app.ts `setShader`; never with `editor`
   // The camera line (plan_camera S1.4), published by camera.ts: the labelled videoinputs, the pick (null = Off),
   // cam.live / cam.video / cam.error, and camFail: the last pick's failure (its DOMException name), null at the next pick
   cameras: { id: string; label: string }[]
@@ -49,7 +50,7 @@ let snap: UiSnapshot = {
   devices: [], source: null, needsStart: true, sceneName: '', bpm: 0, confident: false,
   hold: false, recording: false, quality: '60-adaptive', scale: 1, drops: 0, compiling: null, debug: null, debugSync: null,
   panel: false, editRev: 0, edited: '', gpuMs: null, nodeErrors: [], style: { detected: null, confidence: 0 },
-  editor: false, cameras: [], camera: null, camLive: false, camVideo: true, camError: null, camFail: null,
+  editor: false, shader: false, cameras: [], camera: null, camLive: false, camVideo: true, camError: null, camFail: null,
   clip: false, clipHint: false, muted: [],
 }
 const subs = new Set<() => void>()

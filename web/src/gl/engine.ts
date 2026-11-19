@@ -15,6 +15,23 @@ import type { Live } from './live'
 export const stage = document.getElementById('stage') as HTMLCanvasElement
 export const gl = stage.getContext('webgl2', { alpha: false, antialias: false, preserveDrawingBuffer: false })!
 stage.addEventListener('webglcontextlost', () => location.reload())
+/** The editor screens (2b S1, the shader editor): the stage CSS-scaled into `cell`, letterboxed centre on centre, until
+ *  the returned stop. A transform leaves clientWidth alone, so measure(), the governor and the ring sizes stay live,
+ *  and nothing reallocates on the way in or out. The stage sits at 0,0 and scales about its own centre. */
+export function fitStage(cell: HTMLElement) {
+  const ro = new ResizeObserver(() => {
+    const r = cell.getBoundingClientRect()
+    const w = stage.clientWidth
+    const h = stage.clientHeight
+    const k = Math.min(r.width / w, r.height / h)
+    stage.style.transform = `translate(${r.x + (r.width - w) / 2}px, ${r.y + (r.height - h) / 2}px) scale(${k})`
+  })
+  ro.observe(cell)
+  return () => {
+    ro.disconnect()
+    stage.style.transform = ''
+  }
+}
 
 /** Filled by app.ts: live.ts and the catalog (through its natives) import this engine, so it can't import them (no
  *  import cycle). */

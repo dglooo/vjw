@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from 'react'
-import { meter, setEditor } from '../app'
+import { meter, setEditor, setShader } from '../app'
 import { allowDevices, player, selectDevice, start, togglePlay } from '../audio/input'
 import { FLOOR } from '../audio/meter'
 import { allowCameras, selectCamera, setVideo } from '../camera/camera'
@@ -122,7 +122,7 @@ export function Overlay() {
     }
   }, [])
 
-  if (s.editor) return null // the editor screen has the whole window (2b S1)
+  if (s.editor || s.shader) return null // the editor screens have the whole window (2b S1)
   return (
     <>
       <div className={shown ? 'bar' : 'bar hidden'}>
@@ -202,6 +202,7 @@ export function Overlay() {
         {s.compiling && <span className="hint">{s.compiling}</span>}
         <span className="scene">{s.sceneName}</span>
         <button onClick={() => setEditor(true)}>Editor · L</button>
+        <button onClick={() => setShader(true)}>Shader · G</button>
         {s.bpm > 0 && <span className={s.confident ? 'bpm' : 'bpm unsure'}>BPM {s.bpm.toFixed(1)}</span>}
         {s.hold && <span className="lock">Lock</span>}
         <span className="quality">{badge(s)}</span>

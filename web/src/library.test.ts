@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { SOURCE_IDS, type Binding } from './bind'
 import { parseScene, type LayerDoc, type SceneDoc } from './doc'
-import { docs } from './edit'
+import { docs, MUSIC_TIME, newShader, toyCode } from './edit'
 import { byName, createLibrary, type Db, type Disk } from './library'
 import { BUILTIN } from './scenes/builtin'
 
@@ -73,6 +73,20 @@ test('a stored scene survives a reload; user scenes list oldest first, an overwr
   expect(again.all()).toStrictEqual(lib.all())
   expect(again.get('builtin:tunnel')).toStrictEqual(BUILTIN[0])
   expect(again.get('nope')).toBeUndefined()
+})
+
+test('a shader editor scene (one Shadertoy layer on the music clock) saves and loads back as a shader scene', async () => {
+  const b = browser()
+  const lib = await loaded(b)
+  const code = 'void mainImage(out vec4 c, in vec2 p) {\n  c = vec4(p / iResolution.xy, 0.5 + 0.5 * sin(iTime), 1.0);\n}'
+  const d = newShader(code)
+  expect(docs.get(d.id)).toBe(d) // the draft plays before it is saved, as New's
+  await lib.put({ ...d, id: 'u-shader', name: 'Mine', created: 1 }) // Save as…
+  const back = (await loaded(b)).get('u-shader')!
+  expect(back).toStrictEqual({ ...d, id: 'u-shader', name: 'Mine', created: 1 })
+  expect(toyCode(back)).toBe(code) // the shader editor reopens it on its code
+  expect(back.layers[0].bind).toEqual({ speed: MUSIC_TIME })
+  expect(toyCode(scene('u-1'))).toBeUndefined() // a native's scene opens a new draft instead
 })
 
 test('put refuses what would not load back: an invalid scene, a built-in id', async () => {
