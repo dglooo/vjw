@@ -1833,6 +1833,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-flow', name: 'vs3 Flow', star: false,
     layers: [{ gen: { ref: 'native/vs3-flow', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // fract (dormant in the donor's roster, no row: BASE_POST; its uResY reads resize()'s height, our RT px).
+  {
+    v: 1, id: 'builtin:vs3-fract', name: 'vs3 Fract', star: false,
+    layers: [{ gen: { ref: 'native/vs3-fract', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
