@@ -173,4 +173,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('fluid', () => import('./kit/scenes/fluid.js'), { palette: 'nocturne', bloomMul: 1.3, aber: 1.4, vignette: 0.3 }),
   vs3('forge', () => import('./kit/scenes/forge.js'), { palette: 'nocturne', bloomMul: 0.9, aber: 0.8, vignette: 0.4 }),
   vs3('pelt', () => import('./kit/scenes/pelt.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.5 }),
+  vs3('wisp', () => import('./kit/scenes/wisp.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.6, vignette: 0.28 }),
 ]

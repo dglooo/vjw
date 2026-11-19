@@ -384,3 +384,4 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/fluid.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/fluid.js | used with permission (2026-11-19) |
 | `scenes/forge.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/forge.js | used with permission (2026-11-19) |
 | `scenes/pelt.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/pelt.js | used with permission (2026-11-19) |
+| `scenes/wisp.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/wisp.js | used with permission (2026-11-19) |

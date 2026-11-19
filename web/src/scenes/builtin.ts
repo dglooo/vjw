@@ -1810,6 +1810,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-pelt', name: 'vs3 Pelt', star: false,
     layers: [{ gen: { ref: 'native/vs3-pelt', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // wisp (row 222: persist .5 with zoom 1, a 3-4 frame ghost, left out): a 1 M particle wanderer (1024^2 state); the cursor lock is dead (scenePointer stub), the hat sparkle waits for onHigh.
+  {
+    v: 1, id: 'builtin:vs3-wisp', name: 'vs3 Wisp', star: false,
+    layers: [{ gen: { ref: 'native/vs3-wisp', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
