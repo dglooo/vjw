@@ -1819,6 +1819,10 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-aurora', name: 'vs3 Aurora', star: false,
     layers: [{ gen: { ref: 'native/vs3-aurora', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  {
+    v: 1, id: 'builtin:vs3-blob', name: 'vs3 Blob', star: false,
+    layers: [{ gen: { ref: 'native/vs3-blob', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
