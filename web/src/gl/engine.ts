@@ -5,6 +5,7 @@ import {
   bindFramebufferInfo, createBufferInfoFromArrays, createFramebufferInfo, createProgramInfo, createProgramInfoAsync,
   createTexture, drawBufferInfo, resizeFramebufferInfo, setBuffersAndAttributes, setUniforms, type ProgramInfo,
 } from 'twgl.js'
+import { hear, vs3Live } from '../audio/vs3'
 import { sourcesFor, type Sources } from '../bind'
 import type { Shot } from '../director'
 import { defaults, type SceneId } from '../doc'
@@ -190,11 +191,15 @@ function poll() {
   }
 }
 
+const heard: Sources = {} // hear()'s copy, refilled per vs3 scene (scenes draw one after the other)
+const VS3 = /^native\/vs3-/
 /** One live scene into its target, inside a timer query unless RING of the scene's are still in flight (results come
- *  frames late). Sequential: only one TIME_ELAPSED query may be active at a time. */
+ *  frames late). Sequential: only one TIME_ELAPSED query may be active at a time. Analyser 'vs3': a scene with a vs3
+ *  native hears the vs3 core's kick and onMid (audio/vs3.ts hear()). */
 function drawScene(id: SceneId, f: FrameInput, src: Sources, styled: Sources | null, into: Target) {
   const scene = scenes.live!(id) // outside the query: an unknown id throws here, not with a query left active
-  const s = sourcesFor(id, src, styled)
+  let s = sourcesFor(id, src, styled)
+  if (vs3Live.s && scene.doc.layers.some((l) => VS3.test(l.gen.ref) || l.fx.some((x) => VS3.test(x.ref)))) s = hear(s, vs3Live.s, heard)
   let t = timings.get(id)
   if (!t) timings.set(id, (t = { flight: [], ms: [] }))
   if (!timer || t.flight.length === RING) return scene.render(f, s, into)

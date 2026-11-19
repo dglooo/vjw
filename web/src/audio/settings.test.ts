@@ -67,6 +67,14 @@ test('T4a: parseSettings: an analyser missing, foo or 2 reads ours; the other st
   expect(parseSettings({ ...x, analyser: 'donor' })).toEqual({ ...x, analyser: 'donor' })
 })
 
+test('vs3: patch({ analyser: vs3 }) comes back after a reload; a stored vs3 parses as vs3', () => {
+  const { m, kv } = storage()
+  createSettings(kv).patch({ analyser: 'vs3' })
+  expect(createSettings(kv).get().analyser).toBe('vs3')
+  expect(JSON.parse(m.get(KEY) ?? 'null').analyser).toBe('vs3')
+  expect(parseSettings({ ...DEFAULTS, analyser: 'vs3' })).toEqual({ ...DEFAULTS, analyser: 'vs3' })
+})
+
 test('parseSettings: mute keeps the string ids once each; anything else falls back to none', () => {
   expect(parseSettings({ v: 1, mute: ['bass', 'sub', 'bass', 5, null, 'u:ab12cd'] }).mute).toEqual(['bass', 'sub', 'u:ab12cd'])
   for (const mute of ['bass', { bass: true }, null]) expect(parseSettings({ v: 1, mute }).mute, String(mute)).toEqual([])

@@ -15,6 +15,15 @@ test('signal: levels from the donor-mode bands, kick = hit, onKick on its rise Ã
   expect(signal({}, 0, 0, s, 0.8, 0.9)).toMatchObject({ onMid: 0, onHigh: 0 }) // a falling mid: no impulse
 })
 
+test('signal, analyser vs3: the levels and bands are the core\'s, onKick = the gated hit at its rise (no kickAccent); back to ours drops bands', () => {
+  const src = { syn_BassLevel: 0.6, syn_Level: 0.7, kickAccent: 0.8 }
+  const v = { sub: 0.1, mids: 0.2, highs: 0.3, air: 0.4, energy: 0.5, bands: new Float32Array(8), kick: 1, onKick: 1, onMid: 1, onHigh: 1, specHi: new Float32Array(192) }
+  const s = signal(src, 0.9, 0, {} as Signal, 0, 0, v)
+  expect(s).toEqual({ kick: 0.9, onKick: 0.9, onMid: 0, onHigh: 0, sub: 0.1, mids: 0.2, highs: 0.3, air: 0.4, energy: 0.5, bands: v.bands }) // the core's onMid / onHigh never pass raw
+  expect(signal(src, 0.9, 0, s)).toEqual({ kick: 0.9, onKick: 0.8, onMid: 0, onHigh: 0, sub: 0.6, mids: 0, highs: 0, air: 0, energy: 0.7 })
+  expect(s.bands).toBeUndefined()
+})
+
 test('specHi: our 32 bands stretched over the 192 donor bins, ends kept', () => {
   const src = Object.fromEntries(Array.from({ length: 32 }, (_, i) => [`band${i}`, i / 31]))
   const out = specHi(src, new Float32Array(192))

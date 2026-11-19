@@ -57,6 +57,28 @@ function BandForm() {
   )
 }
 
+const ANALYSER_HINT = 'ours: our detectors drive every scene. vs2: the donor-style core (visual system 2) drives the syn_* inputs. vs3: the vs3 scenes hear through the friends\' vs3 analyser (kick, onsets, levels, spectrum); every other scene as ours. A hit\'s light stays flash-gated in every mode.'
+/** The analyser pick (plan_audio_donor_mode S3.3; 'vs3', audio/vs3.ts): in the top bar and on this tab, one setting, so
+ *  the two stay in step. app.ts ramps src.donorMix toward 'donor' in 2 s; 'vs3' switches the vs3 scenes at once. */
+export function AnalyserSelect() {
+  const a = useSyncExternalStore(settings.onChange, () => settings.get().analyser)
+  return (
+    <select
+      aria-label="Analyser"
+      title={ANALYSER_HINT}
+      value={a}
+      onChange={(e) => {
+        e.currentTarget.blur() // a focused select would eat hotkeys as type-ahead
+        settings.patch({ analyser: e.currentTarget.value as typeof a })
+      }}
+    >
+      <option value="ours">analyser: ours</option>
+      <option value="donor">analyser: vs2</option>
+      <option value="vs3">analyser: vs3</option>
+    </select>
+  )
+}
+
 /** The Sources tab (S6.1/S6.2): live meters driven by one rAF loop writing each meter's `value` directly — no React
  * state — with the C8 controls (preset picker, Auto toggle, custom-band form) and, per source and per group
  * (bind.ts sourceGroups()), a gain slider and a mute (user 2026-11-17) wired to the `settings` store, so they persist
@@ -110,13 +132,9 @@ export function SourcesTab() {
         </label>
         <Detected />
       </div>
-      {/* the detection the syn_* inputs follow (plan_audio_donor_mode S3.3); app.ts ramps src.donorMix toward it in 2 s */}
       <label className="row">
         <span>analyser</span>
-        <select value={s.analyser} onChange={(e) => settings.patch({ analyser: e.currentTarget.value as typeof s.analyser })}>
-          <option>ours</option>
-          <option>donor</option>
-        </select>
+        <AnalyserSelect />
       </label>
       {sourceGroups(s.custom).map((g) => {
         const all = g.ids.every((id) => s.mute.includes(id))

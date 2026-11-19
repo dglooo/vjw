@@ -17,9 +17,11 @@ export const analyser = new AnalyserNode(ctx, { fftSize: 1024, smoothingTimeCons
 const split = ctx.createChannelSplitter(2) // S0.2: always on → the per-channel analysers (waveLR + the ?debug meters)
 export const analyserL = new AnalyserNode(ctx, { fftSize: 1024, smoothingTimeConstant: 0 }) // (i) channel 0
 export const analyserR = new AnalyserNode(ctx, { fftSize: 1024, smoothingTimeConstant: 0 }) // (i) channel 1
+export const analyser2k = new AnalyserNode(ctx, { fftSize: 2048, smoothingTimeConstant: 0 }) // (i) the vs3 core's (audio/vs3.ts): the kit feeder's size
 export const recDest = ctx.createMediaStreamDestination() // (iii) REC audio track, S4.3
 const recDelay = ctx.createDelay() // (iii) a file's REC audio waits like its onsets (T1), set in setSource
 hub.connect(analyser)
+hub.connect(analyser2k)
 hub.connect(split)
 split.connect(analyserL, 0)
 split.connect(analyserR, 1)

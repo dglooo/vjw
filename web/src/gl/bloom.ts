@@ -16,14 +16,17 @@ uniform vec2 uRes;   // target size
 out vec4 outColor;
 vec3 tap(vec2 uv) { return texture(uSrc, uv).rgb; }
 `
-// Down: the centre ×4 plus 4 diagonal taps, each bilinear tap averaging a 2×2 block; /8. Level 0 also thresholds.
+// Down: the centre ×4 plus 4 diagonal taps, each bilinear tap averaging a 2×2 block; /8. Level 0 also thresholds: the
+// brightest channel past THRESHOLD, or with `luma` > 0 a hard luma cut (three's LuminosityHighPassShader: Rec. 601
+// weights, smoothWidth .01), as the vs3 donor's UnrealBloom (vs3/host.ts).
 const DOWN = `${HEAD}
-uniform float uThreshold;
+uniform float uThreshold, uLuma;
 void main() {
   vec2 uv = gl_FragCoord.xy / uRes, d = uTexel * ${SPREAD.toFixed(2)};
   vec3 c = (4.0 * tap(uv) + tap(uv + d) + tap(uv - d) + tap(uv + vec2(d.x, -d.y)) + tap(uv - vec2(d.x, -d.y))) / 8.0;
   float b = max(c.r, max(c.g, c.b));
-  outColor = vec4(c * max(b - uThreshold, 0.0) / max(b, 1e-4), 1.0);
+  float k = uLuma > 0.0 ? smoothstep(uLuma, uLuma + 0.01, dot(c, vec3(0.299, 0.587, 0.114))) : max(b - uThreshold, 0.0) / max(b, 1e-4);
+  outColor = vec4(c * k, 1.0);
 }`
 // Up: a tent over the smaller level, 4 edge taps ×1 plus 4 diagonal taps ×2; /12.
 const UP = `${HEAD}
@@ -41,7 +44,7 @@ void main() {
   outColor = vec4(tap(uv) + uStrength * texture(uGlow, uv).rgb, 1.0);
 }`
 
-export function createBloom(gl: WebGL2RenderingContext, levels = 4) {
+export function createBloom(gl: WebGL2RenderingContext, levels = 4, luma = 0) {
   const down = fullscreenProgram(DOWN)
   const up = fullscreenProgram(UP)
   const combine = fullscreenProgram(COMBINE)
@@ -56,7 +59,7 @@ export function createBloom(gl: WebGL2RenderingContext, levels = 4) {
       for (const [i, t] of chain.entries()) {
         t.fit(Math.max(1, w >> (i + 1)), Math.max(1, h >> (i + 1)))
         bindFramebufferInfo(gl, t)
-        down({ uSrc: tex, uTexel: [1 / tw, 1 / th], uRes: [t.width, t.height], uThreshold: i ? 0 : THRESHOLD })
+        down({ uSrc: tex, uTexel: [1 / tw, 1 / th], uRes: [t.width, t.height], uThreshold: i ? 0 : THRESHOLD, uLuma: i ? 0 : luma })
         tex = t.attachments[0]
         tw = t.width
         th = t.height

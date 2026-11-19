@@ -9,8 +9,9 @@ import { PRESETS, type Band, type Genre, type PresetId } from './presets'
 export interface CustomBand { id: string; name: string; lo: number; hi: number; gain: number; gate: number; attack: number; release: number }
 // pick: a preset chosen by hand (null = follow the detected genre); sens: the user's gain per source id, 0..2, missing = 1;
 // mute: the source ids that read 0 (bind.ts gain() applies both, in every scene); analyser: the detection the syn_* inputs
-// follow, ours or the donor-style core (plan_audio_donor_mode S1.4; app.ts ramps src.donorMix toward it)
-export interface AudioSettings { v: 1; auto: boolean; pick: PresetId | null; sens: Record<string, number>; mute: string[]; custom: CustomBand[]; analyser: 'ours' | 'donor' }
+// follow, ours or the donor-style core (plan_audio_donor_mode S1.4; app.ts ramps src.donorMix toward it), or 'vs3': the
+// vs3 scenes hear through the vs3 core (audio/vs3.ts), every other scene as ours
+export interface AudioSettings { v: 1; auto: boolean; pick: PresetId | null; sens: Record<string, number>; mute: string[]; custom: CustomBand[]; analyser: 'ours' | 'donor' | 'vs3' }
 type Kv = Pick<Storage, 'getItem' | 'setItem'>
 type Obj = Record<string, unknown>
 
@@ -28,7 +29,7 @@ const MAX_RATE = 96_000
 const LIMITS = [['gain', 'gain', 4], ['gate', 'threshold', 1], ['attack', 'attack (s)', 2], ['release', 'release (s)', 2]] as const
 
 const defaults = (): AudioSettings => ({ v: 1, auto: true, pick: null, sens: {}, mute: [], custom: [], analyser: 'ours' })
-const isAnalyser = (x: unknown): x is AudioSettings['analyser'] => x === 'ours' || x === 'donor'
+const isAnalyser = (x: unknown): x is AudioSettings['analyser'] => x === 'ours' || x === 'donor' || x === 'vs3'
 const isObj = (x: unknown): x is Obj => typeof x === 'object' && x !== null && !Array.isArray(x)
 const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
 const within = (x: unknown, lo: number, hi: number): x is number => finite(x) && x >= lo && x <= hi
