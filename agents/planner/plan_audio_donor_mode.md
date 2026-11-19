@@ -144,7 +144,7 @@ Rules for every step:
 - Vitest fixtures are synthetic: seed 1, 48 kHz, FFT 1024 (512 bins of 46.875 Hz), `dt` 1/60 s unless a test says otherwise. A test never reads `scratchpad/`. Audio is never committed.
 - Lanes (2-agent cap): S1.1 -> ... -> S3.3 is one chain. S2.1 can run beside S1.1-S1.5. S4.1 can run beside S1.4-S3.3. Merges stay one at a time.
 
-### S1.1 [ ] Donor core A: bands, Level, silence, Presence, macros
+### S1.1 [x] Donor core A: bands, Level, silence, Presence, macros
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** the pure core exists, with the level family and the macros. Nothing calls it yet.
 - **Files:** new `web/src/audio/donor.ts`, new `web/src/audio/donor.test.ts`.
@@ -168,6 +168,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
   - T1n: `inputLevel` at -60, -30, 0, +3 gives 0, 0.5, 1, 1 (1e-9).
 - **Done-check:** GATES.
 - **Depends on:** none.
+- **Changed during implementation:** (1) `createDonor(sampleRate, fftSize)` has no `seed` yet, and the LCG and `ease()` are not ported. Their only readers (RandomOnBeat, ToggleOnBeat) come in S1.3, and `noUnusedLocals` / `noUnusedParameters` reject them unused. S1.3 adds `seed = 1` as the trailing optional parameter; no call changes. (2) The second `update()` parameter is named `_wave` until the S1.3 Spectrum reads it (`noUnusedParameters`). The positional signature is the frozen one, so the S1.1 tests stay valid. (3) `prev` (the flux's last dB, NaN in the edge window) comes with the flux in S1.2. S1.1 has the edge window that S1.2 reuses: `held = g.silent || t - edgeT < EDGE_SKIP`. While `held`, no stat takes the frame and Presence / Intensity hold (the prototype's `holdAcc` with `edge`). (4) The `Donor` interface is not declared yet: it needs `seedBeat` and `spectrum` (S1.3). The return type is inferred.
 
 
 ### S1.2 [ ] Donor core B: Hits
