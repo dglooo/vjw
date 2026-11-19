@@ -1752,6 +1752,8 @@ const VS3: readonly SceneDoc[] = [
   // grey-blue palette): 19.0-21.1 at res .5 with relic at 14.7-19.9 in the same runs (16.4 at .4), so about relic's cost.
   // citadel (row 179: persist .35 left out): 25.5 at res .5 with relic at 11.3 in the same run (22.1 at .4): 2-3 x relic.
   // The donor caps it at 1.3 MP (pixelBudget; res .41 of this 3456x2234 frame), so res .4 is the lever if it stutters.
+  // descent (row 228; lib/descent-motion.js; its ray footprint reads resize()'s height, our RT px): 24.6 at res .5 with
+  // relic at 13.9 in the same run, 1.8 x relic (the donor's cap: 1.2 MP).
   {
     v: 1, id: 'builtin:vs3-mandala', name: 'vs3 Mandala', star: false,
     layers: [{ gen: { ref: 'native/vs3-mandala', bind: KICK_HIT }, fx: [{ ref: 'isf/Kaleidoscope', values: { sides: 9, center: [0.5, 0.5] } }, { ref: 'own/feedback-zoom', values: { decay: 0.75, rotate: 0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.0043, max: 0.0063 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
@@ -1763,6 +1765,10 @@ const VS3: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:vs3-citadel', name: 'vs3 Citadel', star: false,
     layers: [{ gen: { ref: 'native/vs3-citadel', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vs3-descent', name: 'vs3 Descent', star: false,
+    layers: [{ gen: { ref: 'native/vs3-descent', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
 ]
 
