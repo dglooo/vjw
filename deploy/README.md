@@ -9,6 +9,9 @@ commits, chats and screenshots, and never push the image to a public registry (t
     docker build -f deploy/Dockerfile --build-arg SLUG=$SLUG -t vjw .
 The build runs `npm ci` (its postinstall fetches the MediaPipe pose model) and `VJW_BASE=/$SLUG/ npm run build`.
 On an Apple-silicon Mac, add `--platform linux/amd64` for an x86 server, or build on the server.
+Your curation (the trash, favourites, rework marks and stars) lives in `web/scene-marks.json`, which the dev server
+writes and git ignores. The build bakes it in as every visitor's defaults (a visitor's own changes win). Build where
+that file is, or copy it into `web/` first. Without it the build still passes, with the built-ins' own stars.
 
 ## Run
     docker run -d --name vjw --restart unless-stopped -p 80:80 -p 443:443 \

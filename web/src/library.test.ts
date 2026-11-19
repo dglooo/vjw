@@ -17,8 +17,8 @@ type Lib = ReturnType<typeof createLibrary>
 const inOrder = (lib: Lib, ids: string[]) => ids.map((id) => lib.get(id)!).sort(byName).map((d) => d.id)
 
 /** What the browser keeps across a reload (IndexedDB rows, localStorage) and the downloads; `open()` is a page load.
- *  `marks`: the dev server's web/scene-marks.json (`text` undefined: none yet). */
-function browser(marks?: { text?: string; unreadable?: boolean }) {
+ *  `marks`: the dev server's web/scene-marks.json (`text` undefined: none yet). `baked`: a build's defaults. */
+function browser(marks?: { text?: string; unreadable?: boolean }, baked?: unknown) {
   const rows = new Map<string, unknown>()
   const kv = new Map<string, string>()
   const files: { name: string; text: string }[] = []
@@ -35,7 +35,7 @@ function browser(marks?: { text?: string; unreadable?: boolean }) {
     write: (text) => void (marks.text = text),
   }
   const open = () =>
-    createLibrary(db, { getItem: (k) => kv.get(k) ?? null, setItem: (k, v) => void kv.set(k, v) }, (name, text) => void files.push({ name, text }), disk)
+    createLibrary(db, { getItem: (k) => kv.get(k) ?? null, setItem: (k, v) => void kv.set(k, v) }, (name, text) => void files.push({ name, text }), disk, baked)
   return { rows, kv, files, open }
 }
 async function loaded(b = browser()) {
@@ -406,21 +406,48 @@ test('dev marks file (web/scene-marks.json): ours start it, each change mirrors 
   const disk: { text?: string; unreadable?: boolean } = {}
   const b = browser(disk)
   b.kv.set('vjw.favs', JSON.stringify(['builtin:tunnel'])) // favourites from before the file
+  b.kv.set('vjw.stars', JSON.stringify({ 'builtin:tunnel': false, 'builtin:glitch': 0 })) // a corrupt star stays out
   const lib = await loaded(b)
-  expect(JSON.parse(disk.text!)).toEqual({ favourite: ['builtin:tunnel'], trash: [], rework: [] })
+  expect(JSON.parse(disk.text!)).toEqual({ favourite: ['builtin:tunnel'], trash: [], rework: [], stars: { 'builtin:tunnel': false } })
   lib.mark('trash', 'u-b', true)
   lib.mark('trash', 'u-a', true)
   lib.mark('rework', 'builtin:spectrum', true)
-  const marks = { favourite: ['builtin:tunnel'], trash: ['u-a', 'u-b'], rework: ['builtin:spectrum'] }
+  lib.setStar('builtin:demo-fluid', true)
+  const marks = { favourite: ['builtin:tunnel'], trash: ['u-a', 'u-b'], rework: ['builtin:spectrum'], stars: { 'builtin:demo-fluid': true, 'builtin:tunnel': false } }
   expect(disk.text).toBe(`${JSON.stringify(marks, null, 2)}\n`)
-  const wiped = browser(disk) // a browser data wipe: the file brings the marks back, into localStorage too
+  const wiped = browser(disk) // a browser data wipe: the file brings the marks and stars back, into localStorage too
   const again = await loaded(wiped)
   expect(again.marks()).toEqual({ favourite: new Set(marks.favourite), trash: new Set(marks.trash), rework: new Set(marks.rework) })
+  expect([again.get('builtin:demo-fluid')!.star, again.get('builtin:tunnel')!.star]).toEqual([true, false])
   expect(wiped.open().marks()).toEqual(again.marks())
+  expect(wiped.open().get('builtin:tunnel')!.star).toBe(false)
+  disk.text = JSON.stringify({ favourite: ['builtin:glitch'], trash: [], rework: [] }) // a file from before the stars
+  await loaded(wiped)
+  expect(JSON.parse(disk.text)).toEqual({ favourite: ['builtin:glitch'], trash: [], rework: [], stars: marks.stars }) // gets ours
   disk.unreadable = true
   const text = disk.text
   expect((await loaded(browser(disk))).marks().trash).toEqual(new Set())
   expect(disk.text).toBe(text)
+})
+
+test('a build bakes scene-marks.json in (user 2026-11-20): a stored mark or star beats it, it beats a built-in own star', async () => {
+  const baked = { favourite: ['builtin:glitch'], trash: ['builtin:tunnel'], rework: ['builtin:spectrum'], stars: { 'builtin:spectrum': false, 'builtin:demo-fluid': true, 'builtin:glitch': false } }
+  const b = browser(undefined, baked)
+  b.kv.set('vjw.favs', JSON.stringify(['builtin:particles'])) // stored
+  b.kv.set('vjw.rework', '{ oops') // corrupt: as none stored
+  b.kv.set('vjw.stars', JSON.stringify({ 'builtin:demo-fluid': false }))
+  const lib = await loaded(b)
+  expect(lib.marks()).toEqual({ favourite: new Set(['builtin:particles']), trash: new Set(['builtin:tunnel']), rework: new Set(['builtin:spectrum']) })
+  const star = (id: string) => lib.get(id)!.star
+  expect([star('builtin:demo-fluid'), star('builtin:spectrum'), star('builtin:particles')]).toEqual([false, false, true]) // stored, baked, own
+  expect(lib.playlist()).toEqual(STARRED.filter((id) => !['builtin:tunnel', 'builtin:spectrum', 'builtin:glitch'].includes(id)))
+  lib.setStar('builtin:glitch', true) // a visitor's change: stored, and only it, so a later build's defaults still reach the rest
+  expect(JSON.parse(b.kv.get('vjw.stars')!)).toEqual({ 'builtin:demo-fluid': false, 'builtin:glitch': true })
+  expect(b.open().get('builtin:glitch')!.star).toBe(true)
+  for (const junk of [null, 5, 'x', [1], { favourite: 'builtin:tunnel', stars: [true] }]) {
+    const none = await loaded(browser(undefined, junk)) // no defaults: today's library
+    expect([none.playlist(), none.marks().favourite]).toEqual([STARRED, new Set()])
+  }
 })
 
 test("setStar stars the panel's unsaved copy along, so a later save keeps it", async () => {

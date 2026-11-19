@@ -8,6 +8,7 @@ WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 COPY web/scripts ./scripts
 RUN npm ci
+# web/ brings web/scene-marks.json (git-ignored) when it exists: the build bakes it in as the default marks and stars
 COPY web/ ./
 RUN VJW_BASE=/$SLUG/ npm run build
 

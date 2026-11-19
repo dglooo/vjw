@@ -14,7 +14,8 @@ export interface Disk { read(): Promise<unknown>; write(text: string): void }
 
 const STARS = 'vjw.stars' // { [built-in id]: boolean }: the user's stars over the built-ins' own
 /** The list's marks on a scene (user 2026-11-19), apart from the stars, not exported: each a localStorage [scene id]
- *  (the favourites under the editor's old key), mirrored in dev to web/scene-marks.json for the lead to act on. */
+ *  (the favourites under the editor's old key), mirrored in dev to web/scene-marks.json with the stars, for the lead to
+ *  act on and for a build's defaults (user 2026-11-20). */
 export type Mark = 'favourite' | 'trash' | 'rework'
 const MARKS: Record<Mark, string> = { favourite: 'vjw.favs', trash: 'vjw.trash', rework: 'vjw.rework' }
 const MARK_IDS = Object.keys(MARKS) as Mark[]
@@ -26,6 +27,7 @@ const PERSISTED = 'vjw.persisted' // set once navigator.storage.persist() is gra
 export const byName = (a: SceneDoc, b: SceneDoc) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
 /** The scene ids of a stored or filed mark; none from a corrupt value. */
 const ids = (x: unknown): ReadonlySet<string> => new Set(Array.isArray(x) ? x.filter((s) => typeof s === 'string') : [])
+const rec = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 const CAMERA = new Set(['native/camera', 'native/outline'])
 /** A camera node or a masked layer: with no camera its person layers fade out and it repeats its other layers. */
 const needsCamera = (d: SceneDoc) => d.layers.some((l) => l.mask || [l.gen, ...l.fx].some((n) => CAMERA.has(n.ref)))
@@ -55,7 +57,11 @@ function own(x: unknown) {
   return d
 }
 
-export function createLibrary(db: Db, kv: Kv, download: (name: string, text: string) => void, disk?: Disk) {
+/** `baked`: the build's defaults, web/scene-marks.json's marks and stars (vite.config.ts __VJW_MARKS__, user 2026-11-20):
+ *  what a visitor with empty storage starts from. A stored mark or star beats them; they beat a built-in's own star. */
+export function createLibrary(db: Db, kv: Kv, download: (name: string, text: string) => void, disk?: Disk, baked?: unknown) {
+  const base = rec(baked) ? baked : {}
+  const baseStars = rec(base.stars) ? base.stars : {}
   const user = new Map<SceneId, SceneDoc>()
   const subs = new Set<() => void>()
   const notify = () => subs.forEach((cb) => cb())
@@ -72,19 +78,28 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
       return null // no localStorage, or a corrupt value
     }
   }
-  let marks = Object.fromEntries(MARK_IDS.map((m) => [m, ids(stored(MARKS[m]))])) as Record<Mark, ReadonlySet<string>>
+  let marks = Object.fromEntries(MARK_IDS.map((m) => [m, ids(stored(MARKS[m]) ?? base[m])])) as Record<Mark, ReadonlySet<string>>
   const keep = (m: Mark) => kv.setItem(MARKS[m], JSON.stringify([...marks[m]]))
-  /** web/scene-marks.json's text: each mark's ids, sorted. */
-  const file = () => `${JSON.stringify(Object.fromEntries(MARK_IDS.map((m) => [m, [...marks[m]].sort()])), null, 2)}\n`
+  /** web/scene-marks.json's text: each mark's ids, sorted, then the user's stars over the built-ins, by id. */
+  const file = () => {
+    const on = Object.entries(stars).filter(([, s]) => typeof s === 'boolean').sort(([a], [b]) => (a < b ? -1 : 1))
+    const f = { ...Object.fromEntries(MARK_IDS.map((m) => [m, [...marks[m]].sort()])), stars: Object.fromEntries(on) }
+    return `${JSON.stringify(f, null, 2)}\n`
+  }
   const v = stored(VIEW)
   let view = (typeof v === 'string' && Object.hasOwn(MARKS, v) ? v : 'all') as View
   const g = stored(GROUP)
   let group = (typeof g === 'string' && Object.hasOwn(GROUPS, g) ? g : 'all') as Group
-  // The built-ins with the user's stars: our own shallow copies, so a star changes in place.
-  const builtin = new Map<SceneId, SceneDoc>(BUILTIN.map((b) => {
-    const s = stars[b.id]
-    return [b.id, { ...b, star: typeof s === 'boolean' ? s : b.star }]
-  }))
+  // The built-ins with their stars: our own shallow copies, so a star changes in place.
+  const builtin = new Map<SceneId, SceneDoc>(BUILTIN.map((b) => [b.id, { ...b }]))
+  /** Each built-in's star: the user's, else the build's default, else its own. */
+  const restar = () => {
+    for (const b of BUILTIN) {
+      const s = [stars[b.id], baseStars[b.id]].find((x) => typeof x === 'boolean')
+      builtin.get(b.id)!.star = typeof s === 'boolean' ? s : b.star
+    }
+  }
+  restar()
   const all = () => [...user.values()].sort(byCreated)
   const get = (id: SceneId): SceneDoc | undefined => user.get(id) ?? builtin.get(id)
   /** The scenes view `w` lists of group `g`, built-in and user alike, in the list's order. */
@@ -119,15 +134,21 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
   }
 
   return {
-    /** Reads every stored scene; a corrupt one is skipped with a console error. Dev: the marks file wins, as it outlives
-     *  a browser data wipe; with none yet, ours start it; one that cannot be read is left alone. */
+    /** Reads every stored scene; a corrupt one is skipped with a console error. Dev: the marks file wins, its stars too,
+     *  as it outlives a browser data wipe; with none yet, ours start it, and one from before the stars gets ours; one that
+     *  cannot be read is left alone. */
     async load() {
       const f = await disk?.read().catch(() => undefined)
-      if (f === null) disk!.write(file())
-      else if (typeof f === 'object' && !Array.isArray(f)) {
-        marks = Object.fromEntries(MARK_IDS.map((m) => [m, ids((f as Record<string, unknown>)[m])])) as typeof marks
+      if (rec(f)) {
+        marks = Object.fromEntries(MARK_IDS.map((m) => [m, ids(f[m])])) as typeof marks
         MARK_IDS.forEach(keep)
+        if (rec(f.stars)) {
+          stars = { ...f.stars }
+          kv.setItem(STARS, JSON.stringify(stars))
+          restar()
+        }
       }
+      if (f === null || (rec(f) && !rec(f.stars))) disk!.write(file())
       for (const x of await db.all()) {
         try {
           const d = own(x)
@@ -157,6 +178,7 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
         b.star = on
         stars = { ...stars, [id]: on }
         kv.setItem(STARS, JSON.stringify(stars))
+        disk?.write(file())
         notify()
         return
       }
@@ -273,5 +295,7 @@ const disk: Disk | undefined = import.meta.env.DEV
       write: (text) => void fetch('/__marks', { method: 'POST', body: text }).catch((e: unknown) => console.error('marks', e)),
     }
   : undefined
+/** The build's copy of web/scene-marks.json, or null without one (vite.config.ts `define`). Dev reads the file itself. */
+declare const __VJW_MARKS__: unknown
 
-export const library = createLibrary(idb(), globalThis.localStorage, download, disk)
+export const library = createLibrary(idb(), globalThis.localStorage, download, disk, import.meta.env.DEV ? undefined : __VJW_MARKS__)
