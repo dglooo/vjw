@@ -1743,6 +1743,15 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-morphogen', name: 'vs3 Morphogen', star: false,
     layers: [{ gen: { ref: 'native/vs3-morphogen', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // Batch 1 (2026-11-19, rows 169+). mandala: mirror 9 = isf/Kaleidoscope 9 sides about the centre, persist .75 + zoom
+  // 1.29/s = own/feedback-zoom (zoom 1.29^(1/60) - 1, the kick push to 1.455^(1/60) - 1), spin -.8's swirl ≈ a turn of
+  // .0032/frame (the donor samples its history turned by -angle, our effect by +rotate: the sign flips).
+  // Billed p95 as above, with another lane's browser on the GPU (ink 16.4 and relic 15.1 in the same run, 6.7 and 7.1
+  // alone): mandala 6.4-6.5 at res .5 (8.4 at .75, 13.4 at 1).
+  {
+    v: 1, id: 'builtin:vs3-mandala', name: 'vs3 Mandala', star: false,
+    layers: [{ gen: { ref: 'native/vs3-mandala', bind: KICK_HIT }, fx: [{ ref: 'isf/Kaleidoscope', values: { sides: 9, center: [0.5, 0.5] } }, { ref: 'own/feedback-zoom', values: { decay: 0.75, rotate: 0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.0043, max: 0.0063 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it

@@ -366,6 +366,7 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/ink.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/ink.js | used with permission (2026-11-19) |
 | `scenes/relic.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/relic.js | used with permission (2026-11-19) |
 | `scenes/morphogen.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/morphogen.js | used with permission (2026-11-19) |
+| `scenes/kaleido.js` (mandala) | the friends' engine | donor/vs3/visual_kit/src/scenes/kaleido.js | used with permission (2026-11-19) |
 | `lib/common.js` | the friends' engine | donor/vs3/visual_kit/src/lib/common.js (window listeners stripped) | used with permission (2026-11-19) |
 | `lib/context.js` | the friends' engine | donor/vs3/visual_kit/src/lib/context.js | used with permission (2026-11-19) |
 | `lib/palette.js` | the friends' engine | donor/vs3/visual_kit/src/lib/palette.js (the edition, preset-guard and DOM parts stripped) | used with permission (2026-11-19) |
