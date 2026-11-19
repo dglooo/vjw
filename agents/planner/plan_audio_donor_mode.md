@@ -330,7 +330,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Depends on:** S2.1, S1.4.
 - **Changed during implementation:** H9b does not freeze the AudioContext (the 2026-11-07 frozen pair carries FFT-quantum jitter, so its control floor is above 0). `h9b-pixels.mjs record` keeps what each frame hands the stage scene's `render()` (f.sync and the sources, mode ours) over dnb174-arr 10.5-13.5 s into `out/h9b-trace.json`; `shot` replays that one trace into a fresh `live()` instance of each scene at fixed clocks (dt 1/60, a pinned Date), no audio, and reads the 960x540 target back. The control pair is bit-stable (0), so the pass line is 0 (C2). The mutant wraps the served `boundStep`. S2.5 re-runs it with `STEP=s2.5` on the same trace file.
 
-### S2.3 [ ] Raws and LevelTrail follow the mix
+### S2.3 [x] Raws and LevelTrail follow the mix
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** the SYN raws and the LevelTrail texture read the donor values in donor mode.
 - **Files:** `web/src/fx/syn.ts`, `web/src/gl/live.ts` (+ `fx/syn.test.ts`).
@@ -349,6 +349,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Pins:** the existing `pushTrail` test passes unedited (`w` defaults to 0).
 - **Done-check:** GATES.
 - **Depends on:** S2.2.
+- **Changed during implementation:** T2g adds a fall phase after the F4 held second: 6 frames with the four donor levels at 0, the same two asserts. The held phase rises through the attack only (.05 on all four), so it cannot tell `syn_Level`'s release .3 from the others' .15; the mutant "one donor binding for all four channels" fails only in the fall. `synValue` returns ours at once when `w` is not > 0 (a branch, as in `boundStep`), so a NaN or infinite donor value never reaches ours mode. `gl/live.ts`: `run()` takes `w` as a parameter (read once in `render()`); the raw and trail lines are now `:324` and `:326`. Ours-mode replay (the S2.2 H9b method and trace, plus `builtin:audio-indicators`, the only LevelTrail reader) gives 0 differing bytes against the base commit `9ad62fa` on all 4 scenes. The control pair is 0. A one-unit trail mutant fails the replay (max 16).
 
 
 ### S2.4 [ ] SYN clocks take a donor rate
