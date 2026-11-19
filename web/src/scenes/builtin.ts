@@ -1815,6 +1815,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-wisp', name: 'vs3 Wisp', star: false,
     layers: [{ gen: { ref: 'native/vs3-wisp', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // morphogen 2.0 (row 265: persist .2 left out; SCENE_PALETTE glacial): a reaction-diffusion relief; its console rows and logo input are stripped, the mouse paint is dead (scenePointer stub).
+  {
+    v: 1, id: 'builtin:vs3-morphogen2', name: 'vs3 Morphogen 2.0', star: false,
+    layers: [{ gen: { ref: 'native/vs3-morphogen2', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
