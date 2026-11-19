@@ -1857,6 +1857,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-chorus', name: 'vs3 Chorus', star: false,
     layers: [{ gen: { ref: 'native/vs3-chorus', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // visage (row 232: persist .3 left out): the same, its close-up head.
+  {
+    v: 1, id: 'builtin:vs3-visage', name: 'vs3 Visage', star: false,
+    layers: [{ gen: { ref: 'native/vs3-visage', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
