@@ -448,7 +448,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Depends on:** S1.3. It can run beside S1.4-S3.3.
 - **Changed during implementation:** (1) `kick-train-120.wav`: 58 kicks from 1 s, every 0.5 s plus a seeded 0-33 ms delay each, so the H7 latency meets every phase of the 30 ms Hits tick. Both fixtures sit on a -51 dBFS room tone, so `silent` never fires. (2) A Hits event is a rise of the Hits value above its last frame's value, as in `audio/donor.test.ts`, because the core exposes no trigger flag. (3) H7 measures from the kick to the end of the analyser window (frame time + 20 ms LEAD). Its p95 counts only the kicks with a BassHits rise within 250 ms; `score.py` lists the missed kicks and does not gate them. (4) `python3 -I score.py` scores the parity outputs; `score.py s1` reprints `out/score-v2.txt` byte for byte. H4a compares 152 values and 23 counts. Our `syn_Intensity` is compared with the reference's `xInt3` column. (5) ffmpeg can pipe straight into parity (`/dev/stdin`), so no PCM file is needed.
 
-### S4.2 [ ] S6 tooling B: the switch and flash harnesses
+### S4.2 [x] S6 tooling B: the switch and flash harnesses
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** the lead can run H1 and H2.
 - **Files (scratch):** `scratchpad/donor-mode/lib.mjs`, `h1-switch.mjs`, `h2-flash.mjs`. Evidence goes to `scratchpad/donor-mode/out/`.
@@ -464,6 +464,12 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Tests:** none (scratch).
 - **Done-check:** GATES. A 3-scene smoke run of `h2-flash.mjs` on `dnb174-arr.wav` writes its JSON. The full runs are the lead's (S6).
 - **Depends on:** S3.3, S4.1 (the 200 BPM fixture).
+- **Changed during implementation:**
+  1. Refused onsets: no hook existed (the audit reads only `window.__flash`, the allowed onsets), and the brief forbade `web/src` edits (a parallel lane). So no counter went into `gl/live.ts`. Instead `lib.mjs` wraps `boundStep` in the dev server's served `post.ts` (the `h9b-pixels.mjs` pattern). A refusal is an input's `flash.blocked` turning true in the call, on the shared budget only (`onsets === window.__flash`). Proof: Canvas (⚡ `syn_OnBeat`) on `dnb200-synth.wav` gave 75 allowed (max 3 per 1 s) + 25 refused = 100 onsets in 30 s, which is 200 BPM.
+  2. The shared checkout refused writes from the lane. The three files are in the worktree's `scratchpad/donor-mode/` (git-ignored), and the lead copies them. They use absolute paths for playwright-core and `annot.json`, with `out/` next to the script.
+  3. `lib.mjs` waits until Start's compile-all warm-up ends (`store.compiling`, the `trackview/dump.mjs` rule) before the track starts. Its compiles stay outside the windows.
+  4. H2: the mode is stored before load (`vjw.audio` = `{ v: 1, analyser: 'donor', pick }`, pick from the fixture name), so the mix is 1 from the first frame; each window records its minimum mix, and a window below 1 fails. Per scene: seek to 10 s, cut and hold, `governor.reset()` at 2 s, then the window at 5 s (music 15-45 s). One run takes about 50 min (85 scenes x 35.5 s), not 43 min, because of the 5 s settle. Env `IDS` picks scenes; `<run>` is the next free number.
+  5. H1: a drop event is `src.drop` rising by more than 0.25 in one frame (the arrangement's fire). An annotated drop is hit when `-0.5 <= t - y <= 4` s (`trackview.py`). The window is [-1, +3] s around the select's change event. Gate (c) counts luma rises; |change| steps are printed too. Default switch points come from `annot.json`: intro = the first build's start / 2, drop body = the first drop + 8 s, break = the second build's start. Env `AT`, `DROPS`, `END` and `SCENE` override them. The held scene is `builtin:deeper` (5 bound `syn_*` inputs). E opens the HUD panel, not the editor, so no Library tile bake runs. The default port is 5174, as in the matrix commands.
 
 
 ### S4.3 [ ] S6 tooling C: cost, toggle, reload and calibration harnesses
