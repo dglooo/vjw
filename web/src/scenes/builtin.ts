@@ -1730,7 +1730,7 @@ const DEMOS: readonly SceneDoc[] = [
 // res .5 ink 6.7 ms, relic 7.1, morphogen 5.2 (Traced Tunnel 3.3 at .5 in the same run); res .85 ink 25.4, relic 26.2,
 // morphogen 14.5. Raise res when the frame time allows (the donor caps relic at 4 MP, ink at 5 MP).
 const KICK_ZOOM: Binding = { source: 'kick', amount: 1, attack: 0, release: 0.14, min: 0.0017, max: 0.0041 }
-const KICK_SNARE: Record<string, Binding> = { ...KICK_HIT, mid: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 } } // ⚡ mid: the donor onMid / onHigh
+const KICK_SNARE: Record<string, Binding> = { ...KICK_HIT, mid: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 } } // ⚡ mid: the donor onMid / onHigh (synapse)
 const VS3: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:vs3-ink', name: 'vs3 Ink', star: false,
@@ -1798,16 +1798,18 @@ const VS3: readonly SceneDoc[] = [
     layers: [{ gen: { ref: 'native/vs3-gate', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   // synapse (row 171): mirror 1 = isf/Mirror horizontal, persist .9 + zoom 1.06/s = own/feedback-zoom (the kick push to
-  // 1.225^(1/60) - 1), spin .8 = rotate -.0032 (the sign flips, as on mandala). Its onMid / onHigh nodes: ⚡ mid, the snare.
+  // 1.225^(1/60) - 1), spin .8 = rotate -.0032 (the sign flips, as on mandala). Its onMid / onHigh nodes: ⚡ mid, the snare
+  // (two of its three node kinds; the price: the kick shares the flash budget with it).
   {
     v: 1, id: 'builtin:vs3-synapse', name: 'vs3 Synapse', star: false,
     layers: [{ gen: { ref: 'native/vs3-synapse', bind: KICK_SNARE }, fx: [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: false } }, { ref: 'own/feedback-zoom', values: { decay: 0.9, rotate: -0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00097, max: 0.0034 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
   // anemone (row 194): persist .72 + zoom 1.03/s = own/feedback-zoom (the kick push to 1.195^(1/60) - 1), spin .3 = rotate
-  // -.0012. Its onHigh sparkle: ⚡ mid, the snare. The pointer steering is off (lib/common.js: a static pointer).
+  // -.0012. Its onHigh sparkle is off (no ⚡ mid: on synapse the snare's onsets took 7 of 35 kicks in 30 s of Kanine from
+  // the shared 3/s flash budget; a sparkle is not worth that). The pointer steering is off (lib/common.js: a static pointer).
   {
     v: 1, id: 'builtin:vs3-anemone', name: 'vs3 Anemone', star: false,
-    layers: [{ gen: { ref: 'native/vs3-anemone', bind: KICK_SNARE }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.72, rotate: -0.0012 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00049, max: 0.003 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-anemone', bind: KICK_HIT }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.72, rotate: -0.0012 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00049, max: 0.003 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
 ]
 

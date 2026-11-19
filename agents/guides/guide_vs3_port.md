@@ -40,7 +40,7 @@ Mirror before feedback (the donor mirrors the trails too).
 ## 5 Signal `s` (host.ts `signal()`)
 - Filled: `kick` = ⚡ `hit` (bound to our kick, flash-gated), `onKick` = its rise × our `kickAccent` (velocity .7 / 1), `sub` ← syn_BassLevel, `mids` ← syn_MidLevel, `highs` ← syn_MidHighLevel, `energy` ← syn_Level (the donor-mode core runs in every mode).
 - Grep the scene: `grep -o "s\.[a-zA-Z]*" <file> | sort -u`. A field outside that list reads `undefined` → NaN uniforms → black. Add it to `Signal` + `signal()` (research §4 table) and to `host.test.ts`. `specHi`, `wave`, `bands`: not provided yet.
-- `onMid`, `onHigh` (synapse, anemone): both = the rise of ⚡ `mid`, the second flash-gated input (`look.mid`), bound to our snare. One input for the two: the flash budget is 3 onsets/s for the whole app, so hats at their own rate would take the kick's share.
+- `onMid`, `onHigh` (synapse): both = the rise of ⚡ `mid`, the second flash-gated input (`look.mid`), bound to our snare. One input for the two: the flash budget is 3 onsets/s for the whole app, so hats at their own rate would take the kick's share. Even the snare costs kicks (synapse on Kanine: 7 of 35 kicks refused in 30 s): opt in only when these events carry the scene (synapse's nodes), not for a garnish (anemone's sparkle stays off).
 
 ## 6 Flash safety (I-FL1)
 - Every kick-driven light term in the scene reads `s.kick` / `s.onKick`: both come from the gated ⚡ `hit`. The host's bloom kick term and the finish's kick aberration use `hit` too.
