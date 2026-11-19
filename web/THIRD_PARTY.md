@@ -356,3 +356,17 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `waltra-square-orgy` | Waltra - Square Orgy | Waltra | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `zylot-paint-spill-music-reactive-paint-mix` | Zylot - Paint Spill (Music Reactive Paint Mix) | Zylot | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `zylot-true-visionary-final-mix` | Zylot - True Visionary (Final Mix) | Zylot | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
+
+## vs3 scenes
+
+`src/vs3/kit/**/*.js`, copied from `donor/vs3/visual_kit/src/` (the friends' three.js visual engine, app v0.4.3, three r170; `research_donor_vs3_scenes.md`), run by `src/vs3/host.ts`. The friends gave the user permission to use all of it (2026-11-19); the kit ships no licence file. Each file opens with its source path and a `vjw:` line naming what we changed. Adding a scene = one file + one row (`agents/guides/guide_vs3_port.md`).
+
+| file | author | source | licence |
+|---|---|---|---|
+| `scenes/ink.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/ink.js | used with permission (2026-11-19) |
+| `scenes/relic.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/relic.js | used with permission (2026-11-19) |
+| `scenes/morphogen.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/morphogen.js | used with permission (2026-11-19) |
+| `lib/common.js` | the friends' engine | donor/vs3/visual_kit/src/lib/common.js (window listeners stripped) | used with permission (2026-11-19) |
+| `lib/context.js` | the friends' engine | donor/vs3/visual_kit/src/lib/context.js | used with permission (2026-11-19) |
+| `lib/palette.js` | the friends' engine | donor/vs3/visual_kit/src/lib/palette.js (the edition, preset-guard and DOM parts stripped) | used with permission (2026-11-19) |
+| `lib/noise-glsl.js` | the friends' engine; its GLSL: Ian McEwan / Ashima Arts, Stefan Gustavson (webgl-noise, https://github.com/ashima/webgl-noise) | donor/vs3/visual_kit/src/lib/noise-glsl.js | used with permission (2026-11-19); the GLSL: MIT |

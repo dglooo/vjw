@@ -1720,6 +1720,31 @@ const DEMOS: readonly SceneDoc[] = [
   },
 ]
 
+// The friends' scenes through the vs3 host (vs3/host.ts, agents/guides/guide_vs3_port.md): unstarred until the user
+// has looked. ⚡ hit = the donor kick (KICK_HIT). The donor post chain's closest fx after it (original main.js
+// FX_DEFAULTS rows; bloom, aberration, the grade and the vignette run in the host): ink's mirror 2 = isf/Mirror both
+// ways, its persist .97 + zoom 1.11/s = own/feedback-zoom (decay .97, zoom per 60 Hz frame 1.11^(1/60) - 1, the kick's
+// zoom push as the donor's: + kick x .165/s), spin .25's swirl ≈ a slow turn. relic's persist .35 and morphogen's .3
+// (a 2-3 frame ghost) are left out. The scene's own `bloom` field runs in the host (gl/bloom.ts).
+// res .5: billed p95 with the own/flash tail, headless 1728x1117 @2, Kanine at 52 s, 15 s (scratchpad/vs3/cost.mjs):
+// res .5 ink 6.7 ms, relic 7.1, morphogen 5.2 (Traced Tunnel 3.3 at .5 in the same run); res .85 ink 25.4, relic 26.2,
+// morphogen 14.5. Raise res when the frame time allows (the donor caps relic at 4 MP, ink at 5 MP).
+const KICK_ZOOM: Binding = { source: 'kick', amount: 1, attack: 0, release: 0.14, min: 0.0017, max: 0.0041 }
+const VS3: readonly SceneDoc[] = [
+  {
+    v: 1, id: 'builtin:vs3-ink', name: 'vs3 Ink', star: false,
+    layers: [{ gen: { ref: 'native/vs3-ink', bind: KICK_HIT }, fx: [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: true } }, { ref: 'own/feedback-zoom', values: { decay: 0.97, rotate: 0.001 }, bind: { zoom: KICK_ZOOM } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vs3-relic', name: 'vs3 Relic', star: false,
+    layers: [{ gen: { ref: 'native/vs3-relic', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vs3-morphogen', name: 'vs3 Morphogen', star: false,
+    layers: [{ gen: { ref: 'native/vs3-morphogen', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+]
+
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
 // reads `src` itself, never Auto-style's remap (bind.ts sourcesFor). Starred by the user's order, and last, so the
 // autopilot's order before it stays as it was.
@@ -1729,4 +1754,4 @@ const CALIBRATION: SceneDoc = {
 }
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
-export const BUILTIN: readonly SceneDoc[] = [...spread([...OWN, ...DJ], MILK_SCENES), ...DEMOS, CALIBRATION]
+export const BUILTIN: readonly SceneDoc[] = [...spread([...OWN, ...DJ], MILK_SCENES), ...DEMOS, ...VS3, CALIBRATION]

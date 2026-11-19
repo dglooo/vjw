@@ -42,6 +42,8 @@ export default defineConfig({
   // wasm glue from public/, which a module worker can't do — Vite dev rewrites its import() fallback with ?import
   // and the dev server refuses to transform /public files.
   worker: { format: 'iife' },
-  optimizeDeps: { include: ['fft.js'] }, // the dep scanner doesn't crawl worklet imports (plan S1.2)
+  // The dep scanner doesn't crawl worklet imports (plan S1.2) nor the copied vs3 scenes (vs3/kit/): a bare import
+  // found at runtime re-optimizes and fails that scene's first load with a 504 (guide_vs3_port.md § 3).
+  optimizeDeps: { include: ['fft.js', 'three/examples/jsm/postprocessing/Pass.js'] },
   test: { environment: 'node', include: ['src/**/*.test.ts'], testTimeout: 20_000 }, // synthetic-audio tests take ≤ 2.6 s idle, up to ~4× that on a loaded machine; the 5 s default flaked
 })
