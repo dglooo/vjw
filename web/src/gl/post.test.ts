@@ -171,15 +171,20 @@ describe('boundStep: the read point (design rev 2, C1)', () => {
     expect(out.filter((_, k) => k % 50 === 0)).toEqual(GOLDEN)
   })
 
-  test('T7a: the gate runs on the mix: 6 frame-sharp donor hits in 1 s at w 1 rise through 0.5 only 3 times', () => {
-    const x = chain('syn_BassHits', SYN_BIND.syn_BassHits, true)
-    const s: Sources = { kick: 0 } // ours silent
-    const onsets: number[] = []
-    const out = Array.from({ length: FPS }, (_, k) => {
-      s.syn_BassHits = k % 10 ? 0 : 1 // a one-frame donor hit every 1/6 s
-      return boundStep(x, s, 1, onsets, DT, k * DT)
-    })
-    expect(ups(out)).toHaveLength(3) // ≤ 3: "gate, then mix" lets all 6 through
+  test('T7a: the gate runs on the mix: 6 frame-sharp donor hits in 1 s at w 1 rise through 0.5 only 2 times (DONOR_WCAG); ours keeps 3', () => {
+    const six = (name: string, b: Binding, w: number) => {
+      const x = chain(name, b, true)
+      const s: Sources = { kick: 0 }
+      const onsets: number[] = []
+      return ups(Array.from({ length: FPS }, (_, k) => {
+        s[w ? name : 'kick'] = k % 10 ? 0 : 1 // a one-frame hit every 1/6 s: the donor's at w 1, ours at w 0
+        return boundStep(x, s, w, onsets, DT, k * DT)
+      }))
+    }
+    const kb: Binding = { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 }
+    expect(six('syn_BassHits', SYN_BIND.syn_BassHits, 1)).toHaveLength(2) // "gate, then mix" lets all 6 through
+    expect(six('syn_BassHits', SYN_BIND.syn_BassHits, 0)).toHaveLength(3) // ours mode: WCAG
+    expect(six('kick', kb, 1)).toHaveLength(3) // a native's kick has no donor chain: WCAG in donor mode too
   })
 
   test.each([false, true])('T7b: the scene override shapes a donor hit: attack 0.04, amount 6 (flash %s)', (flash) => {

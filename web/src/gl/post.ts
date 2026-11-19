@@ -14,6 +14,9 @@ const FLASH = 0.8 // the drop flash's peak white mix
 const TAU = 0.1 // s, its decay: ≤ .25 at +200 ms, ≤ .10 at +250 ms (RL fix 1, F3; design_rave_lasers.md L207's app-wide knob)
 const STEP = 1 / 255 // one 8-bit step: less is 0, so a cold frame is the identity and the engine skips the pass
 const WCAG = 3 // WCAG 2.3.1: flashes never above this many/s
+// knob: the onset budget of a donor-fed flash (w > 0; S6.fix H2). Donor Hits fire ≈ 3x ours, so the budget sat at its
+// cap, one luma step per onset, and any other step (motion, a fall, the drop flash) made I-FL1's 4th. Ours keeps WCAG.
+const DONOR_WCAG = 2
 
 const unit = (x: number) => (x > 0 ? Math.min(1, x) : 0) // NaN → 0
 const visible = (x: number) => (x >= STEP ? x : 0) // NaN → 0
@@ -38,18 +41,18 @@ const ON = 0.5 // a bool/event binding's on-level (bind.ts level); a float flash
  *  falls below ON. */
 export interface FlashState { prev: number; blocked: boolean }
 
-/** WCAG 2.3.1 for the bound flashes (polish §3): an onset (`y` rising to ON) is allowed while fewer than WCAG of
+/** WCAG 2.3.1 for the bound flashes (polish §3): an onset (`y` rising to ON) is allowed while fewer than `cap` of
  *  `onsets` (the allowed onsets' times, oldest first; one array = one shared budget) lie in the closed window
  *  [`t` − 1, `t`] (s). A refused one holds the last output; between allowed onsets the output never rises, so a
  *  refused flash never leaks later. NaN reads 0.
  *  ponytail: a sub-0.5 swell on a user-bound float is held, then steps at 0.5 (a counted onset); trough-relative
  *  hysteresis if that bites. */
-export function flashGate(y: number, s: FlashState, onsets: number[], t: number): number {
+export function flashGate(y: number, s: FlashState, onsets: number[], t: number, cap = WCAG): number {
   if (!(y >= 0)) y = 0
   if (y < ON) s.blocked = false
   else if (s.prev < ON && !s.blocked) {
     while (onsets.length && onsets[0] < t - 1) onsets.shift()
-    if (onsets.length < WCAG) {
+    if (onsets.length < cap) {
       onsets.push(t)
       return (s.prev = y)
     }
@@ -63,14 +66,15 @@ export interface Chain { b: Binding; state: BindState }
 
 /** One bound input this frame (design rev 2, C1): ours = `evaluate(x.b)`. A SYN input's `donor` (fx/syn.ts donorChain,
  *  its own state) is evaluated on every call, so it is warm at the switch; the two shaped values crossfade by `w`
- *  (0 ours, 1 the donor's). The flash gate runs last, on the mix. At `w` 0 the value is ours, bit for bit. */
+ *  (0 ours, 1 the donor's). The flash gate runs last, on the mix, at DONOR_WCAG while a donor value is in it. At `w` 0
+ *  the value is ours, bit for bit. */
 export function boundStep(x: Chain & { donor?: Chain; flash?: FlashState }, s: Sources, w: number, onsets: number[], dt: number, t: number): number {
   let y = evaluate(x.b, s, x.state, dt)
   if (x.donor) {
     const yd = evaluate(x.donor.b, s, x.donor.state, dt)
     if (w > 0) y += (yd - y) * w
   }
-  return x.flash ? flashGate(y, x.flash, onsets, t) : y
+  return x.flash ? flashGate(y, x.flash, onsets, t, x.donor && w > 0 ? DONOR_WCAG : WCAG) : y
 }
 
 // knob: s, a native's ⚡ hit's rise time constant as drawn: a frame takes 1 - e^(-dt/HOT_RISE) of the step (34 % at
