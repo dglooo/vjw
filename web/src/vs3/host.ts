@@ -278,6 +278,7 @@ export const VS3: readonly ReturnType<typeof vs3>[] = [
   vs3('signal', () => import('./kit/scenes/signal.js'), { palette: 'nocturne', bloomMul: 0.9, aber: 0.6, vignette: 0.12 }),
   vs3('sand', () => import('./kit/scenes/sand.js'), { palette: 'nocturne', bloomMul: 1.5, aber: 1.2, vignette: 0.35 }),
   vs3('chorus', () => import('./kit/scenes/chorus.js'), { palette: 'sodium', bloomMul: 1.2, aber: 1.2, vignette: 0.5 }), // its thumb's amber: the factory preset ★ chorus — choir (main.js:9826)
+  vs3('chorus-hall', () => import('./kit/scenes/chorus.js'), { palette: 'sodium', bloomMul: 1.2, aber: 1.2, vignette: 0.5, pointer: true }), // chorus with the stage pointer (user 2026-11-20: an additional scene, chorus untouched)
   vs3('visage', () => import('./kit/scenes/visage.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 1.4, vignette: 0.5 }),
   vs3('limitless3d', () => import('./kit/scenes/limitless3d.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.35 }),
   vs3('lasers', () => import('./kit/scenes/lasers.js'), { palette: 'vapor', bloomMul: 1, aber: 0, vignette: 0.2 }),

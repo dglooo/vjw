@@ -356,7 +356,7 @@ test('groups (user 2026-11-20): read off the nodes; every built-in in one, the c
     else expect([['ours'], ['vs2']], id).toContainEqual(of(d))
   }
   const count = (g: keyof typeof GROUPS) => BUILTIN.filter(GROUPS[g]).length
-  expect([count('vs3'), count('vs2'), count('camera'), count('mine')]).toEqual([37, 85, 3, 0]) // the donor port: 85 of 87
+  expect([count('vs3'), count('vs2'), count('camera'), count('mine')]).toEqual([38, 85, 3, 0]) // the donor port: 85 of 87
   expect(of(BUILTIN.find((d) => d.id === 'builtin:vs3-limitless')!)).toEqual(['vs3']) // a vs3 filter over our tunnel
   const plain = scene('x').layers[0]
   expect(of(scene('u-1', { layers: [plain, { ...plain, gen: { ref: 'milk/x' } }] }))).toEqual(['milk', 'ours', 'mine'])
