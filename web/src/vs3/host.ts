@@ -109,7 +109,7 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
   let rt = L.fit(null, 16, 16, 1), prev = 0, prevMid = 0, hot = 0, w = 0, h = 0
   await guard('compileAsync', () => (R.setRenderTarget(rt), R.compileAsync(sc.scene, sc.camera)))
   finish ??= fullscreenProgram(FINISH)
-  const bloom = createBloom(gl)
+  const bloom = createBloom(gl, 8, 0.3) // the donor's threshold (luma .3); 8 levels reach its widest mip's ≈ 350 px
   return {
     draw(f: { width: number; height: number; dt: number; time: number }, hit: number, mid: number, src: Readonly<Sources>, input: WebGLTexture | null) {
       if (sc.source) sc.source.sourceTexture = input // a filter's picture: the previous layer
@@ -131,7 +131,9 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
       }, L.RENDER_LIST) // restores the engine's target and viewport
       const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null, keep = glState(gl, PASS_LIST) // GPU3D I-GL2
       const b = sc.bloom, k = b ? ((look.filter ? 0 : b.strength) + s.energy * b.gain + hot * (b.kick ?? 0.35)) * look.bloomMul : 0 // a filter: no resting glow (main.js:15700)
-      const lit = k > 0 ? bloom.apply(texture(rt), f.width, f.height, k) : texture(rt) // binds its own targets
+      // The donor's glow is 9 k² (three r170 UnrealBloomPass: its composite is k × Σ factors (3 at radius .4) × blur, alpha
+      // 3k too, and the additive blend is SRC_ALPHA, ONE on a half-float target, so the colour lands × 3k unclamped)
+      const lit = k > 0 ? bloom.apply(texture(rt), f.width, f.height, 9 * k * k) : texture(rt) // binds its own targets
       gl.bindFramebuffer(gl.FRAMEBUFFER, out)
       gl.viewport(0, 0, f.width, f.height)
       finish!({ uSrc: lit, uRes: [f.width, f.height], uAber: look.aber * (0.22 + hot), uVig: look.vignette, uFaithful: look.filter ? 1 : 0 })
