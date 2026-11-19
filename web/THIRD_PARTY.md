@@ -411,6 +411,7 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/locus.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/locus.js | used with permission (2026-11-19) |
 | `scenes/vesica.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/vesica.js | used with permission (2026-11-19) |
 | `lib/vesica-geometry.js` | the friends' engine | donor/vs3/visual_kit/src/lib/vesica-geometry.js | used with permission (2026-11-19) |
+| `scenes/grove.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/grove.js | used with permission (2026-11-19) |
 | `scenes/limitless.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/limitless.js (the DOM-canvas default photo stripped: a filter of our layer) | used with permission (2026-11-19) |
 | `lib/kick-rise.js` | the friends' engine | donor/vs3/visual_kit/src/lib/kick-rise.js | used with permission (2026-11-19) |
 

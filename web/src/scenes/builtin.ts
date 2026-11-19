@@ -1922,7 +1922,13 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-vesica', name: 'vs3 Vesica', star: false,
     layers: [{ gen: { ref: 'native/vs3-vesica', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
-  // limitless (row 43): a filter, here over the tunnel (the filters' demo source); melt, its default mode: the picture
+  // grove (row 226: persist .3 left out): an instanced fractal forest walk (float + RGBA8 data textures, anisotropy 8);
+  // the mouse look is dead (scenePointer stub), the hat sparkle waits for onHigh.
+  {
+    v: 1, id: 'builtin:vs3-grove', name: 'vs3 Grove', star: false,
+    layers: [{ gen: { ref: 'native/vs3-grove', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // limitless (row 170): a filter, here over the tunnel (the filters' demo source); melt, its default mode: the picture
   // flows away and every kick stamps it back. persist .85 + zoom 1.06/s = own/feedback-zoom (as synapse's 1.06).
   // fxWet (= tilt, 1) and kickAttack (80 ms) have no equivalent: our kick rises over heatStep's 40 ms.
   {
