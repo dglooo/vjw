@@ -381,3 +381,4 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/pearl.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/pearl.js | used with permission (2026-11-19) |
 | `scenes/spiral.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/spiral.js | used with permission (2026-11-19) |
 | `lib/recursive-flight.js` | the friends' engine | donor/vs3/visual_kit/src/lib/recursive-flight.js (chooseSplit() also runs at creation) | used with permission (2026-11-19) |
+| `scenes/fluid.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/fluid.js | used with permission (2026-11-19) |

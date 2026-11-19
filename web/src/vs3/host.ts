@@ -21,7 +21,7 @@ import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
 
 /** The donor `s` fields the ported scenes read (research §1). Add a field when a ported scene reads it (guide § Signal). */
-export interface Signal { onKick: number; kick: number; sub: number; mids: number; highs: number; energy: number }
+export interface Signal { onKick: number; onMid: number; onHigh: number; kick: number; sub: number; mids: number; highs: number; air: number; energy: number }
 /** Our sources → the donor `s` (research §4): the levels from the donor-mode core's bands (the closest edges; it runs in
  *  every mode), the kick from `hit` (the ⚡ input, bound to our kick), onKick on its rise × our kickAccent (the kick's
  *  velocity: .7 at the kicks' mean, 1 for a loud one; `hit` when there is none). */
@@ -32,6 +32,11 @@ export function signal(src: Readonly<Sources>, hit: number, prev: number, out: S
   out.mids = src.syn_MidLevel ?? 0 // 250-2000 Hz (donor: 240-960)
   out.highs = src.syn_MidHighLevel ?? 0 // 2-6 kHz (donor: 1.9-3.8 k)
   out.energy = src.syn_Level ?? 0 // 30-16 kHz (donor: band energy × loudness)
+  out.air = src.syn_HighLevel ?? 0 // 6-16 kHz (donor: the 7.7 kHz octave); forge's glint
+  // ponytail: no snare/hat impulse yet. They add light (pelt/wisp/grove's sparkle, fluid's hat splat, vesica's accents),
+  // so they need a flash-gated input (guide § 6), and a second gated input spends the kick's ≤ 3/s budget. Upgrade:
+  // gated `mid`/`high` inputs bound to snare/hats, their rises here.
+  out.onMid = out.onHigh = 0
   return out
 }
 
@@ -165,4 +170,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('crystal', () => import('./kit/scenes/crystal.js'), { palette: 'nocturne', bloomMul: 0.8, aber: 0, vignette: 0.2 }),
   vs3('pearl', () => import('./kit/scenes/pearl.js'), { palette: 'nocturne', bloomMul: 0.8, aber: 0, vignette: 0.2 }),
   vs3('spiral', () => import('./kit/scenes/spiral.js'), { palette: 'nocturne', bloomMul: 0.8, aber: 0, vignette: 0.2 }),
+  vs3('fluid', () => import('./kit/scenes/fluid.js'), { palette: 'nocturne', bloomMul: 1.3, aber: 1.4, vignette: 0.3 }),
 ]

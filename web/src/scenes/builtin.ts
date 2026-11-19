@@ -1795,6 +1795,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-spiral', name: 'vs3 Spiral', star: false,
     layers: [{ gen: { ref: 'native/vs3-spiral', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // fluid (row 172: persist .4 left out): a Navier-Stokes dye sim + a 262 k point cloud; its hat splat waits for onHigh.
+  {
+    v: 1, id: 'builtin:vs3-fluid', name: 'vs3 Fluid', star: false,
+    layers: [{ gen: { ref: 'native/vs3-fluid', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
