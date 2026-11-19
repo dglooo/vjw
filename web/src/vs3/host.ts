@@ -11,12 +11,14 @@
 // ShaderMaterial writes display values (no colorspace chunk; PAL holds three's linear-converted hex, as in the donor),
 // so the finish is the only grade: no ACES, no sRGB (unlike native/model). The rest of the donor post chain is the
 // built-in's fx (scenes/builtin.ts VS3). Light on a hit only through ⚡ `hit` (flashGate ≤ 3/s, I-FL1): it is the
-// donor `kick`, its rise the donor `onKick`, the bloom's kick term and the finish's kick aberration. A scene that reads
-// onMid / onHigh gets a second ⚡ `mid` (look.mid): its rise is both.
+// donor `kick` (drawn with the natives' rise slew, gl/post.ts heatStep: synapse's kick swell made 19 one-frame luma
+// steps > .10 in 15 s without it, 0 with it), its rise the donor `onKick`, the bloom's kick term and the finish's kick
+// aberration. A scene that reads onMid / onHigh gets a second ⚡ `mid` (look.mid): its rise is both.
 import type { Sources } from '../bind'
 import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, gl as stageGl } from '../gl/engine'
 import { glState, PASS_LIST, restore } from '../gl/glstate'
+import { heatStep } from '../gl/post'
 import type { NativeDef } from '../gl/scene'
 import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
@@ -89,13 +91,14 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
   const pal = L.PRESETS.find((p) => p.name === look.palette)!.colors.map((c) => new L.Color(c))
   const made = new Set<{ dispose(): void }>()
   const s = {} as Signal
-  let rt = L.fit(null, 16, 16, 1), prev = 0, prevMid = 0, w = 0, h = 0
+  let rt = L.fit(null, 16, 16, 1), prev = 0, prevMid = 0, hot = 0, w = 0, h = 0
   await guard('compileAsync', () => (R.setRenderTarget(rt), R.compileAsync(sc.scene, sc.camera)))
   finish ??= fullscreenProgram(FINISH)
   const bloom = createBloom(gl)
   return {
     draw(f: { width: number; height: number; dt: number; time: number }, hit: number, mid: number, src: Readonly<Sources>) {
       signal(src, hit, prev, s, mid, prevMid)
+      s.kick = hot = heatStep(hot, hit, f.dt) // the kick as drawn (I-FL1); onKick stays on the raw rise
       prev = hit
       prevMid = mid
       guard('render', () => {
@@ -110,11 +113,11 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
         })
       }, L.RENDER_LIST) // restores the engine's target and viewport
       const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null, keep = glState(gl, PASS_LIST) // GPU3D I-GL2
-      const b = sc.bloom, k = b ? (b.strength + s.energy * b.gain + hit * (b.kick ?? 0.35)) * look.bloomMul : 0
+      const b = sc.bloom, k = b ? (b.strength + s.energy * b.gain + hot * (b.kick ?? 0.35)) * look.bloomMul : 0
       const lit = k > 0 ? bloom.apply(texture(rt), f.width, f.height, k) : texture(rt) // binds its own targets
       gl.bindFramebuffer(gl.FRAMEBUFFER, out)
       gl.viewport(0, 0, f.width, f.height)
-      finish!({ uSrc: lit, uRes: [f.width, f.height], uAber: look.aber * (0.22 + hit), uVig: look.vignette })
+      finish!({ uSrc: lit, uRes: [f.width, f.height], uAber: look.aber * (0.22 + hot), uVig: look.vignette })
       restore(gl, keep)
     },
     dispose() {

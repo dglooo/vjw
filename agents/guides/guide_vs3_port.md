@@ -44,6 +44,7 @@ Mirror before feedback (the donor mirrors the trails too).
 
 ## 6 Flash safety (I-FL1)
 - Every kick-driven light term in the scene reads `s.kick` / `s.onKick`: both come from the gated ⚡ `hit`. The host's bloom kick term and the finish's kick aberration use `hit` too.
+- `s.kick` is drawn with the natives' rise slew (`gl/post.ts heatStep`, 40 ms), so an allowed kick's light never lands in one frame. A scene with a big kick light (synapse's core swell): count its luma steps (`scratchpad/vs3/flash.mjs`, H2's counter).
 - A new field that adds light on a hit (onMid, onHigh) must come from a flash-gated input, never a raw source. The app-wide gate (`gl/post.ts`, ≤ 3/s) stays last.
 
 ## 7 Check
