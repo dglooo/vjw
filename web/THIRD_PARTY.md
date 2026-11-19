@@ -383,6 +383,7 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/flow.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/flow.js | used with permission (2026-11-19) |
 | `scenes/fract.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/fract.js | used with permission (2026-11-19) |
 | `scenes/signal.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/signal.js | used with permission (2026-11-19) |
+| `scenes/sand.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/sand.js | used with permission (2026-11-19) |
 | `lib/common.js` | the friends' engine | donor/vs3/visual_kit/src/lib/common.js (window listeners stripped) | used with permission (2026-11-19) |
 | `lib/context.js` | the friends' engine | donor/vs3/visual_kit/src/lib/context.js | used with permission (2026-11-19) |
 | `lib/descent-motion.js` | the friends' engine | donor/vs3/visual_kit/src/lib/descent-motion.js | used with permission (2026-11-19) |

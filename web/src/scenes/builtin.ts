@@ -1844,6 +1844,12 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-signal', name: 'vs3 Signal', star: false,
     layers: [{ gen: { ref: 'native/vs3-signal', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // sand (row 183: persist .3 left out): its partials from s.specHi = our 32 bands stretched (the donor floor .30 and AGC are
+  // missing, so its PEAK_FLOOR .36 may pick few figures); its onMid accents are off (no ⚡ mid).
+  {
+    v: 1, id: 'builtin:vs3-sand', name: 'vs3 Sand', star: false,
+    layers: [{ gen: { ref: 'native/vs3-sand', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
