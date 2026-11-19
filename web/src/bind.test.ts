@@ -73,9 +73,15 @@ describe('sources', () => {
     const g = { beat: 0, bpm: 0, confidence: 0, kick: false, fired: false, build: 0, peakDb: -60, silent: false }
     createDonor(48000, 1024).update(new Float32Array(512).fill(-60), new Float32Array(1024), 1 / 60, g, out) // the donor core: app.ts runs it every frame (S1.4)
     expect(Object.keys(out).sort()).toEqual([...SOURCE_IDS, 'syn_BeatTime', 'syn_BPMTwitcher', 'syn_BPM', 'syn_BPMConfidence', 'syn_PrimeAndBang'].sort()) // + its 5 unlisted keys (PA1)
-    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 7 + 3 + 1 + 31) // bass 5 → 7 (subBody, reeseBody: P1), arrangement 2 → 3 (energy: P2), + 31 donor ids (design L109–114)
+    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 7 + 3 + 1 + 31 + 1) // bass 5 → 7 (subBody, reeseBody: P1), arrangement 2 → 3 (energy: P2), + 31 donor ids (design L109–114), + kickAccent (S5.1: P4, spec R5)
     for (const k of SOURCE_IDS) expect(Number.isFinite(out[k]), k).toBe(true)
   })
+})
+
+test('T3c: no binding in web/src/scenes or web/src/fx names kickAccent (P4 stays unbound)', () => {
+  const files = import.meta.glob<string>(['./scenes/**/*', './fx/**/*'], { query: '?raw', import: 'default', eager: true })
+  expect(Object.keys(files).length).toBeGreaterThan(200) // the glob sees the tree (213 files at S5.1)
+  expect(Object.keys(files).filter((p) => files[p].includes('kickAccent'))).toEqual([])
 })
 
 describe('sourceGroups (the Scene tab select optgroups, S6.3)', () => {

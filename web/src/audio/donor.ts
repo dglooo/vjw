@@ -1,7 +1,7 @@
-// Donor-mode analyser core (plan_audio_donor_mode S1.1–S1.3; dsp_donor_mode_2026-11-18 §A1, gaps G1 + G4). Pure, so
-// Vitest runs it in Node. Ported from our own prototype `scratchpad/dsp-donor/donor-model.ts` with its options fixed (hold
-// 'music', holdAcc, edge 25 ms, Bass 30–150 Hz, flux 'sub' 30 ms, z 2.25). Every constant is ours: inferred and tuned on
-// 3 tracks, none is donor code.
+// Donor-mode analyser core (plan_audio_donor_mode S1.1–S1.3; dsp_donor_mode_2026-11-18 §A1, gaps G1 + G4), plus our
+// detector's `kickAccent` (S5.1, P4, gaps G3). Pure, so Vitest runs it in Node. Ported from our own prototype
+// `scratchpad/dsp-donor/donor-model.ts` with its options fixed (hold 'music', holdAcc, edge 25 ms, Bass 30–150 Hz, flux
+// 'sub' 30 ms, z 2.25). Every constant is ours: inferred and tuned on 3 tracks, none is donor code.
 import type { SourceGroup, Sources } from '../bind'
 
 /** One frame's inputs from app.ts (CP1 contract): our grid (`beat`, `bpm`, `confidence`), our kick, the arrangement's
@@ -36,6 +36,9 @@ const MAX_DT = 0.1 // s: a long frame (a hidden tab) steps like this one
 const ONBEAT_TAU = 0.1 // s
 const TWITCH_TAU = 0.05 // s: BPMTwitcher's rise to the new count
 const KICK_GAP = 0.25 // s: with no grid, our kick is a beat this long after the last one at the earliest
+const ACCENT = 0.7 // kickAccent of a kick at the kicks' running mean dB; 1 (the clamp) from +3.1 dB (gaps G3)
+const ACCENT_N = 8 // kicks: the running mean's EMA step is 1 / 8
+const KICK_TAU = 0.12 // s: our kick's decay (features.ts TAU.kick), so kickAccent falls like the kick tile
 
 const ema = (dt: number, tau: number) => 1 - Math.exp(-dt / tau)
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
@@ -82,11 +85,13 @@ export const mixStep = (mix: number, target: number, dt: number) => clamp(mix + 
 export function createDonor(sampleRate: number, fftSize: number, seed = 1): Donor {
   const bin = (hz: number) => Math.min(fftSize / 2 - 1, Math.max(1, Math.round((hz * fftSize) / sampleRate)))
   const B = BANDS.map(([name, lo, hi, tau]) => ({
-    lo: bin(lo), hi: bin(hi), s10: stats(SHORT), s60: stats(LONG), sf: stats(FLUX), lvl: 0, n60: 0.5, pres: 0.5,
+    lo: bin(lo), hi: bin(hi), s10: stats(SHORT), s60: stats(LONG), sf: stats(FLUX), lvl: 0, n60: 0.5, pres: 0.5, db: -120,
     tau, prev: NaN, z: 0, hit: 0, level: `syn_${name}Level`, presence: `syn_${name}Presence`, hits: `syn_${name}Hits`,
   }))
   const [bass, high] = [B[1], B[4]]
   let [t, edgeT, wasSilent, int, fade, expo, bangAge, lastTick, tickDt] = [0, -Infinity, true, 0.5, 1, 0, Infinity, -Infinity, 0]
+  let [accent, lastBassDb] = [0, -120] // P4: kickAccent, and the Bass dB of the frame before
+  let accentMu: number | undefined // P4: the kicks' running mean dB, from the first kick's L
   // the beat family: `age` s since the last beat, `lastN` the grid's last integer (NaN: no grid last frame), `bpm` held
   let [beats, age, lastN, bpm, phase, tog, togFrom, togTo, rnd, rndFrom, rndTo] = [0, Infinity, NaN, 120, 0, 0, 0, 0, 0, 0, 0]
   const rand = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32 // the seeded LCG, [0, 1)
@@ -101,8 +106,8 @@ export function createDonor(sampleRate: number, fftSize: number, seed = 1): Dono
     seedBeat(n: number) {
       beats = n
     },
-    /** Writes the 36 keys into `out` (the 31 `DONOR_GROUPS` ids, BPMConfidence and PrimeAndBang 0..1; BeatTime,
-     *  BPMTwitcher and BPM counts) and rebuilds `spectrum`; allocates nothing. */
+    /** Writes the 37 keys into `out` (the 31 `DONOR_GROUPS` ids, BPMConfidence and PrimeAndBang 0..1; BeatTime,
+     *  BPMTwitcher and BPM counts; our detector's `kickAccent` 0..1, P4) and rebuilds `spectrum`; allocates nothing. */
     update(magDb: Float32Array, wave: Float32Array, dt: number, g: DonorIn, out: Sources): void {
       dt = Math.min(MAX_DT, Math.max(0, dt))
       t += dt
@@ -119,6 +124,7 @@ export function createDonor(sampleRate: number, fftSize: number, seed = 1): Dono
         let p = 0
         for (let i = b.lo; i <= b.hi; i++) p += 10 ** (magDb[i] / 10)
         const db = 10 * Math.log10(p / (b.hi - b.lo + 1) + 1e-12) // the mean bin power, ≥ −120 dB
+        b.db = db
         if (!held) {
           b.s10.add(db, dt)
           b.s60.add(db, dt)
@@ -149,6 +155,20 @@ export function createDonor(sampleRate: number, fftSize: number, seed = 1): Dono
         hits = Math.max(hits, b.hit)
       }
       out.syn_Hits = hits
+
+      // P4 (gaps G3): kickAccent, our kick's loudness. At our kick, L = the louder of this frame's and the last frame's
+      // Bass dB (bins 1–3 at 1024 / 48 kHz; the mean bin power, not the sum: the offset cancels in L − μ). A kick at the
+      // kicks' running mean μ reads .7, then μ moves 1/8 of the way to L. Between kicks it falls like `kick`; 0 before one.
+      accent *= Math.exp(-dt / KICK_TAU)
+      if (g.kick) {
+        const L = Math.max(bass.db, lastBassDb)
+        accentMu ??= L
+        accent = Math.min(1, ACCENT * 10 ** ((L - accentMu) / 20))
+        accentMu += (L - accentMu) / ACCENT_N
+      }
+      lastBassDb = bass.db
+      out.kickAccent = accent
+
       if (!held) int = intensityStep(int, bass.n60, high.n60, dt)
       fade += ((g.silent ? 0 : 1) - fade) * ema(dt, g.silent ? FADE_FALL : FADE_RISE)
       expo = clamp(expo + (bass.n60 > 0.55 ? dt / 4 : -dt)) // sustained bass charges it in 4 s, its absence drains it in 1 s
