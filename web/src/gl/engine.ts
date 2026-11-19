@@ -103,8 +103,12 @@ const audioBytes = new Uint8ClampedArray(2 * BINS) // row 0 FFT, row 1 waveform:
 const waveLrBytes = new Uint8ClampedArray(2 * BINS) // row 0 L, row 1 R: the waveLR texture (S0.2)
 const r8 = (rows: number) => createTexture(gl, { width: BINS, height: rows, internalFormat: gl.R8, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE, auto: false })
 /** Audio as R8 textures (design E3): `fft` and `wave` 512×1 for ISF audioFFT/audio, `toy` 512×2 (rows FFT, waveform)
- *  for Shadertoy's iChannel0 ⚠️ G5, `waveLR` 512×2 (row 0 L, row 1 R) for the CP2 scope (S0.2). */
-export const audioTex = { fft: r8(1), wave: r8(1), toy: r8(2), waveLR: r8(2) }
+ *  for Shadertoy's iChannel0 ⚠️ G5, `waveLR` 512×2 (row 0 L, row 1 R) for the CP2 scope (S0.2). `donor` 512×1 RGBA8:
+ *  the donor core's Spectrum (audio/donor.ts, setDonorSpectrum), a ShaderDef's 'spectrum' texture. */
+export const audioTex = {
+  fft: r8(1), wave: r8(1), toy: r8(2), waveLR: r8(2),
+  donor: createTexture(gl, { width: BINS, height: 1, internalFormat: gl.RGBA8, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE, auto: false }),
+}
 function upload(tex: WebGLTexture, rows: number, offset: number, bytes: Uint8ClampedArray = audioBytes) {
   gl.bindTexture(gl.TEXTURE_2D, tex)
   gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, BINS, rows, gl.RED, gl.UNSIGNED_BYTE, bytes, offset)
@@ -121,6 +125,11 @@ export function setAudio(magDb: Float32Array, wave: Float32Array, waveL: Float32
   upload(audioTex.wave, 1, BINS)
   upload(audioTex.toy, 2, 0)
   upload(audioTex.waveLR, 2, 0, waveLrBytes)
+}
+/** The donor core's `spectrum` (512 texels × r g b a, audio/donor.ts) into audioTex.donor: one upload. */
+export function setDonorSpectrum(bytes: Uint8Array) {
+  gl.bindTexture(gl.TEXTURE_2D, audioTex.donor)
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, BINS, 1, gl.RGBA, gl.UNSIGNED_BYTE, bytes)
 }
 
 let fade!: { info: ProgramInfo; u: Record<string, unknown> } // app.ts sets the first one at boot

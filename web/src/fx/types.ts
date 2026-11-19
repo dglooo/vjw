@@ -27,7 +27,8 @@ export interface ShaderDef extends EffectDef {
   glsl: 100 | 300; vs: string; fs: string; passes: readonly PassDef[]; unsupported?: string
   clocks?: readonly Clock[]; raws?: readonly (readonly [uniform: string, read: (f: FrameInput, s: Sources) => number])[]
   /** A synScene's samplers besides its TARGETs, bound by live.ts: an IMAGES file's URL (black until it loads), 'audio'
-   *  (the toy texture: row 0 FFT, row 1 waveform), 'black' (the media stub) or 'trail' (syn_LevelTrail: the node's own
-   *  level history, fx/syn.ts pushTrail). */
-  textures?: Readonly<Record<string, 'audio' | 'black' | 'trail' | `/${string}`>>
+   *  (the toy texture: row 0 FFT, row 1 waveform), 'black' (the media stub), 'trail' (syn_LevelTrail: the node's own
+   *  level history, fx/syn.ts pushTrail) or 'spectrum' (the donor core's Spectrum, engine audioTex.donor; its node also
+   *  gets the uniform `_synMix`, the donor mix, each frame). */
+  textures?: Readonly<Record<string, 'audio' | 'black' | 'trail' | 'spectrum' | `/${string}`>>
 }

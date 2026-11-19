@@ -389,7 +389,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Depends on:** S2.3 (`synValue` feeds the raw), S1.5 (`syn_PrimeBang` is in `SOURCE_IDS`; `fx/syn.test.ts:232` and `doc.test.ts:20` check it).
 
 
-### S3.1 [ ] Donor Spectrum texture: plumbing
+### S3.1 [x] Donor Spectrum texture: plumbing
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** the GL side of the donor Spectrum exists. No scene uses it yet.
 - **Files:** `web/src/gl/engine.ts`, `web/src/fx/types.ts`, `web/src/gl/live.ts`.
@@ -400,6 +400,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Tests:** none (GL only). The typecheck is the check.
 - **Done-check:** GATES. The app boots with no GL error in the console.
 - **Depends on:** S2.2 (`w`).
+- **Changed during implementation:** none in behaviour. `node()` seeds `u._synMix = 0` for a `'spectrum'` texture, and `run()` writes `w` into it while that key exists (a tile: 0). The texture exists in every mode (2 KB at boot); no code uploads to it before S3.2. The browser check went beyond the done-check (`s31-check.mjs`, ours and forced donor): no console error, `gl.getError()` 0, the texture reads back byte for byte after `setDonorSpectrum`, and a probe def with the kind draws bytes × `w` at `w` 0, .5 and 1 (max error 0). Two mutants fail it (no `_synMix` write; the kind bound to black: 255 at `w` 1). The ours-mode replay (the H9b method and trace; alien-cavern, deeper, glob, audio-indicators) against the base `57462c6`: 0 differing bytes; the control pair is 0.
 
 ### S3.2 [ ] Donor Spectrum: the shader mix and the upload
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
