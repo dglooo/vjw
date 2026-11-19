@@ -5,11 +5,12 @@ import { createDonor, mixStep, type DonorIn } from './audio/donor'
 import { BAND_COUNT, createEnergy, rms } from './audio/energy'
 import { createFeatures } from './audio/features'
 import { meter } from './audio/meter' // the HUD's input meter (dsp_linein_2026-11-16 fix 5): fed here, read live by the overlay
-import { analyser, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, inputLatency, odfQueue, onsetQueue, player, recDest, togglePlay } from './audio/input'
+import { analyser, analyser2k, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, inputLatency, odfQueue, onsetQueue, player, recDest, togglePlay } from './audio/input'
 import { PRESETS, snapOctave, type Band, type PresetId } from './audio/presets'
 import { activePreset, bandKey, createSettings, workletBands } from './audio/settings'
 import { createSync, ZERO_SYNC } from './audio/sync'
 import { createTempoSource } from './audio/tempo'
+import { createVs3, vs3Live } from './audio/vs3'
 import { createStyle, styleIn, type StyleOut } from './audio/style'
 import { type Hit } from './audio/drums'
 import { createRemap, gain, restyle, sources, type Sources } from './bind'
@@ -235,6 +236,8 @@ const donor = createDonor(ctx.sampleRate, analyser.fftSize)
 const donorIn: DonorIn = { beat: 0, bpm: 0, confidence: 0, kick: false, fired: false, build: 0, peakDb: -Infinity, silent: true } // refilled per frame
 let donorMix = settings.get().analyser === 'donor' ? 1 : 0 // a stored donor mode starts at full mix
 let donorTarget = donorMix // the previous frame's target: a 0 → 1 turn seeds the core's beat count
+const vs3 = createVs3(ctx.sampleRate, analyser2k.fftSize) // the vs3 core (audio/vs3.ts), warm in every mode like the donor's
+const mag2k = new Float32Array(analyser2k.frequencyBinCount) // its bins, dB
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
 if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets }) // ?debug: the live binding sources, settings and the flash budget's onsets, for DevTools and browser checks
 // plan_camera CP1 (S1.2b): the camera's harness hooks — mask users, SegmentWorker constructions, frames posted to a
@@ -440,6 +443,9 @@ function frame(now: number) {
   donorIn.peakDb = meter.db
   donorIn.silent = frameRms <= SILENT_RMS
   donor.update(magDb, wave, f.dt, donorIn, src)
+  analyser2k.getFloatFrequencyData(mag2k)
+  vs3.update(mag2k, f.dt)
+  vs3Live.s = st.analyser === 'vs3' ? vs3.out : null // the vs3 scenes hear it (vs3/host.ts, gl/engine.ts); the rest as ours
   src.donorMix = donorMix = mixStep(donorMix, donorOn, f.dt)
   if (donorMix > 0) setDonorSpectrum(donor.spectrum) // S3.2: syn_Spectrum's donor half at this frame's mix; ours uploads nothing
   f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)

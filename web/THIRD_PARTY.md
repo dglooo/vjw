@@ -414,6 +414,7 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/grove.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/grove.js | used with permission (2026-11-19) |
 | `scenes/limitless.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/limitless.js (the DOM-canvas default photo stripped: a filter of our layer) | used with permission (2026-11-19) |
 | `lib/kick-rise.js` | the friends' engine | donor/vs3/visual_kit/src/lib/kick-rise.js | used with permission (2026-11-19) |
+| `src/audio/vs3.ts` (the vs3 analyser core, analyser 'vs3'; TypeScript, outside the kit) | the friends' engine | donor/vs3/visual_kit/src/core/analyzer.js (Env, OnsetDet, step()'s maths) + src/feed/webaudio-feeder.js (_bands, _spec), ported: state per instance, the defaults fixed, fed by our analyser | used with permission (2026-11-19) |
 
 The scenes' binary assets, `public/vs3/`, copied from `donor/vs3/visual_kit/public/vendor/` with each folder's `LICENSE.txt`:
 

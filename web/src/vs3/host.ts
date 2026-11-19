@@ -13,7 +13,10 @@
 // built-in's fx (scenes/builtin.ts VS3). Light on a hit only through ⚡ `hit` (flashGate ≤ 3/s, I-FL1): it is the
 // donor `kick` (drawn with the natives' rise slew, gl/post.ts heatStep: synapse's kick swell made 19 one-frame luma
 // steps > .10 in 15 s without it, 0 with it), its rise the donor `onKick`, the bloom's kick term and the finish's kick
-// aberration. A scene that reads onMid / onHigh gets a second ⚡ `mid` (look.mid): its rise is both.
+// aberration. A scene that reads onMid / onHigh gets a second ⚡ `mid` (look.mid): its rise is both. Analyser 'vs3': the
+// levels and specHi come from the vs3 core (audio/vs3.ts vs3Live), and gl/engine.ts's hear() binds ⚡ hit / mid to its
+// kick and onMid, so its light passes the same gate.
+import { vs3Live, type Vs3Out } from '../audio/vs3'
 import type { Sources } from '../bind'
 import { createBloom } from '../gl/bloom'
 import { copy, fullscreenProgram, gl as stageGl } from '../gl/engine'
@@ -24,21 +27,33 @@ import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
 
 /** The donor `s` fields the ported scenes read (research §1). Add a field when a ported scene reads it (guide § Signal). */
-export interface Signal { onKick: number; kick: number; onMid: number; onHigh: number; sub: number; mids: number; highs: number; air: number; energy: number; specHi: Float32Array }
+export interface Signal { onKick: number; kick: number; onMid: number; onHigh: number; sub: number; mids: number; highs: number; air: number; energy: number; specHi: Float32Array; bands?: Float32Array }
 /** Our sources → the donor `s` (research §4): the levels from the donor-mode core's bands (the closest edges; it runs in
  *  every mode), the kick from `hit` (the ⚡ input, bound to our kick), onKick on its rise × our kickAccent (the kick's
  *  velocity: .7 at the kicks' mean, 1 for a loud one; `hit` when there is none). onMid and onHigh: both on the rise of
  *  `mid` (the second ⚡ input, bound to our snare). One gated input for the two: they add light (synapse's nodes, anemone's
- *  sparkle), and hats at their own rate would spend the whole 3/s flash budget, the kick's share too. */
-export function signal(src: Readonly<Sources>, hit: number, prev: number, out: Signal, mid = 0, prevMid = 0): Signal {
+ *  sparkle), and hats at their own rate would spend the whole 3/s flash budget, the kick's share too. `v` (analyser 'vs3'):
+ *  the levels and bands are the vs3 core's own, and onKick is the gated hit's rise at its value (`hit` and `mid` then
+ *  follow the core's kick and onMid: gl/engine.ts hear()). */
+export function signal(src: Readonly<Sources>, hit: number, prev: number, out: Signal, mid = 0, prevMid = 0, v: Vs3Out | null = null): Signal {
   out.kick = hit
-  out.onKick = rose(prev, hit) ? src.kickAccent || hit : 0
+  out.onKick = rose(prev, hit) ? (v ? hit : src.kickAccent || hit) : 0
   out.onMid = out.onHigh = rose(prevMid, mid) ? mid : 0
+  if (v) {
+    out.sub = v.sub
+    out.mids = v.mids
+    out.highs = v.highs
+    out.air = v.air
+    out.energy = v.energy
+    out.bands = v.bands
+    return out
+  }
   out.sub = src.syn_BassLevel ?? 0 // 30-150 Hz (donor: the 60 Hz octave)
   out.mids = src.syn_MidLevel ?? 0 // 250-2000 Hz (donor: 240-960)
   out.highs = src.syn_MidHighLevel ?? 0 // 2-6 kHz (donor: 1.9-3.8 k)
   out.air = src.syn_HighLevel ?? 0 // 6-16 kHz (donor: the 7.7 kHz octave)
   out.energy = src.syn_Level ?? 0 // 30-16 kHz (donor: band energy × loudness)
+  out.bands = undefined // ours has no octave bands (a switch back from vs3 drops its)
   return out
 }
 
@@ -113,11 +128,13 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
   return {
     draw(f: { width: number; height: number; dt: number; time: number }, hit: number, mid: number, src: Readonly<Sources>, input: WebGLTexture | null) {
       if (sc.source) sc.source.sourceTexture = input // a filter's picture: the previous layer
-      signal(src, hit, prev, s, mid, prevMid)
+      const v = vs3Live.s // analyser 'vs3': the core's levels and spectrum
+      signal(src, hit, prev, s, mid, prevMid, v)
       s.kick = hot = heatStep(hot, hit, f.dt) // the kick as drawn (I-FL1); onKick stays on the raw rise
       prev = hit
       prevMid = mid
-      specHi(src, s.specHi)
+      if (v) s.specHi.set(v.specHi)
+      else specHi(src, s.specHi)
       guard('render', () => {
         rt = L.fit(rt, f.width, f.height, 1)
         if (f.width !== w || f.height !== h) sc.resize?.((w = f.width), (h = f.height)) // px, not the donor's CSS px: the scenes read the aspect
