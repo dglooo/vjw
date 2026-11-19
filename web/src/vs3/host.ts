@@ -163,11 +163,15 @@ export function put(P: Record<string, unknown>, ps: readonly Input[], v: Readonl
  *  frame, shown as the original shows a dropped clip (its faithful path, main.js:2397): no grade, no resting bloom.
  *  `pointer`: the scene reads the stage's pointer (feed()); opt-in per native, the rest keep the dead stub. */
 export interface Look { palette: string; bloomMul: number; aber: number; vignette: number; mid?: true; filter?: true; pointer?: true }
+/** The donor palettes by index, as kit/lib/palette.js PRESETS (append-only there; host.test.ts checks the two agree):
+ *  the `palette` select of every vs3 native, its default the look's. Static, as the panel reads it before the load. */
+export const PALETTES = ['nocturne', 'ember', 'glacial', 'orchid', 'moss', 'sodium', 'pearl', 'cobalt', 'reef', 'vapor', 'oxide', 'aurora', 'velvet', 'acid', 'neon', 'mirage', 'canyon', 'adobe', 'sage', 'umber', 'prism', 'carnival', 'candy', 'tropic']
 
 /** One scene's frame loop on its own RT; resolves once its programs compiled (rule 5: no compile on a visible frame). */
 async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, ps: readonly Input[]) {
   const { R, guard, texture } = L
-  const pal = L.PRESETS.find((p) => p.name === look.palette)!.colors.map((c) => new L.Color(c))
+  const colors = (i: number) => L.PRESETS[i].colors.map((c) => new L.Color(c))
+  let palIx = PALETTES.indexOf(look.palette), pal = colors(palIx)
   const made = new Set<{ dispose(): void }>()
   const s = { specHi: new Float32Array(192) } as Signal
   const P = sc.params ?? {}
@@ -179,6 +183,8 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
     draw(f: { width: number; height: number; dt: number; time: number }, vals: Readonly<Record<string, Value>>, src: Readonly<Sources>, input: WebGLTexture | null) {
       const hit = vals.hit as number, mid = (vals.mid as number | undefined) ?? 0
       put(P, ps, vals)
+      const pi = vals.palette as number
+      if (pi !== palIx && L.PRESETS[pi]) pal = colors((palIx = pi)) // the select (a preset) switched it: at once, as a cut
       Object.assign(L.scenePointer, look.pointer ? live : DEAD) // one shared object: this scene's view of it for its update
       if (sc.source) sc.source.sourceTexture = input // a filter's picture: the previous layer
       const v = vs3Live.s // analyser 'vs3': the core's levels and spectrum
@@ -228,7 +234,9 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
   const ps = (PARAMS as Record<string, Input[] | undefined>)[name] ?? [] // its panel rows, static: bindings and the panel read them before the lazy load
   return {
     id: `native/vs3-${name}`, name: `vs3 ${name}`, kind: look.filter ? 'filter' : 'generator', credit: "vs3: the friends' three.js engine, used with permission; three.js r187 (MIT)",
-    inputs: [...flash.map((n): Input => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), ...ps], // ⚡ the donor kick (+ onMid / onHigh): all a hit lights through; the rows are plain sliders, never auto-bound
+    // ⚡ the donor kick (+ onMid / onHigh): all a hit lights through; the palette, never bound (a swap per beat would
+    // strobe the whole picture); the rows: plain sliders, never auto-bound
+    inputs: [...flash.map((n): Input => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), { name: 'palette', type: 'long', values: PALETTES.map((_, i) => i), labels: PALETTES, default: PALETTES.indexOf(look.palette), bindable: false }, ...ps],
     flash,
     load,
     warm: () => ready(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden
