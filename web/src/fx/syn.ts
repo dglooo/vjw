@@ -96,7 +96,8 @@ export const SYN: Readonly<Record<string, Syn>> = {
   syn_FinalPass: { target: true },
   // The donor's 1D FFT texture (research §4): .r the raw FFT, .g the FFT, .b a smoothed ("juiced") one, .a the waveform.
   // Ours: the toy texture (row 0 FFT, row 1 waveform) through _synSpectrum below; r = g = b = our one FFT (the analyser
-  // runs unsmoothed: ⚠️ no raw/juiced split, no smoothing), a = the waveform.
+  // runs unsmoothed: ⚠️ no raw/juiced split, no smoothing), a = the waveform. Donor mode: the donor core's own r g b a
+  // (parseSyn adds the 'spectrum' texture _synSpectrumDonor; _synSpectrum mixes by w).
   syn_Spectrum: { texture: 'audio' },
   syn_LevelTrail: { texture: 'trail' }, // TRAIL texels of the four levels (r all, g bass, b mid, a high), newest at x = 1
   syn_Media: { texture: 'black' },
@@ -153,9 +154,11 @@ const COMMENTS = /\/\/.*|\/\*[\s\S]*?\*\//g
 /** An xy control's DEFAULT / MIN / MAX: the donor often writes one number for both. */
 const pair = (x: number | number[] | undefined) => (typeof x === 'number' ? [x, x] : x)
 // syn_Spectrum is a sampler1D in GLSL 330 (texture(s, x), textureLod(s, x, lod)): ES 3.00 has none, so the calls read
-// the toy texture's two rows (SYN) through _synSpectrum (its one level: lod is ignored).
+// the toy texture's two rows (SYN) through _synSpectrum (its one level: lod is ignored), crossfaded by the donor mix
+// (_synMix = w, live.ts) to the donor core's rgba (_synSpectrumDonor, app.ts uploads it while the mix is above 0).
 const SPECTRUM = `uniform sampler2D syn_Spectrum;
-vec4 _synSpectrum(float x) { float f = texture(syn_Spectrum, vec2(x, 0.25)).r; return vec4(f, f, f, texture(syn_Spectrum, vec2(x, 0.75)).r); }
+uniform sampler2D _synSpectrumDonor; uniform float _synMix;
+vec4 _synSpectrum(float x) { float f = texture(syn_Spectrum, vec2(x, 0.25)).r; return mix(vec4(f, f, f, texture(syn_Spectrum, vec2(x, 0.75)).r), texture(_synSpectrumDonor, vec2(x, 0.5)), _synMix); }
 vec4 _synSpectrum(float x, float lod) { return _synSpectrum(x); }
 vec4 _synSpectrum(float x, int lod) { return _synSpectrum(x); }`
 const LEVEL_TRAIL = `uniform sampler2D syn_LevelTrail;
@@ -305,8 +308,10 @@ export function parseSyn(src: string, id: string): ShaderDef {
     } else if ('raw' in m) raws.push([n, m.raw])
     else if ('value' in m) defines.push(`#define ${n} ${m.value.toFixed(1)}`)
     else if ('target' in m) feedback = true
-    else if ('texture' in m) textures[n] = m.texture
-    else why.push(m.unsupported)
+    else if ('texture' in m) {
+      textures[n] = m.texture
+      if (n === 'syn_Spectrum') textures._synSpectrumDonor = 'spectrum' // its donor half (SPECTRUM declares it)
+    } else why.push(m.unsupported)
   }
   const inputs = [...syn, ...controls]
   const flash = h.VJW_FLASH
@@ -359,7 +364,7 @@ export function parseSyn(src: string, id: string): ShaderDef {
     ...[...clocks.map((c) => c.u), ...raws.map(([n]) => n)].map((n) => `uniform float ${n};`),
     ...defines,
     ...targets.map((t) => `uniform sampler2D ${t};\nuniform vec2 _${t}_imgSize;`),
-    ...Object.keys(textures).map((t) => (t === 'syn_Spectrum' ? SPECTRUM : t === 'syn_LevelTrail' ? LEVEL_TRAIL : `uniform sampler2D ${t};`)),
+    ...Object.keys(textures).filter((t) => t !== '_synSpectrumDonor').map((t) => (t === 'syn_Spectrum' ? SPECTRUM : t === 'syn_LevelTrail' ? LEVEL_TRAIL : `uniform sampler2D ${t};`)),
     PREAMBLE,
     hoisted,
     `void _synInit() {${init.map((x) => `\n  ${x}`).join('')}\n}`,
