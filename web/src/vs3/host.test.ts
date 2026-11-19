@@ -1,6 +1,6 @@
 // vs3/host.ts's two pieces of logic: the donor `s` from our sources and the screen redirect. No GL: the engine is mocked.
 import { expect, test, vi } from 'vitest'
-import { screen, signal, type Signal } from './host'
+import { screen, signal, specHi, type Signal } from './host'
 
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, gl: {} })) // takes the page's canvas + WebGL at import
 
@@ -13,6 +13,14 @@ test('signal: levels from the donor-mode bands, kick = hit, onKick on its rise Ã
   expect(signal({}, 1, 0, s)).toEqual({ kick: 1, onKick: 1, onMid: 0, onHigh: 0, sub: 0, mids: 0, highs: 0, air: 0, energy: 0 }) // no kickAccent: hit; no levels: 0; no mid: no impulse
   expect(signal({}, 0, 0, s, 0.9, 0)).toMatchObject({ onKick: 0, onMid: 0.9, onHigh: 0.9 }) // the rise of mid: both, at its value
   expect(signal({}, 0, 0, s, 0.8, 0.9)).toMatchObject({ onMid: 0, onHigh: 0 }) // a falling mid: no impulse
+})
+
+test('specHi: our 32 bands stretched over the 192 donor bins, ends kept', () => {
+  const src = Object.fromEntries(Array.from({ length: 32 }, (_, i) => [`band${i}`, i / 31]))
+  const out = specHi(src, new Float32Array(192))
+  expect([out[0], out[191]]).toEqual([0, 1])
+  expect(out[96]).toBeCloseTo(96 / 191, 5) // a ramp stays a ramp
+  expect(specHi({}, out).every((v) => v === 0)).toBe(true) // no bands: zeros, never NaN
 })
 
 test('screen: null and undefined mean the layer RT, the buffer size is its size, both restored after', () => {

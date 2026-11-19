@@ -1838,6 +1838,12 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-fract', name: 'vs3 Fract', star: false,
     layers: [{ gen: { ref: 'native/vs3-fract', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // signal (row 175: persist .25 left out): its analyzer mode on s.specHi = our 32 bands stretched to 192 bins (host specHi()); s.wave
+  // is not fed (the scope, vector and lissajous modes need it; no mode is reachable yet). Its DataTextures are never freed.
+  {
+    v: 1, id: 'builtin:vs3-signal', name: 'vs3 Signal', star: false,
+    layers: [{ gen: { ref: 'native/vs3-signal', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it

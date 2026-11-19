@@ -24,7 +24,7 @@ import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
 
 /** The donor `s` fields the ported scenes read (research §1). Add a field when a ported scene reads it (guide § Signal). */
-export interface Signal { onKick: number; kick: number; onMid: number; onHigh: number; sub: number; mids: number; highs: number; air: number; energy: number }
+export interface Signal { onKick: number; kick: number; onMid: number; onHigh: number; sub: number; mids: number; highs: number; air: number; energy: number; specHi: Float32Array }
 /** Our sources → the donor `s` (research §4): the levels from the donor-mode core's bands (the closest edges; it runs in
  *  every mode), the kick from `hit` (the ⚡ input, bound to our kick), onKick on its rise × our kickAccent (the kick's
  *  velocity: .7 at the kicks' mean, 1 for a loud one; `hit` when there is none). onMid and onHigh: both on the rise of
@@ -39,6 +39,17 @@ export function signal(src: Readonly<Sources>, hit: number, prev: number, out: S
   out.highs = src.syn_MidHighLevel ?? 0 // 2-6 kHz (donor: 1.9-3.8 k)
   out.air = src.syn_HighLevel ?? 0 // 6-16 kHz (donor: the 7.7 kHz octave)
   out.energy = src.syn_Level ?? 0 // 30-16 kHz (donor: band energy × loudness)
+  return out
+}
+
+/** The donor `specHi` (192 log display bins, 35 Hz-18 kHz, AGC; sand, signal) from the closest the host has: our 32 log
+ *  bands (30 Hz-16 kHz, 0-1), linear in the index. ponytail: no AGC, no display floor; the donor analyser's own bins
+ *  if a scene's peaks read wrong. */
+export function specHi(src: Readonly<Sources>, out: Float32Array): Float32Array {
+  for (let i = 0; i < out.length; i++) {
+    const x = (i * 31) / (out.length - 1), j = Math.min(30, Math.floor(x)), a = src[`band${j}`] ?? 0
+    out[i] = a + ((src[`band${j + 1}`] ?? 0) - a) * (x - j)
+  }
   return out
 }
 
@@ -91,7 +102,7 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
   const { R, guard, texture } = L
   const pal = L.PRESETS.find((p) => p.name === look.palette)!.colors.map((c) => new L.Color(c))
   const made = new Set<{ dispose(): void }>()
-  const s = {} as Signal
+  const s = { specHi: new Float32Array(192) } as Signal
   let rt = L.fit(null, 16, 16, 1), prev = 0, prevMid = 0, hot = 0, w = 0, h = 0
   await guard('compileAsync', () => (R.setRenderTarget(rt), R.compileAsync(sc.scene, sc.camera)))
   finish ??= fullscreenProgram(FINISH)
@@ -102,6 +113,7 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
       s.kick = hot = heatStep(hot, hit, f.dt) // the kick as drawn (I-FL1); onKick stays on the raw rise
       prev = hit
       prevMid = mid
+      specHi(src, s.specHi)
       guard('render', () => {
         rt = L.fit(rt, f.width, f.height, 1)
         if (f.width !== w || f.height !== h) sc.resize?.((w = f.width), (h = f.height)) // px, not the donor's CSS px: the scenes read the aspect
@@ -182,4 +194,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('echo', () => import('./kit/scenes/echo.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34, mid: true }),
   vs3('flow', () => import('./kit/scenes/flow.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
   vs3('fract', () => import('./kit/scenes/fract.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
+  vs3('signal', () => import('./kit/scenes/signal.js'), { palette: 'nocturne', bloomMul: 0.9, aber: 0.6, vignette: 0.12 }),
 ]
