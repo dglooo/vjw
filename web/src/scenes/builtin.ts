@@ -1820,6 +1820,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-morphogen2', name: 'vs3 Morphogen 2.0', star: false,
     layers: [{ gen: { ref: 'native/vs3-morphogen2', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // locus (row 251: persist .45 left out): a GPU particle swarm (MRT state) holding 34 formations; it stays on formation 0 (its params are no inputs yet), the drag is dead (scenePointer stub).
+  {
+    v: 1, id: 'builtin:vs3-locus', name: 'vs3 Locus', star: false,
+    layers: [{ gen: { ref: 'native/vs3-locus', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it

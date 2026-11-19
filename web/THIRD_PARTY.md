@@ -386,3 +386,4 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/pelt.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/pelt.js | used with permission (2026-11-19) |
 | `scenes/wisp.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/wisp.js | used with permission (2026-11-19) |
 | `scenes/morphogen2.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/morphogen2.js (the console panel and the logo canvas readback stripped) | used with permission (2026-11-19) |
+| `scenes/locus.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/locus.js | used with permission (2026-11-19) |
