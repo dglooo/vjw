@@ -260,7 +260,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Changed during implementation:** (1) The `app.ts` anchors had moved by +1 line (`68c9b1d` added a comment line at `:54`). The block sits after `src.presence` and before the heat line, both inside the named range (after this step: `:416`, block `:417-431`, heat `:432`). (2) `AudioSettings.analyser` is required (the contract), so the typed `AudioSettings` literals in 4 more test files gain `analyser: 'ours'` (`audio/acceptance.test.ts`, `audio/features.test.ts` ×2, `scenes/shatter.test.ts`, `ui/SourcesTab.test.ts`); in `audio/settings.test.ts` `DEFAULTS` and three whole-object expectations gain it too. No assert changed. (3) `app.ts` keeps the mix in its own `donorMix` and writes `src.donorMix` from it, so a stored `sens` / `mute` on the key `donorMix` (`gain()` runs later) cannot bend the ramp. (4) T4c also asserts that a patch without `analyser` keeps it, through a reload.
 
 
-### S1.5 [ ] Donor sources listed; calibration `rows(donorMix)`
+### S1.5 [x] Donor sources listed; calibration `rows(donorMix)`
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** the 31 donor sources are metered and bindable. The calibration scene shows their tiles only while the mix is above 0. This step closes CP1.
 - **Files:** `web/src/bind.ts`, `web/src/scenes/calib.ts` (+ `bind.test.ts`, `scenes/calib.test.ts`).
@@ -287,6 +287,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
   - With the forced mode (CP2 demo line), the calibration scene shows 52 tiles and every label is readable. Report its billed p95.
   - If that p95 is over 5 ms: stop and report. Lever L1 is a follow-up step: redraw the stage at 10 Hz while donor rows show.
 - **Depends on:** S1.4.
+- **Changed during implementation:** (1) Labels: at 52 tiles, `syn_ToggleOnBeat` and `syn_RandomOnBeat` overlapped their values by 18.8 px in the 11-tile `donor beat` row. `parts()` now takes the longest label of the tile's row: `fs = min(0.14 h, w / (11.5 + 0.6 max(0, len - 11)))`. Our rows hold labels of at most 11 characters, so their divisor stays 11.5 and ours mode is unchanged. The `donor beat` row draws at about 9.9 px on a 1728 x 1118 stage. The smallest label-to-value gap is now 14 px. (2) A donor tile draws with its five inputs' defaults (`FIXED`, from the same input builder): `FIRST` has no donor id, so the shape is the meter. (3) Tests beyond the list: T3a also pins the group order (camera, then the 5 donor groups, then custom, then band). T6b also asserts that `rows(0.5)` starts with `rows(0)`, the tile prefix that the inputs rely on. The pinned layout test runs as `test.each([0, 1])`: `rows(0)` is the moved pin and `rows(1)` is T6c. It also checks the right and bottom bounds. (4) Item 3: `audio/donor.ts` imports two types from `bind.ts`, `Sources` and `SourceGroup` (S1.3 drift note 3). Both are type-only, so the runtime import stays one-way. (5) A hidden donor row's history stops, so a row that shows again replays its old 4 s once (a `ponytail:` comment). This matters only after the S3.3 switch.
 
 
 ### S2.1 [x] `boundStep` and `donorChain` (pure, not wired)

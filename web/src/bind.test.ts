@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
+import { createDonor, DONOR_GROUPS } from './audio/donor'
 import { BAND_COUNT } from './audio/energy'
 import { createFeatures } from './audio/features'
 import { PRESETS } from './audio/presets'
@@ -69,8 +70,10 @@ describe('sources', () => {
     out.drop = 0.2
     out.energy = 0.5 // P2: the arrangement's too
     out.presence = 0.3 // presence: app.ts fills it (the camera, S1.1), not sources()/fill()
-    expect(Object.keys(out).sort()).toEqual([...SOURCE_IDS].sort())
-    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 7 + 3 + 1) // bass 5 → 7 (subBody, reeseBody: P1), arrangement 2 → 3 (energy: P2)
+    const g = { beat: 0, bpm: 0, confidence: 0, kick: false, fired: false, build: 0, peakDb: -60, silent: false }
+    createDonor(48000, 1024).update(new Float32Array(512).fill(-60), new Float32Array(1024), 1 / 60, g, out) // the donor core: app.ts runs it every frame (S1.4)
+    expect(Object.keys(out).sort()).toEqual([...SOURCE_IDS, 'syn_BeatTime', 'syn_BPMTwitcher', 'syn_BPM', 'syn_BPMConfidence', 'syn_PrimeAndBang'].sort()) // + its 5 unlisted keys (PA1)
+    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 7 + 3 + 1 + 31) // bass 5 → 7 (subBody, reeseBody: P1), arrangement 2 → 3 (energy: P2), + 31 donor ids (design L109–114)
     for (const k of SOURCE_IDS) expect(Number.isFinite(out[k]), k).toBe(true)
   })
 })
@@ -84,6 +87,13 @@ describe('sourceGroups (the Scene tab select optgroups, S6.3)', () => {
     expect(ids).toHaveLength(SOURCE_IDS.length) // duplicates would survive the sort, so the count pins it
     const bands = sourceGroups().find((g) => g.label === 'band')
     expect(bands?.ids).toEqual(Array.from({ length: BAND_COUNT }, (_, i) => `band${i}`))
+  })
+
+  test('T3a: the 5 donor groups are listed after camera, before custom and band: 31 ids, none twice', () => {
+    const ids = DONOR_GROUPS.flatMap((g) => g.ids)
+    expect(ids).toHaveLength(31)
+    expect(new Set(ids).size).toBe(31)
+    expect(sourceGroups([{ id: 'u:01ab02', name: '8k' }]).map((g) => g.label)).toEqual(['levels', 'drums', 'bass', 'arrangement', 'timing', 'camera', ...DONOR_GROUPS.map((g) => g.label), 'custom', 'band'])
   })
 
   test('a non-empty custom adds a custom group, not in the fixed groups', () => {
@@ -341,5 +351,9 @@ describe('gain (the Sources tab, user 2026-11-17)', () => {
     gain(s, { sens: { bass: 2 }, mute: ['bass'] })
     expect(s).toEqual({ bass: 0, mid: 0.6 })
     expect([once(bind({ min: 2, max: 3 }), s), once(bind({ source: 'mid' }), s)]).toEqual([2, 0.6])
+  })
+
+  test('T3b: a donor source takes its gain like ours', () => {
+    expect(gain({ syn_BassLevel: 0.8 }, { sens: { syn_BassLevel: 0.5 }, mute: [] }).syn_BassLevel).toBeCloseTo(0.4, 6)
   })
 })
