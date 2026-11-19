@@ -101,6 +101,13 @@ export const SYN: Readonly<Record<string, Syn>> = {
 }
 /** SYN's bindings, by name: a built-in's `bind` for its scene's bound names. */
 export const SYN_BIND: Readonly<Record<string, Binding>> = Object.fromEntries(Object.entries(SYN).filter(([, m]) => 'source' in m)) as Record<string, Binding>
+/** A bound input's donor chain (design rev 2, C1; gl/post.ts boundStep): its own binding, the source swapped to its
+ *  name (the donor core's value of it), so the scene's override (amount, attack, release, range) shapes the donor
+ *  value as it shapes ours. No shape or rate: a donor BPMSin / Tri is shaped already. None for a name SYN does not bind
+ *  (a native's `kick` or `bass` is never rewired) or for a clock binding (it keeps its own rate). */
+export function donorChain(name: string, b: Binding): Binding | undefined {
+  return Object.hasOwn(SYN_BIND, name) && !b.clock ? { ...b, source: name, shape: undefined, rate: undefined } : undefined
+}
 
 /** syn_LevelTrail's length in frames (⚠️ the donor's is not on file: 256 ≈ 4 s at 60 fps). */
 export const TRAIL = 256
