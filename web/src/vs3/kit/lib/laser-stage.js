@@ -968,7 +968,7 @@ export function createLasersScene() {
   const plantGeos = [];
   (function loadPlants() {
     if (typeof fetch !== 'function') return;
-    const urls = ['/vs3/lasers/plants.bin']; // vjw: our static copy, was import.meta.url + document.baseURI
+    const urls = [import.meta.env.BASE_URL + 'vs3/lasers/plants.bin']; // vjw: our static copy, was import.meta.url + document.baseURI
     const tryAt = (i) => fetch(urls[i])
       .then((r) => { if (!r.ok) throw new Error('plants ' + r.status); return r.arrayBuffer(); })
       .then((buf) => {

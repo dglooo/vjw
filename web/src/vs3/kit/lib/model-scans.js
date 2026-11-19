@@ -87,7 +87,7 @@ const pending = new Map();
 export function loadScan(name) {
   if (!SCANS.includes(name)) return Promise.reject(new Error(`no scan called ${name}`));
   if (pending.has(name)) return pending.get(name);
-  const urls = [`/vs3/models/${name}.lm3d${REVISIONS[name] ? `?v=${REVISIONS[name]}` : ''}`]; // vjw: our static path, was import.meta.url + document.baseURI
+  const urls = [`${import.meta.env.BASE_URL}vs3/models/${name}.lm3d${REVISIONS[name] ? `?v=${REVISIONS[name]}` : ''}`]; // vjw: our static path, was import.meta.url + document.baseURI
   const tryAt = (i) => fetch(urls[i])
     .then((r) => { if (!r.ok) throw new Error(`${name} ${r.status}`); return r.arrayBuffer(); })
     .catch((e) => {

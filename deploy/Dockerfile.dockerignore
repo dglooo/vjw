@@ -1,0 +1,16 @@
+# The context is the repo root; the image takes web/ and deploy/ only, never tracks/, scratchpad/ or donor/.
+# web/'s install and build are redone inside (the postinstall copies mediapipe and fetches the pose model).
+*
+!web
+!deploy
+web/node_modules
+web/dist
+web/public/mediapipe
+web/public/isf-sweep
+web/public/models/pose_landmarker_lite.task
+**/*.wav
+**/*.mp3
+**/*.flac
+**/*.aif*
+**/*.m4a
+**/*.ogg

@@ -87,9 +87,9 @@ const TOY = {
 }
 const black = createTexture(gl, { width: 1, height: 1, src: new Uint8Array(4) }) // a synScene's media stub, and its IMAGES until they load
 /** A synScene IMAGES file (fx/syn.ts) as a texture: decoded off the main thread, upright (ISF's), repeating, mipmapped
- *  (Shadertoy's defaults: ⚠️ the donor's are not on file). */
+ *  (Shadertoy's defaults: ⚠️ the donor's are not on file). `url`: under public/, from the app's base (a sub-path build). */
 async function image(url: string) {
-  const r = await fetch(url)
+  const r = await fetch(import.meta.env.BASE_URL + url.slice(1))
   if (!r.ok) throw new Error(`HTTP ${r.status}`)
   const bmp = await createImageBitmap(await r.blob(), { imageOrientation: 'flipY', premultiplyAlpha: 'none' }) // WebGL ignores UNPACK_* for a bitmap
   const t = createTexture(gl, { src: bmp, wrap: gl.REPEAT, min: gl.LINEAR_MIPMAP_LINEAR })

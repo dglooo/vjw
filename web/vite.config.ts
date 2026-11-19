@@ -37,6 +37,9 @@ const sceneMarks: Plugin = {
 
 // https://vite.dev/config/
 export default defineConfig({
+  // The deploy's secret sub-path (deploy/README.md): VJW_BASE=/<slug>/ npm run build. Code reaches public/ through
+  // import.meta.env.BASE_URL, never a bare '/'.
+  base: process.env.VJW_BASE || '/',
   plugins: [react(), sceneMarks],
   // The segmentation worker is classic (plan_camera S0.2, G1): MediaPipe's loader importScripts the self-hosted
   // wasm glue from public/, which a module worker can't do — Vite dev rewrites its import() fallback with ?import
