@@ -315,7 +315,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Changed during implementation:** T8c uses a clock binding on `syn_Level`, not on `syn_Time` (the matrix fixture). `syn_Time` is a SYN clock, not a `SYN_BIND` name, so it gets no chain without the clock guard and the test would pass vacuously. The test also asserts that `syn_Level` without the clock gets a chain. Stricter asserts, same thresholds: T7a = exactly 3 rises (a dead donor chain fails); T7b frame 2 > 0.5 (the hit lands); T8a adds the name `toString` (the `Object.hasOwn` guard). The T7c golden is from master `2e0a673`.
 
 
-### S2.2 [ ] `gl/live.ts`: bound inputs go through `boundStep`
+### S2.2 [x] `gl/live.ts`: bound inputs go through `boundStep`
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** a bound SYN input crossfades to its donor chain by the mix.
 - **Files:** `web/src/gl/live.ts`.
@@ -328,6 +328,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
   - Ours: a syn built-in looks and reacts as on master.
   - Forced mode (CP2 demo line): `syn/deeper` reacts to the music, and by eye no step of light is harsher than in ours. H2 measures it at S6.
 - **Depends on:** S2.1, S1.4.
+- **Changed during implementation:** H9b does not freeze the AudioContext (the 2026-11-07 frozen pair carries FFT-quantum jitter, so its control floor is above 0). `h9b-pixels.mjs record` keeps what each frame hands the stage scene's `render()` (f.sync and the sources, mode ours) over dnb174-arr 10.5-13.5 s into `out/h9b-trace.json`; `shot` replays that one trace into a fresh `live()` instance of each scene at fixed clocks (dt 1/60, a pinned Date), no audio, and reads the 960x540 target back. The control pair is bit-stable (0), so the pass line is 0 (C2). The mutant wraps the served `boundStep`. S2.5 re-runs it with `STEP=s2.5` on the same trace file.
 
 ### S2.3 [ ] Raws and LevelTrail follow the mix
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
