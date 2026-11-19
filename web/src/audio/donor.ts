@@ -76,6 +76,8 @@ export const intensity = (e: number) => clamp(0.5 + 2.5 * (e - 0.5))
 export const primeBang = (age: number) => Math.exp(-age / BANG_TAU)
 /** The meter's held sample peak, dBFS: −60..0 → 0..1. */
 export const inputLevel = (peakDb: number) => clamp((peakDb + 60) / 60)
+/** `src.donorMix` (design R1): toward `target` by at most dt / 2 (a 2 s ramp; a re-toggle turns where it is), in [0, 1]. */
+export const mixStep = (mix: number, target: number, dt: number) => clamp(mix + Math.min(dt / 2, Math.max(-dt / 2, target - mix)))
 
 export function createDonor(sampleRate: number, fftSize: number, seed = 1): Donor {
   const bin = (hz: number) => Math.min(fftSize / 2 - 1, Math.max(1, Math.round((hz * fftSize) / sampleRate)))

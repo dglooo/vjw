@@ -9,7 +9,7 @@ import { workletBands, type AudioSettings, type CustomBand } from './settings'
 import { mix, pattern, reese, SR, sub, wobble } from './synth'
 
 const DRUMS: Drum[] = ['kick', 'snare', 'hats']
-const settings = (sens: Record<string, number> = {}): AudioSettings => ({ v: 1, auto: false, pick: null, sens, mute: [], custom: [] })
+const settings = (sens: Record<string, number> = {}): AudioSettings => ({ v: 1, auto: false, pick: null, sens, mute: [], custom: [], analyser: 'ours' })
 const preset = (sens: Record<string, number> = {}): Preset => ({ ...PRESETS.default, sens })
 const hit = (drum: Drum, t = 0): Hit => ({ drum, t, strength: 4 })
 const close = (a: number[], b: number[]) => {
@@ -265,7 +265,7 @@ function uCurve(cus: [number, number][], b = uBand(), s: AudioSettings = uSet(b)
   })
 }
 const E = (x: number) => Math.exp(-x)
-const uSet = (b: CustomBand, sens: Record<string, number> = {}): AudioSettings => ({ v: 1, auto: false, pick: null, sens, mute: [], custom: [b] })
+const uSet = (b: CustomBand, sens: Record<string, number> = {}): AudioSettings => ({ v: 1, auto: false, pick: null, sens, mute: [], custom: [b], analyser: 'ours' })
 
 describe('custom bands u:<id> (design C1)', () => {
   test('gate: held ≠ e2 (the kick latch) reads 0 in the gap; e2 × gain otherwise (gain 0 = instant, attack 0 = instant)', () => {

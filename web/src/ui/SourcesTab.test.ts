@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import { pickToPatch, type AudioSettings } from '../audio/settings'
 
 // The tab's groups are bind.ts sourceGroups() now (every source gets a gain and a mute): bind.test.ts covers them.
-const s = (custom: AudioSettings['custom']): AudioSettings => ({ v: 1, auto: true, pick: null, sens: {}, mute: [], custom })
+const s = (custom: AudioSettings['custom']): AudioSettings => ({ v: 1, auto: true, pick: null, sens: {}, mute: [], custom, analyser: 'ours' })
 
 // pickToPatch: the C4 state machine (design C4) — a picker value or an Auto-toggle move becomes the `patch` it applies.
 test('pickToPatch: picker — "auto" re-enters Follow (even from Manual), a preset id is a manual pick', () => {

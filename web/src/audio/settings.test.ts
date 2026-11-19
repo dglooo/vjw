@@ -3,7 +3,7 @@ import { PRESETS, type Band, type Genre, type PresetId } from './presets'
 import { activePreset, bandKey, createSettings, parseSettings, workletBands, type AudioSettings, type CustomBand } from './settings'
 
 const KEY = 'vjw.audio'
-const DEFAULTS: AudioSettings = { v: 1, auto: true, pick: null, sens: {}, mute: [], custom: [] }
+const DEFAULTS: AudioSettings = { v: 1, auto: true, pick: null, sens: {}, mute: [], custom: [], analyser: 'ours' }
 type NewBand = Omit<CustomBand, 'id'>
 const BAND: NewBand = { name: 'sub', lo: 40, hi: 60, gain: 1, gate: 0.2, attack: 0.01, release: 0.2 }
 const stored = (i = 0, over: Partial<CustomBand> = {}): CustomBand => ({ ...BAND, id: `u:00000${i}`, ...over })
@@ -57,8 +57,14 @@ test('parseSettings: anything but version 1 settings gives the defaults', () => 
 
 test('parseSettings: an invalid field falls back alone, the valid ones stay', () => {
   const x = { v: 1, auto: 'yes', pick: 'techno', sens: { kick: 5, snare: -1, hats: 0.5, sub: 'x', reese: NaN, wobble: null }, custom: 'no' }
-  expect(parseSettings(x)).toEqual({ v: 1, auto: true, pick: 'techno', sens: { kick: 2, snare: 0, hats: 0.5 }, mute: [], custom: [] })
+  expect(parseSettings(x)).toEqual({ v: 1, auto: true, pick: 'techno', sens: { kick: 2, snare: 0, hats: 0.5 }, mute: [], custom: [], analyser: 'ours' })
   expect(parseSettings({ v: 1, auto: false, pick: 'jazz', sens: [1, 2] })).toEqual({ ...DEFAULTS, auto: false })
+})
+
+test('T4a: parseSettings: an analyser missing, foo or 2 reads ours; the other stored fields stay, v is 1', () => {
+  const x = { v: 1, auto: false, pick: 'dnb', sens: { kick: 1.5 }, mute: ['bass'], custom: [stored(1)] }
+  for (const r of [x, { ...x, analyser: 'foo' }, { ...x, analyser: 2 }]) expect(parseSettings(r), JSON.stringify(r)).toEqual({ ...x, analyser: 'ours' })
+  expect(parseSettings({ ...x, analyser: 'donor' })).toEqual({ ...x, analyser: 'donor' })
 })
 
 test('parseSettings: mute keeps the string ids once each; anything else falls back to none', () => {
@@ -135,8 +141,28 @@ test('round trip: every field comes back after a reload, as JSON under vjw.audio
       { ...BAND, id: b0.id },
       { name: 'air', lo: 8000, hi: 12000, gain: 4, gate: 1, attack: 2, release: 0, id: b1.id },
     ],
+    analyser: 'ours',
   })
   expect(JSON.parse(m.get(KEY) ?? 'null')).toEqual(a.get())
+})
+
+test('T4b: patch({ analyser: donor }) comes back after a reload, as JSON under vjw.audio', () => {
+  const { m, kv } = storage()
+  createSettings(kv).patch({ analyser: 'donor' })
+  expect(createSettings(kv).get().analyser).toBe('donor')
+  expect(JSON.parse(m.get(KEY) ?? 'null').analyser).toBe('donor')
+})
+
+test('T4c: a patch with an invalid analyser keeps the mode in force, not the default; x is never stored', () => {
+  const { m, kv } = storage()
+  const s = createSettings(kv)
+  s.patch({ analyser: 'donor' })
+  s.patch({ analyser: 'x' as never })
+  expect(s.get().analyser).toBe('donor')
+  expect(JSON.parse(m.get(KEY) ?? 'null').analyser).toBe('donor')
+  expect(m.get(KEY)).not.toContain('"x"')
+  s.patch({ auto: false }) // a patch without analyser keeps it too
+  expect(createSettings(kv).get()).toMatchObject({ auto: false, analyser: 'donor' })
 })
 
 test('patch: changes the named fields, re-checks them, replaces sens as a whole, leaves the bands', () => {
@@ -145,7 +171,7 @@ test('patch: changes the named fields, re-checks them, replaces sens as a whole,
   s.addBand(BAND)
   const bands = s.get().custom
   s.patch({ pick: 'dnb', sens: { kick: 9, hats: NaN } })
-  expect(s.get()).toEqual({ v: 1, auto: true, pick: 'dnb', sens: { kick: 2 }, mute: [], custom: bands }) // clamped, NaN dropped
+  expect(s.get()).toEqual({ v: 1, auto: true, pick: 'dnb', sens: { kick: 2 }, mute: [], custom: bands, analyser: 'ours' }) // clamped, NaN dropped
   s.patch({ sens: { snare: 0.5 } })
   expect(s.get().sens).toEqual({ snare: 0.5 }) // not merged: the caller spreads get().sens
   s.patch({ pick: null, auto: false })
