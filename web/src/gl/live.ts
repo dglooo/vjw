@@ -18,8 +18,7 @@ import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { pairsByTarget, sizeExpr } from '../fx/isf'
-import { donorChain, pushTrail, synValue, TRAIL } from '../fx/syn'
-import { clockStep } from '../clock'
+import { donorChain, pushTrail, synClock, synValue, TRAIL } from '../fx/syn'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
 import { store } from '../store'
@@ -320,7 +319,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       n.u.FRAMEINDEX = n.u.iFrame = n.frames++
       n.u.inputImage = src // the previous draw; unused by a generator
       const { clocks, raws } = n.def as ShaderDef // a synScene's audio clocks (on the layer's clock) and frame values
-      if (clocks) for (const c of clocks) n.u[c.u] = clockStep((n.u[c.u] as number | undefined) ?? 0, c.rate, n.u, c.frame ? 1 : dt) // an event reads 1 on its draw
+      if (clocks) for (const c of clocks) n.u[c.u] = synClock((n.u[c.u] as number | undefined) ?? 0, c, n.u, c.frame ? 1 : dt, w) // an event reads 1 on its draw; a SYN clock blends to its donor rate by the mix
       if (raws) for (const [k, read] of raws) n.u[k] = synValue(k, read(f, s), s, w) // ours / donor by the mix
       if (n.trail) {
         pushTrail(n.trail.bytes, n.trail.states, s, f.dt, w)

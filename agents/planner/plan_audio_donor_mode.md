@@ -353,7 +353,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Changed during implementation:** T2g adds a fall phase after the F4 held second: 6 frames with the four donor levels at 0, the same two asserts. The held phase rises through the attack only (.05 on all four), so it cannot tell `syn_Level`'s release .3 from the others' .15; the mutant "one donor binding for all four channels" fails only in the fall. `synValue` returns ours at once when `w` is not > 0 (a branch, as in `boundStep`), so a NaN or infinite donor value never reaches ours mode. `gl/live.ts`: `run()` takes `w` as a parameter (read once in `render()`); the raw and trail lines are now `:324` and `:326`. Ours-mode replay (the S2.2 H9b method and trace, plus `builtin:audio-indicators`, the only LevelTrail reader) gives 0 differing bytes against the base commit `9ad62fa` on all 4 scenes. The control pair is 0. A one-unit trail mutant fails the replay (max 16).
 
 
-### S2.4 [ ] SYN clocks take a donor rate
+### S2.4 [x] SYN clocks take a donor rate
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** the six SYN clocks keep their position and blend to the donor rate by the mix (finding C9).
 - **Files:** `web/src/fx/syn.ts`, `web/src/fx/types.ts`, `web/src/gl/live.ts` (+ `fx/syn.test.ts`).
@@ -370,6 +370,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
   - PA3 (plan-added): a scene clock (`VJW_CLOCK`) with no `donor` steps the same at `w` 1 as at `w` 0.
 - **Done-check:** GATES.
 - **Depends on:** S2.3.
+- **Changed during implementation:** `parseSyn` also walks the donor rate's names into the read set, as it walks the clock's (all six read the clock's own level, so no input changes). Stricter asserts, same thresholds: T2e also pins the five `...Time` entries by name (`donor` = 2 x its own Level) and checks `Object.is` against today's `clockStep` at `w` 0; T2f also checks the fixture's two rates (0.5 and 1.0 per s); PA3 also checks the `w` 1 step against today's `clockStep`. The anchors had moved: the clock line is `gl/live.ts:322`, `parseSyn`'s clock compile `fx/syn.ts:301-302` and `:325`. Browser check (no plan requirement, the S2.2 H9b method and trace, `scratchpad/donor-mode/s24/h9b-pixels-s24.mjs`): ours mode gives 0 differing bytes against the base `b0aee9e` on alien-cavern, deeper, glob and audio-indicators (control pair 0); a mutant that ignores `w` (the donor rate at `w` 0) fails on the three clock readers (max 255, 240, 255); a forced mix of 1 and 0.5 steps every SYN clock at dt x ((1 - w) x ours + w x donor) within 3e-14 (deeper `syn_BassTime` 1.224 per s at L 0.612 for w 1, 0.830 per s at L 0.553 for w 0.5).
 
 ### S2.5 [ ] SYN names: `syn_FadeInOut` as a raw, `syn_PrimeBang`, `syn_PrimeAndBang`
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
