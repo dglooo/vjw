@@ -39,6 +39,7 @@ const KICK_GAP = 0.25 // s: with no grid, our kick is a beat this long after the
 const ACCENT = 0.7 // kickAccent of a kick at the kicks' running mean dB; 1 (the clamp) from +3.1 dB (gaps G3)
 const ACCENT_N = 8 // kicks: the running mean's EMA step is 1 / 8
 const KICK_TAU = 0.12 // s: our kick's decay (features.ts TAU.kick), so kickAccent falls like the kick tile
+const ACCENT_HOLD = 0.016 // s: line-in drains a kick before the analyser window holds it, so L keeps rising up to the first frame this long after the kick frame (1 frame at 30 / 60 fps, 2 at 120, 3 at 144)
 
 const ema = (dt: number, tau: number) => 1 - Math.exp(-dt / tau)
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
@@ -92,6 +93,8 @@ export function createDonor(sampleRate: number, fftSize: number, seed = 1): Dono
   let [t, edgeT, wasSilent, int, fade, expo, bangAge, lastTick, tickDt] = [0, -Infinity, true, 0.5, 1, 0, Infinity, -Infinity, 0]
   let [accent, lastBassDb] = [0, -120] // P4: kickAccent, and the Bass dB of the frame before
   let accentMu: number | undefined // P4: the kicks' running mean dB, from the first kick's L
+  let [kickL, kickAge] = [-120, Infinity] // P4: this kick's L so far; s since its frame
+  let kickMu: number | undefined // P4: μ before this kick (undefined for the first kick)
   // the beat family: `age` s since the last beat, `lastN` the grid's last integer (NaN: no grid last frame), `bpm` held
   let [beats, age, lastN, bpm, phase, tog, togFrom, togTo, rnd, rndFrom, rndTo] = [0, Infinity, NaN, 120, 0, 0, 0, 0, 0, 0, 0]
   const rand = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32 // the seeded LCG, [0, 1)
@@ -156,15 +159,20 @@ export function createDonor(sampleRate: number, fftSize: number, seed = 1): Dono
       }
       out.syn_Hits = hits
 
-      // P4 (gaps G3): kickAccent, our kick's loudness. At our kick, L = the louder of this frame's and the last frame's
-      // Bass dB (bins 1–3 at 1024 / 48 kHz; the mean bin power, not the sum: the offset cancels in L − μ). A kick at the
-      // kicks' running mean μ reads .7, then μ moves 1/8 of the way to L. Between kicks it falls like `kick`; 0 before one.
+      // P4 (gaps G3; L window = dsp_kickaccent_linein_2026-11-19 pick c): kickAccent, our kick's loudness. L = the max
+      // Bass dB (bins 1–3 at 1024 / 48 kHz; the mean bin power, not the sum: the offset cancels in L − μ) from the frame
+      // before the kick frame through the first frame ≥ ACCENT_HOLD after it. It rises on the kick frame and rises again
+      // while L grows; the fall runs from the kick frame. A kick at the kicks' running mean μ reads .7, then μ moves 1/8
+      // of the way to its final L. Between kicks it falls like `kick`; 0 before one.
       accent *= Math.exp(-dt / KICK_TAU)
-      if (g.kick) {
-        const L = Math.max(bass.db, lastBassDb)
-        accentMu ??= L
-        accent = Math.min(1, ACCENT * 10 ** ((L - accentMu) / 20))
-        accentMu += (L - accentMu) / ACCENT_N
+      const holding = kickAge < ACCENT_HOLD // the last kick's hold is still open on this frame
+      kickAge += dt
+      if (g.kick) [kickAge, kickL, kickMu, accent] = [0, lastBassDb, accentMu, 0]
+      if (g.kick || holding) {
+        kickL = Math.max(kickL, bass.db)
+        const mu = kickMu ?? kickL // the first kick reads .7 and starts μ at its final L
+        accent = Math.max(accent, Math.min(1, ACCENT * 10 ** ((kickL - mu) / 20)) * Math.exp(-kickAge / KICK_TAU))
+        accentMu = mu + (kickL - mu) / ACCENT_N
       }
       lastBassDb = bass.db
       out.kickAccent = accent
