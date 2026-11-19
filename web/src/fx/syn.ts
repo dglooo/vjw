@@ -108,15 +108,29 @@ export const SYN_BIND: Readonly<Record<string, Binding>> = Object.fromEntries(Ob
 export function donorChain(name: string, b: Binding): Binding | undefined {
   return Object.hasOwn(SYN_BIND, name) && !b.clock ? { ...b, source: name, shape: undefined, rate: undefined } : undefined
 }
+const COUNTS = ['syn_BeatTime', 'syn_BPMTwitcher', 'syn_BPM']
+/** A SYN raw at its read point (live.ts): ours crossfaded by `w` to the donor core's value of `name` in `s`. A count
+ *  never slides: the donor's from `w` .5. Ours as it is at `w` 0, for a name SYN does not feed, or with no donor value. */
+export function synValue(name: string, ours: number, s: Sources, w: number): number {
+  const d = s[name]
+  if (!(w > 0) || typeof d !== 'number' || !Object.hasOwn(SYN, name)) return ours
+  return COUNTS.includes(name) ? (w >= 0.5 ? d : ours) : ours + (d - ours) * w
+}
 
 /** syn_LevelTrail's length in frames (⚠️ the donor's is not on file: 256 ≈ 4 s at 60 fps). */
 export const TRAIL = 256
-const TRAILED = ['syn_Level', 'syn_BassLevel', 'syn_MidLevel', 'syn_HighLevel'].map((n) => SYN_BIND[n])
+const LEVELS = ['syn_Level', 'syn_BassLevel', 'syn_MidLevel', 'syn_HighLevel']
+const TRAILED = LEVELS.map((n) => SYN_BIND[n])
+const DONOR_TRAILED = LEVELS.map((n) => donorChain(n, SYN_BIND[n])!)
 /** syn_LevelTrail one frame on (live.ts, per node): the RGBA8 texels shift one left, and the four levels as SYN's
- *  bindings evaluate them now land in the last. */
-export function pushTrail(bytes: Uint8Array, states: BindState[], s: Sources, dt: number) {
+ *  bindings evaluate them now land in the last. While `w` > 0 each crossfades to its donor chain (`states` 4–7). */
+export function pushTrail(bytes: Uint8Array, states: BindState[], s: Sources, dt: number, w = 0) {
   bytes.copyWithin(0, 4)
-  for (let c = 0; c < 4; c++) bytes[bytes.length - 4 + c] = 255 * evaluate(TRAILED[c], s, states[c], dt)
+  for (let c = 0; c < 4; c++) {
+    let y = evaluate(TRAILED[c], s, states[c], dt)
+    if (w > 0) y += (evaluate(DONOR_TRAILED[c], s, states[4 + c], dt) - y) * w
+    bytes[bytes.length - 4 + c] = 255 * y
+  }
 }
 
 interface Control { NAME: string; TYPE?: string; DEFAULT?: number | number[]; MIN?: number | number[]; MAX?: number | number[]; DEF_COLOR?: number[]; LABELS?: string[]; PARAMS?: number }

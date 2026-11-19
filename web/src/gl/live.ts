@@ -18,7 +18,7 @@ import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { pairsByTarget, sizeExpr } from '../fx/isf'
-import { donorChain, pushTrail, TRAIL } from '../fx/syn'
+import { donorChain, pushTrail, synValue, TRAIL } from '../fx/syn'
 import { clockStep } from '../clock'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
@@ -222,7 +222,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       u[name] = src === 'audio' ? audioTex.toy : black
       if (src === 'trail') {
         const bytes = new Uint8Array(4 * TRAIL)
-        x.trail = { t: createTexture(gl, { width: TRAIL, height: 1, src: bytes, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE }), bytes, states: [0, 1, 2, 3].map(() => ({ y: 0 })) }
+        x.trail = { t: createTexture(gl, { width: TRAIL, height: 1, src: bytes, minMag: gl.LINEAR, wrap: gl.CLAMP_TO_EDGE }), bytes, states: Array.from({ length: 8 }, () => ({ y: 0 })) } // ours, then the donor chains (pushTrail)
         x.images!.push((u[name] = x.trail.t))
       }
       if (src[0] !== '/') continue
@@ -303,7 +303,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
   }
 
   /** One node into `dst` on its layer's clock; returns the texture it produced: dst's, or its last pass's TARGET. */
-  function run(n: Node, l: Layer, f: FrameInput, dt: number, src: WebGLTexture | null, dst: Target, s: Sources) {
+  function run(n: Node, l: Layer, f: FrameInput, dt: number, src: WebGLTexture | null, dst: Target, s: Sources, w: number) {
     let out = dst
     if (n.native) {
       bindFramebufferInfo(gl, dst)
@@ -321,9 +321,9 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       n.u.inputImage = src // the previous draw; unused by a generator
       const { clocks, raws } = n.def as ShaderDef // a synScene's audio clocks (on the layer's clock) and frame values
       if (clocks) for (const c of clocks) n.u[c.u] = clockStep((n.u[c.u] as number | undefined) ?? 0, c.rate, n.u, c.frame ? 1 : dt) // an event reads 1 on its draw
-      if (raws) for (const [k, read] of raws) n.u[k] = read(f, s)
+      if (raws) for (const [k, read] of raws) n.u[k] = synValue(k, read(f, s), s, w) // ours / donor by the mix
       if (n.trail) {
-        pushTrail(n.trail.bytes, n.trail.states, s, f.dt)
+        pushTrail(n.trail.bytes, n.trail.states, s, f.dt, w)
         gl.bindTexture(gl.TEXTURE_2D, n.trail.t)
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TRAIL, 1, gl.RGBA, gl.UNSIGNED_BYTE, n.trail.bytes)
       }
@@ -413,7 +413,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
         let src: WebGLTexture | null = null
         for (let k = 0; k < l.nodes.length; k++) {
           const dst = direct && k === l.nodes.length - 1 ? acc : k === 0 && small ? small : tmp[k % 2]
-          src = run(l.nodes[k]!, l, f, dt, src, dst, s)
+          src = run(l.nodes[k]!, l, f, dt, src, dst, s, w)
         }
         if (direct) continue
         cu.uMask = cd.uMask = cam.mask // the EMA's current target: it swaps per mask

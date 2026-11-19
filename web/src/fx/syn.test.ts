@@ -5,8 +5,8 @@ import type { FrameInput } from '../frame'
 import { BUILTIN } from '../scenes/builtin'
 import { pairsByTarget, sizeExpr } from './isf'
 import { meter } from '../audio/meter'
-import { evaluate, type Sources } from '../bind'
-import { hoist, parseSyn, pushTrail, SYN, SYN_BIND, TRAIL } from './syn'
+import { evaluate, type Binding, type Sources } from '../bind'
+import { hoist, parseSyn, pushTrail, SYN, SYN_BIND, synValue, TRAIL } from './syn'
 import PREAMBLE from './syn/preamble.glsl?raw'
 
 const syn = (header: object, body: string) => `// Source: test\n/*${JSON.stringify(header)}*/\n${body}`
@@ -249,5 +249,41 @@ describe('SYN and the bundled scenes', () => {
       for (const k of keys) expect(d.inputs.map((i) => i.name), `${d.id} binds ${k}`).toContain(k) // a declared input: no stray or raw name
       for (const f of d.flash ?? []) expect(want, d.id).toContain(f)
     }
+  })
+})
+
+describe('the donor mix at the raws and the LevelTrail (plan S2.3)', () => {
+  test('T2a T2c: a SYN name crossfades to its donor value by w; a name SYN does not feed stays ours', () => {
+    expect([0, 0.5, 1].map((w) => synValue('syn_BassLevel', 0.3, { syn_BassLevel: 0.8 }, w))).toEqual([0.3, expect.closeTo(0.55, 9), expect.closeTo(0.8, 9)])
+    expect([synValue('foo', 0.3, { foo: 0.9 }, 1), synValue('kick', 0.3, { kick: 0.9 }, 1)]).toEqual([0.3, 0.3])
+  })
+
+  test('T2b: a count is ours below w .5 and the donor value from .5, never a value between', () => {
+    for (const n of ['syn_BeatTime', 'syn_BPMTwitcher', 'syn_BPM']) {
+      const ws = Array.from({ length: 101 }, (_, i) => i / 100) // .49 → 6, .5 → 7
+      expect(ws.map((w) => synValue(n, 6, { [n]: 7 }, w)), n).toEqual(ws.map((w) => (w < 0.5 ? 6 : 7)))
+    }
+  })
+
+  test('T2g: at w 1 the newest texel is the four donor levels through their own bindings (rise and fall); at w 0 ours', () => {
+    const lit = (source: string, release: number): Binding => ({ source, amount: 1, attack: 0.05, release, min: 0, max: 1 })
+    const donor = [lit('syn_Level', 0.3), lit('syn_BassLevel', 0.15), lit('syn_MidLevel', 0.15), lit('syn_HighLevel', 0.15)]
+    const ours = ['syn_Level', 'syn_BassLevel', 'syn_MidLevel', 'syn_HighLevel'].map((n) => SYN_BIND[n])
+    const fresh = (n: number) => Array.from({ length: n }, () => ({ y: 0 }))
+    const [b0, b1, s0, s1, so, sd] = [new Uint8Array(4 * TRAIL), new Uint8Array(4 * TRAIL), fresh(8), fresh(8), fresh(4), fresh(4)]
+    let want = { ours: new Uint8Array(4), donor: new Uint8Array(4) }
+    const run = (frames: number, s: Sources) => {
+      for (let i = 0; i < frames; i++) {
+        pushTrail(b0, s0, s, 1 / 60, 0)
+        pushTrail(b1, s1, s, 1 / 60, 1)
+        want = { ours: Uint8Array.from(ours, (b, c) => 255 * evaluate(b, s, so[c], 1 / 60)), donor: Uint8Array.from(donor, (b, c) => 255 * evaluate(b, s, sd[c], 1 / 60)) }
+      }
+    }
+    const s = { reeseBody: 0.2, subBody: 0.3, band27: 0.1, syn_Level: 0.8, syn_BassLevel: 0.7, syn_MidLevel: 0.6, syn_HighLevel: 0.9 }
+    run(60, s) // 1 s held: the attack
+    for (let c = 0; c < 4; c++) expect(want.ours[c], `channel ${c}: the fixture tells ours from the donor's`).not.toBe(want.donor[c])
+    expect([b1.slice(-4), b0.slice(-4)]).toEqual([want.donor, want.ours])
+    run(6, { ...s, syn_Level: 0, syn_BassLevel: 0, syn_MidLevel: 0, syn_HighLevel: 0 }) // the fall: Level's release .3, the rest .15
+    expect([b1.slice(-4), b0.slice(-4)]).toEqual([want.donor, want.ours])
   })
 })
