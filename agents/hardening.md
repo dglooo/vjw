@@ -38,3 +38,5 @@
 - **Donor analyser S1.5:** Sources tab 80 px label column cuts long donor ids (`syn_MidHig…`) — add a `title` or widen; a hidden donor calibration row replays its old 4 s history once when re-shown.
 - **Donor analyser S3.2:** in ours mode every `_synSpectrum` call also samples the donor texture × 0 (unmeasured); lever: a uniform branch on `_synMix > 0.0`.
 - **Donor analyser S3.3:** Scene tab 80 px label column also cuts long `syn_*` names — `title={label}` on `Param` in Panel.tsx; the 'donor' hint sits slightly above the Source select's centre.
+- 2026-11-19 donor analyser H4c: donor Hits per minute drift with frame rate beyond ±10 % in 3/36 cells (kanine 30 Hz bass +10.2 %, kanine 144 Hz mid −11 %, bicep 144 Hz high −14.6 %; `scratchpad/donor-mode/s6/score-s6.txt`). Fix: tick Hits on a fixed audio clock, not the frame.
+- 2026-11-19 donor analyser H3: billed p95 noisy ±2.7 ms between runs on this Mac (a spike swaps modes); re-measure on an idle GPU before calling donor-mode cost done.
