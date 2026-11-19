@@ -1781,6 +1781,12 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-idol', name: 'vs3 Idol', star: false,
     layers: [{ gen: { ref: 'native/vs3-idol', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // Batch 2 (2026-11-19; res .5, no cost run: the lead measures every vs3-* alone). spacetime (row 208): persist .55 +
+  // zoom 1.05/s = own/feedback-zoom (zoom 1.05^(1/60) - 1, the kick push to 1.215^(1/60) - 1), spin 0 = rotate 0.
+  {
+    v: 1, id: 'builtin:vs3-spacetime', name: 'vs3 Spacetime', star: false,
+    layers: [{ gen: { ref: 'native/vs3-spacetime', bind: KICK_HIT }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.55, rotate: 0 }, bind: { zoom: { ...KICK_ZOOM, min: 0.0008, max: 0.0033 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
