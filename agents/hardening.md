@@ -37,3 +37,4 @@
 - **Donor analyser (2026-11-19):** `bind.ts gain()` runs after app.ts writes `src.donorMix`, so a stored sens / mute on the key `donorMix` would bend the `w` live.ts reads (no UI lists that key today).
 - **Donor analyser S1.5:** Sources tab 80 px label column cuts long donor ids (`syn_MidHig…`) — add a `title` or widen; a hidden donor calibration row replays its old 4 s history once when re-shown.
 - **Donor analyser S3.2:** in ours mode every `_synSpectrum` call also samples the donor texture × 0 (unmeasured); lever: a uniform branch on `_synMix > 0.0`.
+- **Donor analyser S3.3:** Scene tab 80 px label column also cuts long `syn_*` names — `title={label}` on `Param` in Panel.tsx; the 'donor' hint sits slightly above the Source select's centre.
