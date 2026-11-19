@@ -1,0 +1,152 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "wide-tracking",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/renderer/index.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.272Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "overused-font",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/renderer/index.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.289Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/renderer/index.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.305Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/renderer/index.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.317Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "wide-tracking",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/renderer/web.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.330Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "overused-font",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/renderer/web.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.343Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/renderer/web.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.356Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/renderer/web.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.369Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "wide-tracking",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/src/Resources/renderer/index.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.387Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "overused-font",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/src/Resources/renderer/index.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.399Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/src/Resources/renderer/index.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.411Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/src/Resources/renderer/index.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.423Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "wide-tracking",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/src/Resources/renderer/web.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.435Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "overused-font",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/src/Resources/renderer/web.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.450Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/src/Resources/renderer/web.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.464Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          "donor/vs3/visual_system_3/src/Resources/renderer/web.html"
+        ],
+        "createdAt": "2026-11-19T14:15:14.484Z",
+        "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      }
+    ]
+  }
+}
