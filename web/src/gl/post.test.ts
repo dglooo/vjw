@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest'
-import { flashGate, postFor, type FlashState } from './post'
+import { evaluate, type Binding, type Sources } from '../bind'
+import { donorChain, SYN_BIND } from '../fx/syn'
+import { boundStep, flashGate, postFor, type Chain, type FlashState } from './post'
 
 const NONE = Infinity // no drop yet
 const gain = (heat: number, beat: number, conf: number, bpm = 60) => postFor(heat, NONE, beat, bpm, conf).gain // 60 BPM: eighths (2/s) stay under the WCAG cap
@@ -128,5 +130,151 @@ describe('flashGate', () => {
     expect(s.blocked).toBe(false)
     expect(flashGate(0.9, s, onsets, 1.7)).toBe(0.9) // the next onset, counted
     expect(onsets).toEqual([1.7])
+  })
+})
+
+describe('boundStep: the read point (design rev 2, C1)', () => {
+  const FPS = 60
+  const DT = 1 / FPS
+  const mulberry = (a: number) => () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
+  const ups = (out: number[]) => out.flatMap((y, k) => (y >= 0.5 && (k ? out[k - 1] : 0) < 0.5 ? [k / FPS] : [])) // rises through 0.5, as times
+  const maxPerSecond = (ts: number[]) => Math.max(0, ...ts.map((t) => ts.filter((u) => u >= t && u - 1 <= t).length)) // closed [t, t + 1]
+  /** A bound input as live.ts builds it: ours on `b`; a donor chain when donorChain gives one; each its own state. */
+  const chain = (name: string, b: Binding, flash = false): Chain & { donor?: Chain; flash?: FlashState } => {
+    const d = donorChain(name, b)
+    return { b, state: { y: 0 }, ...(d && { donor: { b: d, state: { y: 0 } } }), ...(flash && { flash: { prev: 0, blocked: false } }) }
+  }
+
+  // flashGate(evaluate(SYN_BIND.syn_BassHits)) on every 50th frame of T7c's trace, captured on master 2e0a673 before
+  // boundStep existed.
+  const GOLDEN = [1, 0.9738816360413167, 0.030861289206803588, 0.396853458211086, 0.7383705578168592, 0.7770773675067663, 0.6615178690534983, 0.5183441827521581, 0.7383705578168592, 0.19141233058835774, 0.5876107833956082, 0.345030726427589]
+
+  test('T7c: at w 0 the output is ours bit for bit, with or without a donor chain, and matches the master golden', () => {
+    const b = SYN_BIND.syn_BassHits
+    const rnd = mulberry(7)
+    const s: Sources = { kick: 0, syn_BassHits: 0 }
+    const ref = { state: { y: 0 }, flash: { prev: 0, blocked: false } } // live.ts render() on master, inline
+    const lone = { b, state: { y: 0 }, flash: { prev: 0, blocked: false } }
+    const duo = chain('syn_BassHits', b, true)
+    const onsets: number[][] = [[], [], []]
+    const out: number[] = []
+    let diff = 0
+    for (let k = 0; k < 10 * FPS; k++) {
+      s.kick = rnd() < 0.08 ? 1 : s.kick * Math.exp(-DT / 0.12) // our drum envelope, ≈ 4.8 hits/s: the gate refuses some
+      s.syn_BassHits = rnd() // the donor's value: unread at w 0
+      const y = flashGate(evaluate(b, s, ref.state, DT), ref.flash, onsets[0], k * DT)
+      if (!Object.is(boundStep(lone, s, 0, onsets[1], DT, k * DT), y) || !Object.is(boundStep(duo, s, 0, onsets[2], DT, k * DT), y)) diff++
+      out.push(y)
+    }
+    expect(diff).toBe(0)
+    expect(duo.donor!.state.y).toBeGreaterThan(0) // the donor chain ran: warm at the switch
+    expect(out.filter((_, k) => k % 50 === 0)).toEqual(GOLDEN)
+  })
+
+  test('T7a: the gate runs on the mix: 6 frame-sharp donor hits in 1 s at w 1 rise through 0.5 only 3 times', () => {
+    const x = chain('syn_BassHits', SYN_BIND.syn_BassHits, true)
+    const s: Sources = { kick: 0 } // ours silent
+    const onsets: number[] = []
+    const out = Array.from({ length: FPS }, (_, k) => {
+      s.syn_BassHits = k % 10 ? 0 : 1 // a one-frame donor hit every 1/6 s
+      return boundStep(x, s, 1, onsets, DT, k * DT)
+    })
+    expect(ups(out)).toHaveLength(3) // ≤ 3: "gate, then mix" lets all 6 through
+  })
+
+  test.each([false, true])('T7b: the scene override shapes a donor hit: attack 0.04, amount 6 (flash %s)', (flash) => {
+    const x = chain('syn_BassHits', { ...SYN_BIND.syn_BassHits, attack: 0.04, amount: 6 }, flash) // SOFT_KICK, scenes/builtin.ts
+    const s: Sources = { kick: 0 }
+    const onsets: number[] = []
+    const [y0, y1, y2] = [-1, 0, 1].map((age) => {
+      s.syn_BassHits = age < 0 ? 0 : Math.exp((-age * DT) / 0.12) // one donor BassHits: 1, then its decay (tau 0.12 s)
+      return boundStep(x, s, 1, onsets, DT, (age + 1) * DT)
+    })
+    expect(y0).toBe(0)
+    expect(y1).toBeLessThanOrEqual(0.35) // of the step 0 → 1: 1 - e^(-dt/0.04) = 0.341; a bypass gives 1
+    expect(y2).toBeLessThanOrEqual(0.6) // N3: about 0.566
+    expect(y2).toBeGreaterThan(0.5) // the hit lands (with flash: an allowed onset)
+  })
+
+  test('T7d: a parked binding stays parked at w 1 (Canvas BPMTri, amount 0); a native kick has no chain, w 1 changes nothing', () => {
+    const tri = chain('syn_BPMTri', { ...SYN_BIND.syn_BPMTri, amount: 0 })
+    const kb: Binding = { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 }
+    const kick = chain('kick', kb)
+    expect(tri.donor).toBeDefined()
+    expect(kick.donor).toBeUndefined()
+    const ref = { y: 0 }
+    const rnd = mulberry(5)
+    const s: Sources = { confidence: 1 }
+    let lit = 0
+    let diff = 0
+    for (let k = 0; k < 2 * FPS; k++) {
+      s.beat = k / 20 // 180 BPM
+      s.syn_BPMTri = 1 - Math.abs(2 * (s.beat % 1) - 1) // the donor's tri, full swing
+      s.kick = rnd() < 0.1 ? 1 : 0
+      s.syn_BassHits = rnd()
+      if (boundStep(tri, s, 1, [], DT, k * DT) !== 0) lit++
+      if (!Object.is(boundStep(kick, s, 1, [], DT, k * DT), evaluate(kb, s, ref, DT))) diff++
+    }
+    expect(lit).toBe(0)
+    expect(diff).toBe(0)
+  })
+
+  test('T5: two ⚡ inputs share one onsets budget at w 1: ≤ 3 passes in any 1 s over 60 s; refusals counted', () => {
+    const a = chain('syn_BassHits', SYN_BIND.syn_BassHits, true)
+    const b = chain('syn_OnBeat', SYN_BIND.syn_OnBeat, true)
+    const rnd = mulberry(3)
+    const s: Sources = { kick: 0 } // ours silent: only the donor values light them
+    const onsets: number[] = []
+    const A: number[] = []
+    const B: number[] = []
+    let hit = -Infinity
+    let next = 0
+    let refused = 0
+    for (let k = 0; k < 60 * FPS; k++) {
+      const t = k * DT
+      if (t >= next) [hit, next] = [t, t + (60 / 78) * (0.6 + 0.8 * rnd())] // BassHits ≈ 78 per min, jittered ±40 %
+      s.syn_BassHits = Math.exp(-(t - hit) / 0.12)
+      s.syn_OnBeat = Math.exp(-(t % (60 / 185)) / 0.1) // 185 BPM, tau 0.1 s
+      for (const [x, out] of [[a, A], [b, B]] as const) {
+        const was = x.flash!.blocked
+        out.push(boundStep(x, s, 1, onsets, DT, t))
+        if (!was && x.flash!.blocked) refused++
+      }
+    }
+    const passes = [...ups(A), ...ups(B)]
+    console.log(`T5: ${ups(A).length} + ${ups(B).length} passes, ${refused} refused onsets in 60 s`)
+    expect(maxPerSecond(passes)).toBeLessThanOrEqual(3)
+    expect(refused).toBeGreaterThan(0)
+  })
+})
+
+describe('donorChain (lead item C7)', () => {
+  const ev = { amount: 1, attack: 0, release: 0, min: 0, max: 1 } // scenes/serpent.ts's raw drums
+
+  test('T8a: a native input has none (serpent bass and presence; shatter kick, build and drop)', () => {
+    const natives: [string, Binding][] = [
+      ['bass', { source: 'band8', amount: 1, attack: 0.06, release: 0.3, min: 0, max: 1 }],
+      ['presence', { source: 'reeseLevel', ...ev }],
+      ['kick', { source: 'kick', ...ev }],
+      ['build', { source: 'build', amount: 1, attack: 0.2, release: 0.5, min: 0, max: 1 }],
+      ['drop', { source: 'drop', ...ev }],
+      ['toString', { source: 'kick', ...ev }], // an Object.prototype key: hasOwn, not `in`
+    ]
+    for (const [name, b] of natives) expect(donorChain(name, b)).toBeUndefined()
+  })
+
+  test('T8b: the source becomes the input name; the override, attack and release stay; shape and rate go', () => {
+    const tri = { ...SYN_BIND.syn_BPMTri, amount: 0 }
+    const c = donorChain('syn_BPMTri', tri)
+    expect(c).toEqual({ ...tri, source: 'syn_BPMTri', shape: undefined, rate: undefined })
+    expect([c?.shape, c?.rate]).toEqual([undefined, undefined])
+    const h = SYN_BIND.syn_HighHits
+    expect(donorChain('syn_HighHits', h)).toEqual({ ...h, source: 'syn_HighHits' })
+  })
+
+  test('T8c: a clock binding on a syn_ input gets none', () => {
+    const b = SYN_BIND.syn_Level
+    expect(donorChain('syn_Level', b)).toBeDefined() // a SYN name: only the clock refuses it
+    expect(donorChain('syn_Level', { ...b, clock: { base: 0, k: 1, wrap: true } })).toBeUndefined()
   })
 })

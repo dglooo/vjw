@@ -287,7 +287,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Depends on:** S1.4.
 
 
-### S2.1 [ ] `boundStep` and `donorChain` (pure, not wired)
+### S2.1 [x] `boundStep` and `donorChain` (pure, not wired)
 Invoke the `ponytail` skill (full) before writing code. Run graphify before reading code.
 - **Goal:** the rev 2 read point exists as pure, tested functions. Lead items C7 and N3 are closed here.
 - **Files:** `web/src/gl/post.ts`, `web/src/fx/syn.ts` (+ `gl/post.test.ts`).
@@ -310,6 +310,7 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 - **Pins:** the existing `flashGate` tests (`gl/post.test.ts:73-119`) and `scenes/flash.test.ts` stay unedited and green.
 - **Done-check:** GATES.
 - **Depends on:** none. It can run beside S1.1-S1.5.
+- **Changed during implementation:** T8c uses a clock binding on `syn_Level`, not on `syn_Time` (the matrix fixture). `syn_Time` is a SYN clock, not a `SYN_BIND` name, so it gets no chain without the clock guard and the test would pass vacuously. The test also asserts that `syn_Level` without the clock gets a chain. Stricter asserts, same thresholds: T7a = exactly 3 rises (a dead donor chain fails); T7b frame 2 > 0.5 (the hit lands); T8a adds the name `toString` (the `Object.hasOwn` guard). The T7c golden is from master `2e0a673`.
 
 
 ### S2.2 [ ] `gl/live.ts`: bound inputs go through `boundStep`

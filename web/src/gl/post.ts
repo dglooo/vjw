@@ -1,7 +1,8 @@
 // The heat post pass's numbers (design C6): heat brightens the frame plus a gentle beat strobe, a drop flashes it
-// toward white; and the gate that caps the bound flashes (`flashGate`). Pure, so the photosensitivity caps are tested
-// without a browser.
+// toward white; the gate that caps the bound flashes (`flashGate`) and a bound input's read point (`boundStep`). Pure,
+// so the photosensitivity caps are tested without a browser.
 import { pulse, ZERO_SYNC } from '../audio/sync'
+import { evaluate, type Binding, type BindState, type Sources } from '../bind'
 import type { Post } from './engine'
 
 // Knobs ⚠️ (design C6, research gap 6): conservative caps for photosensitivity.
@@ -55,6 +56,21 @@ export function flashGate(y: number, s: FlashState, onsets: number[], t: number)
     s.blocked = true
   }
   return (s.prev = Math.min(y, s.prev))
+}
+
+/** A binding and its smoothing state (kept across a rebind, live.ts bindInto). */
+export interface Chain { b: Binding; state: BindState }
+
+/** One bound input this frame (design rev 2, C1): ours = `evaluate(x.b)`. A SYN input's `donor` (fx/syn.ts donorChain,
+ *  its own state) is evaluated on every call, so it is warm at the switch; the two shaped values crossfade by `w`
+ *  (0 ours, 1 the donor's). The flash gate runs last, on the mix. At `w` 0 the value is ours, bit for bit. */
+export function boundStep(x: Chain & { donor?: Chain; flash?: FlashState }, s: Sources, w: number, onsets: number[], dt: number, t: number): number {
+  let y = evaluate(x.b, s, x.state, dt)
+  if (x.donor) {
+    const yd = evaluate(x.donor.b, s, x.donor.state, dt)
+    if (w > 0) y += (yd - y) * w
+  }
+  return x.flash ? flashGate(y, x.flash, onsets, t) : y
 }
 
 // knob: s, a native's ⚡ hit's rise time constant as drawn: a frame takes 1 - e^(-dt/HOT_RISE) of the step (34 % at
