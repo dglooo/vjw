@@ -1867,6 +1867,12 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-limitless3d', name: 'vs3 Limitless 3D', star: false,
     layers: [{ gen: { ref: 'native/vs3-limitless3d', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // main stage (row 259: persist .3 left out; palette vapor; msaa 4 and fxHint steady have no equivalent): its LED wall is
+  // off, its default, and draws no other scene here.
+  {
+    v: 1, id: 'builtin:vs3-lasers', name: 'vs3 Main Stage', star: false,
+    layers: [{ gen: { ref: 'native/vs3-lasers', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it

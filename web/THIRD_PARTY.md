@@ -392,13 +392,17 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/chorus.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/chorus.js (the frond texture moved above the factory; the head from /vs3/visage/) | used with permission (2026-11-19) |
 | `scenes/visage.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/visage.js (the frond texture moved above the factory; the head from /vs3/visage/; the fallback's blob Worker stripped) | used with permission (2026-11-19) |
 | `scenes/limitless3d.js` (limitless 3d) | the friends' engine | donor/vs3/visual_kit/src/scenes/limitless3d.js | used with permission (2026-11-19) |
+| `scenes/lasers.js` (main stage) | the friends' engine | donor/vs3/visual_kit/src/scenes/lasers.js | used with permission (2026-11-19) |
 | `lib/limitless3d-stage.js` | the friends' engine | donor/vs3/visual_kit/src/lib/limitless3d-stage.js | used with permission (2026-11-19) |
 | `lib/model-load.js` | the friends' engine | donor/vs3/visual_kit/src/lib/model-load.js (the drop loaders' import()s stripped) | used with permission (2026-11-19) |
 | `lib/model-scans.js` | the friends' engine; fflate (101arrowz, vendored in three r187 `examples/jsm/libs/fflate.module.js`) | donor/vs3/visual_kit/src/lib/model-scans.js (the scan URL is /vs3/models/) | used with permission (2026-11-19); fflate: MIT |
 | `lib/model-shapes.js` | the friends' engine | donor/vs3/visual_kit/src/lib/model-shapes.js | used with permission (2026-11-19) |
+| `lib/laser-stage.js` | the friends' engine | donor/vs3/visual_kit/src/lib/laser-stage.js (the plants from /vs3/lasers/) | used with permission (2026-11-19) |
+| `lib/laser-rig.js` | the friends' engine | donor/vs3/visual_kit/src/lib/laser-rig.js | used with permission (2026-11-19) |
 
 The scenes' binary assets, `public/vs3/`, copied from `donor/vs3/visual_kit/public/vendor/` with each folder's `LICENSE.txt`:
 
 | file | author | source | licence |
 |---|---|---|---|
 | `visage/head.bin`, `visage/head_lo.bin` (visage, chorus) | USC Institute for Creative Technologies (ICT FaceKit light model, https://github.com/ICT-VGL/ICT-FaceKit), converted by the friends | donor/vs3/visual_kit/public/vendor/visage/ | MIT (`visage/LICENSE.txt`) |
+| `lasers/plants.bin` (main stage) | Poly Haven, "Anthurium Botany 01" (https://polyhaven.com/a/anthurium_botany_01), reduced by the friends | donor/vs3/visual_kit/public/vendor/lasers/ | CC0 1.0 (`lasers/LICENSE.txt`) |
