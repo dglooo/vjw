@@ -1730,6 +1730,8 @@ const DEMOS: readonly SceneDoc[] = [
 // res .5 ink 6.7 ms, relic 7.1, morphogen 5.2 (Traced Tunnel 3.3 at .5 in the same run); res .85 ink 25.4, relic 26.2,
 // morphogen 14.5. Raise res when the frame time allows (the donor caps relic at 4 MP, ink at 5 MP).
 const KICK_ZOOM: Binding = { source: 'kick', amount: 1, attack: 0, release: 0.14, min: 0.0017, max: 0.0041 }
+// A scene with no FX_DEFAULTS row gets the donor's BASE_POST: persist .5 + zoom 1.04/s + spin .5 = own/feedback-zoom.
+const BASE_FX = { ref: 'own/feedback-zoom', values: { decay: 0.5, rotate: -0.002 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00065, max: 0.0031 } } }
 const KICK_SNARE: Record<string, Binding> = { ...KICK_HIT, mid: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 } } // ⚡ mid: the donor onMid / onHigh (synapse)
 const VS3: readonly SceneDoc[] = [
   {
@@ -1810,6 +1812,12 @@ const VS3: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:vs3-anemone', name: 'vs3 Anemone', star: false,
     layers: [{ gen: { ref: 'native/vs3-anemone', bind: KICK_HIT }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.72, rotate: -0.0012 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00049, max: 0.003 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // Batch 3 (2026-11-19, user: add them all, no track checks, fix later): no stills, no frame time, res .5.
+  // aurora, blob (no row: BASE_POST; three's PointsMaterial; s.air = syn_HighLevel).
+  {
+    v: 1, id: 'builtin:vs3-aurora', name: 'vs3 Aurora', star: false,
+    layers: [{ gen: { ref: 'native/vs3-aurora', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
 ]
 

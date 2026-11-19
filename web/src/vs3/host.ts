@@ -24,7 +24,7 @@ import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
 
 /** The donor `s` fields the ported scenes read (research §1). Add a field when a ported scene reads it (guide § Signal). */
-export interface Signal { onKick: number; kick: number; onMid: number; onHigh: number; sub: number; mids: number; highs: number; energy: number }
+export interface Signal { onKick: number; kick: number; onMid: number; onHigh: number; sub: number; mids: number; highs: number; air: number; energy: number }
 /** Our sources → the donor `s` (research §4): the levels from the donor-mode core's bands (the closest edges; it runs in
  *  every mode), the kick from `hit` (the ⚡ input, bound to our kick), onKick on its rise × our kickAccent (the kick's
  *  velocity: .7 at the kicks' mean, 1 for a loud one; `hit` when there is none). onMid and onHigh: both on the rise of
@@ -37,6 +37,7 @@ export function signal(src: Readonly<Sources>, hit: number, prev: number, out: S
   out.sub = src.syn_BassLevel ?? 0 // 30-150 Hz (donor: the 60 Hz octave)
   out.mids = src.syn_MidLevel ?? 0 // 250-2000 Hz (donor: 240-960)
   out.highs = src.syn_MidHighLevel ?? 0 // 2-6 kHz (donor: 1.9-3.8 k)
+  out.air = src.syn_HighLevel ?? 0 // 6-16 kHz (donor: the 7.7 kHz octave)
   out.energy = src.syn_Level ?? 0 // 30-16 kHz (donor: band energy × loudness)
   return out
 }
@@ -160,7 +161,7 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
 // The ported scenes (guide § Register): one line each. Looks from the original main.js FX_DEFAULTS rows 168, 178, 213;
 // 169 (mandala), 268 (tendril), 179 (citadel), 228 (descent),
 // 191 (oracle), 187 (idol), 208 (spacetime), 200 (ingot), 204 (gate), 171 (synapse),
-// 194 (anemone).
+// 194 (anemone); from batch 3 on: the scene's row, or the donor's BASE_POST 1, 1, .34 when it has none.
 export const VS3: readonly NativeDef[] = [
   vs3('ink', () => import('./kit/scenes/ink.js'), { palette: 'nocturne', bloomMul: 1.85, aber: 4, vignette: 0 }),
   vs3('relic', () => import('./kit/scenes/relic.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.4, vignette: 0.5 }),
@@ -176,4 +177,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('gate', () => import('./kit/scenes/gate.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.55 }),
   vs3('synapse', () => import('./kit/scenes/synapse.js'), { palette: 'nocturne', bloomMul: 1.7, aber: 1.5, vignette: 0.3, mid: true }),
   vs3('anemone', () => import('./kit/scenes/anemone.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 2.4, vignette: 0.45 }), // no `mid`: its onHigh is a sparkle, not worth the kicks the snare takes from the flash budget
+  vs3('aurora', () => import('./kit/scenes/aurora.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
 ]

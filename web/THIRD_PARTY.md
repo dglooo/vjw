@@ -377,6 +377,7 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/gate.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/gate.js | used with permission (2026-11-19) |
 | `scenes/synapse.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/synapse.js | used with permission (2026-11-19) |
 | `scenes/anemone.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/anemone.js (the bead sprite moved above the factory) | used with permission (2026-11-19) |
+| `scenes/aurora.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/aurora.js | used with permission (2026-11-19) |
 | `lib/common.js` | the friends' engine | donor/vs3/visual_kit/src/lib/common.js (window listeners stripped) | used with permission (2026-11-19) |
 | `lib/context.js` | the friends' engine | donor/vs3/visual_kit/src/lib/context.js | used with permission (2026-11-19) |
 | `lib/descent-motion.js` | the friends' engine | donor/vs3/visual_kit/src/lib/descent-motion.js | used with permission (2026-11-19) |
