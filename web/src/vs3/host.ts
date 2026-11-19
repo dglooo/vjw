@@ -15,9 +15,12 @@
 // steps > .10 in 15 s without it, 0 with it), its rise the donor `onKick`, the bloom's kick term and the finish's kick
 // aberration. A scene that reads onMid / onHigh gets a second ⚡ `mid` (look.mid): its rise is both. Analyser 'vs3': the
 // levels and specHi come from the vs3 core (audio/vs3.ts vs3Live), and gl/engine.ts's hear() binds ⚡ hit / mid to its
-// kick and onMid, so its light passes the same gate.
+// kick and onMid, so its light passes the same gate. The scene's panel rows (its `params`, `modes`) are the native's
+// inputs after the ⚡ ones, declared from vs3/params.json (host.test.ts writes it from the copied scenes) and written
+// back into the scene's params each frame (put()).
 import { vs3Live, type Vs3Out } from '../audio/vs3'
 import type { Sources } from '../bind'
+import type { Input, Value } from '../fx/types'
 import { createBloom } from '../gl/bloom'
 import { copy, fullscreenProgram, gl as stageGl } from '../gl/engine'
 import { glState, PASS_LIST, restore } from '../gl/glstate'
@@ -25,6 +28,7 @@ import { heatStep } from '../gl/post'
 import type { NativeDef } from '../gl/scene'
 import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
+import PARAMS from './params.json'
 
 /** The donor `s` fields the ported scenes read (research §1). Add a field when a ported scene reads it (guide § Signal). */
 export interface Signal { onKick: number; kick: number; onMid: number; onHigh: number; sub: number; mids: number; highs: number; air: number; energy: number; specHi: Float32Array; bands?: Float32Array }
@@ -107,8 +111,30 @@ async function open(gl: WebGL2RenderingContext) {
   return { ...t, fit: h.fit, RENDER_LIST: h.RENDER_LIST, Color: THREE.Color, PAL: common.PAL, PRESETS: palette.PRESETS as { name: string; colors: string[] }[] }
 }
 type Lib = Awaited<ReturnType<typeof open>>
+/** The donor scene's panel fields (research §1): flat 0..1 sliders, labels per mode ('*': any), their order, the modes. */
+interface Rows { params?: Record<string, unknown>; paramLabels?: Record<string, Record<string, string | null>>; paramOrder?: string[]; modes?: string[] }
 /** The donor scene as the host reads it (research §1). */
-interface Scene { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null } }
+interface Scene extends Rows { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null } }
+
+// The donor panel's slider order for a scene without paramOrder (original renderer/main.js:7523, addSceneRows).
+const ORDER = ['speed', 'shape', 'complexity', 'density', 'fill', 'tilt', 'open', 'morph', 'edge', 'contrast', 'growth', 'movement', 'curl', 'relief', 'pattern', 'form', 'rig', 'room', 'color', 'phase', 'formation', 'screen', 'colors', 'wall', 'chase', 'strips']
+/** The scene's panel rows as the original builds them (main.js addSceneRows) → our inputs: `modes` = `mode`, a select by
+ *  index (the scene reads the name); the 0..1 sliders in paramOrder's order, else the donor's, labelled as in the default
+ *  mode (main.js sceneLabel). Defaults are the scene's own: untouched inputs leave it as it was. ponytail: one label per
+ *  slider (the donor relabels per mode), paramChoices / paramSteps as plain sliders, booleans (visage eyeFollow) and
+ *  limitless 3d's model left out; add them when a scene needs them. */
+export function paramInputs(sc: Rows): Input[] {
+  const P = sc.params ?? {}, mode = P.mode as string, out: Input[] = []
+  if (sc.modes && mode !== undefined) out.push({ name: 'mode', type: 'long', values: sc.modes.map((_, i) => i), labels: sc.modes, default: Math.max(0, sc.modes.indexOf(mode)) })
+  const m = sc.paramLabels?.[mode] ?? {}, all = sc.paramLabels?.['*'] ?? {}
+  for (const k of sc.paramOrder ?? ORDER) if (typeof P[k] === 'number') out.push({ name: k, type: 'float', label: (k in m ? m[k] : all[k]) ?? undefined, default: P[k], min: 0, max: 1 }) // a null label: a slider this mode greys out
+  return out
+}
+/** The node's values into the scene's params, each frame (a binding moves them): `mode` back to its name, an index
+ *  out of range keeps the current one. */
+export function put(P: Record<string, unknown>, ps: readonly Input[], v: Readonly<Record<string, Value>>) {
+  for (const i of ps) P[i.name] = i.type === 'long' ? (i.labels![v[i.name] as number] ?? P[i.name]) : v[i.name]
+}
 
 /** FX_DEFAULTS' bloomMul and finish keys (original renderer/main.js:167+), SCENE_PALETTE (main.js:7780; else nocturne).
  *  `filter` (limitless): a filter native; the scene's `source` (a three ExternalTexture) gets the previous layer each
@@ -116,17 +142,20 @@ interface Scene { scene: { traverse(f: (o: { geometry?: { dispose(): void }; mat
 export interface Look { palette: string; bloomMul: number; aber: number; vignette: number; mid?: true; filter?: true }
 
 /** One scene's frame loop on its own RT; resolves once its programs compiled (rule 5: no compile on a visible frame). */
-async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) {
+async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, ps: readonly Input[]) {
   const { R, guard, texture } = L
   const pal = L.PRESETS.find((p) => p.name === look.palette)!.colors.map((c) => new L.Color(c))
   const made = new Set<{ dispose(): void }>()
   const s = { specHi: new Float32Array(192) } as Signal
+  const P = sc.params ?? {}
   let rt = L.fit(null, 16, 16, 1), prev = 0, prevMid = 0, hot = 0, w = 0, h = 0
   await guard('compileAsync', () => (R.setRenderTarget(rt), R.compileAsync(sc.scene, sc.camera)))
   finish ??= fullscreenProgram(FINISH)
   const bloom = createBloom(gl, 8, 0.3) // the donor's threshold (luma .3); 8 levels reach its widest mip's ≈ 350 px
   return {
-    draw(f: { width: number; height: number; dt: number; time: number }, hit: number, mid: number, src: Readonly<Sources>, input: WebGLTexture | null) {
+    draw(f: { width: number; height: number; dt: number; time: number }, vals: Readonly<Record<string, Value>>, src: Readonly<Sources>, input: WebGLTexture | null) {
+      const hit = vals.hit as number, mid = (vals.mid as number | undefined) ?? 0
+      put(P, ps, vals)
       if (sc.source) sc.source.sourceTexture = input // a filter's picture: the previous layer
       const v = vs3Live.s // analyser 'vs3': the core's levels and spectrum
       signal(src, hit, prev, s, mid, prevMid, v)
@@ -167,22 +196,25 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
   }
 }
 
-/** The native of one copied scene: `load` imports its file, `look` its engine keys (FX_DEFAULTS, SCENE_PALETTE). */
-export function vs3(name: string, load: () => Promise<{ default: () => Scene }>, look: Look): NativeDef {
+/** The native of one copied scene: `load` imports its file (host.test.ts reads every scene's rows through it), `look`
+ *  its engine keys (FX_DEFAULTS, SCENE_PALETTE). */
+export function vs3(name: string, load: () => Promise<{ default: () => Scene }>, look: Look): NativeDef & { load: typeof load } {
   const ready = (gl: WebGL2RenderingContext) => Promise.all([(libs ??= open(gl)), load()])
   const flash = look.mid ? ['hit', 'mid'] : ['hit']
+  const ps = (PARAMS as Record<string, Input[] | undefined>)[name] ?? [] // its panel rows, static: bindings and the panel read them before the lazy load
   return {
     id: `native/vs3-${name}`, name: `vs3 ${name}`, kind: look.filter ? 'filter' : 'generator', credit: "vs3: the friends' three.js engine, used with permission; three.js r187 (MIT)",
-    inputs: flash.map((n) => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), // ⚡ the donor kick (+ onMid / onHigh): all a hit lights through
+    inputs: [...flash.map((n): Input => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), ...ps], // ⚡ the donor kick (+ onMid / onHigh): all a hit lights through; the rows are plain sliders, never auto-bound
     flash,
+    load,
     warm: () => ready(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden
     create(gl) {
       let run: Awaited<ReturnType<typeof start>> | null = null, gone = false
-      ready(gl).then(([L, m]) => start(gl, L, m.default(), look)).then((r) => (gone ? r.dispose() : (run = r)), (e: unknown) => console.error(`native/vs3-${name}: the load failed`, e))
+      ready(gl).then(([L, m]) => start(gl, L, m.default(), look, ps)).then((r) => (gone ? r.dispose() : (run = r)), (e: unknown) => console.error(`native/vs3-${name}: the load failed`, e))
       return {
         hidden: () => !run,
         draw(f, v, input, s) {
-          if (run) run.draw(f, v.hit as number, (v.mid as number | undefined) ?? 0, s ?? {}, input ?? null)
+          if (run) run.draw(f, v, s ?? {}, input ?? null)
           else if (input) copy({ uSrc: input, uRes: [f.width, f.height] }) // a filter passes its picture through until it runs
         },
         dispose() {
@@ -198,7 +230,7 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
 // 169 (mandala), 268 (tendril), 179 (citadel), 228 (descent),
 // 191 (oracle), 187 (idol), 208 (spacetime), 200 (ingot), 204 (gate), 171 (synapse),
 // 194 (anemone); from batch 3 on: the scene's row, or the donor's BASE_POST 1, 1, .34 when it has none.
-export const VS3: readonly NativeDef[] = [
+export const VS3: readonly ReturnType<typeof vs3>[] = [
   vs3('ink', () => import('./kit/scenes/ink.js'), { palette: 'nocturne', bloomMul: 1.85, aber: 4, vignette: 0 }),
   vs3('relic', () => import('./kit/scenes/relic.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.4, vignette: 0.5 }),
   vs3('morphogen', () => import('./kit/scenes/morphogen.js'), { palette: 'pearl', bloomMul: 1, aber: 1, vignette: 0.25 }),

@@ -1,6 +1,9 @@
-// vs3/host.ts's two pieces of logic: the donor `s` from our sources and the screen redirect. No GL: the engine is mocked.
+// vs3/host.ts's logic: the donor `s` from our sources, the screen redirect, the scenes' panel rows as inputs and back.
+// No GL: the engine is mocked.
 import { expect, test, vi } from 'vitest'
-import { screen, signal, specHi, type Signal } from './host'
+import { defaults } from '../doc'
+import type { Input } from '../fx/types'
+import { paramInputs, put, screen, signal, specHi, VS3, type Signal } from './host'
 
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, gl: {} })) // takes the page's canvas + WebGL at import
 
@@ -53,4 +56,43 @@ test('screen: null and undefined mean the layer RT, the buffer size is its size,
   expect([R.setRenderTarget, R.getDrawingBufferSize]).toEqual([set, size])
   expect(() => screen(R, rt, made, () => { throw new Error('x') })).toThrow('x') // restored on a throw too
   expect(R.setRenderTarget).toBe(set)
+})
+
+test('paramInputs: mode = a select by index, sliders in paramOrder (else the donor order), labels as the default mode reads them', () => {
+  const sc = {
+    modes: ['ring', 'cross'], paramOrder: ['fill', 'speed', 'gone'],
+    params: { mode: 'cross', speed: 0.5, fill: 0.2, shape: 0.7, eyeFollow: true, model: 'knot' },
+    paramLabels: { '*': { fill: 'zoom', speed: 'rate' }, cross: { speed: null } },
+  }
+  expect(paramInputs(sc)).toEqual([
+    { name: 'mode', type: 'long', values: [0, 1], labels: ['ring', 'cross'], default: 1 },
+    { name: 'fill', type: 'float', label: 'zoom', default: 0.2, min: 0, max: 1 },
+    { name: 'speed', type: 'float', label: undefined, default: 0.5, min: 0, max: 1 }, // null in this mode: the name
+  ]) // shape is not in paramOrder, a bool and a string are no sliders, a key the scene lacks is skipped
+  expect(paramInputs({ params: { contrast: 0.5, speed: 0.3 } }).map((i) => i.name)).toEqual(['speed', 'contrast']) // the donor order
+  expect(paramInputs({})).toEqual([]) // aurora, blob: no params
+})
+
+test('put: the values into the params, mode back to its name, a mode index out of range keeps the current one', () => {
+  const ps = paramInputs({ modes: ['ring', 'cross'], params: { mode: 'ring', fill: 0.5 } })
+  const P: Record<string, unknown> = { mode: 'ring', fill: 0.5, own: 1 }
+  put(P, ps, { mode: 1, fill: 0.9, hit: 1 })
+  expect(P).toEqual({ mode: 'cross', fill: 0.9, own: 1 }) // hit is not a row; the scene's other fields stay
+  put(P, ps, { mode: 7, fill: 0.1 })
+  expect(P).toEqual({ mode: 'cross', fill: 0.1, own: 1 })
+})
+
+test('params.json = every registered scene\'s rows (regenerate: npx vitest run -u); untouched inputs leave its params as they were', async () => {
+  const canvas = { getContext: () => new Proxy({}, { get: () => () => ({ addColorStop() {}, data: new Uint8ClampedArray(4) }) }) } // the scenes' sprite canvases (gradients, image data)
+  vi.stubGlobal('document', { createElement: () => canvas })
+  const rows: Record<string, Input[]> = {}
+  for (const d of VS3) {
+    const sc = (await d.load()).default(), ps = (rows[d.id.slice(11)] = paramInputs(sc)), P = { ...sc.params }
+    put(P, ps, defaults({ ...d, inputs: ps })) // the values an untouched node draws with
+    expect(P, d.id).toEqual(sc.params ?? {}) // so an existing built-in renders as before
+  }
+  vi.unstubAllGlobals()
+  expect(Object.values(rows).flat().length).toBeGreaterThan(200)
+  const json = `{\n${Object.entries(rows).map(([k, v]) => `${JSON.stringify(k)}: [${v.map((i) => `\n  ${JSON.stringify(i)}`).join(',')}\n]`).join(',\n')}\n}\n`
+  await expect(json).toMatchFileSnapshot('./params.json')
 })
