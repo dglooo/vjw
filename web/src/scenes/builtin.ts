@@ -1850,6 +1850,13 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-sand', name: 'vs3 Sand', star: false,
     layers: [{ gen: { ref: 'native/vs3-sand', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // Batch 4, the asset scenes (2026-11-19, user: add them all, no track checks, fix later; their files in public/vs3/):
+  // no stills, no frame time, res .5; edgeAA has no equivalent. chorus (row 235: persist .15 left out): its head loads on
+  // the first frame, the bare background until it lands.
+  {
+    v: 1, id: 'builtin:vs3-chorus', name: 'vs3 Chorus', star: false,
+    layers: [{ gen: { ref: 'native/vs3-chorus', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it

@@ -389,3 +389,10 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `lib/descent-motion.js` | the friends' engine | donor/vs3/visual_kit/src/lib/descent-motion.js | used with permission (2026-11-19) |
 | `lib/palette.js` | the friends' engine | donor/vs3/visual_kit/src/lib/palette.js (the edition, preset-guard and DOM parts stripped) | used with permission (2026-11-19) |
 | `lib/noise-glsl.js` | the friends' engine; its GLSL: Ian McEwan / Ashima Arts, Stefan Gustavson (webgl-noise, https://github.com/ashima/webgl-noise) | donor/vs3/visual_kit/src/lib/noise-glsl.js | used with permission (2026-11-19); the GLSL: MIT |
+| `scenes/chorus.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/chorus.js (the frond texture moved above the factory; the head from /vs3/visage/) | used with permission (2026-11-19) |
+
+The scenes' binary assets, `public/vs3/`, copied from `donor/vs3/visual_kit/public/vendor/` with each folder's `LICENSE.txt`:
+
+| file | author | source | licence |
+|---|---|---|---|
+| `visage/head.bin`, `visage/head_lo.bin` (visage, chorus) | USC Institute for Creative Technologies (ICT FaceKit light model, https://github.com/ICT-VGL/ICT-FaceKit), converted by the friends | donor/vs3/visual_kit/public/vendor/visage/ | MIT (`visage/LICENSE.txt`) |
