@@ -9,7 +9,7 @@
 // into the library (E4), where `live` finds every scene.
 import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { ctx } from '../audio/input'
-import { bindable, evaluate, level, type Binding, type BindState, type Sources } from '../bind'
+import { bindable, level, type Binding, type BindState, type Sources } from '../bind'
 import { cam } from '../camera/camera'
 import * as users from '../camera/users' // users.use(): a bare use() reads as React's hook to the rules-of-hooks lint
 import { CODE_MAX, defaults, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
@@ -18,14 +18,14 @@ import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { pairsByTarget, sizeExpr } from '../fx/isf'
-import { pushTrail, TRAIL } from '../fx/syn'
+import { donorChain, pushTrail, TRAIL } from '../fx/syn'
 import { clockStep } from '../clock'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
 import { store } from '../store'
 import { edits } from '../undo'
 import { audioTex, copy, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
-import { flashGate, type FlashState } from './post'
+import { boundStep, type Chain, type FlashState } from './post'
 import { straight, type Native, type NativeDef } from './scene'
 
 export { docs, type NodePath } from '../edit'
@@ -62,8 +62,9 @@ interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<
  *  the reused FrameInput copy a native reads, its own target once `res` < 1, and the editor's mute (black too). `mask`
  *  (camera CP1): the doc's; `release` gives back the camera user a masked layer holds (K-3), idempotent. */
 interface Layer { blend: Blend; mask?: MaskMode; release: () => void; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null; muted: boolean }
-/** `y`: the value it evaluated last (Live.read). */
-interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState; flash?: FlashState; y?: number }
+/** `y`: the value it evaluated last (Live.read). `donor`: a SYN input's donor chain (fx/syn.ts donorChain; none on a
+ *  tile), mixed in by `src.donorMix` (post.ts boundStep). */
+interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState; flash?: FlashState; donor?: Chain; y?: number }
 const LAYER_INPUTS: readonly Input[] = [{ name: 'opacity', type: 'float' }, { name: 'speed', type: 'float' }] // bindable
 /** The one flash budget: the allowed onsets' `f.time`s, oldest first, shared by every layer of every scene (both of a
  *  fade). ponytail: hidden layers and a fade's outgoing scene spend it too, and two flashes in one frame count twice;
@@ -236,7 +237,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
 
   /** Compiles `binds` onto `u` (a node's uniforms or a layer's values). An input bound before (in `old`) first gets
    *  its value from `base` back; one still bound keeps its smoothing state. The `flashes` (the def's `flash`, WCAG
-   *  2.3.1) are gated by flashGate. */
+   *  2.3.1) are gated by flashGate. A SYN input off a tile also gets its donor chain (state kept the same way). */
   function bindInto(u: Record<string, unknown>, inputs: readonly Input[], base: Record<string, unknown>, binds: Record<string, Binding> = {}, ref: string, old: Bound[], flashes?: readonly string[]) {
     for (const x of old) if (x.u === u) u[x.name] = base[x.name]
     for (const [key, b] of Object.entries(binds)) {
@@ -252,7 +253,8 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       if (i >= 0) u[name] = [...(v as number[])] // our own copy: never write into the def's or the doc's array
       const was = old.find((x) => x.u === u && x.name === name && x.i === i)
       const flash = flashes?.includes(name) ? (was?.flash ?? { prev: 0, blocked: false }) : undefined // kept like `state`: a rebind mid-flash neither re-counts nor leaks
-      bound.push({ u, name, i, type: input.type, b, state: was?.state ?? { y: 0 }, flash })
+      const d = own ? undefined : donorChain(name, b) // a tile stays ours (w 0)
+      bound.push({ u, name, i, type: input.type, b, state: was?.state ?? { y: 0 }, flash, donor: d && { b: d, state: was?.donor?.state ?? { y: 0 } } })
     }
   }
 
@@ -378,9 +380,9 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     },
     errors,
     render(f, s, acc) {
+      const w = own ? 0 : (s.donorMix ?? 0) // the donor mix (app.ts), read once; a tile is ours
       for (const x of bound) {
-        let y = evaluate(x.b, s, x.state, f.dt)
-        if (x.flash) y = flashGate(y, x.flash, onsets, f.time)
+        const y = boundStep(x, s, w, onsets, f.dt, f.time) // ours / donor crossfade, the flash gate last
         x.y = y
         if (x.i >= 0) (x.u[x.name] as number[])[x.i] = y
         else if (x.type === 'bool' || x.type === 'event') [x.u[x.name], x.state.held] = level(x.type, y, x.state.held)
