@@ -22,7 +22,7 @@ import { vs3Live, type Vs3Out } from '../audio/vs3'
 import type { Sources } from '../bind'
 import type { Input, Value } from '../fx/types'
 import { createBloom } from '../gl/bloom'
-import { copy, fullscreenProgram, gl as stageGl } from '../gl/engine'
+import { copy, fullscreenProgram, stage, gl as stageGl } from '../gl/engine'
 import { glState, PASS_LIST, restore } from '../gl/glstate'
 import { heatStep } from '../gl/post'
 import type { NativeDef } from '../gl/scene'
@@ -108,7 +108,29 @@ async function open(gl: WebGL2RenderingContext) {
   const [h, THREE, common, palette, context] = await Promise.all([import('../three/host'), import('three'), import('./kit/lib/common.js'), import('./kit/lib/palette.js'), import('./kit/lib/context.js')])
   const t = h.three(gl, MODEL_SPIKE)
   context.ctx.renderer = t.R // morphogen and the other sims reach the renderer here
-  return { ...t, fit: h.fit, RENDER_LIST: h.RENDER_LIST, Color: THREE.Color, PAL: common.PAL, PRESETS: palette.PRESETS as { name: string; colors: string[] }[] }
+  return { ...t, fit: h.fit, RENDER_LIST: h.RENDER_LIST, Color: THREE.Color, PAL: common.PAL, scenePointer: common.scenePointer, PRESETS: palette.PRESETS as { name: string; colors: string[] }[] }
+}
+
+// The stage's pointer for a `look.pointer` scene (the donor scenePointer, kit/lib/common.js; its setScenePointer
+// fields): NDC on #stage, the time of its last move (a still mouse lets a scene drift home after its 4 s), the button.
+// Listeners on #stage only, never on window: the bar, the panels and the editors sit above it with pointer-events
+// (ui/overlay.css), so they never steer, and leaving the stage (onto them too) kills it. Every other scene reads DEAD,
+// the stub it always had. ponytail: NDC of the element box; a REC-frozen size letterboxes (object-fit) and skews it.
+const DEAD = { ndc: null, lastMove: -1e9, held: false }
+const live: { ndc: { x: number; y: number } | null; lastMove: number; held: boolean } = { ...DEAD }
+let fed = false
+function feed() {
+  if (fed) return
+  fed = true
+  const at = (e: PointerEvent, held: boolean) => {
+    const r = stage.getBoundingClientRect()
+    Object.assign(live, { ndc: { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: 1 - ((e.clientY - r.top) / r.height) * 2 }, lastMove: performance.now(), held })
+  }
+  stage.addEventListener('pointermove', (e) => at(e, live.held))
+  stage.addEventListener('pointerdown', (e) => at(e, true))
+  stage.addEventListener('pointerup', () => (live.held = false))
+  stage.addEventListener('pointercancel', () => (live.held = false))
+  stage.addEventListener('pointerleave', () => Object.assign(live, DEAD))
 }
 type Lib = Awaited<ReturnType<typeof open>>
 /** The donor scene's panel fields (research §1): flat 0..1 sliders, labels per mode ('*': any), their order, the modes. */
@@ -138,8 +160,9 @@ export function put(P: Record<string, unknown>, ps: readonly Input[], v: Readonl
 
 /** FX_DEFAULTS' bloomMul and finish keys (original renderer/main.js:167+), SCENE_PALETTE (main.js:7780; else nocturne).
  *  `filter` (limitless): a filter native; the scene's `source` (a three ExternalTexture) gets the previous layer each
- *  frame, shown as the original shows a dropped clip (its faithful path, main.js:2397): no grade, no resting bloom. */
-export interface Look { palette: string; bloomMul: number; aber: number; vignette: number; mid?: true; filter?: true }
+ *  frame, shown as the original shows a dropped clip (its faithful path, main.js:2397): no grade, no resting bloom.
+ *  `pointer`: the scene reads the stage's pointer (feed()); opt-in per native, the rest keep the dead stub. */
+export interface Look { palette: string; bloomMul: number; aber: number; vignette: number; mid?: true; filter?: true; pointer?: true }
 
 /** One scene's frame loop on its own RT; resolves once its programs compiled (rule 5: no compile on a visible frame). */
 async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, ps: readonly Input[]) {
@@ -156,6 +179,7 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
     draw(f: { width: number; height: number; dt: number; time: number }, vals: Readonly<Record<string, Value>>, src: Readonly<Sources>, input: WebGLTexture | null) {
       const hit = vals.hit as number, mid = (vals.mid as number | undefined) ?? 0
       put(P, ps, vals)
+      Object.assign(L.scenePointer, look.pointer ? live : DEAD) // one shared object: this scene's view of it for its update
       if (sc.source) sc.source.sourceTexture = input // a filter's picture: the previous layer
       const v = vs3Live.s // analyser 'vs3': the core's levels and spectrum
       signal(src, hit, prev, s, mid, prevMid, v)
@@ -209,6 +233,7 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
     load,
     warm: () => ready(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden
     create(gl) {
+      if (look.pointer) feed()
       let run: Awaited<ReturnType<typeof start>> | null = null, gone = false
       ready(gl).then(([L, m]) => start(gl, L, m.default(), look, ps)).then((r) => (gone ? r.dispose() : (run = r)), (e: unknown) => console.error(`native/vs3-${name}: the load failed`, e))
       return {
