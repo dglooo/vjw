@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import engineSrc from '../gl/engine.ts?raw'
-import { commentParams, wrapToy, wrapTransition } from './glsl'
+import { commentParams, toyErrors, wrapToy, wrapTransition } from './glsl'
 
 const count = (s: string, part: string) => s.split(part).length - 1
 const HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\n'
@@ -78,6 +78,21 @@ describe('wrapToy', () => {
 
   test('vs is the engine triangle VS', () => {
     expect(engineSrc).toContain(toy.vs)
+  })
+})
+
+describe('toyErrors', () => {
+  test('ERROR lines by code line; a WARNING is dropped, a line past the code (main()) has none', () => {
+    const log = "ERROR: 0:3: 'x' : undeclared identifier\nWARNING: 0:2: 'y' : unused\nERROR: 0:9: 'mainImage' : no matching overloaded function found\nERROR: 0:-4: before the code"
+    expect(toyErrors(log, 5)).toEqual([
+      { line: 3, msg: "'x' : undeclared identifier" },
+      { line: 0, msg: "'mainImage' : no matching overloaded function found" },
+      { line: 0, msg: 'before the code' },
+    ])
+  })
+
+  test('a log with no ERROR line (a link failure, a length error) is one entry with no line', () => {
+    expect(toyErrors('failed to link\n', 5)).toEqual([{ line: 0, msg: 'failed to link' }])
   })
 })
 

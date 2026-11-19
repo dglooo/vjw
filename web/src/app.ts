@@ -113,15 +113,20 @@ function setPanel(open: boolean) {
   director.setHold(hold)
   store.patch({ panel: open, hold })
 }
-/** The editor screen (2b, design S1) holds the autopilot the same way and closes the panel, keeping the hold from
- *  before the panel. Leaving restores it with no cut: the scene plays on until the autopilot's next switch. */
-export function setEditor(on: boolean) {
+/** The editor screen (2b, design S1) and the shader editor (vs3 port), one at a time, hold the autopilot the same way
+ *  and close the panel, keeping the hold from before the panel or the other screen. Leaving restores it with no cut:
+ *  the scene plays on until the autopilot's next switch. */
+function setScreen(screen: 'editor' | 'shader', on: boolean) {
   const s = store.getSnapshot()
-  if (on === s.editor) return
-  if (on && !s.panel) holdBefore = s.hold
+  if (on === s[screen]) return
+  if (on && !s.panel && !s.editor && !s.shader) holdBefore = s.hold
   const hold = on || holdBefore
   director.setHold(hold)
-  store.patch({ editor: on, panel: false, hold })
+  store.patch({ editor: on && screen === 'editor', shader: on && screen === 'shader', panel: false, hold })
+}
+export const setEditor = (on: boolean) => setScreen('editor', on)
+export function setShader(on: boolean) {
+  if (store.getSnapshot().edited) setScreen('shader', on) // before Start there is no scene to edit
 }
 
 // Physical keys (e.code), so they work in any layout. Modifier chords stay the browser's (Cmd+F = Find), and a focused
@@ -129,16 +134,23 @@ export function setEditor(on: boolean) {
 addEventListener('keydown', (e) => {
   if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return
-  if (store.getSnapshot().editor && e.code !== 'KeyL') return // nothing cuts away from the edited scene (2b S1)
+  // Nothing cuts away from the edited scene (2b S1): on the editor screens only L, G and Esc
+  const { editor, shader } = store.getSnapshot()
+  if ((editor || shader) && e.code !== 'KeyL' && e.code !== 'KeyG' && e.code !== 'Escape') return
   switch (e.code) {
     case 'KeyL':
       setEditor(!store.getSnapshot().editor)
+      break
+    case 'KeyG':
+      e.preventDefault() // no text from this keystroke: the shader editor's code field takes the focus as it opens
+      setShader(!store.getSnapshot().shader)
       break
     case 'KeyE':
       setPanel(!store.getSnapshot().panel)
       break
     case 'Escape':
       setPanel(false)
+      setShader(false)
       break
     case 'ArrowLeft':
       director.prev()

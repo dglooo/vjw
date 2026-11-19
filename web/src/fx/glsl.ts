@@ -66,6 +66,14 @@ export function wrapToy(code: string) {
   return { vs: VS, fs, inputs: commentParams(code), prefixLines: TOY.split('\n').length - 1 }
 }
 
+/** A toy's compile log, its line numbers already in the code (live.ts toyLog), as the shader editor lists it: one entry
+ *  per ERROR line; line 0 when it names no line of the code's `lines` (main(), a missing mainImage). A log without an
+ *  ERROR line (a link failure, a length error) is one entry, line 0. */
+export function toyErrors(log: string, lines: number): { line: number; msg: string }[] {
+  const errs = [...log.matchAll(/^\s*ERROR:\s*\d+:(-?\d+):\s*(.*)$/gm)].map(([, n, msg]) => ({ line: +n >= 1 && +n <= lines ? +n : 0, msg }))
+  return errs.length ? errs : [{ line: 0, msg: log.trim() }]
+}
+
 /** A gl-transitions ES 3.00 source (params + `vec4 transition(vec2 uv)`) → a program over `from`/`to` at `progress`. */
 export function wrapTransition(glsl: string) {
   const fs = `${TRANSITION}${glsl.replace(/^[ \t]*#version[^\n]*/m, '')}\nvoid main() { outColor = transition(gl_FragCoord.xy / uRes); }\n`

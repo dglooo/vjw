@@ -406,3 +406,18 @@ The scenes' binary assets, `public/vs3/`, copied from `donor/vs3/visual_kit/publ
 |---|---|---|---|
 | `visage/head.bin`, `visage/head_lo.bin` (visage, chorus) | USC Institute for Creative Technologies (ICT FaceKit light model, https://github.com/ICT-VGL/ICT-FaceKit), converted by the friends | donor/vs3/visual_kit/public/vendor/visage/ | MIT (`visage/LICENSE.txt`) |
 | `lasers/plants.bin` (main stage) | Poly Haven, "Anthurium Botany 01" (https://polyhaven.com/a/anthurium_botany_01), reduced by the friends | donor/vs3/visual_kit/public/vendor/lasers/ | CC0 1.0 (`lasers/LICENSE.txt`) |
+
+## Shader editor examples
+
+`src/editor/shaders/*.glsl`, the shader editor's examples menu (`src/editor/Shader.tsx`). Seven are Shadertoy shaders copied from `donor/vs3/visual_kit/src/lib/shader-examples.js`. The friends took them from public GitHub copies of the Shadertoy sources and checked each licence on 2026-11-12 (their `THIRD-PARTY-NOTICES.txt`). Each file keeps its own licence header. Above that header, our two lines name the source and end in `Credit: …`, the donor's credit, which the scene node stores. The donor gives no Shadertoy URLs. ⚠️ Add each Shadertoy page URL when it is confirmed. `new.glsl` is ours (MIT).
+
+| file | author | source | licence |
+|---|---|---|---|
+| `star-nest.glsl` | Pablo Roman Andrioli (Kali) | donor/vs3/visual_kit/src/lib/shader-examples.js | MIT |
+| `menger-sponge.glsl` | Inigo Quilez, 2013 (https://iquilezles.org/articles/menger) | donor/vs3/visual_kit/src/lib/shader-examples.js (the friends' `App:` edits kept; `VeeJay Wizard:` lines: the knobs as `// = default` sliders, no `pAccent`) | MIT |
+| `apollonian.glsl` (Gnarly colorful apollonian) | mrange; snippets by Inigo Quilez and mercury (hg_sdf, https://mercury.sexy/hg_sdf/) | donor/vs3/visual_kit/src/lib/shader-examples.js | CC0; the snippets MIT (hg_sdf: MIT or CC-BY-NC-4.0, used under MIT) |
+| `treasure.glsl` | Butadiene, 2021 | donor/vs3/visual_kit/src/lib/shader-examples.js | MIT |
+| `golden-tunnel.glsl` (Tunneling through golden fractal III) | mrange | donor/vs3/visual_kit/src/lib/shader-examples.js | CC0 |
+| `glitter-grove.glsl` (Galactic Glitter Grove) | mrange | donor/vs3/visual_kit/src/lib/shader-examples.js (the friends' `App:` zero-inits kept) | CC0 |
+| `topologica.glsl` | Otavio Good | donor/vs3/visual_kit/src/lib/shader-examples.js | CC0 |
+| `new.glsl` | VeeJay Wizard | ours | MIT |

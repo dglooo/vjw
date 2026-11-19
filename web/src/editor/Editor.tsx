@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { director } from '../app'
 import type { SceneId } from '../doc'
-import { stage } from '../gl/engine'
+import { fitStage } from '../gl/engine'
 import { live, panel } from '../gl/live'
 import { library } from '../library'
 import { BUILTIN } from '../scenes/builtin'
@@ -48,8 +48,7 @@ function Head({ id, say }: { id: SceneId; say: Say }) {
 }
 
 /** The editor screen (2b, design S1; key L): library | preview | builder. The preview is the live stage itself,
- *  CSS-scaled into its cell. A transform leaves clientWidth alone, so measure(), the governor and the ring sizes stay
- *  live, and nothing reallocates on the way in or out. */
+ *  CSS-scaled into its cell (fitStage). */
 export function Editor() {
   const on = useSyncExternalStore(store.subscribe, () => store.getSnapshot().editor)
   return on ? <Open /> : null
@@ -62,24 +61,9 @@ function Open() {
   const [note, setNote] = useState<{ text: string; err: boolean }>()
   const say: Say = (err, what, done) => setNote(err ? { text: `${what}: ${err}`, err: true } : { text: done, err: false })
   const cell = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    const el = cell.current!
-    // Letterboxed fit, centre on centre: the stage sits at 0,0 and scales about its own centre (the default origin).
-    const ro = new ResizeObserver(() => {
-      const r = el.getBoundingClientRect()
-      const w = stage.clientWidth
-      const h = stage.clientHeight
-      const k = Math.min(r.width / w, r.height / h)
-      stage.style.transform = `translate(${r.x + (r.width - w) / 2}px, ${r.y + (r.height - h) / 2}px) scale(${k})`
-    })
-    ro.observe(el)
-    return () => {
-      ro.disconnect()
-      stage.style.transform = ''
-    }
-  }, [])
+  useLayoutEffect(() => fitStage(cell.current!), [])
   useEffect(() => {
-    // The editor's keys (design S1; app.ts lets only L through): undo/redo, Delete and Alt+↑/↓ on the selection (↑ =
+    // The editor's keys (design S1; app.ts lets only L, G and Esc through): undo/redo, Delete and Alt+↑/↓ on the selection (↑ =
     // towards the bottom layer, the first effect: up the list).
     const keys = (e: KeyboardEvent) => {
       if (typing(e.target) || !id) return // no id before Start: no scene yet

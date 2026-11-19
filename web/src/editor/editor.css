@@ -209,3 +209,84 @@
   opacity: 0.35;
   text-decoration: line-through;
 }
+
+/* The shader editor (vs3 port, Shader.tsx): code | preview over the whole window, as the editor screen. The preview
+   cell stays empty: the live stage is scaled into it from below (fitStage). */
+.shader {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(360px, 2fr) minmax(0, 3fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+.shader > aside {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #0b0b0bf0;
+  border: 1px solid #ffffff17;
+  border-radius: 10px;
+  pointer-events: auto;
+}
+.shader header > b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+/* The code: line numbers (an error's in red) beside the field, both on one font and padding so the rows line up. */
+.shader .code {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  font: 12px/1.45 ui-monospace, monospace;
+  background: #000;
+  border: 1px solid #ffffff17;
+  border-radius: 6px;
+}
+.shader .code:focus-within {
+  border-color: #ffffff47;
+}
+.shader .gutter,
+.shader textarea {
+  margin: 0;
+  padding: 8px 6px;
+  font: inherit;
+}
+.shader .gutter {
+  overflow: hidden;
+  text-align: right;
+  color: #ffffff47;
+  user-select: none;
+}
+.shader .gutter .bad {
+  color: #ff6b6b;
+}
+.shader textarea {
+  flex: 1;
+  resize: none;
+  overflow: auto;
+  white-space: pre;
+  tab-size: 2;
+  color: inherit;
+  background: none;
+  border: 0;
+  outline: 0;
+}
+.shader .status {
+  max-height: 28%;
+  margin: 0;
+  overflow: auto;
+  font: 11px/1.4 ui-monospace, monospace;
+  white-space: pre-wrap;
+  color: #78d38a;
+}
+.shader .status.fail {
+  color: #ff6b6b;
+}
