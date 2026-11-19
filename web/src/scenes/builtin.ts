@@ -1781,6 +1781,20 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-idol', name: 'vs3 Idol', star: false,
     layers: [{ gen: { ref: 'native/vs3-idol', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // Batch 2a (2026-11-19; user: add them all, no track checks yet, so no frame times here). crystal, pearl, spiral
+  // (rows 254, 255, 270: persist 0, no fx): lib/recursive-flight.js, split float passes sized by the layer RT.
+  {
+    v: 1, id: 'builtin:vs3-crystal', name: 'vs3 Crystal', star: false,
+    layers: [{ gen: { ref: 'native/vs3-crystal', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vs3-pearl', name: 'vs3 Pearl', star: false,
+    layers: [{ gen: { ref: 'native/vs3-pearl', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vs3-spiral', name: 'vs3 Spiral', star: false,
+    layers: [{ gen: { ref: 'native/vs3-spiral', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it

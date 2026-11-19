@@ -377,3 +377,7 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `lib/descent-motion.js` | the friends' engine | donor/vs3/visual_kit/src/lib/descent-motion.js | used with permission (2026-11-19) |
 | `lib/palette.js` | the friends' engine | donor/vs3/visual_kit/src/lib/palette.js (the edition, preset-guard and DOM parts stripped) | used with permission (2026-11-19) |
 | `lib/noise-glsl.js` | the friends' engine; its GLSL: Ian McEwan / Ashima Arts, Stefan Gustavson (webgl-noise, https://github.com/ashima/webgl-noise) | donor/vs3/visual_kit/src/lib/noise-glsl.js | used with permission (2026-11-19); the GLSL: MIT |
+| `scenes/crystal.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/crystal.js | used with permission (2026-11-19) |
+| `scenes/pearl.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/pearl.js | used with permission (2026-11-19) |
+| `scenes/spiral.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/spiral.js | used with permission (2026-11-19) |
+| `lib/recursive-flight.js` | the friends' engine | donor/vs3/visual_kit/src/lib/recursive-flight.js (chooseSplit() also runs at creation) | used with permission (2026-11-19) |
