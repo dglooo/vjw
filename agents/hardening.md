@@ -46,3 +46,5 @@
 - 2026-11-19 vs3 host: morphogen compiles its 4 sim shaders on the first visible frame (hitch); its ShaderMaterials are never disposed explicitly.
 - 2026-11-19 vs3 host: no catalog equivalent for donor edgeAA (FXAA fork), feedback swirl/wobble, lens, grain; morphogen pointer painting off (static pointer stub).
 - 2026-11-19 tooling: a worktree Vite re-optimises the dep cache shared through the node_modules symlink ("vite config has changed"); it can disturb the user's :5173 server.
+- 2026-11-19 flash: after an allowed onset `flashGate` holds the output, so SOFT_SNARE's 40 ms rise lands as one jump (T7b with the gate 0 → .566 in one frame), both modes.
+- 2026-11-19 res .85: neon-city runs ≈ 30 fps (late 235–325 / 1800) and beats-in-4d drops frames (late 113–309) headless; a dropped frame doubles the per-frame luma change (H2 counts more steps).
