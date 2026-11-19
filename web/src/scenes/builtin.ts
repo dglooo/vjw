@@ -1792,6 +1792,10 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-ingot', name: 'vs3 Ingot', star: false,
     layers: [{ gen: { ref: 'native/vs3-ingot', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  {
+    v: 1, id: 'builtin:vs3-gate', name: 'vs3 Gate', star: false,
+    layers: [{ gen: { ref: 'native/vs3-gate', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
