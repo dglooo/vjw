@@ -72,3 +72,8 @@
 - 2026-11-19 vs3 limitless: only melt of 21 modes (params not inputs); bloom threshold .5 (donor .9 over a picture) → a bright layer below glows when loud; kickAttack 80 ms vs our 40 ms; fxWet not wired; terrain geometry outside `scene` must be freed once modes become reachable. GL diff not re-run for grove / limitless.
 - 2026-11-19 shader editor: toy / shader-editor output is not flash-gated (pre-existing for pastes); add a luma-step limiter on toy layers or route toy brightness through a ⚡ input.
 - 2026-11-19 shader editor: every compiled code stays cached for the session (GL program or null + toy def; `ponytail:` note in live.ts); twgl logs each failed compile's full source to console.error while typing (pass a quiet errorCallback); example headers lack Shadertoy URLs (spec §6); heavy examples (menger, treasure, apollonian) unmeasured at full screen.
+- 2026-11-20 vs3 res 1 (user: 100 %): billed p95 unmeasured (raymarchers ≈ 25 ms at .85 headless); the real lever is the per-machine res profile (backlog).
+- 2026-11-20 baked curation: a visitor's first change to a mark stores the whole set (baked + theirs), so later curation of that mark no longer reaches them. Fix: per-id overrides instead of sets.
+- 2026-11-20 deploy: Let's Encrypt renewal is manual (stop, renew, copy, start); the image build needs network for the MediaPipe pose model (storage.googleapis.com).
+- 2026-11-20 groups: an explicit Camera pick without a camera plays All's starred (camera scenes sit out without a camera).
+- 2026-11-20 test flake: `donor.test.ts` T1o (wall-clock p95 ≤ .5 ms) failed again under parallel load (.503); passes alone and on rerun. Loosen or move to a bench.
