@@ -1858,6 +1858,14 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-chorus', name: 'vs3 Chorus', star: false,
     layers: [{ gen: { ref: 'native/vs3-chorus', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
+  // chorus hall (user 2026-11-20: one more scene, vs3 Chorus untouched): formation (`shape`) 1 = the hall, two walls of
+  // heads flowing past the camera (chorus.js ARR[3], held from .93); the stage pointer on (look.pointer): the heads
+  // watch a moving cursor and drift back to their own glances 4 s after it stops (a drag turns nothing in the hall,
+  // the donor's own rule).
+  {
+    v: 1, id: 'builtin:vs3-chorus-hall', name: 'vs3 Chorus Hall', star: false,
+    layers: [{ gen: { ref: 'native/vs3-chorus-hall', values: { shape: 1 }, bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+  },
   // visage (row 232: persist .3 left out): the same, its close-up head.
   {
     v: 1, id: 'builtin:vs3-visage', name: 'vs3 Visage', star: false,

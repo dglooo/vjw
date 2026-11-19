@@ -88,7 +88,8 @@ export function setScenePointerHeld(held) {
   scenePointer.held = !!held;
 }
 // vjw: the window pointer/key listeners (Shift+Space detach, canvas #scene steering) and window.appPointerFollower
-// are stripped: the pointer stays a dead static stub (ndc null, held false); no proof scene steers by it.
+// are stripped. vs3/host.ts fills this object before each update: the #stage pointer for a scene registered with
+// look.pointer (its listeners sit on #stage only), the dead stub (ndc null, held false) for every other.
 
 let sprite = null;
 export function particleSprite() {

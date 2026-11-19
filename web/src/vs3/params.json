@@ -1,0 +1,328 @@
+{
+"ink": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"relic": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"fold","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"tilt","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"morphogen": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"fold","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"pattern","default":0.55,"min":0,"max":1},
+  {"name":"density","type":"float","label":"spread","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"scale","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"mandala": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"tendril": [
+  {"name":"mode","type":"long","values":[0,1,2,3,4,5],"labels":["ring","line","cross","lace","thorn","weave"],"default":0},
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"seed","default":0.75,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"ring","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"width","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"zoom","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"citadel": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"fold","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"tilt","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"descent": [
+  {"name":"mode","type":"long","values":[0,1],"labels":["multicolor","tonal"],"default":0},
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"carve","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"zoom","default":0.5,"min":0,"max":1},
+  {"name":"tilt","type":"float","default":0.5,"min":0,"max":1}
+],
+"oracle": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"fold","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"tilt","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"idol": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"petals","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"relief","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"spacetime": [
+  {"name":"mode","type":"long","values":[0,1],"labels":["forward","reverse"],"default":0},
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"direction","default":0.25,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"detail","default":0.6,"min":0,"max":1},
+  {"name":"density","type":"float","label":"rays","default":0.6,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"width","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"ingot": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"metal","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"tilt","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"gate": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"arches","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"tilt","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"synapse": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"anemone": [
+  {"name":"mode","type":"long","values":[0,1,2,3],"labels":["bloom","vortex","braid","veil"],"default":0},
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"tilt","default":0.68,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"aurora": [
+],
+"blob": [
+],
+"echo": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"flow": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"fract": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","default":0.33,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"signal": [
+  {"name":"mode","type":"long","values":[0,1,2,3,4],"labels":["analyzer","waterfall","scope","vector","lissajous"],"default":0},
+  {"name":"speed","type":"float","label":"history rate","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"layout","default":0,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"bars","default":0.6,"min":0,"max":1},
+  {"name":"density","type":"float","label":"ghost hold","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"fill","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","label":"range","default":0.55,"min":0,"max":1}
+],
+"sand": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"figure","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"grains","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"chorus": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"formation","default":0,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"zoom","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"growth","default":0.5,"min":0,"max":1},
+  {"name":"morph","type":"float","label":"variety","default":0.7,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"detail","default":0.4,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"chorus-hall": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"formation","default":0,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"zoom","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"growth","default":0.5,"min":0,"max":1},
+  {"name":"morph","type":"float","label":"variety","default":0.7,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"detail","default":0.4,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"visage": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"turn","default":0.5,"min":0,"max":1},
+  {"name":"tilt","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"open","type":"float","default":0,"min":0,"max":1},
+  {"name":"morph","type":"float","label":"face","default":0.35,"min":0,"max":1},
+  {"name":"edge","type":"float","label":"features","default":0.55,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"zoom","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"growth","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"detail","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"limitless3d": [
+  {"name":"mode","type":"long","values":[0,1,2,3,4,5],"labels":["form","shatter","dust","hologram","slices","voxel"],"default":0},
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"chrome","default":0,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"melt","default":0.4,"min":0,"max":1},
+  {"name":"density","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"tilt","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"lasers": [
+  {"name":"movement","type":"float","label":"auto movement","default":0.5,"min":0,"max":1},
+  {"name":"speed","type":"float","default":0.4,"min":0,"max":1},
+  {"name":"pattern","type":"float","label":"pattern","default":0,"min":0,"max":1},
+  {"name":"form","type":"float","label":"type","default":0.08,"min":0,"max":1},
+  {"name":"rig","type":"float","label":"lasers","default":0.71,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"beams","default":0.9,"min":0,"max":1},
+  {"name":"formation","type":"float","default":0.65,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"sweep","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"spread","default":0.55,"min":0,"max":1},
+  {"name":"tilt","type":"float","default":0.25,"min":0,"max":1},
+  {"name":"phase","type":"float","default":0,"min":0,"max":1},
+  {"name":"chase","type":"float","label":"chase","default":0.75,"min":0,"max":1},
+  {"name":"colors","type":"float","label":"colors","default":0.3333333333333333,"min":0,"max":1},
+  {"name":"color","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","label":"intensity","default":0.85,"min":0,"max":1},
+  {"name":"density","type":"float","label":"haze","default":0.65,"min":0,"max":1},
+  {"name":"room","type":"float","label":"room","default":0.45,"min":0,"max":1},
+  {"name":"edge","type":"float","label":"stage lights","default":0.5,"min":0,"max":1},
+  {"name":"strips","type":"float","label":"LED strips","default":0.5,"min":0,"max":1},
+  {"name":"screen","type":"float","label":"screen","default":0,"min":0,"max":1},
+  {"name":"wall","type":"float","label":"screen level","default":0.5,"min":0,"max":1}
+],
+"crystal": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"bloom","default":0.64,"min":0,"max":1},
+  {"name":"edge","type":"float","label":"complexity","default":0.62,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"branching","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"hollow","default":0,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"zoom","default":0.44,"min":0,"max":1},
+  {"name":"tilt","type":"float","label":"tilt","default":0.5,"min":0,"max":1}
+],
+"pearl": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"packing","default":0.94,"min":0,"max":1},
+  {"name":"edge","type":"float","label":"complexity","default":0.48,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"nesting","default":0.78,"min":0,"max":1},
+  {"name":"density","type":"float","label":"bore","default":0,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"zoom","default":0.42,"min":0,"max":1},
+  {"name":"tilt","type":"float","label":"tilt","default":0.5,"min":0,"max":1}
+],
+"spiral": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"twist","default":0.82,"min":0,"max":1},
+  {"name":"edge","type":"float","label":"complexity","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"carving","default":0.68,"min":0,"max":1},
+  {"name":"density","type":"float","label":"vault","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"zoom","default":0.4,"min":0,"max":1},
+  {"name":"tilt","type":"float","label":"tilt","default":0.5,"min":0,"max":1}
+],
+"fluid": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","default":0.6,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"forge": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"form","default":0.25,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","default":0.7,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"tilt","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"pelt": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"tilt","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"groom","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"strands","default":0.6,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"length","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"wisp": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"roam","default":0.75,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"detail","default":0.6,"min":0,"max":1},
+  {"name":"density","type":"float","label":"trail","default":0.7,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"size","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"morphogen2": [
+  {"name":"mode","type":"long","values":[0,1,2,3,4,5,6,7],"labels":["match palette","tide","porcelain","jade","lagoon","magma","coral","palette on cream"],"default":0},
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"pattern","default":0.6,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"scale","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"spread","default":1,"min":0,"max":1},
+  {"name":"contrast","type":"float","label":"relief","default":0.75,"min":0,"max":1}
+],
+"locus": [
+  {"name":"speed","type":"float","label":"rotate","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"formation","default":0,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"scatter","default":0.3,"min":0,"max":1},
+  {"name":"density","type":"float","label":"particles","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"zoom","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"vesica": [
+  {"name":"mode","type":"long","values":[0,1,2,3,4,5,6],"labels":["flower","metatron","merkaba","equilibrium","torus","golden","grid"],"default":0},
+  {"name":"open","type":"float","label":"drawing","default":0,"min":0,"max":1},
+  {"name":"morph","type":"float","label":"medium","default":0,"min":0,"max":1},
+  {"name":"density","type":"float","label":"draw","default":1,"min":0,"max":1},
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"turn","default":0,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"figure","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","label":"zoom","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"grove": [
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","label":"mood","default":0.15,"min":0,"max":1},
+  {"name":"complexity","type":"float","label":"growth","default":0.55,"min":0,"max":1},
+  {"name":"density","type":"float","default":0.6,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1}
+],
+"limitless": [
+  {"name":"mode","type":"long","values":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],"labels":["none","smear","droste","infinite","corridor","cube","planet","windows","melt","shatter","prism","terrain","breathe","mosh","sort","coral","scanline","thresh","solar","halftone","vhs"],"default":8},
+  {"name":"speed","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"shape","type":"float","default":0,"min":0,"max":1},
+  {"name":"complexity","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"fill","type":"float","default":0.1875,"min":0,"max":1},
+  {"name":"edge","type":"float","label":"fit photo","default":0,"min":0,"max":1},
+  {"name":"contrast","type":"float","default":0.5,"min":0,"max":1},
+  {"name":"density","type":"float","label":"scene dry/wet","default":1,"min":0,"max":1},
+  {"name":"tilt","type":"float","label":"tune dry/wet","default":1,"min":0,"max":1}
+]
+}
