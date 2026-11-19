@@ -370,6 +370,7 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/tendril.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/tendril.js | used with permission (2026-11-19) |
 | `scenes/citadel.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/citadel.js | used with permission (2026-11-19) |
 | `scenes/descent.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/descent.js | used with permission (2026-11-19) |
+| `scenes/oracle.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/oracle.js | used with permission (2026-11-19) |
 | `lib/common.js` | the friends' engine | donor/vs3/visual_kit/src/lib/common.js (window listeners stripped) | used with permission (2026-11-19) |
 | `lib/context.js` | the friends' engine | donor/vs3/visual_kit/src/lib/context.js | used with permission (2026-11-19) |
 | `lib/descent-motion.js` | the friends' engine | donor/vs3/visual_kit/src/lib/descent-motion.js | used with permission (2026-11-19) |
