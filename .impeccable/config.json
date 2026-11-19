@@ -146,6 +146,24 @@
         ],
         "createdAt": "2026-11-19T14:15:14.484Z",
         "reason": "lead: donor/ is read-only third-party reference (CLAUDE.md repo layout), extracted 2026-11-19, never edited or shipped"
+      },
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          "graphify-out/graph.html"
+        ],
+        "createdAt": "2026-11-19T15:17:31.627Z",
+        "reason": "lead: graphify-out/graph.html is the graphify tool's generated, git-ignored graph view, rebuilt by the post-commit hook; not product UI"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          "graphify-out/graph.html"
+        ],
+        "createdAt": "2026-11-19T15:17:31.641Z",
+        "reason": "lead: graphify-out/graph.html is the graphify tool's generated, git-ignored graph view, rebuilt by the post-commit hook; not product UI"
       }
     ]
   }
