@@ -12,7 +12,7 @@
 // skips such a file), so a bulk import sees every gap at once.
 import { meter } from '../audio/meter'
 import { evaluate, type Binding, type BindState, type Sources } from '../bind'
-import type { Rate, Ref } from '../clock'
+import { clockStep, type Rate, type Ref, type Values } from '../clock'
 import type { FrameInput } from '../frame'
 import { VS } from './glsl'
 import { glslName } from './isf'
@@ -23,7 +23,7 @@ import type { Clock, Input, PassDef, ShaderDef } from './types'
 type RateSpec = readonly (readonly (number | string)[])[]
 /** How one donor name is fed: a binding (a float input the panel shows and the user can rebind), a clock, a value
  *  read from the frame and its sources, a constant, the feedback target, a texture (ShaderDef.textures), or not yet. */
-type Syn = Binding | { clock: RateSpec } | { raw: (f: FrameInput, s: Sources) => number } | { value: number } | { target: true } | { texture: 'audio' | 'black' | 'trail' } | { unsupported: string }
+type Syn = Binding | { clock: RateSpec; donor?: RateSpec } | { raw: (f: FrameInput, s: Sources) => number } | { value: number } | { target: true } | { texture: 'audio' | 'black' | 'trail' } | { unsupported: string }
 
 const b = (source: string, attack: number, release: number): Binding => ({ source, amount: 1, attack, release, min: 0, max: 1 })
 // A hit: our drum envelope (1 on the hit, e^(−age/τ), features.ts) as sampled at the frame peaks at .78–1 by its phase;
@@ -64,12 +64,13 @@ export const SYN: Readonly<Record<string, Syn>> = {
   syn_MidPresence: slow('reeseBody'),
   syn_MidHighPresence: slow('hats'),
   syn_HighPresence: slow('hats'),
-  syn_Time: { clock: [['syn_Level']] }, // a clock wound by its band's level: silence freezes it
-  syn_BassTime: { clock: [['syn_BassLevel']] },
-  syn_MidTime: { clock: [['syn_MidLevel']] },
-  syn_MidHighTime: { clock: [['syn_MidHighLevel']] },
-  syn_HighTime: { clock: [['syn_HighLevel']] },
-  syn_CurvedTime: { clock: [[0.5], [0.5, 'syn_Level']] }, // ⚠️ never stops, faster when loud
+  // a clock wound by its band's level: silence freezes it; `donor`: its rate in donor mode (plan S2.4: 2 L, 8 L³)
+  syn_Time: { clock: [['syn_Level']], donor: [[2, 'syn_Level']] },
+  syn_BassTime: { clock: [['syn_BassLevel']], donor: [[2, 'syn_BassLevel']] },
+  syn_MidTime: { clock: [['syn_MidLevel']], donor: [[2, 'syn_MidLevel']] },
+  syn_MidHighTime: { clock: [['syn_MidHighLevel']], donor: [[2, 'syn_MidHighLevel']] },
+  syn_HighTime: { clock: [['syn_HighLevel']], donor: [[2, 'syn_HighLevel']] },
+  syn_CurvedTime: { clock: [[0.5], [0.5, 'syn_Level']], donor: [[8, 'syn_Level', 'syn_Level', 'syn_Level']] }, // ⚠️ never stops, faster when loud
   syn_OnBeat: hit('kick', 0.2),
   syn_ToggleOnBeat: { raw: (f) => (Math.floor(f.sync.beat) % 2 ? flip(f.sync.beat) : 1 - flip(f.sync.beat)) }, // 0/1, flips each beat
   syn_RandomOnBeat: { raw: (f) => dice(Math.floor(f.sync.beat) - 1) + (dice(Math.floor(f.sync.beat)) - dice(Math.floor(f.sync.beat) - 1)) * flip(f.sync.beat) }, // a new value per beat
@@ -115,6 +116,12 @@ export function synValue(name: string, ours: number, s: Sources, w: number): num
   const d = s[name]
   if (!(w > 0) || typeof d !== 'number' || !Object.hasOwn(SYN, name)) return ours
   return COUNTS.includes(name) ? (w >= 0.5 ? d : ours) : ours + (d - ours) * w
+}
+/** A clock one frame on (live.ts): the `1 − w` share of `dt` at its own rate, the `w` share at its donor rate (finding
+ *  C9: clockStep is linear in dt, so the speed blends with no jump at any `w` and the position is kept). With no donor
+ *  rate, or at `w` 0, today's one clockStep. */
+export function synClock(y: number, c: Clock, v: Values, dt: number, w: number): number {
+  return c.donor && w > 0 ? clockStep(clockStep(y, c.rate, v, dt * (1 - w)), c.donor, v, dt * w) : clockStep(y, c.rate, v, dt)
 }
 
 /** syn_LevelTrail's length in frames (⚠️ the donor's is not on file: 256 ≈ 4 s at 60 fps). */
@@ -282,7 +289,7 @@ export function parseSyn(src: string, id: string): ShaderDef {
   const textures: Record<string, NonNullable<ShaderDef['textures']>[string]> = {}
   for (const x of h.IMAGES ?? []) textures[glslName(x.NAME, id, 'IMAGES NAME')] = `/${id}/${String(x.PATH).replace(/^\.\//, '')}` as const // public/syn/<scene>/<PATH>
   const raws: [string, (f: FrameInput, s: Sources) => number][] = []
-  const synClocks: [string, RateSpec][] = []
+  const synClocks: [string, RateSpec, RateSpec?][] = []
   let feedback = false
   for (const n of names) {
     const m = SYN[n]
@@ -291,8 +298,8 @@ export function parseSyn(src: string, id: string): ShaderDef {
       syn.push({ name: n, type: 'float', default: 0, min: 0, max: 1 })
       bind[n] = m
     } else if ('clock' in m) {
-      synClocks.push([n, m.clock])
-      for (const t of m.clock) for (const f of t) if (typeof f === 'string') names.add(f)
+      synClocks.push([n, m.clock, m.donor])
+      for (const t of [...m.clock, ...(m.donor ?? [])]) for (const f of t) if (typeof f === 'string') names.add(f)
     } else if ('raw' in m) raws.push([n, m.raw])
     else if ('value' in m) defines.push(`#define ${n} ${m.value.toFixed(1)}`)
     else if ('target' in m) feedback = true
@@ -315,7 +322,7 @@ export function parseSyn(src: string, id: string): ShaderDef {
   // SYN clocks first: a scene clock may read one (it reads the value before this frame's step).
   const own = h.VJW_CLOCK ?? {}
   const clocks: Clock[] = [
-    ...[...synClocks, ...Object.entries(own)].map(([u, r]) => ({ u: glslName(u, id, 'VJW_CLOCK name'), rate: rate(r) })),
+    ...[...synClocks, ...Object.entries(own)].map(([u, r, d]) => ({ u: glslName(u, id, 'VJW_CLOCK name'), rate: rate(r), ...(d && { donor: rate(d) }) })),
     ...moving.filter((c) => !Object.hasOwn(own, c.u)),
   ]
 

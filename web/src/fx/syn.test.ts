@@ -6,7 +6,7 @@ import { BUILTIN } from '../scenes/builtin'
 import { pairsByTarget, sizeExpr } from './isf'
 import { meter } from '../audio/meter'
 import { evaluate, type Binding, type Sources } from '../bind'
-import { hoist, parseSyn, pushTrail, SYN, SYN_BIND, synValue, TRAIL } from './syn'
+import { hoist, parseSyn, pushTrail, SYN, SYN_BIND, synClock, synValue, TRAIL } from './syn'
 import PREAMBLE from './syn/preamble.glsl?raw'
 
 const syn = (header: object, body: string) => `// Source: test\n/*${JSON.stringify(header)}*/\n${body}`
@@ -285,5 +285,37 @@ describe('the donor mix at the raws and the LevelTrail (plan S2.3)', () => {
     expect([b1.slice(-4), b0.slice(-4)]).toEqual([want.donor, want.ours])
     run(6, { ...s, syn_Level: 0, syn_BassLevel: 0, syn_MidLevel: 0, syn_HighLevel: 0 }) // the fall: Level's release .3, the rest .15
     expect([b1.slice(-4), b0.slice(-4)]).toEqual([want.donor, want.ours])
+  })
+})
+
+describe('the donor rate at the SYN clocks (plan S2.4, finding C9)', () => {
+  const d = parseSyn(syn({}, 'vec4 renderMain() { return vec4(syn_Time + syn_CurvedTime); }'), 'syn/clk')
+  const [time, curved] = d.clocks!
+
+  test('T2e: at L .5, w 1 runs syn_Time and syn_CurvedTime at 1.0 / s (2 L, 8 L³), w 0 at .5 and .75 / s, bit for bit today’s', () => {
+    expect(d.clocks!.map((c) => c.u)).toEqual(['syn_Time', 'syn_CurvedTime'])
+    for (const n of ['syn_Time', 'syn_BassTime', 'syn_MidTime', 'syn_MidHighTime', 'syn_HighTime']) expect(SYN[n], n).toEqual({ clock: [[n.replace('Time', 'Level')]], donor: [[2, n.replace('Time', 'Level')]] }) // 2 × its own level
+    const speed = (w: number) => {
+      const u: Record<string, unknown> = { syn_Level: 0.5 }
+      for (let i = 0; i < 60; i++) for (const c of d.clocks!) u[c.u] = synClock((u[c.u] as number | undefined) ?? 0, c, u, 1 / 60, w)
+      return [u.syn_Time, u.syn_CurvedTime] // from 0 over 1 s: the advance per s
+    }
+    expect(speed(1)).toEqual([expect.closeTo(1, 6), expect.closeTo(1, 6)])
+    expect(speed(0)).toEqual([expect.closeTo(0.5, 6), expect.closeTo(0.75, 6)])
+    for (const c of [time, curved]) expect(Object.is(synClock(0.3, c, { syn_Level: 0.4 }, 1 / 60, 0), clockStep(0.3, c.rate, { syn_Level: 0.4 }, 1 / 60))).toBe(true)
+  })
+
+  test('T2f: rates .5 and 1.0 / s, the per-frame step at w .49 and at w .51 differ by < 10 % (no jump at the midpoint)', () => {
+    const step = (w: number) => synClock(0, time, { syn_Level: 0.5 }, 1 / 60, w)
+    expect([step(0), step(1)]).toEqual([expect.closeTo(0.5 / 60, 12), expect.closeTo(1 / 60, 12)]) // the fixture's two rates
+    expect(Math.abs(step(0.51) - step(0.49)) / step(0.49)).toBeLessThan(0.1)
+  })
+
+  test('PA3: a scene clock (VJW_CLOCK) has no donor rate: it steps the same at w 1 as at w 0', () => {
+    const ct = def().clocks!.find((c) => c.u === 'ct')!
+    const u = { speed: [0.5, 0.25], wires: 1, syn_Presence: 0.8 }
+    expect(ct.donor).toBeUndefined()
+    expect(synClock(0.3, ct, u, 1 / 60, 1)).toBe(synClock(0.3, ct, u, 1 / 60, 0))
+    expect(synClock(0.3, ct, u, 1 / 60, 1)).toBe(clockStep(0.3, ct.rate, u, 1 / 60))
   })
 })

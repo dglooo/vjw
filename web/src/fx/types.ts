@@ -18,8 +18,9 @@ export interface EffectDef { id: string; name: string; kind: Kind; category?: Ca
  *  generated after each draw (live.ts). */
 export interface PassDef { target?: string; persistent: boolean; float: boolean; width?: string; height?: string; filter?: 'nearest' | 'mipmap'; wrap?: 'repeat' }
 /** A synScene clock (fx/syn.ts): uniform `u` stepped by clock.ts each frame, its rate read from the node's values.
- *  `frame`: one step per frame, not per second (a bang counter: + 1 on its event's draw). */
-export interface Clock { u: string; rate: Rate; frame?: true }
+ *  `frame`: one step per frame, not per second (a bang counter: + 1 on its event's draw). `donor`: a SYN clock's rate
+ *  in donor mode, blended in by the mix (fx/syn.ts synClock). */
+export interface Clock { u: string; rate: Rate; frame?: true; donor?: Rate }
 /** `unsupported` names what our runtime lacks (custom .vs, IMPORTED, extra images); such files are left out at curation.
  *  A synScene's `clocks` and `raws` (uniforms read from the frame) are set by live.ts before its passes. */
 export interface ShaderDef extends EffectDef {
