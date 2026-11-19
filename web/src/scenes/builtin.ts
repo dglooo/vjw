@@ -1729,6 +1729,7 @@ const DEMOS: readonly SceneDoc[] = [
 // res .5: billed p95 with the own/flash tail, headless 1728x1117 @2, Kanine at 52 s, 15 s (scratchpad/vs3/cost.mjs):
 // res .5 ink 6.7 ms, relic 7.1, morphogen 5.2 (Traced Tunnel 3.3 at .5 in the same run); res .85 ink 25.4, relic 26.2,
 // morphogen 14.5. Raise res when the frame time allows (the donor caps relic at 4 MP, ink at 5 MP).
+// res 1 on every vs3 scene (2026-11-20, user: 100 %), over the costs above; frame times at 1 unmeasured.
 const KICK_ZOOM: Binding = { source: 'kick', amount: 1, attack: 0, release: 0.14, min: 0.0017, max: 0.0041 }
 // A scene with no FX_DEFAULTS row gets the donor's BASE_POST: persist .5 + zoom 1.04/s + spin .5 = own/feedback-zoom.
 const BASE_FX = { ref: 'own/feedback-zoom', values: { decay: 0.5, rotate: -0.002 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00065, max: 0.0031 } } }
@@ -1736,15 +1737,15 @@ const KICK_SNARE: Record<string, Binding> = { ...KICK_HIT, mid: { source: 'snare
 const VS3: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:vs3-ink', name: 'vs3 Ink', star: false,
-    layers: [{ gen: { ref: 'native/vs3-ink', bind: KICK_HIT }, fx: [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: true } }, { ref: 'own/feedback-zoom', values: { decay: 0.97, rotate: 0.001 }, bind: { zoom: KICK_ZOOM } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-ink', bind: KICK_HIT }, fx: [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: true } }, { ref: 'own/feedback-zoom', values: { decay: 0.97, rotate: 0.001 }, bind: { zoom: KICK_ZOOM } }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:vs3-relic', name: 'vs3 Relic', star: false,
-    layers: [{ gen: { ref: 'native/vs3-relic', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-relic', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:vs3-morphogen', name: 'vs3 Morphogen', star: false,
-    layers: [{ gen: { ref: 'native/vs3-morphogen', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-morphogen', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // Batch 1 (2026-11-19, rows 169+). mandala: mirror 9 = isf/Kaleidoscope 9 sides about the centre, persist .75 + zoom
   // 1.29/s = own/feedback-zoom (zoom 1.29^(1/60) - 1, the kick push to 1.455^(1/60) - 1), spin -.8's swirl ≈ a turn of
@@ -1762,178 +1763,178 @@ const VS3: readonly SceneDoc[] = [
   // idol (row 187: persist .35 left out): 25.3 at res .5 with relic at 18.7 in the same run, 1.35 x relic (cap 1.3 MP).
   {
     v: 1, id: 'builtin:vs3-mandala', name: 'vs3 Mandala', star: false,
-    layers: [{ gen: { ref: 'native/vs3-mandala', bind: KICK_HIT }, fx: [{ ref: 'isf/Kaleidoscope', values: { sides: 9, center: [0.5, 0.5] } }, { ref: 'own/feedback-zoom', values: { decay: 0.75, rotate: 0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.0043, max: 0.0063 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-mandala', bind: KICK_HIT }, fx: [{ ref: 'isf/Kaleidoscope', values: { sides: 9, center: [0.5, 0.5] } }, { ref: 'own/feedback-zoom', values: { decay: 0.75, rotate: 0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.0043, max: 0.0063 } } }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:vs3-tendril', name: 'vs3 Tendril', star: false,
-    layers: [{ gen: { ref: 'native/vs3-tendril', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-tendril', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:vs3-citadel', name: 'vs3 Citadel', star: false,
-    layers: [{ gen: { ref: 'native/vs3-citadel', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-citadel', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:vs3-descent', name: 'vs3 Descent', star: false,
-    layers: [{ gen: { ref: 'native/vs3-descent', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-descent', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:vs3-oracle', name: 'vs3 Oracle', star: false,
-    layers: [{ gen: { ref: 'native/vs3-oracle', bind: KICK_HIT }, fx: [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: false } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-oracle', bind: KICK_HIT }, fx: [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: false } }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:vs3-idol', name: 'vs3 Idol', star: false,
-    layers: [{ gen: { ref: 'native/vs3-idol', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-idol', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // Batch 2 (2026-11-19; res .5, no cost run: the lead measures every vs3-* alone). spacetime (row 208): persist .55 +
   // zoom 1.05/s = own/feedback-zoom (zoom 1.05^(1/60) - 1, the kick push to 1.215^(1/60) - 1), spin 0 = rotate 0.
   {
     v: 1, id: 'builtin:vs3-spacetime', name: 'vs3 Spacetime', star: false,
-    layers: [{ gen: { ref: 'native/vs3-spacetime', bind: KICK_HIT }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.55, rotate: 0 }, bind: { zoom: { ...KICK_ZOOM, min: 0.0008, max: 0.0033 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-spacetime', bind: KICK_HIT }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.55, rotate: 0 }, bind: { zoom: { ...KICK_ZOOM, min: 0.0008, max: 0.0033 } } }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // ingot (row 200) and gate (row 204): persist .3 left out.
   {
     v: 1, id: 'builtin:vs3-ingot', name: 'vs3 Ingot', star: false,
-    layers: [{ gen: { ref: 'native/vs3-ingot', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-ingot', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:vs3-gate', name: 'vs3 Gate', star: false,
-    layers: [{ gen: { ref: 'native/vs3-gate', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-gate', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // synapse (row 171): mirror 1 = isf/Mirror horizontal, persist .9 + zoom 1.06/s = own/feedback-zoom (the kick push to
   // 1.225^(1/60) - 1), spin .8 = rotate -.0032 (the sign flips, as on mandala). Its onMid / onHigh nodes: ⚡ mid, the snare
   // (two of its three node kinds; the price: the kick shares the flash budget with it).
   {
     v: 1, id: 'builtin:vs3-synapse', name: 'vs3 Synapse', star: false,
-    layers: [{ gen: { ref: 'native/vs3-synapse', bind: KICK_SNARE }, fx: [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: false } }, { ref: 'own/feedback-zoom', values: { decay: 0.9, rotate: -0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00097, max: 0.0034 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-synapse', bind: KICK_SNARE }, fx: [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: false } }, { ref: 'own/feedback-zoom', values: { decay: 0.9, rotate: -0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00097, max: 0.0034 } } }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // anemone (row 194): persist .72 + zoom 1.03/s = own/feedback-zoom (the kick push to 1.195^(1/60) - 1), spin .3 = rotate
   // -.0012. Its onHigh sparkle is off (no ⚡ mid: on synapse the snare's onsets took 7 of 35 kicks in 30 s of Kanine from
   // the shared 3/s flash budget; a sparkle is not worth that). The pointer steering is off (lib/common.js: a static pointer).
   {
     v: 1, id: 'builtin:vs3-anemone', name: 'vs3 Anemone', star: false,
-    layers: [{ gen: { ref: 'native/vs3-anemone', bind: KICK_HIT }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.72, rotate: -0.0012 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00049, max: 0.003 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-anemone', bind: KICK_HIT }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.72, rotate: -0.0012 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00049, max: 0.003 } } }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // Batch 3 (2026-11-19, user: add them all, no track checks, fix later): no stills, no frame time, res .5.
   // aurora, blob (no row: BASE_POST; three's PointsMaterial; s.air = syn_HighLevel).
   {
     v: 1, id: 'builtin:vs3-aurora', name: 'vs3 Aurora', star: false,
-    layers: [{ gen: { ref: 'native/vs3-aurora', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-aurora', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:vs3-blob', name: 'vs3 Blob', star: false,
-    layers: [{ gen: { ref: 'native/vs3-blob', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-blob', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // echo (no row: BASE_POST; MeshBasicMaterial rings; its note and hat ripples: ⚡ mid, the snare).
   {
     v: 1, id: 'builtin:vs3-echo', name: 'vs3 Echo', star: false,
-    layers: [{ gen: { ref: 'native/vs3-echo', bind: KICK_SNARE }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-echo', bind: KICK_SNARE }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // flow (no row: BASE_POST; kick bursts and its own trickle; the note and hat comets are off: no ⚡ mid).
   {
     v: 1, id: 'builtin:vs3-flow', name: 'vs3 Flow', star: false,
-    layers: [{ gen: { ref: 'native/vs3-flow', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-flow', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // fract (dormant in the donor's roster, no row: BASE_POST; its uResY reads resize()'s height, our RT px).
   {
     v: 1, id: 'builtin:vs3-fract', name: 'vs3 Fract', star: false,
-    layers: [{ gen: { ref: 'native/vs3-fract', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-fract', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // signal (row 175: persist .25 left out): its analyzer mode on s.specHi = our 32 bands stretched to 192 bins (host specHi()); s.wave
   // is not fed (the scope, vector and lissajous modes need it; no mode is reachable yet). Its DataTextures are never freed.
   {
     v: 1, id: 'builtin:vs3-signal', name: 'vs3 Signal', star: false,
-    layers: [{ gen: { ref: 'native/vs3-signal', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-signal', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // sand (row 183: persist .3 left out): its partials from s.specHi = our 32 bands stretched (the donor floor .30 and AGC are
   // missing, so its PEAK_FLOOR .36 may pick few figures); its onMid accents are off (no ⚡ mid).
   {
     v: 1, id: 'builtin:vs3-sand', name: 'vs3 Sand', star: false,
-    layers: [{ gen: { ref: 'native/vs3-sand', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-sand', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // Batch 4, the asset scenes (2026-11-19, user: add them all, no track checks, fix later; their files in public/vs3/):
   // no stills, no frame time, res .5; edgeAA has no equivalent. chorus (row 235: persist .15 left out): its head loads on
   // the first frame, the bare background until it lands.
   {
     v: 1, id: 'builtin:vs3-chorus', name: 'vs3 Chorus', star: false,
-    layers: [{ gen: { ref: 'native/vs3-chorus', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-chorus', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // visage (row 232: persist .3 left out): the same, its close-up head.
   {
     v: 1, id: 'builtin:vs3-visage', name: 'vs3 Visage', star: false,
-    layers: [{ gen: { ref: 'native/vs3-visage', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-visage', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // limitless 3d (row 240: persist .25 left out): its default, the math knot in form mode (the three scans are not copied).
   {
     v: 1, id: 'builtin:vs3-limitless3d', name: 'vs3 Limitless 3D', star: false,
-    layers: [{ gen: { ref: 'native/vs3-limitless3d', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-limitless3d', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // main stage (row 259: persist .3 left out; palette vapor; msaa 4 and fxHint steady have no equivalent): its LED wall is
   // off, its default, and draws no other scene here.
   {
     v: 1, id: 'builtin:vs3-lasers', name: 'vs3 Main Stage', star: false,
-    layers: [{ gen: { ref: 'native/vs3-lasers', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-lasers', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // Batch 2a (2026-11-19; user: add them all, no track checks yet, so no frame times here). crystal, pearl, spiral
   // (rows 254, 255, 270: persist 0, no fx): lib/recursive-flight.js, split float passes sized by the layer RT.
   {
     v: 1, id: 'builtin:vs3-crystal', name: 'vs3 Crystal', star: false,
-    layers: [{ gen: { ref: 'native/vs3-crystal', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-crystal', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:vs3-pearl', name: 'vs3 Pearl', star: false,
-    layers: [{ gen: { ref: 'native/vs3-pearl', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-pearl', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:vs3-spiral', name: 'vs3 Spiral', star: false,
-    layers: [{ gen: { ref: 'native/vs3-spiral', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-spiral', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // fluid (row 172: persist .4 left out): a Navier-Stokes dye sim + a 262 k point cloud; its hat splat waits for onHigh.
   {
     v: 1, id: 'builtin:vs3-fluid', name: 'vs3 Fluid', star: false,
-    layers: [{ gen: { ref: 'native/vs3-fluid', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-fluid', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // forge (row 196: persist .35 left out): 65 k instanced shards on a boids ping-pong sim; s.air = syn_HighLevel.
   {
     v: 1, id: 'builtin:vs3-forge', name: 'vs3 Forge', star: false,
-    layers: [{ gen: { ref: 'native/vs3-forge', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-forge', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // pelt (row 217: persist .3 left out): ~110 k instanced fur ribbons; the mouse brush is dead (scenePointer stub), the hat sparkle waits for onHigh.
   {
     v: 1, id: 'builtin:vs3-pelt', name: 'vs3 Pelt', star: false,
-    layers: [{ gen: { ref: 'native/vs3-pelt', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-pelt', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // wisp (row 222: persist .5 with zoom 1, a 3-4 frame ghost, left out): a 1 M particle wanderer (1024^2 state); the cursor lock is dead (scenePointer stub), the hat sparkle waits for onHigh.
   {
     v: 1, id: 'builtin:vs3-wisp', name: 'vs3 Wisp', star: false,
-    layers: [{ gen: { ref: 'native/vs3-wisp', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-wisp', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // morphogen 2.0 (row 265: persist .2 left out; SCENE_PALETTE glacial): a reaction-diffusion relief; its console rows and logo input are stripped, the mouse paint is dead (scenePointer stub).
   {
     v: 1, id: 'builtin:vs3-morphogen2', name: 'vs3 Morphogen 2.0', star: false,
-    layers: [{ gen: { ref: 'native/vs3-morphogen2', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-morphogen2', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // locus (row 251: persist .45 left out): a GPU particle swarm (MRT state) holding 34 formations; it stays on formation 0 (its params are no inputs yet), the drag is dead (scenePointer stub).
   {
     v: 1, id: 'builtin:vs3-locus', name: 'vs3 Locus', star: false,
-    layers: [{ gen: { ref: 'native/vs3-locus', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-locus', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // vesica (row 247: persist .08 left out; lib/vesica-geometry.js): compass strokes drawn kick by kick, mode flower of 7 (its params are no inputs yet); it fades after 3 s of silence; the hat node flashes and the snare swing wait for onHigh/onMid.
   {
     v: 1, id: 'builtin:vs3-vesica', name: 'vs3 Vesica', star: false,
-    layers: [{ gen: { ref: 'native/vs3-vesica', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-vesica', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // grove (row 226: persist .3 left out): an instanced fractal forest walk (float + RGBA8 data textures, anisotropy 8);
   // the mouse look is dead (scenePointer stub), the hat sparkle waits for onHigh.
   {
     v: 1, id: 'builtin:vs3-grove', name: 'vs3 Grove', star: false,
-    layers: [{ gen: { ref: 'native/vs3-grove', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/vs3-grove', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   // limitless (row 170): a filter, here over the tunnel (the filters' demo source); melt, its default mode: the picture
   // flows away and every kick stamps it back. persist .85 + zoom 1.06/s = own/feedback-zoom (as synapse's 1.06).
   // fxWet (= tilt, 1) and kickAttack (80 ms) have no equivalent: our kick rises over heatStep's 40 ms.
   {
     v: 1, id: 'builtin:vs3-limitless', name: 'vs3 Limitless', star: false,
-    layers: [{ gen: { ref: 'native/tunnel', bind: KICK_HIT }, fx: [{ ref: 'native/vs3-limitless', bind: KICK_HIT }, { ref: 'own/feedback-zoom', values: { decay: 0.85, rotate: 0 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00097, max: 0.0034 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+    layers: [{ gen: { ref: 'native/tunnel', bind: KICK_HIT }, fx: [{ ref: 'native/vs3-limitless', bind: KICK_HIT }, { ref: 'own/feedback-zoom', values: { decay: 0.85, rotate: 0 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00097, max: 0.0034 } } }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
 ]
 
