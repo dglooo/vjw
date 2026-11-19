@@ -118,7 +118,12 @@ export function rig(gltf: { scene: InstanceType<typeof Scene>; animations: { nam
   return { scene, camera, material, apply }
 }
 
-export async function load(gl: WebGL2RenderingContext, url: string, S: Spike) {
+let shared: ReturnType<typeof make> | undefined
+/** The one renderer on OUR context and its guard, made on the first call (one context per page): native/model's load
+ *  and the vs3 natives (vs3/host.ts) share it. `S`: the first caller's (both pass MODEL_SPIKE). */
+export const three = (gl: WebGL2RenderingContext, S: Spike) => (shared ??= make(gl, S))
+
+function make(gl: WebGL2RenderingContext, S: Spike) {
   let renderer: InstanceType<typeof WebGLRenderer> | null = null
   /** Rule 1. `keys`: what this entry restores (load-time entries: every field, the cost is once). */
   function guard<T>(name: string, fn: () => T, keys: readonly string[] = KEYS): T {
@@ -147,6 +152,17 @@ export async function load(gl: WebGL2RenderingContext, url: string, S: Spike) {
     r.setClearColor(0x000000, 0) // a GL call (instrument 2 caught it outside a guard)
     return r
   })
+  const R = renderer
+  return {
+    R, guard,
+    /** Rule 6's hand-over: the RT's colour texture, read from three's properties (undocumented; pinned r187). */
+    texture: (rt: InstanceType<typeof WebGLRenderTarget>) => R.properties.get(rt.texture).__webglTexture as WebGLTexture,
+    free: (rt: InstanceType<typeof WebGLRenderTarget>) => guard('dispose', () => rt.dispose()),
+  }
+}
+
+export async function load(gl: WebGL2RenderingContext, url: string, S: Spike) {
+  const { R: renderer, guard, texture, free } = three(gl, S)
   const { scene, camera, apply } = rig(await new GLTFLoader().loadAsync(url)) // fetch + parse: no GL
   scene.environment = guard('pmrem', () => {
     const g = new PMREMGenerator(renderer)
@@ -157,19 +173,20 @@ export async function load(gl: WebGL2RenderingContext, url: string, S: Spike) {
   const shot = target(16, 16, 0)
   apply(pose(0), 16 / 10, 0)
   const compiled = guard('compileAsync', () => {
-    renderer!.setRenderTarget(shot)
-    return renderer!.compileAsync(scene, camera)
+    renderer.setRenderTarget(shot)
+    return renderer.compileAsync(scene, camera)
   })
   await compiled
   guard('upload', () => { // rule 5: geometry, the bone texture and the VAO upload here, not on the first visible frame
-    renderer!.setRenderTarget(shot)
-    renderer!.render(scene, camera)
+    renderer.setRenderTarget(shot)
+    renderer.render(scene, camera)
   })
   guard('dispose', () => shot.dispose())
   const R = renderer
 
   return {
     renderer: R,
+    texture, free,
     /** One instance's frame into its own RT (fit()) at layer time t, its clip `d` s ahead (pose()): returns the RT. */
     render(rt: InstanceType<typeof WebGLRenderTarget> | null, w: number, h: number, samples: 1 | 4, t: number, d: number, g: number) {
       return guard('render', () => {
@@ -186,8 +203,5 @@ export async function load(gl: WebGL2RenderingContext, url: string, S: Spike) {
         return rt
       }, S.list ?? RENDER_LIST)
     },
-    /** Rule 6's hand-over: the RT's colour texture, read from three's properties (undocumented; pinned r187). */
-    texture: (rt: InstanceType<typeof WebGLRenderTarget>) => R.properties.get(rt.texture).__webglTexture as WebGLTexture,
-    free: (rt: InstanceType<typeof WebGLRenderTarget>) => guard('dispose', () => rt.dispose()),
   }
 }
