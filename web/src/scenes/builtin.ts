@@ -1750,6 +1750,8 @@ const VS3: readonly SceneDoc[] = [
   // alone): mandala 6.4-6.5 at res .5 (8.4 at .75, 13.4 at 1).
   // tendril (row 268: persist .2 left out; the file's defaults: ring mode, the thumbnail is a cross-mode preset on a
   // grey-blue palette): 19.0-21.1 at res .5 with relic at 14.7-19.9 in the same runs (16.4 at .4), so about relic's cost.
+  // citadel (row 179: persist .35 left out): 25.5 at res .5 with relic at 11.3 in the same run (22.1 at .4): 2-3 x relic.
+  // The donor caps it at 1.3 MP (pixelBudget; res .41 of this 3456x2234 frame), so res .4 is the lever if it stutters.
   {
     v: 1, id: 'builtin:vs3-mandala', name: 'vs3 Mandala', star: false,
     layers: [{ gen: { ref: 'native/vs3-mandala', bind: KICK_HIT }, fx: [{ ref: 'isf/Kaleidoscope', values: { sides: 9, center: [0.5, 0.5] } }, { ref: 'own/feedback-zoom', values: { decay: 0.75, rotate: 0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.0043, max: 0.0063 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
@@ -1757,6 +1759,10 @@ const VS3: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:vs3-tendril', name: 'vs3 Tendril', star: false,
     layers: [{ gen: { ref: 'native/vs3-tendril', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vs3-citadel', name: 'vs3 Citadel', star: false,
+    layers: [{ gen: { ref: 'native/vs3-citadel', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
 ]
 

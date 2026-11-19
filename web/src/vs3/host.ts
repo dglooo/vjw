@@ -149,11 +149,12 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
 }
 
 // The ported scenes (guide § Register): one line each. Looks from the original main.js FX_DEFAULTS rows 168, 178, 213;
-// 169 (mandala), 268 (tendril).
+// 169 (mandala), 268 (tendril), 179 (citadel).
 export const VS3: readonly NativeDef[] = [
   vs3('ink', () => import('./kit/scenes/ink.js'), { palette: 'nocturne', bloomMul: 1.85, aber: 4, vignette: 0 }),
   vs3('relic', () => import('./kit/scenes/relic.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.4, vignette: 0.5 }),
   vs3('morphogen', () => import('./kit/scenes/morphogen.js'), { palette: 'pearl', bloomMul: 1, aber: 1, vignette: 0.25 }),
   vs3('mandala', () => import('./kit/scenes/kaleido.js'), { palette: 'nocturne', bloomMul: 2.5, aber: 1.6, vignette: 0.8 }),
   vs3('tendril', () => import('./kit/scenes/tendril.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 0.8, vignette: 0.35 }),
+  vs3('citadel', () => import('./kit/scenes/citadel.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.4, vignette: 0.45 }),
 ]
