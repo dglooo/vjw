@@ -99,3 +99,4 @@
 - `agents/audio-dsp/dsp_donor_mode_gaps_2026-11-18.md` — G1/C2 silence (instant hold + 25 ms edge skip: 0/14 bursts), G4/C5 frame rate (30 ms Hits tick, θ 2.25: spread 4–9 %), G3 kickAccent formula; skeptic fixes measured and rejected. Current.
 - `agents/research/research_donor_visual_system_2.md` — donor scan of visual_system_2 (2026-11-17, 235 lines): 87 .synScene GLSL 330 scenes (table), top 15 port candidates, 43 syn_* uniforms → our sources, helpers / post chain / Shadertoy rules, audio_indicators layout, provenance. Current.
 - `agents/guides/guide_syn_res_085.md` — res .85 guide for the 59 donor (syn) built-ins: groups A/B/C, recipe, verification without frame time, 4 Sonnet batches (Fable 5.2, 2026-11-19)
+- `agents/audio-dsp/dsp_kickaccent_linein_2026-11-19.md` — kickAccent L window for line-in: pick (c) rise on the kick frame + height hold ≥ 16 ms (ACCENT_HOLD); line-in CV .42–.51 → .02–.03; H8 p95 17.4 ms; no DonorIn change; T9b (audio-dsp, 2026-11-19)
