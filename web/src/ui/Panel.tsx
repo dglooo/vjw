@@ -299,6 +299,63 @@ export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove
   )
 }
 
+/** The preset picker (presets.ts) of the edited scene's preset node, in the bar and in E: the preset its values match,
+ *  else "custom"; the factory's, then the user's; Save as preset… and, on a user one, Delete. Hidden without presets.
+ *  It re-reads on every store change (the bar's 4×/s too), so a moved slider shows "custom" within 250 ms. */
+export function PresetSelect() {
+  useSyncExternalStore(library.onChange, () => libRev)
+  useSyncExternalStore(store.subscribe, () => panel.presetNode()?.now)
+  const [naming, setNaming] = useState(false)
+  const t = panel.presetNode()
+  if (!t) return null
+  const i = t.now ? t.list.indexOf(t.now) : -1
+  if (naming)
+    return (
+      // Not a prompt(): it blocks the main thread and the picture freezes (SceneHead's Save as). app.ts skips keys typed here.
+      <form
+        className="preset"
+        onKeyDown={(e) => e.code === 'Escape' && setNaming(false)}
+        onSubmit={(e) => {
+          e.preventDefault()
+          const name = String(new FormData(e.currentTarget).get('name')).trim()
+          if (name) panel.savePreset(name)
+          setNaming(false)
+        }}
+      >
+        <input name="name" aria-label="Preset name" placeholder="preset name" required autoFocus autoComplete="off" spellCheck={false} />
+        <button>OK</button>
+        <button type="button" onClick={() => setNaming(false)}>
+          Cancel
+        </button>
+      </form>
+    )
+  return (
+    <select
+      aria-label="Preset"
+      title="Preset (↑ / ↓)"
+      value={i}
+      onChange={(e) => {
+        const v = e.currentTarget.value
+        e.currentTarget.blur() // a focused select would eat hotkeys as type-ahead
+        if (v === 'save') setNaming(true)
+        else if (v === 'delete') library.deletePreset(t.ref, t.now!.name)
+        else panel.setValues(t.path, t.list[+v].values)
+      }}
+    >
+      <option value={-1} disabled>
+        preset: custom
+      </option>
+      {t.list.map((p, j) => (
+        <option key={j} value={j}>
+          {p.name}
+        </option>
+      ))}
+      <option value="save">Save as preset…</option>
+      {i >= t.factory && <option value="delete">Delete “{t.now!.name}”</option>}
+    </select>
+  )
+}
+
 /** The GPU hint: the edited scene's median against the budget. Its 4×/s update re-renders only this. */
 export function Gpu() {
   const ms = useSnap('gpuMs')
@@ -606,6 +663,7 @@ function Open({ id }: { id: SceneId }) {
           {e}
         </pre>
       ))}
+      <PresetSelect />
       {/* Keyed by the edit: after a structural one, every control starts again from the doc. */}
       <div key={`${id} ${rev}`}>
         {layers.map((l, i) => (

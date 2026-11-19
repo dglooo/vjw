@@ -4,6 +4,7 @@ import { allowDevices, player, selectDevice, start, togglePlay } from '../audio/
 import { FLOOR } from '../audio/meter'
 import { allowCameras, selectCamera, setVideo } from '../camera/camera'
 import { badge } from '../quality'
+import { PresetSelect } from './Panel'
 import { AnalyserSelect } from './SourcesTab'
 import { clock, store, type UiSnapshot } from '../store'
 import './overlay.css'
@@ -208,6 +209,7 @@ export function Overlay() {
         )}
         {s.compiling && <span className="hint">{s.compiling}</span>}
         <span className="scene">{s.sceneName}</span>
+        <PresetSelect />
         <AnalyserSelect />
         <button onClick={() => setEditor(true)}>Editor · L</button>
         <button onClick={() => setShader(true)}>Shader · G</button>
