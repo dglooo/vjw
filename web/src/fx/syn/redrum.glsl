@@ -185,7 +185,10 @@ vec4 addGrain(sampler2D tex)
 		// vI *= mix( 0.7, 1.0, rand(t + 0.5));
 		
 		// Add additive flicker
-		vI += 1.0 + 0.4 * rand(t+8.);
+		// VJW (2026-11-19, I-FL1 / H2): the 15 Hz flicker x 1/4, its mean kept (1.0 + 0.4 x .5 = 1.15 + 0.1 x .5): one
+		// change moves the frame at most 0.1 / 1.59 (the frame-mean vI) = 6 % of its luma, under .10 at the bright end
+		// (was 0.4 / 1.44 = 28 %: luma steps at .8-.99 in donor mode, where dense hits hold the x(1 + 5 x hit) light).
+		vI += 1.15 + 0.1 * rand(t+8.);
 		
 		// Add a fixed vignetting (independent of the flicker)
 		// vI *= mix(1.0, pow(16.0 * _uv.x * (1.0-_uv.x) * _uv.y * (1.0-_uv.y), 0.4), vignette);
