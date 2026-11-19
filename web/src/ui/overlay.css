@@ -58,6 +58,13 @@
 .bar.transport::before {
   background: linear-gradient(#0000, #000b);
 }
+/* Docked under an editor screen (user 2026-11-20), which ends above it: the bar never covers the code or the list. */
+.bar.transport.docked {
+  padding: 0 12px 12px; /* 30 px of controls: a 42 px strip */
+}
+#ui:has(> .transport.docked) > :is(.editor, .shader) {
+  bottom: 42px;
+}
 .transport input[type='range'] {
   flex: 1;
   margin: 0 6px;
