@@ -1828,6 +1828,11 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-echo', name: 'vs3 Echo', star: false,
     layers: [{ gen: { ref: 'native/vs3-echo', bind: KICK_SNARE }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
+  // flow (no row: BASE_POST; kick bursts and its own trickle; the note and hat comets are off: no ⚡ mid).
+  {
+    v: 1, id: 'builtin:vs3-flow', name: 'vs3 Flow', star: false,
+    layers: [{ gen: { ref: 'native/vs3-flow', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
 ]
 
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it

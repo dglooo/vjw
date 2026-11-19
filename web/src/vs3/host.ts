@@ -180,4 +180,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('aurora', () => import('./kit/scenes/aurora.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
   vs3('blob', () => import('./kit/scenes/blob.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
   vs3('echo', () => import('./kit/scenes/echo.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34, mid: true }),
+  vs3('flow', () => import('./kit/scenes/flow.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
 ]
