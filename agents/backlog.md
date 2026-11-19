@@ -23,6 +23,7 @@
 - Not in the order, queued separately: the audio player (file transport), the animals rework (the user writes the tasks), shaders from the user's next project.
 
 ## Queued (user asked earlier)
+- **vs3 presets, the rest** (user 2026-11-20: «сделаем пресеты по хорусу и по двум-трём сценам… остальное в бэклог»): import the remaining donor factory presets (173 total, `donor/vs3/visual_system_3/renderer/main.js`) + their 172 thumbs (`vendor/thumbs/presets/`), a `Q` preset browser with thumbs / favourites / folders like theirs, autopilot cycling presets, preset morph. Their preset fields with no equivalent here (post chain, macros, lens) need the post-chain epic.
 - **Audio player for the file input** (Tier 2): scrub bar, play/pause, ±10 s on the existing `new Audio()` (`audio/input.ts:70`); beat grid and drop state survive a seek.
 - **Animals scene rework:** the user dislikes the current look («было круче, силуэты животных»); he writes the tasks later.
 - **Shaders from the user's next project** (name pending, user 2026-11-16).
