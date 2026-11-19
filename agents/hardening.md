@@ -48,3 +48,9 @@
 - 2026-11-19 tooling: a worktree Vite re-optimises the dep cache shared through the node_modules symlink ("vite config has changed"); it can disturb the user's :5173 server.
 - 2026-11-19 flash: after an allowed onset `flashGate` holds the output, so SOFT_SNARE's 40 ms rise lands as one jump (T7b with the gate 0 → .566 in one frame), both modes.
 - 2026-11-19 res .85: neon-city runs ≈ 30 fps (late 235–325 / 1800) and beats-in-4d drops frames (late 113–309) headless; a dropped frame doubles the per-frame luma change (H2 counts more steps).
+- 2026-11-19 vs3 batch 1: billed p95 measured with two other lanes on the GPU (proofs read 2–3× solo). Rerun `scratchpad/vs3/cost.mjs` solo for all vs3-*; a scene over 7 ms goes toward the donor's pixelBudget (≈ .4 citadel/idol/descent, .45 oracle/tendril); mandala may go up.
+- 2026-11-19 vs3 host: finish + bloom run before the built-in's fx (donor: after mirror/feedback); mandala corners keep ≈ .32 light vs the donor's .04. Fix: a finish stage after the fx, or a vignette effect.
+- 2026-11-19 vs3 host: scene `params` / `modes` unreachable (tendril's 6 modes, descent multicolor/tonal); one fixed palette (nocturne) per native. Tendril's thumb look needs cross mode + another palette.
+- 2026-11-19 catalog: no rotate effect (mandala mirror drift missing), no FXAA (citadel/descent/oracle/idol raw silhouettes).
+- 2026-11-19 vs3-ink: `rotate: 0.001` turns opposite to the donor (cosmetic under the quad mirror).
+- 2026-11-19 dev ops: worktrees share `web/node_modules/.vite`; a per-worktree `cacheDir` would stop lanes rewriting each other's optimized deps.
