@@ -1730,6 +1730,7 @@ const DEMOS: readonly SceneDoc[] = [
 // res .5 ink 6.7 ms, relic 7.1, morphogen 5.2 (Traced Tunnel 3.3 at .5 in the same run); res .85 ink 25.4, relic 26.2,
 // morphogen 14.5. Raise res when the frame time allows (the donor caps relic at 4 MP, ink at 5 MP).
 const KICK_ZOOM: Binding = { source: 'kick', amount: 1, attack: 0, release: 0.14, min: 0.0017, max: 0.0041 }
+const KICK_SNARE: Record<string, Binding> = { ...KICK_HIT, mid: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 } } // ⚡ mid: the donor onMid / onHigh
 const VS3: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:vs3-ink', name: 'vs3 Ink', star: false,
@@ -1795,6 +1796,12 @@ const VS3: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:vs3-gate', name: 'vs3 Gate', star: false,
     layers: [{ gen: { ref: 'native/vs3-gate', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // synapse (row 171): mirror 1 = isf/Mirror horizontal, persist .9 + zoom 1.06/s = own/feedback-zoom (the kick push to
+  // 1.225^(1/60) - 1), spin .8 = rotate -.0032 (the sign flips, as on mandala). Its onMid / onHigh nodes: ⚡ mid, the snare.
+  {
+    v: 1, id: 'builtin:vs3-synapse', name: 'vs3 Synapse', star: false,
+    layers: [{ gen: { ref: 'native/vs3-synapse', bind: KICK_SNARE }, fx: [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: false } }, { ref: 'own/feedback-zoom', values: { decay: 0.9, rotate: -0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00097, max: 0.0034 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
 ]
 

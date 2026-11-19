@@ -11,7 +11,8 @@
 // ShaderMaterial writes display values (no colorspace chunk; PAL holds three's linear-converted hex, as in the donor),
 // so the finish is the only grade: no ACES, no sRGB (unlike native/model). The rest of the donor post chain is the
 // built-in's fx (scenes/builtin.ts VS3). Light on a hit only through ⚡ `hit` (flashGate ≤ 3/s, I-FL1): it is the
-// donor `kick`, its rise the donor `onKick`, the bloom's kick term and the finish's kick aberration.
+// donor `kick`, its rise the donor `onKick`, the bloom's kick term and the finish's kick aberration. A scene that reads
+// onMid / onHigh gets a second ⚡ `mid` (look.mid): its rise is both.
 import type { Sources } from '../bind'
 import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, gl as stageGl } from '../gl/engine'
@@ -21,13 +22,16 @@ import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
 
 /** The donor `s` fields the ported scenes read (research §1). Add a field when a ported scene reads it (guide § Signal). */
-export interface Signal { onKick: number; kick: number; sub: number; mids: number; highs: number; energy: number }
+export interface Signal { onKick: number; kick: number; onMid: number; onHigh: number; sub: number; mids: number; highs: number; energy: number }
 /** Our sources → the donor `s` (research §4): the levels from the donor-mode core's bands (the closest edges; it runs in
  *  every mode), the kick from `hit` (the ⚡ input, bound to our kick), onKick on its rise × our kickAccent (the kick's
- *  velocity: .7 at the kicks' mean, 1 for a loud one; `hit` when there is none). */
-export function signal(src: Readonly<Sources>, hit: number, prev: number, out: Signal): Signal {
+ *  velocity: .7 at the kicks' mean, 1 for a loud one; `hit` when there is none). onMid and onHigh: both on the rise of
+ *  `mid` (the second ⚡ input, bound to our snare). One gated input for the two: they add light (synapse's nodes, anemone's
+ *  sparkle), and hats at their own rate would spend the whole 3/s flash budget, the kick's share too. */
+export function signal(src: Readonly<Sources>, hit: number, prev: number, out: Signal, mid = 0, prevMid = 0): Signal {
   out.kick = hit
   out.onKick = rose(prev, hit) ? src.kickAccent || hit : 0
+  out.onMid = out.onHigh = rose(prevMid, mid) ? mid : 0
   out.sub = src.syn_BassLevel ?? 0 // 30-150 Hz (donor: the 60 Hz octave)
   out.mids = src.syn_MidLevel ?? 0 // 250-2000 Hz (donor: 240-960)
   out.highs = src.syn_MidHighLevel ?? 0 // 2-6 kHz (donor: 1.9-3.8 k)
@@ -77,7 +81,7 @@ type Lib = Awaited<ReturnType<typeof open>>
 interface Scene { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number } }
 
 /** FX_DEFAULTS' bloomMul and finish keys (original renderer/main.js:167+), SCENE_PALETTE (main.js:7780; else nocturne). */
-export interface Look { palette: string; bloomMul: number; aber: number; vignette: number }
+export interface Look { palette: string; bloomMul: number; aber: number; vignette: number; mid?: true }
 
 /** One scene's frame loop on its own RT; resolves once its programs compiled (rule 5: no compile on a visible frame). */
 async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) {
@@ -85,14 +89,15 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
   const pal = L.PRESETS.find((p) => p.name === look.palette)!.colors.map((c) => new L.Color(c))
   const made = new Set<{ dispose(): void }>()
   const s = {} as Signal
-  let rt = L.fit(null, 16, 16, 1), prev = 0, w = 0, h = 0
+  let rt = L.fit(null, 16, 16, 1), prev = 0, prevMid = 0, w = 0, h = 0
   await guard('compileAsync', () => (R.setRenderTarget(rt), R.compileAsync(sc.scene, sc.camera)))
   finish ??= fullscreenProgram(FINISH)
   const bloom = createBloom(gl)
   return {
-    draw(f: { width: number; height: number; dt: number; time: number }, hit: number, src: Readonly<Sources>) {
-      signal(src, hit, prev, s)
+    draw(f: { width: number; height: number; dt: number; time: number }, hit: number, mid: number, src: Readonly<Sources>) {
+      signal(src, hit, prev, s, mid, prevMid)
       prev = hit
+      prevMid = mid
       guard('render', () => {
         rt = L.fit(rt, f.width, f.height, 1)
         if (f.width !== w || f.height !== h) sc.resize?.((w = f.width), (h = f.height)) // px, not the donor's CSS px: the scenes read the aspect
@@ -126,10 +131,11 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
 /** The native of one copied scene: `load` imports its file, `look` its engine keys (FX_DEFAULTS, SCENE_PALETTE). */
 export function vs3(name: string, load: () => Promise<{ default: () => Scene }>, look: Look): NativeDef {
   const ready = (gl: WebGL2RenderingContext) => Promise.all([(libs ??= open(gl)), load()])
+  const flash = look.mid ? ['hit', 'mid'] : ['hit']
   return {
     id: `native/vs3-${name}`, name: `vs3 ${name}`, kind: 'generator', credit: "vs3: the friends' three.js engine, used with permission; three.js r187 (MIT)",
-    inputs: [{ name: 'hit', type: 'float', min: 0, max: 1, default: 0 }], // ⚡ the donor kick: the one input a hit lights through
-    flash: ['hit'],
+    inputs: flash.map((n) => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), // ⚡ the donor kick (+ onMid / onHigh): all a hit lights through
+    flash,
     warm: () => ready(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden
     create(gl) {
       let run: Awaited<ReturnType<typeof start>> | null = null, gone = false
@@ -137,7 +143,7 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
       return {
         hidden: () => !run,
         draw(f, v, _src, s) {
-          run?.draw(f, v.hit as number, s ?? {})
+          run?.draw(f, v.hit as number, (v.mid as number | undefined) ?? 0, s ?? {})
         },
         dispose() {
           gone = true
@@ -150,7 +156,7 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
 
 // The ported scenes (guide § Register): one line each. Looks from the original main.js FX_DEFAULTS rows 168, 178, 213;
 // 169 (mandala), 268 (tendril), 179 (citadel), 228 (descent),
-// 191 (oracle), 187 (idol), 208 (spacetime), 200 (ingot), 204 (gate).
+// 191 (oracle), 187 (idol), 208 (spacetime), 200 (ingot), 204 (gate), 171 (synapse).
 export const VS3: readonly NativeDef[] = [
   vs3('ink', () => import('./kit/scenes/ink.js'), { palette: 'nocturne', bloomMul: 1.85, aber: 4, vignette: 0 }),
   vs3('relic', () => import('./kit/scenes/relic.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.4, vignette: 0.5 }),
@@ -164,4 +170,5 @@ export const VS3: readonly NativeDef[] = [
   vs3('spacetime', () => import('./kit/scenes/spacetime.js'), { palette: 'nocturne', bloomMul: 1.6, aber: 2.2, vignette: 0.4 }),
   vs3('ingot', () => import('./kit/scenes/ingot.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.45 }),
   vs3('gate', () => import('./kit/scenes/gate.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.55 }),
+  vs3('synapse', () => import('./kit/scenes/synapse.js'), { palette: 'nocturne', bloomMul: 1.7, aber: 1.5, vignette: 0.3, mid: true }),
 ]

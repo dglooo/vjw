@@ -4,13 +4,15 @@ import { screen, signal, type Signal } from './host'
 
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, gl: {} })) // takes the page's canvas + WebGL at import
 
-test('signal: levels from the donor-mode bands, kick = hit, onKick on its rise × kickAccent', () => {
+test('signal: levels from the donor-mode bands, kick = hit, onKick on its rise × kickAccent, onMid = onHigh on the rise of mid', () => {
   const src = { syn_BassLevel: 0.6, syn_MidLevel: 0.5, syn_MidHighLevel: 0.4, syn_Level: 0.7, kickAccent: 0.8 }
   const s = signal(src, 1, 0.1, {} as Signal)
-  expect(s).toEqual({ kick: 1, onKick: 0.8, sub: 0.6, mids: 0.5, highs: 0.4, energy: 0.7 })
+  expect(s).toEqual({ kick: 1, onKick: 0.8, onMid: 0, onHigh: 0, sub: 0.6, mids: 0.5, highs: 0.4, energy: 0.7 })
   expect(signal(src, 0.9, 1, s).onKick).toBe(0) // a falling hit: no impulse
   expect(signal(src, 0.12, 0.1, s).onKick).toBe(0) // a rise under shatter's RISE (.05): no impulse
-  expect(signal({}, 1, 0, s)).toEqual({ kick: 1, onKick: 1, sub: 0, mids: 0, highs: 0, energy: 0 }) // no kickAccent: hit; no levels: 0
+  expect(signal({}, 1, 0, s)).toEqual({ kick: 1, onKick: 1, onMid: 0, onHigh: 0, sub: 0, mids: 0, highs: 0, energy: 0 }) // no kickAccent: hit; no levels: 0; no mid: no impulse
+  expect(signal({}, 0, 0, s, 0.9, 0)).toMatchObject({ onKick: 0, onMid: 0.9, onHigh: 0.9 }) // the rise of mid: both, at its value
+  expect(signal({}, 0, 0, s, 0.8, 0.9)).toMatchObject({ onMid: 0, onHigh: 0 }) // a falling mid: no impulse
 })
 
 test('screen: null and undefined mean the layer RT, the buffer size is its size, both restored after', () => {
