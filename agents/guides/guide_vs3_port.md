@@ -6,7 +6,7 @@
 - Proven on ink, relic, morphogen, then batch 1 (mandala, tendril, citadel, descent, oracle, idol) and batch 2 (spacetime, ingot, gate, synapse, anemone), 2026-11-19. Never run anything inside `donor/`.
 
 ## Freshness
-2026-11-19, master 10408d2 + batch 2 (the ⚡ `mid` input, the texture trap, the kaleidoscope centre, the rotate sign). Sources: `agents/research/research_donor_vs3_scenes.md` §1-§6; FX_DEFAULTS and SCENE_PALETTE from the ORIGINAL `donor/vs3/visual_system_3/renderer/main.js` (L167-279, L7780). 2026-11-20: params → inputs (`vs3/params.json`), `look.pointer` (vs3-chorus-hall).
+2026-11-19, master 10408d2 + batch 2 (the ⚡ `mid` input, the texture trap, the kaleidoscope centre, the rotate sign). Sources: `agents/research/research_donor_vs3_scenes.md` §1-§6; FX_DEFAULTS and SCENE_PALETTE from the ORIGINAL `donor/vs3/visual_system_3/renderer/main.js` (L167-279, L7780). 2026-11-20: params → inputs (`vs3/params.json`), `look.pointer` (vs3-chorus-hall), the palette select and presets (`vs3/presets.json`).
 
 ## 1 Copy and review
 1. Copy from the kit copy `donor/vs3/visual_kit/src/scenes/<file>.js` (bare `three` imports). Keep the relative paths: libs live in `vs3/kit/lib/`.
@@ -25,6 +25,7 @@
 - `mid: true`: only for a scene that reads `s.onMid` / `s.onHigh` (§5). Its built-in binds `KICK_SNARE` instead of `KICK_HIT`.
 - `builtin.ts` `VS3`: `{ gen: { ref: 'native/vs3-<name>', bind: KICK_HIT }, fx: [...], res }`, `star: false` until the user has looked.
 - Params: the scene's panel rows become the native's inputs after ⚡ (`mode` select + the 0..1 sliders, as the original's addSceneRows), from `vs3/params.json`. A new or changed scene: `npx vitest run src/vs3/host.test.ts -u` rewrites it (the test also checks that untouched inputs leave `params` as they were). A built-in sets a row by `values` (vs3-chorus-hall: `{ shape: 1 }`). The rows are plain sliders: never bind one to an impulse.
+- Palette and presets: every vs3 native has a `palette` select (host.ts `PALETTES`, = palette.js PRESETS by index), default `look.palette`, never bound. Factory presets: `node scripts/vs3-presets.mjs <donor main.js>` (cwd web/) rewrites `vs3/presets.json` from the friends' FACTORY_PRESETS read as text (chorus, tendril, vesica, locus; add a scene to its SCENES). The bar's picker (Panel.tsx PresetSelect, keys ↑/↓) serves the edited scene's first generator with presets; user presets live in the library (`vjw.presets`).
 - `pointer: true`: the scene reads the #stage pointer (host.ts `feed()`); opt-in per native, every other scene keeps the dead stub. A pointer variant of a scene = a second `vs3('<name>-<variant>', same file, { ..., pointer: true })` line (vs3-chorus-hall).
 - Bare imports other than `three` (e.g. `three/examples/jsm/...`): add each to `vite.config.ts` `optimizeDeps.include`, or the scene's first load fails with a 504 (§ Traps).
 
