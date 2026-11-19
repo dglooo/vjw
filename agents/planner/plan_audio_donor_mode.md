@@ -545,6 +545,9 @@ Invoke the `ponytail` skill (full) before writing code. Run graphify before read
 
 A fix that H2 asks for is a new step, planned from the H2 report. Examples: a name added to a scene's `VJW_FLASH`; a raw or clock name accepted at `fx/syn.ts:283`. This plan does not build such a step in advance.
 
+- [x] **S6.fix H2** (lead brief `donor_s6_h2_fix`, 2026-11-19; 12 of 12 scene/fixture cells pass, the 6 flagged scenes at max 3 or less in donor mode on both fixtures). One shared fix, `gl/post.ts`: a donor-fed flash onset (`x.donor && w > 0`) is allowed while fewer than `DONOR_WCAG` = 2 onsets lie in the last 1 s; ours keeps `WCAG` 3 at `w` 0 (T7c golden; T7a pins 2 / 3 / a native kick 3). Per-frame cause (scratch `h2fix/trace.mjs`): donor Hits held the shared budget at its 3/s cap, one luma step per onset, so any other step (motion, a fall, the drop flash) made the 4th. Ours mode passed all 6 on the same harness (dnb174).
+  - **Changed during implementation:** a shared fix, not per-scene remedies. The six drivers are already ⚡ (no `VJW_FLASH` name to add); the OnBeat divisor drives none of their steps; a scene binding change reshapes ours too (`donorChain` reuses the scene's binding). Redrum on dnb200 stayed at 4: dense donor High-band hits hold SOFT_SNARE's light at x3 or more, and the scene's own 15 Hz `rand` flicker then steps a near-saturated frame. Lead pick (c): `fx/syn/redrum.glsl` scales the flicker term by 1/4 and keeps its mean (`1.15 + 0.1 * rand`, a `// VJW:` line). One change is at most 6 % of the luma (was 28 %). This changes ours too. H2 on redrum only, max luma steps in 1 s, before → after: donor dnb174 3 → 2, donor dnb200 4 → 3, ours dnb174 3 → 0 (no drop fired in that run), ours dnb200 3 → 2. Late frames ≤ 3 in every run. Compile check `== syn/redrum OK`.
+
 
 ## Acceptance mapping
 | ID | Proof in steps (test IDs) | Lead or user evidence (S6) |
