@@ -6,7 +6,7 @@
 - Proven on ink, relic, morphogen, then batch 1 (mandala, tendril, citadel, descent, oracle, idol) and batch 2 (spacetime, ingot, gate, synapse, anemone), 2026-11-19. Never run anything inside `donor/`.
 
 ## Freshness
-2026-11-19, master 10408d2 + batch 2 (the ⚡ `mid` input, the texture trap, the kaleidoscope centre, the rotate sign). Sources: `agents/research/research_donor_vs3_scenes.md` §1-§6; FX_DEFAULTS and SCENE_PALETTE from the ORIGINAL `donor/vs3/visual_system_3/renderer/main.js` (L167-279, L7780).
+2026-11-19, master 10408d2 + batch 2 (the ⚡ `mid` input, the texture trap, the kaleidoscope centre, the rotate sign). Sources: `agents/research/research_donor_vs3_scenes.md` §1-§6; FX_DEFAULTS and SCENE_PALETTE from the ORIGINAL `donor/vs3/visual_system_3/renderer/main.js` (L167-279, L7780). 2026-11-20: params → inputs (`vs3/params.json`), `look.pointer` (vs3-chorus-hall).
 
 ## 1 Copy and review
 1. Copy from the kit copy `donor/vs3/visual_kit/src/scenes/<file>.js` (bare `three` imports). Keep the relative paths: libs live in `vs3/kit/lib/`.
@@ -24,6 +24,8 @@
 - `bloomMul`, `aber`, `vignette`: the scene's FX_DEFAULTS row (`grep -n "^  <name>:" main.js`; no row = BASE_POST 1, 1, .34).
 - `mid: true`: only for a scene that reads `s.onMid` / `s.onHigh` (§5). Its built-in binds `KICK_SNARE` instead of `KICK_HIT`.
 - `builtin.ts` `VS3`: `{ gen: { ref: 'native/vs3-<name>', bind: KICK_HIT }, fx: [...], res }`, `star: false` until the user has looked.
+- Params: the scene's panel rows become the native's inputs after ⚡ (`mode` select + the 0..1 sliders, as the original's addSceneRows), from `vs3/params.json`. A new or changed scene: `npx vitest run src/vs3/host.test.ts -u` rewrites it (the test also checks that untouched inputs leave `params` as they were). A built-in sets a row by `values` (vs3-chorus-hall: `{ shape: 1 }`). The rows are plain sliders: never bind one to an impulse.
+- `pointer: true`: the scene reads the #stage pointer (host.ts `feed()`); opt-in per native, every other scene keeps the dead stub. A pointer variant of a scene = a second `vs3('<name>-<variant>', same file, { ..., pointer: true })` line (vs3-chorus-hall).
 - Bare imports other than `three` (e.g. `three/examples/jsm/...`): add each to `vite.config.ts` `optimizeDeps.include`, or the scene's first load fails with a 504 (§ Traps).
 
 ## 4 The donor post chain → our fx (FX_DEFAULTS row)
@@ -60,6 +62,6 @@ Mirror before feedback (the donor mirrors the trails too).
 - `Math.random` stays (donor code): stills differ run to run.
 - Disposal: the host frees every target the scene bound and the scene graph's geometries/materials. Sim materials outside the graph (FullScreenQuad) are left to GC (shared programs).
 - A scene with textures, built-in materials (aurora, blob, chorus, echo, flow, signal, synapse, visage) or `ctx.*` fields beyond `renderer`: re-run the S1-T GL diff (three/host.ts RENDER_LIST covers units 0-2).
-- Pointer scenes (anemone, morphogen's painting): `scenePointer` is a dead stub (`common.js`).
+- Pointer scenes (chorus, anemone, pelt, wisp, morphogen 1/2, grove, locus, visage, limitless3d): `scenePointer` is the dead stub unless the native has `look.pointer` (only vs3-chorus-hall). The page's `window.__cam` is the camera debug hook, not a three camera.
 - A scene that builds a texture (anemone's bead sprite): keep it ABOVE the factory, one for every layer. The host frees geometries and materials, no textures. A detached 2D canvas as its source is fine (no I/O); mark it `// vjw:`.
 - Assets (chorus, visage, limitless 3d, main stage): not covered by this recipe.
