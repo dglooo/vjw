@@ -5,6 +5,7 @@
 - `thoughts/spec_veejay_wizard.md`: pilot spec (scope, roadmap, locked stack, licensing, acceptance). 2026-10-27. Current.
 - `agents/research/_adhoc/audio_capture_feasibility_2026-10-27.md`: macOS browser audio capture (getUserMedia, getDisplayMedia, DRM, streams, Electron/Tauri, latency). 2026-10-27. Fresh. Only §1 and §6 are relevant to the pilot scope.
 - `agents/research/research_render_stack.md`: WebGL2 libs, WebGPU status, rAF outside React, dynamic resolution, MediaRecorder, M4 thermals, Shadertoy license. 2026-10-27. Fresh.
+- `agents/guides/guide_vs3_port.md` — recipe to port one donor vs3 three.js scene onto `vs3/host.ts` (copy + security grep, factory wrap, register built-in, FX_DEFAULTS → our effects, palette, flash gate, traps). 2026-11-19. Current.
 - `agents/research/research_donor_vs3_scenes.md` — donor vs3 scenes: 38-file inventory (kind, libs, assets, audio, post, difficulty), contract + engine services, port paths (a) syn / (b) three host / (c) native, audio map to our sources, FX_DEFAULTS per scene, first batch. 2026-11-19. Current.
 - `agents/research/research_donor_vs3_ui.md` — donor vs3 (friends' three.js engine) UI map, config model (presets/macros/palettes/FX_DEFAULTS), multi-scene layer + dissolve, post chain, gap table S/M/L vs ours, look tokens. 2026-11-19. Current.
 - `agents/research/research_donor_milkdrop.md`: Butterchurn status/API, own GL context, compositing for recording, presets + licensing, perf, projectM/alternatives, gotchas. Web-only (no donor/). 2026-10-27. Fresh.

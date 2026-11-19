@@ -40,3 +40,9 @@
 - **Donor analyser S3.3:** Scene tab 80 px label column also cuts long `syn_*` names — `title={label}` on `Param` in Panel.tsx; the 'donor' hint sits slightly above the Source select's centre.
 - 2026-11-19 donor analyser H4c: donor Hits per minute drift with frame rate beyond ±10 % in 3/36 cells (kanine 30 Hz bass +10.2 %, kanine 144 Hz mid −11 %, bicep 144 Hz high −14.6 %; `scratchpad/donor-mode/s6/score-s6.txt`). Fix: tick Hits on a fixed audio clock, not the frame.
 - 2026-11-19 donor analyser H3: billed p95 noisy ±2.7 ms between runs on this Mac (a spike swaps modes); re-measure on an idle GPU before calling donor-mode cost done.
+- 2026-11-19 vs3 host: built-ins vs3-* ship at res .5 (ink/relic at .85 bill 25–26 ms headless); raise when the budget allows (the donor uses a per-scene pixelBudget).
+- 2026-11-19 vs3 host: donor scene sliders (speed, complexity, fill, contrast) are not exposed as inputs; scenes run at their defaults.
+- 2026-11-19 vs3 host: `gl/bloom.ts` thresholds the brightest channel at .5; the donor bloom thresholds luminance at .3, so the haze differs.
+- 2026-11-19 vs3 host: morphogen compiles its 4 sim shaders on the first visible frame (hitch); its ShaderMaterials are never disposed explicitly.
+- 2026-11-19 vs3 host: no catalog equivalent for donor edgeAA (FXAA fork), feedback swirl/wobble, lens, grain; morphogen pointer painting off (static pointer stub).
+- 2026-11-19 tooling: a worktree Vite re-optimises the dep cache shared through the node_modules symlink ("vite config has changed"); it can disturb the user's :5173 server.
