@@ -1,0 +1,45 @@
+{
+"native/vs3-chorus": [
+  {"name":"★ choir","values":{"palette":5,"speed":0.5,"shape":0,"fill":0.5,"density":0.5,"morph":0.7,"complexity":0.4,"contrast":0.55}},
+  {"name":"★ ball of heads","values":{"palette":18,"speed":0.71,"shape":0.4,"fill":0.41,"density":0,"morph":1,"complexity":1,"contrast":0.61}},
+  {"name":"★ hall of heads","values":{"palette":9,"speed":0.6,"shape":1,"fill":0.66,"density":0.42,"morph":1,"complexity":1,"contrast":0.61}},
+  {"name":"★ being watched","values":{"palette":18,"speed":0.16,"shape":0.04,"fill":0.66,"density":0.69,"morph":1,"complexity":1,"contrast":0.61}},
+  {"name":"★ hall","values":{"palette":5,"speed":0.5,"shape":1,"fill":0.5,"density":0.5,"morph":0.7,"complexity":0.4,"contrast":0.5}}
+],
+"native/vs3-vesica": [
+  {"name":"★ gold medallion","values":{"palette":5,"mode":0,"morph":1,"speed":0.5,"shape":0,"complexity":0.5,"density":1,"fill":0.5,"contrast":0.55,"open":1}},
+  {"name":"★ neon torus","values":{"palette":14,"mode":4,"morph":1,"speed":0.5,"shape":0,"complexity":0.7,"density":1,"fill":0.5,"contrast":0.55,"open":1}},
+  {"name":"★ ember golden","values":{"palette":1,"mode":5,"morph":1,"speed":0.5,"shape":0.35,"complexity":0.5,"density":1,"fill":0.5,"contrast":0.55,"open":1}},
+  {"name":"★ flower · Clean flower","values":{"palette":17,"mode":0,"morph":0.39,"speed":0,"shape":0,"complexity":0.81,"density":1,"fill":0.21,"contrast":0.75,"open":1}},
+  {"name":"★ flower · Complex flower","values":{"palette":19,"mode":0,"morph":1,"speed":0.63,"shape":0.54,"complexity":0.81,"density":1,"fill":0.38,"contrast":0.75,"open":1}},
+  {"name":"★ metatron · Twisty Draw","values":{"palette":19,"mode":1,"morph":0.43,"speed":0.76,"shape":0.32,"complexity":0.44,"density":0.73,"fill":0.63,"contrast":0.75,"open":0.16}},
+  {"name":"★ metatron · Green Meta","values":{"palette":4,"mode":1,"morph":1,"speed":1,"shape":0,"complexity":1,"density":1,"fill":0.5,"contrast":0.5,"open":1}}
+],
+"native/vs3-locus": [
+  {"name":"★ jellyfish","values":{"palette":8,"speed":0.5,"shape":0.5454545454545454,"complexity":0.3,"density":0.75,"fill":0.5,"contrast":0.5}},
+  {"name":"★ spiral galaxy","values":{"palette":9,"speed":0.5,"shape":0.9393939393939394,"complexity":0.3,"density":0.85,"fill":0.4,"contrast":0.5}},
+  {"name":"★ black hole","values":{"palette":1,"speed":0.5,"shape":0.8484848484848485,"complexity":0.3,"density":0.8,"fill":0.5,"contrast":0.5}},
+  {"name":"★ Pulsar","values":{"palette":19,"speed":0.96,"shape":0.8787878787878788,"complexity":0.8,"density":0.81,"fill":0.36,"contrast":0.5}},
+  {"name":"★ Duality","values":{"palette":22,"speed":0.5,"shape":0.6060606060606061,"complexity":0.84,"density":0.86,"fill":0.43,"contrast":0.65}},
+  {"name":"★ Jelly","values":{"palette":23,"speed":0.5,"shape":0.5454545454545454,"complexity":1,"density":1,"fill":0.27,"contrast":0.65}},
+  {"name":"★ lotus","values":{"palette":13,"speed":0.5,"shape":0.42424242424242425,"complexity":0.16,"density":0,"fill":0.27,"contrast":0.65}},
+  {"name":"★ donut","values":{"palette":9,"speed":0.5,"shape":0.3939393939393939,"complexity":0.16,"density":0,"fill":0.27,"contrast":0.65}},
+  {"name":"★ platonic","values":{"palette":1,"speed":0.5,"shape":0.21212121212121213,"complexity":0,"density":1,"fill":0.25,"contrast":0.65}},
+  {"name":"★ tesser","values":{"palette":1,"speed":0.5,"shape":0.09090909090909091,"complexity":0.41,"density":1,"fill":0.25,"contrast":0.65}}
+],
+"native/vs3-tendril": [
+  {"name":"★ lace","values":{"palette":2,"mode":3,"speed":0.5,"shape":0.5,"complexity":0.5,"density":0.45,"fill":0.5,"contrast":0.5}},
+  {"name":"★ lace 2","values":{"palette":5,"mode":2,"speed":0,"shape":0,"complexity":0,"density":0,"fill":0.55,"contrast":0.22}},
+  {"name":"★ ring — Welcome To Tendril","values":{"palette":2,"mode":0,"speed":0.96,"shape":0.37,"complexity":0.61,"density":0.18,"fill":0.48,"contrast":0.56}},
+  {"name":"★ line — Cell Branches","values":{"palette":7,"mode":1,"speed":0.96,"shape":0.37,"complexity":0.61,"density":0.59,"fill":0.67,"contrast":0.56}},
+  {"name":"★ cross — Bristles","values":{"palette":19,"mode":2,"speed":0.9,"shape":0.39,"complexity":0.61,"density":0.22,"fill":0.58,"contrast":0.64}},
+  {"name":"★ lace — Weaved","values":{"palette":19,"mode":3,"speed":0.5,"shape":0.26,"complexity":0.85,"density":0.69,"fill":0.82,"contrast":0.64}},
+  {"name":"★ thorn — Cellular Thorns","values":{"palette":11,"mode":4,"speed":0.5,"shape":0.26,"complexity":0.2,"density":0.26,"fill":0.6,"contrast":0.64}},
+  {"name":"★ weave — Organism","values":{"palette":20,"mode":5,"speed":0.89,"shape":0.77,"complexity":0.2,"density":0.43,"fill":0.55,"contrast":0.71}},
+  {"name":"★ weave — Organism Temple","values":{"palette":20,"mode":5,"speed":0.28,"shape":0.6900000000000001,"complexity":0.41000000000000003,"density":0.09,"fill":0.5,"contrast":0.71}},
+  {"name":"★ lace — See you on the other side","values":{"palette":20,"mode":3,"speed":0.86,"shape":0.38,"complexity":0.79,"density":0.95,"fill":0.59,"contrast":0.71}},
+  {"name":"★ ring — Ring: Pearl Strings","values":{"palette":8,"mode":0,"speed":0.4,"shape":0.5,"complexity":0,"density":0.5,"fill":0.5,"contrast":0.5}},
+  {"name":"★ ring — Ring: One Big Loop","values":{"palette":1,"mode":0,"speed":0.4,"shape":0.5,"complexity":1,"density":0.5,"fill":0.5,"contrast":0.5}},
+  {"name":"★ ring — Zoom: Glass Beads","values":{"palette":9,"mode":0,"speed":0.4,"shape":0.5,"complexity":0.15,"density":0.3,"fill":0.75,"contrast":0.5}}
+]
+}

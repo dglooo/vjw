@@ -4,6 +4,8 @@
 // Vitest without a browser.
 import { parseLibrary, parseScene, type LibraryFile, type SceneDoc, type SceneId } from './doc'
 import { docs } from './edit'
+import type { Value } from './fx/types'
+import type { Preset } from './presets'
 import { BUILTIN } from './scenes/builtin'
 
 export interface Db { all(): Promise<unknown[]>; put(doc: SceneDoc): Promise<unknown>; del(id: SceneId): Promise<unknown> }
@@ -23,11 +25,22 @@ const MARK_IDS = Object.keys(MARKS) as Mark[]
 export type View = 'all' | Mark
 const VIEW = 'vjw.view'
 const PERSISTED = 'vjw.persisted' // set once navigator.storage.persist() is granted
+const PRESETS = 'vjw.presets' // { [ref]: Preset[] }: the user's presets (presets.ts), kept and mirrored as the marks
 /** The list's order, so the playlist's (user 2026-11-19: ←/→ as the list stands): by name, then id. */
 export const byName = (a: SceneDoc, b: SceneDoc) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
 /** The scene ids of a stored or filed mark; none from a corrupt value. */
 const ids = (x: unknown): ReadonlySet<string> => new Set(Array.isArray(x) ? x.filter((s) => typeof s === 'string') : [])
 const rec = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
+const value = (v: unknown): v is Value => typeof v === 'number' || typeof v === 'boolean' || (Array.isArray(v) && v.every((x) => typeof x === 'number'))
+/** The user's presets of a stored or filed value: a corrupt preset (no name, a value that is no input value) is left out. */
+const presetsOf = (x: unknown): Record<string, Preset[]> =>
+  rec(x)
+    ? Object.fromEntries(
+        Object.entries(x)
+          .map(([ref, ps]) => [ref, Array.isArray(ps) ? ps.filter((p): p is Preset => rec(p) && typeof p.name === 'string' && rec(p.values) && Object.values(p.values).every(value)) : []] as const)
+          .filter(([, ps]) => ps.length),
+      )
+    : {}
 const CAMERA = new Set(['native/camera', 'native/outline'])
 /** A camera node or a masked layer: with no camera its person layers fade out and it repeats its other layers. */
 const needsCamera = (d: SceneDoc) => d.layers.some((l) => l.mask || [l.gen, ...l.fx].some((n) => CAMERA.has(n.ref)))
@@ -80,11 +93,19 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
   }
   let marks = Object.fromEntries(MARK_IDS.map((m) => [m, ids(stored(MARKS[m]) ?? base[m])])) as Record<Mark, ReadonlySet<string>>
   const keep = (m: Mark) => kv.setItem(MARKS[m], JSON.stringify([...marks[m]]))
-  /** web/scene-marks.json's text: each mark's ids, sorted, then the user's stars over the built-ins, by id. */
+  let presets = presetsOf(stored(PRESETS) ?? base.presets)
+  /** web/scene-marks.json's text: each mark's ids, sorted, then the user's stars over the built-ins, by id, then the
+   *  user's presets when there are any. */
   const file = () => {
     const on = Object.entries(stars).filter(([, s]) => typeof s === 'boolean').sort(([a], [b]) => (a < b ? -1 : 1))
-    const f = { ...Object.fromEntries(MARK_IDS.map((m) => [m, [...marks[m]].sort()])), stars: Object.fromEntries(on) }
+    const f = { ...Object.fromEntries(MARK_IDS.map((m) => [m, [...marks[m]].sort()])), stars: Object.fromEntries(on), ...(Object.keys(presets).length && { presets }) }
     return `${JSON.stringify(f, null, 2)}\n`
+  }
+  const keepPresets = (next: Record<string, Preset[]>) => {
+    presets = next
+    kv.setItem(PRESETS, JSON.stringify(presets))
+    disk?.write(file())
+    notify()
   }
   const v = stored(VIEW)
   let view = (typeof v === 'string' && Object.hasOwn(MARKS, v) ? v : 'all') as View
@@ -147,6 +168,10 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
           kv.setItem(STARS, JSON.stringify(stars))
           restar()
         }
+        if (rec(f.presets)) {
+          presets = presetsOf(f.presets)
+          kv.setItem(PRESETS, JSON.stringify(presets))
+        }
       }
       if (f === null || (rec(f) && !rec(f.stars))) disk!.write(file())
       for (const x of await db.all()) {
@@ -195,6 +220,17 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
       keep(m)
       disk?.write(file())
       notify()
+    },
+    /** The user's presets of a ref (presets.ts), oldest first; a new array per change. */
+    presets: (ref: string): readonly Preset[] => presets[ref] ?? [],
+    /** Keeps `values` as the user's preset `name` of `ref`, over one of that name (which moves to the end). */
+    savePreset(ref: string, name: string, values: Record<string, Value>) {
+      keepPresets({ ...presets, [ref]: [...(presets[ref] ?? []).filter((p) => p.name !== name), { name, values }] })
+    },
+    deletePreset(ref: string, name: string) {
+      const { [ref]: ps = [], ...rest } = presets
+      const left = ps.filter((p) => p.name !== name)
+      keepPresets(left.length ? { ...rest, [ref]: left } : rest)
     },
     /** The list's view, kept over a reload; the playlist follows it. */
     view: () => view,

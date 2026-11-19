@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from 'vitest'
 import type { Binding } from './bind'
 import { parseScene, type LayerDoc, type SceneDoc } from './doc'
-import { addFx, addLayer, dirty, docs, insertLayer, moveFx, moveLayer, newNode, newScene, removeFx, removeLayer, setBinding, setBlend, setGen, setMask, setValue } from './edit'
+import { addFx, addLayer, dirty, docs, insertLayer, moveFx, moveLayer, newNode, newScene, removeFx, removeLayer, setBinding, setBlend, setGen, setMask, setValue, setValues } from './edit'
 
 const B: Binding = { source: 'bass', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }
 const layer = (ref: string, over: Partial<LayerDoc> = {}): LayerDoc => ({ gen: { ref }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1, ...over })
@@ -184,6 +184,16 @@ test('setValue writes a node input (gen or fx i) or a layer value, and ignores o
     layer('a'),
     layer('b', { gen: { ref: 'b', values: { center: [0.5, 0.25] } }, fx: [{ ref: 'f0' }, { ref: 'f1', values: { sides: 8 } }], opacity: 0.5, res: 0.5 }),
   ])
+})
+
+test('setValues (a preset): exactly its keys on that node, nothing else; its olds undo it back to the doc it found', () => {
+  const b = builtin([layer('a', { gen: { ref: 'a', values: { mode: 2, fill: 0.3, keep: 0.9 }, bind: { hit: B } } }), layer('b')])
+  const at = { layer: 0, node: 'gen' } as const
+  const old = setValues(b, at, { mode: 1, fill: 0.5, palette: 5 })
+  expect(old).toEqual({ mode: 2, fill: 0.3, palette: undefined })
+  expect(cur(b).layers).toStrictEqual([layer('a', { gen: { ref: 'a', values: { mode: 1, fill: 0.5, keep: 0.9, palette: 5 }, bind: { hit: B } } }), layer('b')])
+  setValues(cur(b), at, old)
+  expect(cur(b).layers).toStrictEqual(b.layers)
 })
 
 test('newScene: one layer of its gen under a fresh id, held and dirty, and a scene parseScene accepts as it is', () => {
