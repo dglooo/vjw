@@ -1730,6 +1730,9 @@ const DEMOS: readonly SceneDoc[] = [
 // res .5 ink 6.7 ms, relic 7.1, morphogen 5.2 (Traced Tunnel 3.3 at .5 in the same run); res .85 ink 25.4, relic 26.2,
 // morphogen 14.5. Raise res when the frame time allows (the donor caps relic at 4 MP, ink at 5 MP).
 const KICK_ZOOM: Binding = { source: 'kick', amount: 1, attack: 0, release: 0.14, min: 0.0017, max: 0.0041 }
+// A scene with no FX_DEFAULTS row gets the donor's BASE_POST: persist .5 + zoom 1.04/s + spin .5 = own/feedback-zoom.
+const BASE_FX = { ref: 'own/feedback-zoom', values: { decay: 0.5, rotate: -0.002 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00065, max: 0.0031 } } }
+const KICK_SNARE: Record<string, Binding> = { ...KICK_HIT, mid: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 } } // ⚡ mid: the donor onMid / onHigh (synapse)
 const VS3: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:vs3-ink', name: 'vs3 Ink', star: false,
@@ -1780,6 +1783,72 @@ const VS3: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:vs3-idol', name: 'vs3 Idol', star: false,
     layers: [{ gen: { ref: 'native/vs3-idol', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // Batch 2 (2026-11-19; res .5, no cost run: the lead measures every vs3-* alone). spacetime (row 208): persist .55 +
+  // zoom 1.05/s = own/feedback-zoom (zoom 1.05^(1/60) - 1, the kick push to 1.215^(1/60) - 1), spin 0 = rotate 0.
+  {
+    v: 1, id: 'builtin:vs3-spacetime', name: 'vs3 Spacetime', star: false,
+    layers: [{ gen: { ref: 'native/vs3-spacetime', bind: KICK_HIT }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.55, rotate: 0 }, bind: { zoom: { ...KICK_ZOOM, min: 0.0008, max: 0.0033 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // ingot (row 200) and gate (row 204): persist .3 left out.
+  {
+    v: 1, id: 'builtin:vs3-ingot', name: 'vs3 Ingot', star: false,
+    layers: [{ gen: { ref: 'native/vs3-ingot', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vs3-gate', name: 'vs3 Gate', star: false,
+    layers: [{ gen: { ref: 'native/vs3-gate', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // synapse (row 171): mirror 1 = isf/Mirror horizontal, persist .9 + zoom 1.06/s = own/feedback-zoom (the kick push to
+  // 1.225^(1/60) - 1), spin .8 = rotate -.0032 (the sign flips, as on mandala). Its onMid / onHigh nodes: ⚡ mid, the snare
+  // (two of its three node kinds; the price: the kick shares the flash budget with it).
+  {
+    v: 1, id: 'builtin:vs3-synapse', name: 'vs3 Synapse', star: false,
+    layers: [{ gen: { ref: 'native/vs3-synapse', bind: KICK_SNARE }, fx: [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: false } }, { ref: 'own/feedback-zoom', values: { decay: 0.9, rotate: -0.0032 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00097, max: 0.0034 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // anemone (row 194): persist .72 + zoom 1.03/s = own/feedback-zoom (the kick push to 1.195^(1/60) - 1), spin .3 = rotate
+  // -.0012. Its onHigh sparkle is off (no ⚡ mid: on synapse the snare's onsets took 7 of 35 kicks in 30 s of Kanine from
+  // the shared 3/s flash budget; a sparkle is not worth that). The pointer steering is off (lib/common.js: a static pointer).
+  {
+    v: 1, id: 'builtin:vs3-anemone', name: 'vs3 Anemone', star: false,
+    layers: [{ gen: { ref: 'native/vs3-anemone', bind: KICK_HIT }, fx: [{ ref: 'own/feedback-zoom', values: { decay: 0.72, rotate: -0.0012 }, bind: { zoom: { ...KICK_ZOOM, min: 0.00049, max: 0.003 } } }], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // Batch 3 (2026-11-19, user: add them all, no track checks, fix later): no stills, no frame time, res .5.
+  // aurora, blob (no row: BASE_POST; three's PointsMaterial; s.air = syn_HighLevel).
+  {
+    v: 1, id: 'builtin:vs3-aurora', name: 'vs3 Aurora', star: false,
+    layers: [{ gen: { ref: 'native/vs3-aurora', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  {
+    v: 1, id: 'builtin:vs3-blob', name: 'vs3 Blob', star: false,
+    layers: [{ gen: { ref: 'native/vs3-blob', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // echo (no row: BASE_POST; MeshBasicMaterial rings; its note and hat ripples: ⚡ mid, the snare).
+  {
+    v: 1, id: 'builtin:vs3-echo', name: 'vs3 Echo', star: false,
+    layers: [{ gen: { ref: 'native/vs3-echo', bind: KICK_SNARE }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // flow (no row: BASE_POST; kick bursts and its own trickle; the note and hat comets are off: no ⚡ mid).
+  {
+    v: 1, id: 'builtin:vs3-flow', name: 'vs3 Flow', star: false,
+    layers: [{ gen: { ref: 'native/vs3-flow', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // fract (dormant in the donor's roster, no row: BASE_POST; its uResY reads resize()'s height, our RT px).
+  {
+    v: 1, id: 'builtin:vs3-fract', name: 'vs3 Fract', star: false,
+    layers: [{ gen: { ref: 'native/vs3-fract', bind: KICK_HIT }, fx: [BASE_FX], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // signal (row 175: persist .25 left out): its analyzer mode on s.specHi = our 32 bands stretched to 192 bins (host specHi()); s.wave
+  // is not fed (the scope, vector and lissajous modes need it; no mode is reachable yet). Its DataTextures are never freed.
+  {
+    v: 1, id: 'builtin:vs3-signal', name: 'vs3 Signal', star: false,
+    layers: [{ gen: { ref: 'native/vs3-signal', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
+  },
+  // sand (row 183: persist .3 left out): its partials from s.specHi = our 32 bands stretched (the donor floor .30 and AGC are
+  // missing, so its PEAK_FLOOR .36 may pick few figures); its onMid accents are off (no ⚡ mid).
+  {
+    v: 1, id: 'builtin:vs3-sand', name: 'vs3 Sand', star: false,
+    layers: [{ gen: { ref: 'native/vs3-sand', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }],
   },
 ]
 

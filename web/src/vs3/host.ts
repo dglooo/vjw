@@ -11,27 +11,45 @@
 // ShaderMaterial writes display values (no colorspace chunk; PAL holds three's linear-converted hex, as in the donor),
 // so the finish is the only grade: no ACES, no sRGB (unlike native/model). The rest of the donor post chain is the
 // built-in's fx (scenes/builtin.ts VS3). Light on a hit only through ⚡ `hit` (flashGate ≤ 3/s, I-FL1): it is the
-// donor `kick`, its rise the donor `onKick`, the bloom's kick term and the finish's kick aberration.
+// donor `kick` (drawn with the natives' rise slew, gl/post.ts heatStep: synapse's kick swell made 19 one-frame luma
+// steps > .10 in 15 s without it, 0 with it), its rise the donor `onKick`, the bloom's kick term and the finish's kick
+// aberration. A scene that reads onMid / onHigh gets a second ⚡ `mid` (look.mid): its rise is both.
 import type { Sources } from '../bind'
 import { createBloom } from '../gl/bloom'
 import { fullscreenProgram, gl as stageGl } from '../gl/engine'
 import { glState, PASS_LIST, restore } from '../gl/glstate'
+import { heatStep } from '../gl/post'
 import type { NativeDef } from '../gl/scene'
 import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
 
 /** The donor `s` fields the ported scenes read (research §1). Add a field when a ported scene reads it (guide § Signal). */
-export interface Signal { onKick: number; kick: number; sub: number; mids: number; highs: number; energy: number }
+export interface Signal { onKick: number; kick: number; onMid: number; onHigh: number; sub: number; mids: number; highs: number; air: number; energy: number; specHi: Float32Array }
 /** Our sources → the donor `s` (research §4): the levels from the donor-mode core's bands (the closest edges; it runs in
  *  every mode), the kick from `hit` (the ⚡ input, bound to our kick), onKick on its rise × our kickAccent (the kick's
- *  velocity: .7 at the kicks' mean, 1 for a loud one; `hit` when there is none). */
-export function signal(src: Readonly<Sources>, hit: number, prev: number, out: Signal): Signal {
+ *  velocity: .7 at the kicks' mean, 1 for a loud one; `hit` when there is none). onMid and onHigh: both on the rise of
+ *  `mid` (the second ⚡ input, bound to our snare). One gated input for the two: they add light (synapse's nodes, anemone's
+ *  sparkle), and hats at their own rate would spend the whole 3/s flash budget, the kick's share too. */
+export function signal(src: Readonly<Sources>, hit: number, prev: number, out: Signal, mid = 0, prevMid = 0): Signal {
   out.kick = hit
   out.onKick = rose(prev, hit) ? src.kickAccent || hit : 0
+  out.onMid = out.onHigh = rose(prevMid, mid) ? mid : 0
   out.sub = src.syn_BassLevel ?? 0 // 30-150 Hz (donor: the 60 Hz octave)
   out.mids = src.syn_MidLevel ?? 0 // 250-2000 Hz (donor: 240-960)
   out.highs = src.syn_MidHighLevel ?? 0 // 2-6 kHz (donor: 1.9-3.8 k)
+  out.air = src.syn_HighLevel ?? 0 // 6-16 kHz (donor: the 7.7 kHz octave)
   out.energy = src.syn_Level ?? 0 // 30-16 kHz (donor: band energy × loudness)
+  return out
+}
+
+/** The donor `specHi` (192 log display bins, 35 Hz-18 kHz, AGC; sand, signal) from the closest the host has: our 32 log
+ *  bands (30 Hz-16 kHz, 0-1), linear in the index. ponytail: no AGC, no display floor; the donor analyser's own bins
+ *  if a scene's peaks read wrong. */
+export function specHi(src: Readonly<Sources>, out: Float32Array): Float32Array {
+  for (let i = 0; i < out.length; i++) {
+    const x = (i * 31) / (out.length - 1), j = Math.min(30, Math.floor(x)), a = src[`band${j}`] ?? 0
+    out[i] = a + ((src[`band${j + 1}`] ?? 0) - a) * (x - j)
+  }
   return out
 }
 
@@ -77,22 +95,25 @@ type Lib = Awaited<ReturnType<typeof open>>
 interface Scene { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number } }
 
 /** FX_DEFAULTS' bloomMul and finish keys (original renderer/main.js:167+), SCENE_PALETTE (main.js:7780; else nocturne). */
-export interface Look { palette: string; bloomMul: number; aber: number; vignette: number }
+export interface Look { palette: string; bloomMul: number; aber: number; vignette: number; mid?: true }
 
 /** One scene's frame loop on its own RT; resolves once its programs compiled (rule 5: no compile on a visible frame). */
 async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) {
   const { R, guard, texture } = L
   const pal = L.PRESETS.find((p) => p.name === look.palette)!.colors.map((c) => new L.Color(c))
   const made = new Set<{ dispose(): void }>()
-  const s = {} as Signal
-  let rt = L.fit(null, 16, 16, 1), prev = 0, w = 0, h = 0
+  const s = { specHi: new Float32Array(192) } as Signal
+  let rt = L.fit(null, 16, 16, 1), prev = 0, prevMid = 0, hot = 0, w = 0, h = 0
   await guard('compileAsync', () => (R.setRenderTarget(rt), R.compileAsync(sc.scene, sc.camera)))
   finish ??= fullscreenProgram(FINISH)
   const bloom = createBloom(gl)
   return {
-    draw(f: { width: number; height: number; dt: number; time: number }, hit: number, src: Readonly<Sources>) {
-      signal(src, hit, prev, s)
+    draw(f: { width: number; height: number; dt: number; time: number }, hit: number, mid: number, src: Readonly<Sources>) {
+      signal(src, hit, prev, s, mid, prevMid)
+      s.kick = hot = heatStep(hot, hit, f.dt) // the kick as drawn (I-FL1); onKick stays on the raw rise
       prev = hit
+      prevMid = mid
+      specHi(src, s.specHi)
       guard('render', () => {
         rt = L.fit(rt, f.width, f.height, 1)
         if (f.width !== w || f.height !== h) sc.resize?.((w = f.width), (h = f.height)) // px, not the donor's CSS px: the scenes read the aspect
@@ -105,11 +126,11 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
         })
       }, L.RENDER_LIST) // restores the engine's target and viewport
       const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null, keep = glState(gl, PASS_LIST) // GPU3D I-GL2
-      const b = sc.bloom, k = b ? (b.strength + s.energy * b.gain + hit * (b.kick ?? 0.35)) * look.bloomMul : 0
+      const b = sc.bloom, k = b ? (b.strength + s.energy * b.gain + hot * (b.kick ?? 0.35)) * look.bloomMul : 0
       const lit = k > 0 ? bloom.apply(texture(rt), f.width, f.height, k) : texture(rt) // binds its own targets
       gl.bindFramebuffer(gl.FRAMEBUFFER, out)
       gl.viewport(0, 0, f.width, f.height)
-      finish!({ uSrc: lit, uRes: [f.width, f.height], uAber: look.aber * (0.22 + hit), uVig: look.vignette })
+      finish!({ uSrc: lit, uRes: [f.width, f.height], uAber: look.aber * (0.22 + hot), uVig: look.vignette })
       restore(gl, keep)
     },
     dispose() {
@@ -126,10 +147,11 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look) 
 /** The native of one copied scene: `load` imports its file, `look` its engine keys (FX_DEFAULTS, SCENE_PALETTE). */
 export function vs3(name: string, load: () => Promise<{ default: () => Scene }>, look: Look): NativeDef {
   const ready = (gl: WebGL2RenderingContext) => Promise.all([(libs ??= open(gl)), load()])
+  const flash = look.mid ? ['hit', 'mid'] : ['hit']
   return {
     id: `native/vs3-${name}`, name: `vs3 ${name}`, kind: 'generator', credit: "vs3: the friends' three.js engine, used with permission; three.js r187 (MIT)",
-    inputs: [{ name: 'hit', type: 'float', min: 0, max: 1, default: 0 }], // ⚡ the donor kick: the one input a hit lights through
-    flash: ['hit'],
+    inputs: flash.map((n) => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), // ⚡ the donor kick (+ onMid / onHigh): all a hit lights through
+    flash,
     warm: () => ready(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden
     create(gl) {
       let run: Awaited<ReturnType<typeof start>> | null = null, gone = false
@@ -137,7 +159,7 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
       return {
         hidden: () => !run,
         draw(f, v, _src, s) {
-          run?.draw(f, v.hit as number, s ?? {})
+          run?.draw(f, v.hit as number, (v.mid as number | undefined) ?? 0, s ?? {})
         },
         dispose() {
           gone = true
@@ -150,7 +172,8 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
 
 // The ported scenes (guide § Register): one line each. Looks from the original main.js FX_DEFAULTS rows 168, 178, 213;
 // 169 (mandala), 268 (tendril), 179 (citadel), 228 (descent),
-// 191 (oracle), 187 (idol).
+// 191 (oracle), 187 (idol), 208 (spacetime), 200 (ingot), 204 (gate), 171 (synapse),
+// 194 (anemone); from batch 3 on: the scene's row, or the donor's BASE_POST 1, 1, .34 when it has none.
 export const VS3: readonly NativeDef[] = [
   vs3('ink', () => import('./kit/scenes/ink.js'), { palette: 'nocturne', bloomMul: 1.85, aber: 4, vignette: 0 }),
   vs3('relic', () => import('./kit/scenes/relic.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.4, vignette: 0.5 }),
@@ -161,4 +184,16 @@ export const VS3: readonly NativeDef[] = [
   vs3('descent', () => import('./kit/scenes/descent.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 0.5, vignette: 0.3 }),
   vs3('oracle', () => import('./kit/scenes/oracle.js'), { palette: 'nocturne', bloomMul: 1.4, aber: 1.4, vignette: 0.55 }),
   vs3('idol', () => import('./kit/scenes/idol.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 1.6, vignette: 0.5 }),
+  vs3('spacetime', () => import('./kit/scenes/spacetime.js'), { palette: 'nocturne', bloomMul: 1.6, aber: 2.2, vignette: 0.4 }),
+  vs3('ingot', () => import('./kit/scenes/ingot.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.45 }),
+  vs3('gate', () => import('./kit/scenes/gate.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.55 }),
+  vs3('synapse', () => import('./kit/scenes/synapse.js'), { palette: 'nocturne', bloomMul: 1.7, aber: 1.5, vignette: 0.3, mid: true }),
+  vs3('anemone', () => import('./kit/scenes/anemone.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 2.4, vignette: 0.45 }), // no `mid`: its onHigh is a sparkle, not worth the kicks the snare takes from the flash budget
+  vs3('aurora', () => import('./kit/scenes/aurora.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
+  vs3('blob', () => import('./kit/scenes/blob.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
+  vs3('echo', () => import('./kit/scenes/echo.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34, mid: true }),
+  vs3('flow', () => import('./kit/scenes/flow.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
+  vs3('fract', () => import('./kit/scenes/fract.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
+  vs3('signal', () => import('./kit/scenes/signal.js'), { palette: 'nocturne', bloomMul: 0.9, aber: 0.6, vignette: 0.12 }),
+  vs3('sand', () => import('./kit/scenes/sand.js'), { palette: 'nocturne', bloomMul: 1.5, aber: 1.2, vignette: 0.35 }),
 ]

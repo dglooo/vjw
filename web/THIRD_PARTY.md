@@ -372,6 +372,18 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/descent.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/descent.js | used with permission (2026-11-19) |
 | `scenes/oracle.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/oracle.js | used with permission (2026-11-19) |
 | `scenes/idol.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/idol.js | used with permission (2026-11-19) |
+| `scenes/spacetime.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/spacetime.js | used with permission (2026-11-19) |
+| `scenes/ingot.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/ingot.js | used with permission (2026-11-19) |
+| `scenes/gate.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/gate.js | used with permission (2026-11-19) |
+| `scenes/synapse.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/synapse.js | used with permission (2026-11-19) |
+| `scenes/anemone.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/anemone.js (the bead sprite moved above the factory) | used with permission (2026-11-19) |
+| `scenes/aurora.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/aurora.js | used with permission (2026-11-19) |
+| `scenes/blob.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/blob.js | used with permission (2026-11-19) |
+| `scenes/echo.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/echo.js | used with permission (2026-11-19) |
+| `scenes/flow.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/flow.js | used with permission (2026-11-19) |
+| `scenes/fract.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/fract.js | used with permission (2026-11-19) |
+| `scenes/signal.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/signal.js | used with permission (2026-11-19) |
+| `scenes/sand.js` | the friends' engine | donor/vs3/visual_kit/src/scenes/sand.js | used with permission (2026-11-19) |
 | `lib/common.js` | the friends' engine | donor/vs3/visual_kit/src/lib/common.js (window listeners stripped) | used with permission (2026-11-19) |
 | `lib/context.js` | the friends' engine | donor/vs3/visual_kit/src/lib/context.js | used with permission (2026-11-19) |
 | `lib/descent-motion.js` | the friends' engine | donor/vs3/visual_kit/src/lib/descent-motion.js | used with permission (2026-11-19) |
