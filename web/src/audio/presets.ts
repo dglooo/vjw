@@ -3,7 +3,7 @@
 import { KNOBS, type Knobs } from './drums'
 
 export type Genre = 'dnb' | 'dubstep' | 'techno'
-export type PresetId = 'default' | Genre
+export type PresetId = 'default' | Genre | 'psy' | 'house' // psy, house: hand picks only (no `proto`, never classified)
 export type Band = readonly [lo: number, hi: number] // Hz for a frequency band, BPM for `bpm`
 export interface Preset {
   name: string
@@ -14,6 +14,7 @@ export interface Preset {
   proto?: { kickPerBeat: number; hatsPerBeat: number; wobble: number; bass: number } // classifier (genres only)
   knobs: Knobs // the worklet's drum knobs (drums.ts): floors, snare threshold, kick trigger and its follower
   cuts?: false // a deep bass cut doesn't arm a drop (arrange.ts `cuts`, drop v2 (2)); missing = it does
+  low?: 'sub' // the arrangement's `low` (app.ts) reads the sub band alone; missing = sub + reese
 }
 
 const BANDS: Preset['bands'] = { kick: [40, 150], snare: [1000, 5000], hats: [7000, 16000], sub: [30, 60], reese: [60, 250], wobble: [150, 1500] }
@@ -25,6 +26,15 @@ const BANDS: Preset['bands'] = { kick: [40, 150], snare: [1000, 5000], hats: [70
 const inside = (bpm: number, [lo, hi]: Band) => bpm >= lo && bpm <= hi
 export const snapOctave = (bpm: number, band: Band): 'double' | 'halve' | 'none' =>
   inside(bpm, band) ? 'none' : inside(2 * bpm, band) ? 'double' : inside(bpm / 2, band) ? 'halve' : 'none'
+
+// The 4/4 family (dsp_genre_melodic §4): one knob set for psytrance, techno and house; only the tempo tells them apart, and
+// their real ranges overlap, so the classifier keeps one 4/4 class (techno) and Psytrance / House are hand picks. kick
+// minGap 0.3 s = one kick per beat region at 118–150 BPM: house's off-beat bass read as kicks (P .56–.62 → 1.00 on the
+// fixtures). No cut drops: a 1-bar fill (1.66–1.82 s) passes cutMin as a deep cut, and its refractory delayed or swallowed
+// the real drop. low = sub: a break's pad plays in the reese band (60–250 Hz) and held sub + reese at ≈ .65 G, over
+// `sparse` .6, so no real drop fired; the sub band falls 15–60× there. ⚠️ Synthetic fixtures only: no real psy/techno/house
+// track was measured, and a break over a sub drone never reads sparse.
+const FOUR: Omit<Preset, 'name' | 'bpm'> = { bands: { ...BANDS }, sens: {}, map: { onset: 'kick', treb: 'hats' }, knobs: { ...KNOBS, minGap: 0.3 }, cuts: false, low: 'sub' }
 
 // `sens` is all 1 everywhere for now (tuned on the fixtures and the user's tracks), so it stays empty.
 // ponytail: C3 fixes only kicks/beat per genre; the other `proto` numbers are starting values for S4.1 to tune on the fixtures.
@@ -51,13 +61,8 @@ export const PRESETS: Readonly<Record<PresetId, Preset>> = {
     knobs: { ...KNOBS, floors: { snare: 80, hats: 100 } },
     cuts: false, // its bass stops are its groove: Rumble's 108–110 s cut would fire ≈ 110, and its refractory swallow 117.0
   },
-  techno: {
-    name: 'Techno / house',
-    bpm: [118, 135],
-    bands: { ...BANDS },
-    sens: {},
-    map: { onset: 'kick', treb: 'hats' },
-    proto: { kickPerBeat: 1, hatsPerBeat: 2, wobble: 0.1, bass: 0.4 },
-    knobs: KNOBS, // the default: no house/techno window was measured (dsp_kick_snare_misses §6)
-  },
+  // [135, 150] as Dubstep's: it breaks house 118, so it's safe only as a hand pick (dsp_genre_melodic §4)
+  psy: { ...FOUR, name: 'Psytrance', bpm: [135, 150] },
+  techno: { ...FOUR, name: 'Techno', bpm: [118, 135], proto: { kickPerBeat: 1, hatsPerBeat: 2, wobble: 0.1, bass: 0.4 } },
+  house: { ...FOUR, name: 'House', bpm: [118, 130] },
 }

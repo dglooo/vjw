@@ -2,6 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { gain, idle, type Binding, type Sources } from '../bind'
 import { SYN_BIND, synClock } from '../fx/syn'
 import { boundStep } from '../gl/post'
+import { KNOBS } from './drums'
 import { PRESETS, type Band, type Genre, type PresetId } from './presets'
 import { activePreset, bandKey, createSettings, parseSettings, toggleAnalysis, workletBands, type AudioSettings, type CustomBand } from './settings'
 
@@ -36,8 +37,8 @@ test.each<[PresetId, number[], number[]]>([
 
 test('the C3 table: bands, auto-style maps and classifier prototypes', () => {
   const BASE = { kick: [40, 150], snare: [1000, 5000], hats: [7000, 16000], sub: [30, 60], reese: [60, 250], wobble: [150, 1500] }
-  expect(Object.keys(PRESETS)).toEqual(['default', 'dnb', 'dubstep', 'techno'])
-  for (const id of ['default', 'dnb', 'techno'] as const) expect(PRESETS[id].bands, id).toEqual(BASE)
+  expect(Object.keys(PRESETS)).toEqual(['default', 'dnb', 'dubstep', 'psy', 'techno', 'house'])
+  for (const id of ['default', 'dnb', 'psy', 'techno', 'house'] as const) expect(PRESETS[id].bands, id).toEqual(BASE)
   expect(PRESETS.dubstep.bands).toEqual({ ...BASE, reese: [70, 350] }) // only dubstep's reese is wider
   expect(PRESETS.default.map).toEqual({})
   expect(PRESETS.dnb.map).toEqual({ onset: 'kick', treb: 'hats' }) // the bass class binds reese (design ruling 2026-11-05)
@@ -426,15 +427,29 @@ test('bandKey: ids and Hz only, so a rename or a sens/auto change is a no-send, 
   expect(bandKey(a)).not.toBe(bandKey(workletBands(cfg(null, [stored(1, { lo: 40, hi: 60 })]), 'dubstep')))
 })
 
-test('workletBands knobs (dsp_kick_snare_misses §6): Dubstep floors 80/100, every other preset the default; under Auto the detected genre, a hand pick wins', () => {
-  const DEF = { floors: { snare: 30, hats: 50 }, snareThreshold: 1.3, kick: 1.35, kickSlow: 0.04 }
+test('workletBands knobs (dsp_kick_snare_misses §6): Dubstep floors 80/100, the 4/4 presets kick minGap 0.3 (G1), Default and DnB the default; under Auto the detected genre, a hand pick wins', () => {
+  const DEF = { floors: { snare: 30, hats: 50 }, snareThreshold: 1.3, kick: 1.35, kickSlow: 0.04, minGap: 0.06 }
   const DUB = { ...DEF, floors: { snare: 80, hats: 100 } }
-  for (const id of ['default', 'dnb', 'techno'] as const) expect(workletBands(cfg(), id).knobs, id).toEqual(DEF)
+  for (const id of ['default', 'dnb'] as const) expect(workletBands(cfg(), id).knobs, id).toEqual(DEF)
   expect(workletBands(cfg(), 'dubstep').knobs).toEqual(DUB)
   // app.ts sends for activePreset(settings, detected)
   const knobs = (s: AudioSettings, detected: Genre | null) => workletBands(s, activePreset(s, detected)).knobs
   expect([knobs(cfg(), null), knobs(cfg(), 'dubstep'), knobs(cfg(), 'dnb')]).toEqual([DEF, DUB, DEF])
   expect([knobs(cfg('dnb'), 'dubstep'), knobs(cfg('dubstep'), 'dnb'), knobs(cfg(null, [], { auto: false }), 'dubstep')]).toEqual([DEF, DUB, DEF])
   const b = workletBands(cfg(), 'default')
-  for (const k of [DUB, { ...DEF, snareThreshold: 1.5 }, { ...DEF, kick: 1.3 }, { ...DEF, kickSlow: 0.02 }]) expect(bandKey({ ...b, knobs: k })).not.toBe(bandKey(b)) // a knobs-only change is a send
+  for (const k of [DUB, { ...DEF, snareThreshold: 1.5 }, { ...DEF, kick: 1.3 }, { ...DEF, kickSlow: 0.02 }, { ...DEF, minGap: 0.3 }]) expect(bandKey({ ...b, knobs: k })).not.toBe(bandKey(b)) // a knobs-only change is a send
+})
+
+test("G1 + G2 (dsp_genre_melodic §4): Psytrance and House are hand picks with Techno's 4/4 knobs (kick minGap 0.3 s, no cut drops, the arrangement's low = sub); the classifier never scores them", () => {
+  expect(parseSettings({ v: 1, pick: 'psy' }).pick).toBe('psy')
+  expect(workletBands(cfg('house'), 'house').knobs.minGap).toBe(0.3)
+  for (const id of ['psy', 'techno', 'house'] as const) {
+    expect(PRESETS[id].knobs, id).toEqual({ ...KNOBS, minGap: 0.3 })
+    expect(PRESETS[id].cuts, id).toBe(false)
+    expect(PRESETS[id].low, id).toBe('sub')
+  }
+  for (const id of ['default', 'dnb', 'dubstep'] as const) expect(PRESETS[id].low, id).toBeUndefined() // sub + reese
+  expect(['psy', 'techno', 'house'].map((id) => PRESETS[id as PresetId].name)).toEqual(['Psytrance', 'Techno', 'House'])
+  expect([PRESETS.psy.bpm, PRESETS.house.bpm]).toEqual([[135, 150], [118, 130]])
+  expect([PRESETS.psy.proto, PRESETS.house.proto]).toEqual([undefined, undefined])
 })

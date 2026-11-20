@@ -3,7 +3,7 @@ import { createAnalysis } from './analysis'
 import { createDrums, KNOBS, type Drum, type Knobs } from './drums'
 import type { Genre } from './presets'
 import { parseSettings, workletBands } from './settings'
-import { mix, pattern, reese, room, SR, sub, wobble, type Stem, type Track } from './synth'
+import { kick, mix, pattern, reese, room, SR, sub, T0, tone, wobble, type Stem, type Track } from './synth'
 
 const N = 512 // as the worklet: a 512-point FFT every 256 samples (the spectrum-level tests below)
 const HOP = 256
@@ -171,12 +171,34 @@ test('a kick needs both: the gate ratio at KICK (1.35, not TRANSIENT) and its bi
 
 test('a double kick 53 ms apart fires once, 64 ms apart twice (the <60 ms re-triggers, real tracks 2026-11-05)', () => {
   // 10 hops = 53.3 ms: the 3 real-track re-triggers sit at 52 ms (2nd ratio 1.35–1.39), the shortest legitimate pair at
-  // 75.5 ms, so MIN_GAP 0.06 drops the re-trigger only. 12 hops = 64 ms pins the other side: a wider gap would eat it.
+  // 75.5 ms, so the default minGap 0.06 drops the re-trigger only. 12 hops = 64 ms pins the other side: a wider gap would eat it.
   const quiet = frame([])
   const k = frame([[1, 1]])
   const kicks = (gap: number) =>
     fire([quiet, k, ...Array(gap - 1).fill(quiet), k], undefined, [1, 2, ...Array(gap - 1).fill(1), 2]).flat().filter((d) => d === 'kick').length
   expect([kicks(10), kicks(12)]).toEqual([1, 2])
+})
+
+test('G1 minGap (dsp_genre_melodic §4): 4/4 kicks with an off-beat 55 Hz bass pluck (house 124): kick P ≥ .95 at 0.3 s (the 4/4 presets), < .8 at the default 0.06', () => {
+  // The pluck half a beat after each kick is a 40–150 Hz onset: it trips the kick gate. 0.3 s keeps one hit per beat
+  // region at 118–150 BPM, and the next kick, a beat on, still fires.
+  const beat = 60 / 124
+  const truth = Array.from({ length: 32 }, (_, i) => T0 + i * beat)
+  const x = room(Math.ceil((truth.at(-1)! + 1) * SR))
+  const put = (t: number, s: Float32Array) => s.forEach((v, i) => (x[Math.round(t * SR) + i] += v))
+  for (const t of truth) {
+    put(t, kick())
+    put(t + beat / 2, tone(55, 0.2, 0.08, 300, 1200, 0.6))
+  }
+  const near = (a: number[], b: number[]) => a.filter((t) => b.some((u) => Math.abs(t - u) <= 0.03)).length
+  const pr = (k: Knobs) => {
+    const h = hitsOf(x, undefined, k).kick
+    return [near(h, truth) / h.length, near(truth, h) / truth.length]
+  }
+  const [p, r] = pr({ ...KNOBS, minGap: 0.3 }) // measured P 1.00, R 1.00; at 0.06 P .50 (every pluck fires), R 1.00
+  expect(p).toBeGreaterThanOrEqual(0.95)
+  expect(r).toBeGreaterThanOrEqual(0.95)
+  expect(pr(KNOBS)[0]).toBeLessThan(0.8)
 })
 
 test('snare floor 30 + threshold 1.3 (dsp_kick_snare_misses §6): a backbeat at .8 of the old floor of 40, and at .85 of the old mean × 1.5 + 40 over a busy band, fires', () => {

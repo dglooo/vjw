@@ -433,11 +433,12 @@ function frame(now: number) {
   const [fdn, fdu, fte] = tempo.families([PRESETS.dnb.bpm!, PRESETS.dubstep.bpm!, PRESETS.techno.bpm!], sync.manual()) // the genres always have a band; a manual BPM is their evidence
   const lvl = f.energy.level
   // S5.3: the arrangement runs every frame (before style.update, so its freeze can hold through a breakdown: those
-  // lack drums). low = the kick-gated sustained bass (bands.ts `held`), high = the log grid's ≥ 4 kHz bands,
-  // total = the frame's RMS (the −60 dBFS silence floor lives in arrange.ts), cuts = the previous frame's preset's.
+  // lack drums). low = the kick-gated sustained bass (bands.ts `held`; sub alone under a 4/4 preset, as `cuts` the
+  // previous frame's preset's), high = the log grid's ≥ 4 kHz bands, total = the frame's RMS (the −60 dBFS silence floor
+  // lives in arrange.ts), cuts = the previous frame's preset's.
   let high = 0
   for (let i = highStart; i < BAND_COUNT; i++) high += eb[i]
-  arrangeOut = arrangement.update({ low: features.raw.sub + features.raw.reese, high, total: frameRms, kick: kickThisFrame, beat: f.sync.confidence >= 0.3 ? f.sync.beat : null, cuts: PRESETS[configured].cuts !== false, now: f.time })
+  arrangeOut = arrangement.update({ low: PRESETS[configured].low === 'sub' ? features.raw.sub : features.raw.sub + features.raw.reese, high, total: frameRms, kick: kickThisFrame, beat: f.sync.confidence >= 0.3 ? f.sync.beat : null, cuts: PRESETS[configured].cuts !== false, now: f.time })
   const freeze = (lvl.bass < SILENCE && lvl.mid < SILENCE && lvl.treb < SILENCE) || arrangeOut.sparse
   styleOut = style.update(styleIn({ kick8, hat8, bpm: f.sync.bpm, confidence: f.sync.confidence, wobble: features.raw.wobbleDepth, bass: total > 0 ? (features.raw.sub + features.raw.reese) / total : 0, families: { dnb: fdn, dubstep: fdu, techno: fte }, freeze }), now / 1000)
   // A manual pick (incl. the ?preset= dev hook) locks the classifier; else Auto follows `detected`.

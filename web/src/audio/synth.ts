@@ -194,3 +194,23 @@ export function wobble(n: number, lfo = 140 / 30, amp = 0.5) {
   }
   return out
 }
+
+// ---- 4/4 tones (dsp_genre_melodic 2026-11-21, as scratchpad/dsp-genre/fx.ts builds its fixtures)
+/** `x` scaled to peak `p`. */
+export function norm(x: Float32Array, p: number) {
+  const m = x.reduce((m, v) => Math.max(m, Math.abs(v)), 0)
+  return x.map((v) => (v * p) / m)
+}
+
+/** A saw's 1/h harmonics under `top` Hz through a 2-pole low-pass at `lp`, a 1 ms attack, an exponential `decay` (s) and a
+ *  5 ms fade-out, at peak `p`: the house bass pluck, the break's pad. */
+export function tone(f: number, len: number, decay: number, lp: number, top: number, p: number) {
+  const n = Math.round(len * SR)
+  const x = new Float32Array(n)
+  for (let h = 1; h * f < top; h++) {
+    const a = 1 / h / (1 + ((h * f) / lp) ** 2)
+    const w = (2 * Math.PI * h * f) / SR
+    for (let i = 0; i < n; i++) x[i] += a * Math.sin(w * i)
+  }
+  return norm(x.map((v, i) => v * attack(i) * Math.exp(-i / SR / decay) * Math.min(1, (n - i) / (0.005 * SR))), p)
+}

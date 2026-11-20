@@ -10,10 +10,10 @@ import type { Drum } from './drums'
 import { rms } from './energy'
 import { createFeatures } from './features'
 import type { WorkletMsg } from './onset.worklet'
-import { PRESETS, type Genre } from './presets'
+import { PRESETS, type Genre, type PresetId } from './presets'
 import { createSettings, parseSettings, workletBands, type AudioSettings } from './settings'
 import { createStyle, type StyleIn, type StyleOut } from './style'
-import { arrangement, crossfade, GROOVES, mix, pattern, rng, SR, T0, wobble, type Groove, type Stem } from './synth'
+import { arrangement, burst, crossfade, GROOVES, kick, mix, norm, pattern, rng, room, SR, T0, tone, wobble, type Groove, type Stem } from './synth'
 import { createTempoSource, type TempoSource } from './tempo'
 
 // ---- drums (as drums.test.ts): the worklet's body, analysis.ts, in render quanta ----
@@ -97,12 +97,12 @@ function sim() {
 }
 
 // ---- arrangement: app.ts's path (S5.3), unlike arrange.test.ts's bands.ts shortcut: analysis.ts → features.ts (low =
-// raw sub + reese, held HOLD s past each kick) → ArrangeIn, one 60 fps frame per 1/60 s of heard time from `phase`,
+// raw sub + reese, sub alone under a 4/4 preset, held HOLD s past each kick) → ArrangeIn, one 60 fps frame per 1/60 s of heard time from `phase`,
 // draining the kicks heard by then (T1). high = the mean 4–16 kHz magnitude of the frame's last FFT window ----
 const Q = 128
 const HZ = SR / N
 const FPS_APP = 60
-function inputs(x: Float32Array, genre: Genre, bpm: number) {
+function inputs(x: Float32Array, genre: PresetId, bpm: number) {
   const a = createAnalysis(SR)
   a.configure({ kind: 'config', rev: 1, ...workletBands(parseSettings(null), genre) })
   const feats: Extract<WorkletMsg, { kind: 'feat' }>[] = []
@@ -126,7 +126,8 @@ function inputs(x: Float32Array, genre: Genre, bpm: number) {
       fft.realTransform(spec, frame)
       let high = 0
       for (let j = lo; j <= hi; j++) high += Math.hypot(spec[2 * j], spec[2 * j + 1]) / (hi - lo + 1)
-      out.push({ low: f.raw.sub + f.raw.reese, high, total: rms(x.subarray(e - SR / FPS_APP, e)), kick, beat: ((now - T0) * bpm) / 60, cuts: PRESETS[genre].cuts !== false, now })
+      const low = PRESETS[genre].low === 'sub' ? f.raw.sub : f.raw.sub + f.raw.reese // as app.ts
+      out.push({ low, high, total: rms(x.subarray(e - SR / FPS_APP, e)), kick, beat: ((now - T0) * bpm) / 60, cuts: PRESETS[genre].cuts !== false, now })
     }
     return out
   }
@@ -243,6 +244,36 @@ test.each([['dnb', 174], ['dubstep', 140]] as const)('§4.5 build → drop → c
     expect(c[0].now - f[0].now).toBeLessThan(0.5 + 1 / FPS_APP)
     expect(shouldCut(c[0].confirmed, false)).toBe(true)
     expect(shouldCut(c[0].confirmed, true)).toBe(false) // LOCK
+  }
+})
+
+test("§4.5 G2 (dsp_genre_melodic §4): a 4/4 break whose pad sits in the reese band, through the held features path at 20 frame phases: no drop on Default's low (sub + reese), one ≤ 0.5 s after its first kick on Techno's (sub)", () => {
+  // As scratchpad/dsp-genre/fx.ts builds fx_techno 132: kick + rumble (the kick's reverbed tail, no held bass) on every
+  // beat for 16 bars, an 8-bar break of A F C G minor triads (roots 175–262 Hz), then 4 bars of the groove again.
+  const beat = 60 / 132
+  const bar = 4 * beat
+  const drop = T0 + 24 * bar
+  const x = room(Math.ceil((drop + 4 * bar + 0.5) * SR))
+  const r = rng(3)
+  const put = (t: number, s: Float32Array) => s.forEach((v, i) => (x[Math.round(t * SR) + i] += v))
+  for (let b = 0; b < 28; b++) {
+    const t0 = T0 + b * bar
+    const root = 57 + [0, -4, 3, -2][Math.floor(b / 2) % 4]
+    if (b >= 16 && b < 24) for (const iv of [0, 3, 7]) put(t0, tone(440 * 2 ** ((root + iv - 69) / 12), bar, 4, 1200, 3000, 0.06))
+    else
+      for (let k = 0; k < 4; k++) {
+        put(t0 + k * beat, kick())
+        put(t0 + k * beat + 0.02, norm(burst(r, beat, 0.2, 30, 110), 0.3))
+      }
+  }
+  const [both, sub] = [inputs(x, 'default', 132), inputs(x, 'techno', 132)]
+  for (let p = 0; p < 20; p++) {
+    const phase = p / 20 / FPS_APP
+    expect(fires(run(both(phase))), `phase ${p}/20`).toEqual([]) // the pad holds the break at ≈ .65 G: sparse ≈ 2 s, under `arm`
+    const f = fires(run(sub(phase)))
+    expect(f, `phase ${p}/20`).toHaveLength(1)
+    expect(f[0].now - drop).toBeGreaterThan(0)
+    expect(f[0].now - drop).toBeLessThanOrEqual(0.5) // measured +0.32–0.34 s at .79–.81
   }
 })
 

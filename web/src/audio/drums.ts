@@ -19,23 +19,23 @@ export interface Knobs {
   snareThreshold: number // a snare needs odf > mean₁₆ · this + floor (the hats keep onset.ts's 1.5)
   kick: number // the kick's gate-ratio trigger
   kickSlow: number // s: the kick trigger's own gate slow follower
+  minGap: number // s between kicks (onset.ts's snare/hats minGap stays 0.05)
 }
-// The defaults (Default, DnB, Techno; Dubstep keeps floors 80/100). The snare: real DnB masters' backbeat flux reads p50
+// The defaults (Default, DnB; Dubstep keeps floors 80/100, the 4/4 presets take minGap 0.3). The snare: real DnB masters' backbeat flux reads p50
 // 16–17 / p90 32–50 (real-track ruling 2026-11-05), and at floor 40 / threshold 1.5 all 441 missed snares of 8 real
 // windows sat under the floor or under mean × 1.5 (.54–.79 of it); floor 30 / threshold 1.3 take R .47 → .67, P .69 → .62,
 // for ≈ +3 false snares a minute of drumless audio (dsp_kick_snare_misses §4.1, §6). The kick trigger (ruling 2026-11-05
 // (c)): real masters' kicks and a 16th double kick's 2nd (≈ 1.39) peak under TRANSIENT, a steady or beating bass stays
 // ≤ 1.30. TRANSIENT 1.5 still gates bands.ts's `held` (the bass sources, arrange `low`) and stays the crosstalk's kick unit.
-export const KNOBS: Knobs = { floors: { snare: 30, hats: 50 }, snareThreshold: 1.3, kick: 1.35, kickSlow: KICK_SLOW }
+// minGap 60 ms, not 50: the gate's release tail re-crosses at 52 ms on 3 real-track kicks (2nd ratio 1.35–1.39, just over
+// the trigger); the shortest legitimate pair is 75.5 ms (T2 data). The 4/4 presets take 0.3 s (dsp_genre_melodic §4).
+export const KNOBS: Knobs = { floors: { snare: 30, hats: 50 }, snareThreshold: 1.3, kick: 1.35, kickSlow: KICK_SLOW, minGap: 0.06 }
 // The crosstalk's snare unit (its flux over this = 1), tuned at the old floor of 80: tied to the live floor, halving it
 // would double every snare's weight against the kick.
 const XT_SNARE = 80
 // knob: the kick bins' least share of the hop's power, DC excluded (a line-in offset can't fake it). In an empty band the
 // gate also trips on a riser, room tone or a snare's body; those hold ≲ 0.06 of the power, a kick ≈ 0.4–0.9.
 const SHARE = 0.2
-// knob: s between kicks (onset.ts's snare/hats minGap stays 0.05). 60 ms, not 50: the gate's release tail re-crosses at
-// 52 ms on 3 real-track kicks (2nd ratio 1.35–1.39, just over the trigger); the shortest legitimate pair is 75.5 ms (T2 data).
-const MIN_GAP = 0.06
 // knob: the snare hop's least share of its band's power above the band's midpoint (3 kHz at the default). A snare or
 // clap is flat noise there (≈ .4–.9), a wobble's saw edge falls ≈ 18 dB/oct (≈ .01–.02). A failed hop's ODF is 0 inside
 // the detector, so a vetoed spike arms no minGap and swallows no real snare after it.
@@ -98,7 +98,7 @@ export function createDrums(sampleRate: number, fftSize: number) {
       // kick is dropped unless it is at least as strong. Strong = in tuned units, not the live floor: the snare's flux over
       // XT_SNARE (`strength` saturates at its cap in sparse bands, mean ≈ 0), the kick's ratio over TRANSIENT. So a
       // snare waits one hop (+5.3 ms) and keeps its own t; it posts ahead of this hop's kick, in time order.
-      const fire = kickRatio >= knobs.kick && own > SHARE * all && t - lastKick >= MIN_GAP
+      const fire = kickRatio >= knobs.kick && own > SHARE * all && t - lastKick >= knobs.minGap
       // xk = the kick's weight here, on the 20 ms ratio that TRANSIENT was tuned on: the 40 ms trigger ratio reads a kick
       // higher and dropped one more techno clap on a kick (the 8 real windows: equal). One posted under TRANSIENT is
       // still rising: the next hop's ratio weighs it there, as when it posted at TRANSIENT (T2: without this its click
