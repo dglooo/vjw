@@ -384,14 +384,15 @@ test('bandKey: ids and Hz only, so a rename or a sens/auto change is a no-send, 
   expect(bandKey(a)).not.toBe(bandKey(workletBands(cfg(null, [stored(1, { lo: 40, hi: 60 })]), 'dubstep')))
 })
 
-test('workletBands floors (real-track ruling 2026-11-05): Dubstep 80/100, every other preset 40/50; under Auto the detected genre, a hand pick wins', () => {
-  const [DEF, DUB] = [{ snare: 40, hats: 50 }, { snare: 80, hats: 100 }]
-  for (const id of ['default', 'dnb', 'techno'] as const) expect(workletBands(cfg(), id).floors, id).toEqual(DEF)
-  expect(workletBands(cfg(), 'dubstep').floors).toEqual(DUB)
+test('workletBands knobs (dsp_kick_snare_misses §6): Dubstep floors 80/100, every other preset the default; under Auto the detected genre, a hand pick wins', () => {
+  const DEF = { floors: { snare: 30, hats: 50 }, snareThreshold: 1.3, kick: 1.35, kickSlow: 0.04 }
+  const DUB = { ...DEF, floors: { snare: 80, hats: 100 } }
+  for (const id of ['default', 'dnb', 'techno'] as const) expect(workletBands(cfg(), id).knobs, id).toEqual(DEF)
+  expect(workletBands(cfg(), 'dubstep').knobs).toEqual(DUB)
   // app.ts sends for activePreset(settings, detected)
-  const floors = (s: AudioSettings, detected: Genre | null) => workletBands(s, activePreset(s, detected)).floors
-  expect([floors(cfg(), null), floors(cfg(), 'dubstep'), floors(cfg(), 'dnb')]).toEqual([DEF, DUB, DEF])
-  expect([floors(cfg('dnb'), 'dubstep'), floors(cfg('dubstep'), 'dnb'), floors(cfg(null, [], { auto: false }), 'dubstep')]).toEqual([DEF, DUB, DEF])
+  const knobs = (s: AudioSettings, detected: Genre | null) => workletBands(s, activePreset(s, detected)).knobs
+  expect([knobs(cfg(), null), knobs(cfg(), 'dubstep'), knobs(cfg(), 'dnb')]).toEqual([DEF, DUB, DEF])
+  expect([knobs(cfg('dnb'), 'dubstep'), knobs(cfg('dubstep'), 'dnb'), knobs(cfg(null, [], { auto: false }), 'dubstep')]).toEqual([DEF, DUB, DEF])
   const b = workletBands(cfg(), 'default')
-  expect(bandKey({ ...b, floors: DUB })).not.toBe(bandKey(b)) // a floors-only change is a send
+  for (const k of [DUB, { ...DEF, snareThreshold: 1.5 }, { ...DEF, kick: 1.3 }, { ...DEF, kickSlow: 0.02 }]) expect(bandKey({ ...b, knobs: k })).not.toBe(bandKey(b)) // a knobs-only change is a send
 })

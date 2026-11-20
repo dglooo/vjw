@@ -2,7 +2,7 @@
 // bands, kept as JSON under localStorage `vjw.audio`. The browser side is one seam (`Kv`, as in library.ts), so the logic
 // runs in Vitest without a browser. `parseSettings` is the trust boundary for whatever was stored.
 import type { BandSpec } from './bands'
-import { FLOORS, type Drum, type Floors } from './drums'
+import type { Drum, Knobs } from './drums'
 import { PRESETS, type Band, type Genre, type PresetId } from './presets'
 
 /** `id` is `u:` + 6 random hex chars: the band's binding source id, fixed for life (a rename only changes `name`). */
@@ -123,19 +123,19 @@ export function pickToPatch(kind: 'picker' | 'toggle', value: string | boolean, 
 }
 
 /** The worklet config for the preset in force (`active`, as app.ts's frame resolves it: picked or detected): its drum
- *  bands and floors, and the band list: `sub`, `reese`, `wobble` first (the S2.4 contract — features.ts reads bands 0–2
+ *  bands and knobs, and the band list: `sub`, `reese`, `wobble` first (the S2.4 contract — features.ts reads bands 0–2
  *  by position), then the user's bands. Pure: no `rev`, which app.ts grows per send. */
-export function workletBands(s: AudioSettings, active: PresetId): { drums: Record<Drum, Band>; floors: Floors; bands: BandSpec[] } {
+export function workletBands(s: AudioSettings, active: PresetId): { drums: Record<Drum, Band>; knobs: Knobs; bands: BandSpec[] } {
   const p = PRESETS[active]
   const b = p.bands
   return {
     drums: { kick: b.kick, snare: b.snare, hats: b.hats },
-    floors: p.floors ?? FLOORS,
+    knobs: p.knobs,
     bands: (['sub', 'reese', 'wobble'] as const).map((id): BandSpec => ({ id, lo: b[id][0], hi: b[id][1] })).concat(s.custom.map((c): BandSpec => ({ id: c.id, lo: c.lo, hi: c.hi }))),
   }
 }
 
-/** The config serialized (ids + Hz, drums and floors too): sent to the worklet only when it really changed. */
-export function bandKey(b: { drums: Record<Drum, Band>; floors: Floors; bands: BandSpec[] }): string {
-  return `${b.drums.kick} ${b.drums.snare} ${b.drums.hats} ${b.floors.snare}/${b.floors.hats} ${b.bands.map((x) => `${x.id}:${x.lo}-${x.hi}`).join(' ')}`
+/** The config serialized (ids + Hz, drums and knobs too): sent to the worklet only when it really changed. */
+export function bandKey(b: { drums: Record<Drum, Band>; knobs: Knobs; bands: BandSpec[] }): string {
+  return `${b.drums.kick} ${b.drums.snare} ${b.drums.hats} ${JSON.stringify(b.knobs)} ${b.bands.map((x) => `${x.id}:${x.lo}-${x.hi}`).join(' ')}`
 }

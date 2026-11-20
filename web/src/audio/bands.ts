@@ -11,6 +11,11 @@ const RELEASE = 0.02 // e1; well below an 11.6 Hz LFO period (research §2)
 // The gate runs its own fast/slow pair with a long release that bridges the 18–33 ms between a bass note's
 // peaks. With RELEASE there, the ripple alone pushed a sustained reese/wobble over TRANSIENT.
 const GATE_RELEASE = 0.2
+// The kick trigger's own gate slow follower (drums.ts; a preset may set it, setKickSlow). Over a loud held sub (−6 to
+// −11 dBFS) a missed kick rises only 2–7.5 dB in 30 ms: the 20 ms follower keeps up and the ratio stays under the
+// trigger, 40 ms lags it (dsp_kick_snare_misses §4.2, §6: kick R .65 → .70, P .81 → .79 on 7 real windows). The tempo
+// ODF, `held` and the crosstalk keep the 20 ms one.
+export const KICK_SLOW = 0.04
 export const TRANSIENT = 1.5 // gate fast/slow above this = a transient (a kick): `held` stops following e2…
 const HOLD = 0.1 // …and stays put this long after it ends, past the kick's in-band tail
 const STAGES = 2 // cascaded biquads per band, ≈12 dB/octave skirts
@@ -25,6 +30,7 @@ interface Band {
   e2: number
   gf: number // gate fast
   gs: number // gate slow
+  gk: number // gate slow for the kick trigger (KICK_SLOW)
   held: number
   hold: number // samples left
 }
@@ -38,6 +44,7 @@ export function createBank(sampleRate: number) {
   const rel = coef(RELEASE, sampleRate)
   const gateRel = coef(GATE_RELEASE, sampleRate)
   const holdLen = Math.round(HOLD * sampleRate)
+  let kickSlow = coef(KICK_SLOW, sampleRate)
   let bands: Band[] = []
 
   return {
@@ -48,7 +55,7 @@ export function createBank(sampleRate: number) {
         const f0 = Math.sqrt(lo * hi) // Q from the edges: the -3 dB points of one stage sit at lo and hi
         const w = (2 * Math.PI * f0) / sampleRate
         const alpha = Math.sin(w) / (2 * (f0 / (hi - lo)))
-        const b = old.get(id) ?? { id, b0: 0, a1: 0, a2: 0, z: new Float64Array(2 * STAGES), e1: 0, e2: 0, gf: 0, gs: 0, held: 0, hold: 0 }
+        const b = old.get(id) ?? { id, b0: 0, a1: 0, a2: 0, z: new Float64Array(2 * STAGES), e1: 0, e2: 0, gf: 0, gs: 0, gk: 0, held: 0, hold: 0 }
         b.b0 = alpha / (1 + alpha)
         b.a1 = (-2 * Math.cos(w)) / (1 + alpha)
         b.a2 = (1 - alpha) / (1 + alpha)
@@ -59,7 +66,7 @@ export function createBank(sampleRate: number) {
     process(x: Float32Array) {
       for (const b of bands) {
         const { b0, a1, a2, z } = b
-        let { e1, e2, gf, gs, held, hold } = b
+        let { e1, e2, gf, gs, gk, held, hold } = b
         for (let i = 0; i < x.length; i++) {
           let y = x[i]
           for (let s = 0; s < 2 * STAGES; s += 2) {
@@ -73,6 +80,7 @@ export function createBank(sampleRate: number) {
           e2 += (e1 - e2) * slow // from e1, not |y|: the mean of |y| sits a crest factor below e1
           gf += (y - gf) * (y > gf ? fast : gateRel)
           gs += (gf - gs) * slow
+          gk += (gf - gk) * kickSlow
           if (gf > TRANSIENT * gs) hold = holdLen
           else if (hold > 0) hold--
           else held = e2
@@ -81,12 +89,19 @@ export function createBank(sampleRate: number) {
         b.e2 = e2
         b.gf = gf
         b.gs = gs
+        b.gk = gk
         b.held = held
         b.hold = hold
       }
     },
     /** Band i's gate fast/slow ratio: sustained material peaks at ≤ 1.30, a kick at ≥ 1.65; 0 before any signal. */
     ratio: (i: number) => (bands[i].gs > 0 ? bands[i].gf / bands[i].gs : 0),
+    /** Band i's gate fast over the kick trigger's slow follower; at a KICK_SLOW of 0.02 s it equals `ratio`. */
+    kickRatio: (i: number) => (bands[i].gk > 0 ? bands[i].gf / bands[i].gk : 0),
+    /** The kick follower's time constant, s, in place: its state is kept, so a switch doesn't jump. */
+    setKickSlow(tau: number) {
+      kickSlow = coef(tau, sampleRate)
+    },
     /** Per band, in spec order: [e2, held]. */
     read(out: Float32Array) {
       for (let i = 0; i < bands.length; i++) {

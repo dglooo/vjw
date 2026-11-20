@@ -251,7 +251,7 @@ if (DEBUG || /camprobe|bench/.test(location.search))
   Object.assign(window, { __cam: { cam, users: camUsers, hosts: () => camMask.hosts, frames: () => camMask.frames, builds, readCam, readMask, select: selectCamera, gpuMs: camGpuMs } })
 
 /** S2.5: the worklet's config for the active preset (T1: frame() moves `configured` to it, picked or detected). Sent
- * only when it really changed (ids + Hz, drums and floors too) — a sens or auto toggle must not re-send. `rev` grows
+ * only when it really changed (ids + Hz, drums and knobs too) — a sens or auto toggle must not re-send. `rev` grows
  * per send; the worklet ignores a `rev <= applied`. */
 let rev = 0
 let sent = ''

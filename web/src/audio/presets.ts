@@ -1,6 +1,6 @@
 // The genre presets (design C3), code data: the user tunes `sens` and adds custom bands instead of editing these. Pure.
 // The tempo range is applied by tempo.ts and the bands by the worklet (plan S3.x); the `proto` rows feed style.ts (S4.1).
-import type { Floors } from './drums'
+import { KNOBS, type Knobs } from './drums'
 
 export type Genre = 'dnb' | 'dubstep' | 'techno'
 export type PresetId = 'default' | Genre
@@ -12,7 +12,7 @@ export interface Preset {
   sens: Readonly<Record<string, number>> // missing = 1
   map: Readonly<Record<string, string>> // built-in source -> new source while Auto-style is on
   proto?: { kickPerBeat: number; hatsPerBeat: number; wobble: number; bass: number } // classifier (genres only)
-  floors?: Floors // the worklet's snare/hats ODF floors; missing = drums.ts FLOORS (real-track ruling 2026-11-05)
+  knobs: Knobs // the worklet's drum knobs (drums.ts): floors, snare threshold, kick trigger and its follower
   cuts?: false // a deep bass cut doesn't arm a drop (arrange.ts `cuts`, drop v2 (2)); missing = it does
 }
 
@@ -29,7 +29,7 @@ export const snapOctave = (bpm: number, band: Band): 'double' | 'halve' | 'none'
 // `sens` is all 1 everywhere for now (tuned on the fixtures and the user's tracks), so it stays empty.
 // ponytail: C3 fixes only kicks/beat per genre; the other `proto` numbers are starting values for S4.1 to tune on the fixtures.
 export const PRESETS: Readonly<Record<PresetId, Preset>> = {
-  default: { name: 'Default', bpm: null, bands: { ...BANDS }, sens: {}, map: {} },
+  default: { name: 'Default', bpm: null, bands: { ...BANDS }, sens: {}, map: {}, knobs: KNOBS },
   dnb: {
     name: 'Drum & Bass',
     bpm: [160, 185],
@@ -37,6 +37,7 @@ export const PRESETS: Readonly<Record<PresetId, Preset>> = {
     sens: {},
     map: { onset: 'kick', treb: 'hats' },
     proto: { kickPerBeat: 0.5, hatsPerBeat: 2, wobble: 0.25, bass: 0.7 },
+    knobs: KNOBS,
   },
   dubstep: {
     name: 'Dubstep / bass',
@@ -45,7 +46,9 @@ export const PRESETS: Readonly<Record<PresetId, Preset>> = {
     sens: {},
     map: { reese: 'wobble', onset: 'snare', treb: 'hats' }, // the bass class binds reese (design ruling 2026-11-05)
     proto: { kickPerBeat: 0.35, hatsPerBeat: 1, wobble: 0.8, bass: 0.7 },
-    floors: { snare: 80, hats: 100 }, // growls fire the default's 40/50: Rumble 7.3 snares a bar at 40, 2.4 at 80
+    // growls flood the snare band: Rumble 7.3 snares a bar at floor 40, 2.4 at 80; no floor fixes it (R .29 / P .26 at
+    // 80, R .54 / P .12 at 40: dsp_kick_snare_misses §4.3), so Dubstep keeps 80/100
+    knobs: { ...KNOBS, floors: { snare: 80, hats: 100 } },
     cuts: false, // its bass stops are its groove: Rumble's 108–110 s cut would fire ≈ 110, and its refractory swallow 117.0
   },
   techno: {
@@ -55,5 +58,6 @@ export const PRESETS: Readonly<Record<PresetId, Preset>> = {
     sens: {},
     map: { onset: 'kick', treb: 'hats' },
     proto: { kickPerBeat: 1, hatsPerBeat: 2, wobble: 0.1, bass: 0.4 },
+    knobs: KNOBS, // the default: no house/techno window was measured (dsp_kick_snare_misses §6)
   },
 }
