@@ -9,6 +9,7 @@ const CHROMA_TAU = 0.167 // s: the 12-bin chroma EMA
 const VOICE_TAU = 0.167 // s: the voice features' EMA (the model's 10 frames at 60 fps)
 const FLAT: readonly [number, number] = [0.6, 0.95] // knob: 1 − flatness over this window → tonal 0..1 (real tracks: p5 .58–.75, p95 .90–.98)
 const SWITCH = 1.1 // knob: the pitch class moves only to a class above this × the held one's
+const HOLD = 1 // knob: s of real time a new class must lead (above SWITCH, unbroken) before it wins. Kanine RMV 41.5–51.5 s in the browser: 22 → 1 change; 10 s windows of 3 tracks offline: 14–35 → 0–2
 const VV_HZ = 60 // the MFCC σ ring's samples per s, whatever the frame rate: 60 of them = the trained 1 s window
 const EDGES = [20, 60, 250, 500, 1000, 2000, 4000, 8000, 16000] // Hz: the 8 band energies
 // The voice logistic: scratchpad/dsp-genre/out/voice_model.json (voice28.py, audio-dsp 2026-11-21; fitted on the 7 tracks
@@ -21,7 +22,8 @@ const C = -1.62657
 
 /** `tonal` 0..1: 1 − the spectral flatness of 300–3000 Hz, up with pads, voices and leads, down in drum-only sections.
  *  `pitch` [0, 1): the loudest pitch class of 100–2000 Hz / 12, C = 0, a step value (often the key root, not each
- *  melody note). Never one-pole a hue on it: 11/12 → 0 would sweep the wheel; crossfade a palette over ≥ 0.3 s.
+ *  melody note); a new class wins only after it leads for HOLD s. Never one-pole a hue on it: 11/12 → 0 would sweep the
+ *  wheel; crossfade a palette over ≥ 0.3 s.
  *  `voice` 0..1: the trained vocal-activity logistic (p .256 maximised J on its tracks). Not a gate: leads open it too. */
 export interface Melody { tonal: number; pitch: number; voice: number }
 
@@ -52,7 +54,7 @@ export function createMelody(sampleRate: number, fftSize: number) {
   const x = new Float64Array(28) // this frame's voice features, the model's order, before the EMA
   const pc = Int8Array.from({ length: C1 }, (_, k) => (Math.round(12 * Math.log2((k * hz) / 440)) + 69) % 12) // read from C0 on
   const chroma = new Float64Array(12)
-  let [flatY, zY, held, n, head, due, started] = [1, 0, 0, 0, 0, 0, false]
+  let [flatY, zY, held, cand, lead, n, head, due, started] = [1, 0, 0, 0, 0, 0, 0, 0, false]
   const ema = (tau: number, dt: number) => (started ? 1 - Math.exp(-dt / tau) : 1) // the first frame seeds every EMA
   const out: Melody = { tonal: 0, pitch: 0, voice: 0 }
 
@@ -75,7 +77,13 @@ export function createMelody(sampleRate: number, fftSize: number) {
       for (let k = C0; k < C1; k++) chroma[pc[k]] += ac * P[k]
       let best = 0
       for (let i = 1; i < 12; i++) if (chroma[i] > chroma[best]) best = i
-      if (chroma[best] > SWITCH * chroma[held]) held = best // strict: an all-0 chroma (silence) holds
+      // strict: an all-0 chroma (silence) holds. A challenger's lead counts from its first frame, so it wins once it has
+      // led HOLD s; a frame it loses, or another challenger, restarts the count.
+      if (chroma[best] > SWITCH * chroma[held]) {
+        lead = best === cand ? lead + dt : 0
+        cand = best
+        if (lead >= HOLD) held = best
+      } else cand = held
       out.pitch = held / 12
       // voice: the 28 features (mel.py build())
       for (let i = 0; i < 8; i++) {
