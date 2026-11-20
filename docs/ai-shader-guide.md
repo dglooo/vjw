@@ -4,10 +4,11 @@
 > редактор G, пока вы смотрите. Откройте приложение в режиме разработки (`npm run dev`), нажмите Start, затем G.
 > ИИ присылает код, видит ошибки и кадр сцены, по вашей просьбе переделывает и экспортирует файл в `web/user-shaders/`.
 > Свой шейдер вы сохраняете кнопкой Export (файл `.glsl`) и загружаете обратно через Import или перетаскиванием.
+> На опубликованном сайте: Start, G, вставьте токен сервера в Remote AI один раз и нажмите Connect (`deploy/README.md`).
 
 ## 1. Connect
 
-- The channel lives in the **dev server only** (`npm run dev` in `web/`, default `http://localhost:5173`). A build has no channel.
+- The channel lives in the **dev server** (`npm run dev` in `web/`, default `http://localhost:5173`). The published site reaches it through a relay: see **Remote** below.
 - The user opens the app, presses **Start**, then **G** (or the bar's `Shader · G`). Without an open editor every call answers `{ "ok": false, "error": "no G editor open" }`.
 - Every call is local HTTP with JSON. POST bodies need `content-type: application/json`. A page of another site is refused.
 
@@ -32,6 +33,13 @@ node scripts/ai-shader.mjs export "Neon tunnel" [--overwrite]
 node scripts/ai-shader.mjs state                # JSON: the code the user sees now, its errors, who wrote it last
 node scripts/ai-shader.mjs list
 ```
+
+**Remote: the published site** (`deploy/ai-relay.mjs` behind the user's nginx; set-up in `deploy/README.md` § Remote AI)
+
+- The same calls at `https://<host>/vjw001/__ai/…`. Every call needs `authorization: Bearer <token>`; without it, 401.
+- The user opens the site, presses **Start**, then **G**, pastes the token into **Remote AI** once and presses **Connect** (the dot turns green). From then on G connects by itself whenever it opens in that browser. One editor at a time: a newer tab takes over.
+- The CLI: `VJW_URL=https://<host>/vjw001 VJW_AI_TOKEN=<token> node scripts/ai-shader.mjs push my.glsl` (the same commands).
+- Differences from dev: the still comes back as base64 (`png`); the CLI saves it into `scratchpad/ai/stills/` and prints its path. `export` downloads `<name>.glsl` in the user's browser (Chrome may ask once to allow downloads); nothing is stored on the server and `--overwrite` does nothing. No `list`, no `file`. An answer waits at most 20 s.
 
 ## 2. What exists: the shader contract
 
@@ -66,7 +74,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)  // fragCoord in pixels, (
 - **No strobes, no full-frame flashes, no fast black/white alternation**, whatever drives them (time, kicks, `iFrame`).
 - **Frame budget:** under about 5 ms per frame at 1080p on a laptop GPU. At most about 100 raymarch steps, 8 fractal iterations per step, 4 nested loops. Prefer analytic shapes and `smoothstep` to loops.
 - **GLSL only.** No JavaScript, no network, no `#include`, no textures from files.
-- **Files:** write only through `export` (into `web/user-shaders/`). Never touch other files of the project.
+- **Files:** write only through `export` (into `web/user-shaders/`; remote: the user's downloads). Never touch other files of the project.
 - No secrets, keys or personal data in shader comments.
 
 ## 5. The target code
@@ -104,4 +112,4 @@ The header block (the first lines up to the blank line) is written by `export` a
 4. It stays smooth: no raymarch over ~100 steps; the user sees no stutter.
 5. A comment line names what it is and its credit (`Credit: own work`, or the author and licence of what you adapted).
 6. The sliders (`// = default`) have sensible defaults.
-7. The user agreed. Then `export "<Name>"` and tell them: "Saved to web/user-shaders/<Name>.glsl; press Save as… to keep it as a scene".
+7. The user agreed. Then `export "<Name>"` and tell them: "Saved to web/user-shaders/<Name>.glsl (remote: your downloads); press Save as… to keep it as a scene".

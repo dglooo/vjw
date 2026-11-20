@@ -1,7 +1,7 @@
 // A shader as a file on the user's disk (user 2026-11-20): `<name>.glsl`, a header over the code (name, author, date,
 // the source scene), as the shader editor's Export downloads it and the dev AI channel (vite.config.ts) writes it into
-// web/user-shaders/; Import reads either back. Also the channel's request checks. Pure and import-free: vite.config.ts
-// runs it in Node, Shader.tsx in the page.
+// web/user-shaders/; Import reads either back. Also the channel's request checks and the open editor's answer to an ask
+// (dev, and the remote relay). Pure and import-free: vite.config.ts runs it in Node, Shader.tsx in the page.
 
 /** The channel's code limit: doc.ts CODE_MAX, a toy's (shaderfile.test.ts pins the two together). */
 export const SHADER_MAX = 65536
@@ -58,3 +58,33 @@ export function checkExport(body: unknown): { name: string; file: string; overwr
 /** A request's Origin header: none (a CLI, curl) or this machine's page. A page of another site can send a simple POST
  *  without a CORS preflight, so the channel refuses its Origin. */
 export const localOrigin = (origin: string | undefined) => origin === undefined || /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)
+
+type Reply = Record<string, unknown>
+/** What the open G editor does for the channel (Shader.tsx). */
+interface AskEditor {
+  state(): Reply
+  push(code: string, name?: string): Promise<Reply>
+  export(name: string): Reply
+}
+
+/** One ask to the open editor, `{ id, what, … }`, from the dev server (its HMR socket) or the remote relay
+ *  (deploy/ai-relay.mjs, its event stream), and the answer `{ …, id }`. A push and an export pass the dev server's checks
+ *  here (the relay forwards them as they came). Never throws: an error is an answer too. */
+export async function answerAsk(m: unknown, ed: AskEditor): Promise<Reply> {
+  const b = fields(m)
+  const id = b?.id
+  try {
+    if (b?.what === 'state') return { ...ed.state(), id }
+    if (b?.what === 'push') {
+      const p = checkPush(b)
+      return { ...(typeof p === 'string' ? { ok: false, error: p } : await ed.push(p.code, p.name)), id }
+    }
+    if (b?.what === 'export') {
+      const e = checkExport(b)
+      return { ...(typeof e === 'string' ? { ok: false, error: e } : ed.export(e.name)), id }
+    }
+    return { ok: false, error: `what: push, state or export, not ${String(b?.what)}`, id }
+  } catch (e) {
+    return { ok: false, error: String(e), id }
+  }
+}

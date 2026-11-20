@@ -6,7 +6,8 @@
 // Save as… are the editor's (L): a saved shader is a user scene as any other. Export downloads the code as a .glsl file
 // (shaderfile.ts: a header, then the code); Import, or a .glsl dropped on the panel, loads one back (user 2026-11-20).
 // In dev the open editor also answers the AI channel (vite.config.ts aiChannel, docs/ai-shader-guide.md), and Import
-// lists the AI's exports (web/user-shaders/).
+// lists the AI's exports (web/user-shaders/). In a build its Remote AI row (user 2026-11-21) does the same through the
+// server's relay (deploy/ai-relay.mjs): off until the user pastes the relay's token once, then on whenever G opens.
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
 import { director, setShader } from '../app'
 import type { SceneId } from '../doc'
@@ -15,7 +16,7 @@ import { toyErrors } from '../fx/glsl'
 import { fitStage, stage } from '../gl/engine'
 import { live, panel } from '../gl/live'
 import { download, library } from '../library'
-import { readShader, safeName, writeShader } from '../shaderfile'
+import { answerAsk, readShader, safeName, writeShader } from '../shaderfile'
 import { store } from '../store'
 import { SceneHead, type Say } from '../ui/Panel'
 import './editor.css'
@@ -33,7 +34,15 @@ const REST_MS = 700 // knob: typing compiles once the keys rest this long (the f
 /** A comment's `Credit: …` in the code: the node's credit (an example's names its authors and licence). */
 const creditOf = (code: string) => /^\s*\/\/.*?Credit: (.+)$/m.exec(code)?.[1].trim()
 type Errs = { line: number; msg: string }[]
-type Ask = { id: number; what: 'push' | 'state'; code?: string; name?: string } // the AI channel's (vite.config.ts)
+const AI_KEY = 'vjw.ai' // the remote AI's token, pasted once: this browser's only (never in the build); G connects whenever it opens
+type Link = 'wait' | 'on' | 'refused' | 'replaced'
+const LINK: Record<Link | 'off', string> = {
+  off: 'off (paste the token from the server once, then Connect)',
+  wait: 'connecting…',
+  on: 'connected: the AI can push code into this editor',
+  refused: 'refused: a wrong token, or no relay on the server',
+  replaced: 'another tab took the connection',
+}
 const STILL_MS = 1500 // knob: the AI channel's still, this long after a good compile (the picture has moved by then)
 const STILL_W = 640 // px: its width at most
 /** The stage as a PNG data URL ≤ STILL_W wide, drawn in the next frame just after the app's draw: the stage keeps no
@@ -72,6 +81,9 @@ function Open({ id }: { id: SceneId }) {
   const last = useRef<Errs>([]) // the last compile's errors (the AI channel's state)
   const file = useRef<HTMLInputElement>(null)
   const drafted = useRef(false)
+  const [remote, setRemote] = useState(() => ({ token: import.meta.env.DEV ? '' : (localStorage.getItem(AI_KEY) ?? ''), on: true })) // a new object: Connect again reconnects
+  const [link, setLink] = useState<Link>('wait')
+  const tokenField = useRef<HTMLInputElement>(null)
   useLayoutEffect(() => fitStage(cell.current!), [])
   // The opening text through the ref, not defaultValue: React writes a textarea's defaultValue (its text child) after
   // every input event, and that DOM write split the field's undo into single characters and broke its redo (Chrome).
@@ -114,27 +126,35 @@ function Open({ id }: { id: SceneId }) {
       },
       (e: unknown) => say(String(e), 'Import', ''),
     )
-  const exportFile = () => {
-    const name = safeName(doc.name) || 'shader'
-    download(`${name}.glsl`, writeShader(ta.current!.value, { name: doc.name, author: author.current, date: new Date().toISOString(), source: library.get(id)?.name }), 'text/plain')
-    say(null, 'Export', `Exported ${name}.glsl`)
+  /** The code as `<name>.glsl` into the downloads (the button: the scene's name; the AI's export: its name). */
+  const exportFile = (name = doc.name) => {
+    const file = `${safeName(name) || 'shader'}.glsl`
+    download(file, writeShader(ta.current!.value, { name, author: author.current, date: new Date().toISOString(), source: library.get(id)?.name }), 'text/plain')
+    say(null, 'Export', `Exported ${file}`)
+    return file
   }
   const listFiles = () => void fetch('/__ai/list').then((r) => r.json()).then((r: { files?: string[] }) => setFiles(r.files ?? []), () => {})
-  // The dev AI channel: this open editor announces itself and answers the server's asks.
-  const answer = useEffectEvent(async (m: Ask) => {
-    if (m.what === 'state') return { ok: true, code: ta.current!.value, errors: last.current, author: author.current, scene: doc.name, source: library.get(id)?.name }
-    if (m.name && !library.get(id)) live(id).doc.name = m.name.replace(/\s+/g, ' ').trim().slice(0, 200) // names the draft: Save as… offers it
-    const errors = load(m.code ?? '', 'AI')
-    if (errors.length) return { ok: false, errors, status: 'The last good shader keeps playing.' }
-    await new Promise((ok) => setTimeout(ok, STILL_MS))
-    const png = await Promise.race([still(), new Promise<null>((ok) => setTimeout(ok, 3000, null))]) // a hidden or covered tab draws no frame
-    return { ok: true, errors, status: png ? 'Playing' : 'Playing (no still: the app drew no frame; is its tab in view?)', png }
-  })
+  // The AI channel's asks, the dev server's and the remote relay's, through one handler (shaderfile.ts answerAsk).
+  const answer = useEffectEvent((m: unknown) =>
+    answerAsk(m, {
+      state: () => ({ ok: true, code: ta.current!.value, errors: last.current, author: author.current, scene: doc.name, source: library.get(id)?.name }),
+      push: async (code, name) => {
+        if (name && !library.get(id)) live(id).doc.name = name.replace(/\s+/g, ' ').trim().slice(0, 200) // names the draft: Save as… offers it
+        const errors = load(code, 'AI')
+        if (errors.length) return { ok: false, errors, status: 'The last good shader keeps playing.' }
+        await new Promise((ok) => setTimeout(ok, STILL_MS))
+        const png = await Promise.race([still(), new Promise<null>((ok) => setTimeout(ok, 3000, null))]) // a hidden or covered tab draws no frame
+        return { ok: true, errors, status: png ? 'Playing' : 'Playing (no still: the app drew no frame; is its tab in view?)', png }
+      },
+      export: (name) => ({ ok: true, file: exportFile(name), status: "Downloaded in the user's browser" }), // remote only: the dev server writes its own
+    }),
+  )
   const opened = useEffectEvent(listFiles)
+  // The dev AI channel: this open editor announces itself over the HMR socket and answers the server's asks there.
   useEffect(() => {
     const hot = import.meta.hot
     if (!hot) return
-    const on = (m: Ask) => void answer(m).then((r) => hot.send('vjw:ai-reply', { id: m.id, ...r }), (e: unknown) => hot.send('vjw:ai-reply', { id: m.id, ok: false, error: String(e) }))
+    const on = (m: unknown) => void answer(m).then((r) => hot.send('vjw:ai-reply', r))
     hot.on('vjw:ai', on)
     hot.send('vjw:ai-editor', true)
     opened()
@@ -143,6 +163,29 @@ function Open({ id }: { id: SceneId }) {
       hot.send('vjw:ai-editor', false)
     }
   }, [])
+  // The remote AI (a build, a token given): this open editor listens on the relay's event stream and answers there.
+  useEffect(() => {
+    if (!remote.on || !remote.token) return
+    const at = `${import.meta.env.BASE_URL}__ai/`
+    const es = new EventSource(`${at}events?token=${encodeURIComponent(remote.token)}`) // an EventSource sends no header
+    const post = (r: object) => fetch(`${at}result`, { method: 'POST', headers: { authorization: `Bearer ${remote.token}`, 'content-type': 'application/json' }, body: JSON.stringify(r) })
+    const stop = (l: 'refused' | 'replaced') => (setLink(l), setNote({ text: `Remote AI: ${LINK[l]}`, err: true }))
+    es.onopen = () => (setLink('on'), setNote({ text: 'Remote AI connected', err: false })) // over a refusal's note, which stays
+    es.onerror = () => (es.readyState === EventSource.CLOSED ? stop('refused') : setLink('wait')) // CONNECTING: it retries by itself
+    es.addEventListener('replaced', () => (es.close(), stop('replaced'))) // else both tabs would take it back in turn
+    es.onmessage = (e: MessageEvent<string>) => void answer(JSON.parse(e.data)).then(post).catch(() => {}) // a lost answer: the relay's wait ends the call
+    return () => es.close()
+  }, [remote])
+  const connect = () => {
+    const token = tokenField.current!.value.trim()
+    if (!token) return
+    localStorage.setItem(AI_KEY, token)
+    setLink('wait')
+    setRemote({ token, on: true })
+  }
+  const disconnect = () => setRemote({ ...remote, on: false }) // this opening only: the token stays, the next G connects
+  const shown = remote.on && remote.token ? link : 'off'
+  const linked = shown === 'wait' || shown === 'on'
   const close = () => {
     if (timer.current) run() // what was typed last plays on, when it compiles
     setShader(false)
@@ -196,7 +239,7 @@ function Open({ id }: { id: SceneId }) {
           </button>
         </header>
         <SceneHead id={id} say={say}>
-          <button title="Download the code as a .glsl file" onClick={exportFile}>
+          <button title="Download the code as a .glsl file" onClick={() => exportFile()}>
             Export
           </button>
           <button title="Load a .glsl file (or drop one here)" onClick={() => file.current!.click()}>
@@ -232,6 +275,14 @@ function Open({ id }: { id: SceneId }) {
             </select>
           )}
         </SceneHead>
+        {!import.meta.env.DEV && (
+          <header className="remote" title={`Remote AI: ${LINK[shown]}`}>
+            <i className={`led ${shown}`} role="img" aria-label={`Remote AI: ${LINK[shown]}`} />
+            <span>Remote AI</span>
+            <input ref={tokenField} type="password" aria-label="Remote AI token" placeholder="token" autoComplete="off" spellCheck={false} defaultValue={remote.token} hidden={linked} />
+            <button onClick={linked ? disconnect : connect}>{linked ? 'Disconnect' : 'Connect'}</button>
+          </header>
+        )}
         {note && (
           <p key={note.text} className={note.err ? 'err' : 'note'} onAnimationEnd={() => setNote(undefined)}>
             {note.text}

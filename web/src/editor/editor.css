@@ -292,3 +292,21 @@
 .shader .status.fail {
   color: #ff6b6b;
 }
+/* Remote AI (a build; deploy/ai-relay.mjs): its dot, green while the relay's event stream is open. */
+.shader .remote .led {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffffff38;
+}
+.shader .remote .led.wait {
+  background: #f2c14e;
+}
+.shader .remote .led.on {
+  background: #78d38a;
+}
+.shader .remote .led.refused,
+.shader .remote .led.replaced {
+  background: #ff6b6b;
+}
