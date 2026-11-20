@@ -11,8 +11,8 @@ export interface CustomBand { id: string; name: string; lo: number; hi: number; 
 // mute: the source ids that read 0 (bind.ts gain() applies both, in every scene); analyser: the detection the syn_* inputs
 // follow, ours or the donor-style core (plan_audio_donor_mode S1.4; app.ts ramps src.donorMix toward it), or 'vs3': the
 // vs3 scenes hear through the vs3 core (audio/vs3.ts), every other scene as ours, or 'off' (user 2026-11-21): the
-// analysis runs on, the visuals hear silence and every bound input sits at its stored value (app.ts, bind.ts gain(),
-// post.ts boundStep); resume: the mode Off turned off, which toggleAnalysis turns back on; bpm: the manual BPM lock
+// analysis runs on, the visuals hear a steady idle signal and every bound input sits at its stored value (app.ts, bind.ts
+// IDLE, post.ts boundStep); resume: the mode Off turned off, which toggleAnalysis turns back on; bpm: the manual BPM lock
 // (sync.ts setManual, user 2026-11-20), missing = auto
 export interface AudioSettings { v: 1; auto: boolean; pick: PresetId | null; sens: Record<string, number>; mute: string[]; custom: CustomBand[]; analyser: Mode | 'off'; resume?: Mode; bpm?: number }
 type Mode = 'ours' | 'donor' | 'vs3'

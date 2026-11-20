@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { gain, type Binding, type Sources } from '../bind'
+import { gain, idle, type Binding, type Sources } from '../bind'
+import { SYN_BIND, synClock } from '../fx/syn'
 import { boundStep } from '../gl/post'
 import { PRESETS, type Band, type Genre, type PresetId } from './presets'
 import { activePreset, bandKey, createSettings, parseSettings, toggleAnalysis, workletBands, type AudioSettings, type CustomBand } from './settings'
@@ -77,7 +78,7 @@ test('vs3: patch({ analyser: vs3 }) comes back after a reload; a stored vs3 pars
   expect(parseSettings({ ...DEFAULTS, analyser: 'vs3' })).toEqual({ ...DEFAULTS, analyser: 'vs3' })
 })
 
-test('analysis off (user 2026-11-21): the sources read 0, a bound input its stored value (a ⚡ one 0); a reload keeps Off, A turns the mode before back on', () => {
+test('analysis off (user 2026-11-21): the sources read the idle signal, a bound input its stored value (a ⚡ one 0), syn_Time runs at .5 / s; a reload keeps Off, A turns the mode before back on', () => {
   const { kv } = storage()
   const a = createSettings(kv)
   a.patch({ analyser: 'donor' })
@@ -85,10 +86,15 @@ test('analysis off (user 2026-11-21): the sources read 0, a bound input its stor
   const s = createSettings(kv) // a reload
   expect(s.get()).toEqual({ ...DEFAULTS, analyser: 'off', resume: 'donor' })
   const src: Sources = { bass: 0.8, kick: 1, beat: 12.5, donorMix: 1 }
-  expect(gain(src, s.get())).toEqual({ bass: 0, kick: 0, beat: 0, donorMix: 0 })
+  expect(gain(src, s.get())).toMatchObject({ bass: 0.5, band7: 0.5, subBody: 0.5, syn_BassLevel: 0.5, kick: 0, beat: 0, donorMix: 0 }) // levels mid, hits / counts / the mix 0
   const b: Binding = { source: 'kick', amount: 1, attack: 0, release: 0, min: 0.6, max: 2 } // edit.ts MUSIC_TIME's range on `speed`
   expect(boundStep({ b, state: { y: 0 }, rest: 1 }, src, 0, [], 1 / 60, 0, true)).toBe(1) // its slider's 1, not min .6
   expect(boundStep({ b, state: { y: 0 }, rest: 1, flash: { prev: 0, blocked: false } }, src, 0, [], 1 / 60, 0, true)).toBe(0)
+  // a SYN level's stored value is a placeholder 0: it reads its binding's idle value (live.ts), so syn_Time, ∫ syn_Level
+  // dt (fx/syn.ts SYN, as parseSyn compiles it), advances .5 per second
+  const level = boundStep({ b: SYN_BIND.syn_Level, state: { y: 0 }, rest: idle(SYN_BIND.syn_Level) }, src, 0, [], 1 / 60, 0, true)
+  expect(synClock(0, { u: 'syn_Time', rate: [[['syn_Level', -1]]] }, { syn_Level: level }, 2, 0)).toBe(1)
+  expect(idle(SYN_BIND.syn_BassHits)).toBe(0) // a hit stays 0
   s.patch(toggleAnalysis(s.get())) // A: back on
   expect(s.get().analyser).toBe('donor')
   expect(gain({ bass: 0.8 }, s.get())).toEqual({ bass: 0.8 })

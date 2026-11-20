@@ -57,7 +57,7 @@ function BandForm() {
   )
 }
 
-const ANALYSER_HINT = 'ours: our detectors drive every scene. vs2: the donor-style core (visual system 2) drives the syn_* inputs. vs3: the vs3 scenes hear through the friends\' vs3 analyser (kick, onsets, levels, spectrum); every other scene as ours. off · A: no reaction, every scene plays its own look as in silence, a bound input at its slider value; A turns the mode before back on. A hit\'s light stays flash-gated in every mode.'
+const ANALYSER_HINT = 'ours: our detectors drive every scene. vs2: the donor-style core (visual system 2) drives the syn_* inputs. vs3: the vs3 scenes hear through the friends\' vs3 analyser (kick, onsets, levels, spectrum); every other scene as ours. off · A: no reaction, every scene plays its own look on a steady idle signal (levels at their middle, no hits, no beat grid), a bound input at its slider value; A turns the mode before back on. A hit\'s light stays flash-gated in every mode.'
 /** The analyser pick (plan_audio_donor_mode S3.3; 'vs3', audio/vs3.ts): in the top bar and on this tab, one setting, so
  *  the two stay in step. app.ts ramps src.donorMix toward 'donor' in 2 s; 'vs3' switches the vs3 scenes at once. */
 export function AnalyserSelect() {

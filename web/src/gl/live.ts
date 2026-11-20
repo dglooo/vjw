@@ -9,7 +9,7 @@
 // into the library (E4), where `live` finds every scene.
 import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { ctx } from '../audio/input'
-import { analysis, bindable, level, type Binding, type BindState, type Sources } from '../bind'
+import { analysis, bindable, idle, level, type Binding, type BindState, type Sources } from '../bind'
 import { cam } from '../camera/camera'
 import * as users from '../camera/users' // users.use(): a bare use() reads as React's hook to the rules-of-hooks lint
 import { CODE_MAX, defaults, type Blend, type Clip, type LayerDoc, type MaskMode, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
@@ -18,7 +18,7 @@ import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { pairsByTarget, sizeExpr } from '../fx/isf'
-import { donorChain, pushTrail, synClock, synValue, TRAIL } from '../fx/syn'
+import { donorChain, pushTrail, SYN_BIND, synClock, synValue, TRAIL } from '../fx/syn'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
 import { factory, presetOf, savable } from '../presets'
@@ -67,7 +67,7 @@ interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<
 interface Layer { blend: Blend; mask?: MaskMode; clip?: Clip; release: () => void; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null; muted: boolean }
 /** `y`: the value it evaluated last (Live.read). `donor`: a SYN input's donor chain (fx/syn.ts donorChain; none on a
  *  tile), mixed in by `src.donorMix` (post.ts boundStep). `rest`: its stored value (the slider's, as a number), what
- *  it reads with the analysis off. */
+ *  it reads with the analysis off; a SYN level's is its binding's idle value (bind.ts idle). */
 interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState; flash?: FlashState; donor?: Chain; y?: number; rest: number }
 /** A stored value (or its component `i`) as a bound input's `rest`: a bool 0 / 1, anything else not a number 0. */
 const rest = (v: unknown, i: number) => Number(i < 0 ? v : (v as number[])[i]) || 0
@@ -332,7 +332,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       const was = old.find((x) => x.u === u && x.name === name && x.i === i)
       const flash = flashes?.includes(name) ? (was?.flash ?? { prev: 0, blocked: false }) : undefined // kept like `state`: a rebind mid-flash neither re-counts nor leaks
       const d = own ? undefined : donorChain(name, b) // a tile stays ours (w 0)
-      bound.push({ u, name, i, type: input.type, b, state: was?.state ?? { y: 0 }, flash, donor: d && { b: d, state: was?.donor?.state ?? { y: 0 } }, rest: rest(base[name], i) })
+      bound.push({ u, name, i, type: input.type, b, state: was?.state ?? { y: 0 }, flash, donor: d && { b: d, state: was?.donor?.state ?? { y: 0 } }, rest: Object.hasOwn(SYN_BIND, name) ? idle(b) : rest(base[name], i) })
     }
   }
 

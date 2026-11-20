@@ -13,7 +13,7 @@ import { createTempoSource } from './audio/tempo'
 import { createVs3, vs3Live } from './audio/vs3'
 import { createStyle, styleIn, type StyleOut } from './audio/style'
 import { type Hit } from './audio/drums'
-import { analysis, createRemap, gain, restyle, sources, type Sources } from './bind'
+import { analysis, createRemap, gain, idleDb, restyle, sources, type Sources } from './bind'
 import { cam, camGate, camGpuMs, camMask, readCam, readMask, selectCamera, startCamera, tick as camTick } from './camera/camera'
 import { presence } from './camera/smooth'
 import { count as camUsers } from './camera/users'
@@ -277,12 +277,14 @@ const f: FrameInput = {
   time: 0, dt: 0, width: 0, height: 0,
 }
 const src: Sources = {} // binding sources, refilled every frame
-// The analysis off (settings.analyser 'off', user 2026-11-21): the scenes' frame is f's clock and size with silence's
-// audio, the audio textures read silence, the post pass rests; the analysis itself runs on, so a turn back on is instant.
-const QUIET = { energy: { bands: new Float32Array(BAND_COUNT), level: { bass: 0, mid: 0, treb: 0 }, att: { bass: 0, mid: 0, treb: 0 } }, onsets: [], lastOnset: null, sync: ZERO_SYNC }
-const quiet: FrameInput = { ...f }
-const HUSH_DB = new Float32Array(analyser.frequencyBinCount).fill(-Infinity)
-const HUSH = new Float32Array(analyser.frequencyBinCount)
+// The analysis off (settings.analyser 'off', user 2026-11-21): the scenes hear a steady idle signal. Their frame is f's
+// clock and size with the idle spectrum's energy at its running average (level, att 1), no onset and no grid; the audio
+// textures carry that spectrum and a flat waveform; the post pass rests. The analysis runs on: a turn back on is instant.
+const IDLE_DB = Float32Array.from({ length: analyser.frequencyBinCount }, (_, k) => idleDb((k * ctx.sampleRate) / analyser.fftSize))
+const AVERAGE = { bass: 1, mid: 1, treb: 1 }
+const IDLE_FRAME = { energy: { bands: createEnergy(ctx.sampleRate, analyser.fftSize).update(IDLE_DB, 60).bands, level: AVERAGE, att: AVERAGE }, onsets: [], lastOnset: null, sync: ZERO_SYNC }
+const idle: FrameInput = { ...f }
+const FLAT = new Float32Array(analyser.frequencyBinCount) // a waveform at 0
 const REST = { gain: 1, flash: 0 } // postFor at rest
 const features = createFeatures() // kick/snare/hats envelopes from the worklet's hits (S1.4)
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
@@ -394,7 +396,7 @@ function frame(now: number) {
   analyserL.getFloatTimeDomainData(waveL)
   analyserR.getFloatTimeDomainData(waveR)
   const off = settings.get().analyser === 'off'
-  if (off) setAudio(HUSH_DB, HUSH, HUSH, HUSH)
+  if (off) setAudio(IDLE_DB, FLAT, FLAT, FLAT)
   else setAudio(magDb, wave, waveL, waveR)
   const frameRms = rms(wave) // arrange's `total`
   // ponytail: the first 512 of each analyser's 1024 samples, ≈ 64 % of a 60 fps frame's (32 % at 30): a lone over can
@@ -529,7 +531,7 @@ function frame(now: number) {
   gain(src, st) // the Sources tab's gain and mute, on every source once all are in, before anything reads them; off: all 0
   const styled = restyle(src, rmFrom, rmTo, rmW, styledOut) // after gain(): the built-ins read the muted sources too
   analysis.off = off // every binding bypassed: a bound input reads its stored value (live.ts)
-  const fs = off ? Object.assign(quiet, f, QUIET) : f // what the scenes read
+  const fs = off ? Object.assign(idle, f, IDLE_FRAME) : f // what the scenes read
   if (store.getSnapshot().editor) tiles.frame(fs, src) // the library's bake (2b S3.3), its GPU work ahead of this frame's
   render(shot, fs, src, styled, post) // sets fs.width/height to the internal size
   const id = shot.to ?? shot.from // the incoming scene as soon as a fade starts: the name shown, the scene edited
