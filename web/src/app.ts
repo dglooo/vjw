@@ -5,7 +5,8 @@ import { createDonor, mixStep, type DonorIn } from './audio/donor'
 import { BAND_COUNT, createEnergy, rms } from './audio/energy'
 import { createFeatures } from './audio/features'
 import { meter } from './audio/meter' // the HUD's input meter (dsp_linein_2026-11-16 fix 5): fed here, read live by the overlay
-import { analyser, analyser2k, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, inputLatency, odfQueue, onsetQueue, player, recDest, togglePlay } from './audio/input'
+import { analyser, analyser2k, analyser4k, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, inputLatency, odfQueue, onsetQueue, player, recDest, togglePlay } from './audio/input'
+import { createMelody } from './audio/melody'
 import { PRESETS, snapOctave, type Band, type PresetId } from './audio/presets'
 import { activePreset, bandKey, createSettings, toggleAnalysis, workletBands } from './audio/settings'
 import { createSync, ZERO_SYNC } from './audio/sync'
@@ -305,6 +306,8 @@ let donorMix = settings.get().analyser === 'donor' ? 1 : 0 // a stored donor mod
 let donorTarget = donorMix // the previous frame's target: a 0 → 1 turn seeds the core's beat count
 const vs3 = createVs3(ctx.sampleRate, analyser2k.fftSize) // the vs3 core (audio/vs3.ts), warm in every mode like the donor's
 const mag2k = new Float32Array(analyser2k.frequencyBinCount) // its bins, dB
+const melody = createMelody(ctx.sampleRate, analyser4k.fftSize) // tonal, pitch, voice (dsp_genre_melodic §6), every mode
+const mag4k = new Float32Array(analyser4k.frequencyBinCount)
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
 if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets, __transition: () => transition }) // ?debug: the live binding sources, settings, the flash budget's onsets and the fades' transition, for DevTools and browser checks
 // plan_camera CP1 (S1.2b): the camera's harness hooks — mask users, SegmentWorker constructions, frames posted to a
@@ -520,6 +523,11 @@ function frame(now: number) {
   analyser2k.getFloatFrequencyData(mag2k)
   vs3.update(mag2k, f.dt)
   vs3Live.s = st.analyser === 'vs3' ? vs3.out : null // the vs3 scenes hear it (vs3/host.ts, gl/engine.ts); the rest as ours
+  analyser4k.getFloatFrequencyData(mag4k)
+  const mel = melody.update(mag4k, f.dt, paused)
+  src.tonal = mel.tonal
+  src.voice = mel.voice
+  if (!off) src.pitch = mel.pitch // Off holds the key colour where it was (gain() leaves it)
   src.donorMix = donorMix = mixStep(donorMix, donorOn, f.dt)
   if (donorMix > 0) setDonorSpectrum(donor.spectrum) // S3.2: syn_Spectrum's donor half at this frame's mix; ours uploads nothing
   if (!off) f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)

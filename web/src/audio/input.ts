@@ -19,10 +19,12 @@ const split = ctx.createChannelSplitter(2) // S0.2: always on → the per-channe
 export const analyserL = new AnalyserNode(ctx, { fftSize: 1024, smoothingTimeConstant: 0 }) // (i) channel 0
 export const analyserR = new AnalyserNode(ctx, { fftSize: 1024, smoothingTimeConstant: 0 }) // (i) channel 1
 export const analyser2k = new AnalyserNode(ctx, { fftSize: 2048, smoothingTimeConstant: 0 }) // (i) the vs3 core's (audio/vs3.ts): the kit feeder's size
+export const analyser4k = new AnalyserNode(ctx, { fftSize: 4096, smoothingTimeConstant: 0 }) // (i) the melodic layer's (audio/melody.ts): 11.7 Hz bins
 export const recDest = ctx.createMediaStreamDestination() // (iii) REC audio track, S4.3
 const recDelay = ctx.createDelay() // (iii) a file's REC audio waits like its onsets (T1), set in setSource
 hub.connect(analyser)
 hub.connect(analyser2k)
+hub.connect(analyser4k)
 hub.connect(split)
 split.connect(analyserL, 0)
 split.connect(analyserR, 1)

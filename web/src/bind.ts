@@ -31,7 +31,7 @@ export const PHASES: readonly string[] = ['beat', 'bar', 'lfo']
 
 const BANDS = Array.from({ length: BAND_COUNT }, (_, i) => `band${i}`)
 /** The keys `sources()` and features.ts's `fill()` fill, for the panel's list. */
-export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'kickAccent', 'sub', 'reese', 'wobble', 'wobbleDepth', 'reeseLevel', 'subBody', 'reeseBody', 'beat', 'bar', 'lfo', 'confidence', 'build', 'drop', 'energy', 'presence', ...DONOR_GROUPS.flatMap((g) => g.ids)] // kickAccent: the donor core writes it (P4, every mode), bound by no built-in; build/drop/energy: the arrangement (S5.3, P2); presence: the camera (S1.1) — S6.3 lists them in a group; the donor core's 31 (app.ts, every mode)
+export const SOURCE_IDS: readonly string[] = ['bass', 'mid', 'treb', ...BANDS, 'onset', 'kick', 'snare', 'hats', 'kickAccent', 'sub', 'reese', 'wobble', 'wobbleDepth', 'reeseLevel', 'subBody', 'reeseBody', 'beat', 'bar', 'lfo', 'confidence', 'build', 'drop', 'energy', 'tonal', 'pitch', 'voice', 'presence', ...DONOR_GROUPS.flatMap((g) => g.ids)] // kickAccent: the donor core writes it (P4, every mode), bound by no built-in; build/drop/energy: the arrangement (S5.3, P2); tonal/pitch/voice: the melodic layer (audio/melody.ts, app.ts); presence: the camera (S1.1) — S6.3 lists them in a group; the donor core's 31 (app.ts, every mode)
 
 export interface SourceGroup { label: string; ids: readonly string[] }
 /** The Scene tab's source-select optgroups (S6.3), mirroring the Sources tab's meter groups: the fixed ones, the
@@ -42,6 +42,7 @@ export const sourceGroups = (custom: readonly { id: string; name: string }[] = [
     { label: 'drums', ids: ['kick', 'snare', 'hats', 'kickAccent'] }, // kickAccent last: the calibration row's hues stay
     { label: 'bass', ids: ['sub', 'reese', 'wobble', 'wobbleDepth', 'reeseLevel', 'subBody', 'reeseBody'] },
     { label: 'arrangement', ids: ['build', 'drop', 'energy'] },
+    { label: 'melody', ids: ['tonal', 'pitch', 'voice'] }, // dsp_genre_melodic §6: never in an Auto-style map
     { label: 'timing', ids: ['onset', 'beat', 'bar', 'lfo', 'confidence'] },
     { label: 'camera', ids: ['presence'] }, // S1.1: the camera's presence (never in an Auto-style map, D3)
     ...DONOR_GROUPS, // the donor-mode analyser's sources (plan_audio_donor_mode S1.5)
@@ -57,9 +58,10 @@ const clamp = (x: number) => Math.min(1, Math.max(0, x))
  *  gentle pink), the slope the bands read flat at .5. app.ts's audio textures and milkdrop's waveform carry it. */
 export const idleDb = (hz: number) => (DB_LO + DB_HI) / 2 - (TILT * BAND_COUNT * Math.log(Math.max(hz, 30) / 30)) / Math.log(16000 / 30)
 /** Off's idle signal: a steady track at its average, no hit, no grid. A level reads its middle .5 (bass / mid / treb as
- *  `att` 1, the bands as idleDb's, the bodies' 60 s mean, the donor levels and presence), anything else 0. */
+ *  `att` 1, the bands as idleDb's, the bodies' 60 s mean, tonal, the donor levels and presence), anything else 0 but
+ *  `pitch`, which holds (gain()): a key colour has no middle. */
 export const IDLE: Readonly<Sources> = Object.fromEntries(
-  ['bass', 'mid', 'treb', ...BANDS, 'sub', 'reese', 'subBody', 'reeseBody', 'energy', ...DONOR_GROUPS.filter((g) => /levels|presence/.test(g.label)).flatMap((g) => g.ids)].map((id) => [id, 0.5]),
+  ['bass', 'mid', 'treb', ...BANDS, 'sub', 'reese', 'subBody', 'reeseBody', 'energy', 'tonal', ...DONOR_GROUPS.filter((g) => /levels|presence/.test(g.label)).flatMap((g) => g.ids)].map((id) => [id, 0.5]),
 )
 /** A binding's settled value on the idle signal: a SYN level input's with the analysis off (live.ts), whose stored
  *  value is a placeholder 0, so its clocks run at their idle rate (syn_Time .5 / s). */
@@ -88,10 +90,11 @@ export function sources(f: FrameInput, out: Sources): Sources {
 /** The user's gain and mute per source (the Sources tab), in place: app.ts runs it once per frame after every source is
  *  filled, before Auto-style, a binding, a clock or a scene reads one. × `sens` (missing = 1): a level stays ≤ 1, a
  *  count speeds up. A muted source reads 0, so a binding on it falls to `min` and a clock on it runs at its base. The
- *  analyser 'off' (user 2026-11-21): every source reads its IDLE value (`analysis` bypasses the bindings). */
+ *  analyser 'off' (user 2026-11-21): every source reads its IDLE value (`analysis` bypasses the bindings); `pitch` keeps
+ *  the last value app.ts wrote (it writes none while off). */
 export function gain(out: Sources, { sens, mute, analyser }: Pick<AudioSettings, 'sens' | 'mute'> & Partial<Pick<AudioSettings, 'analyser'>>): Sources {
   if (analyser === 'off') {
-    for (const id in out) out[id] = 0
+    for (const id in out) if (id !== 'pitch') out[id] = 0
     return Object.assign(out, IDLE)
   }
   for (const id in sens) if (Object.hasOwn(out, id)) out[id] = PHASES.includes(id) ? sens[id] * out[id] : Math.min(1, sens[id] * out[id])
