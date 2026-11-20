@@ -473,6 +473,20 @@ test('user presets (presets.ts): saved per ref after a reload, a name saved agai
   expect((await loaded(baked)).presets(ref)).toEqual([{ name: 'y', values: { fill: 0 } }]) // a stored one beats them
 })
 
+test('MIDI mappings (midi.ts): stored over a reload, mirrored into the marks file (empty: left out), back after a wipe, baked', async () => {
+  const disk: { text?: string } = {}
+  const b = browser(disk)
+  const lib = await loaded(b)
+  const maps = [{ ctl: { kind: 'note', ch: 1, num: 36 }, target: { kind: 'key', code: 'KeyT' } }]
+  lib.setMidi(maps)
+  expect((await loaded(b)).midi()).toEqual(maps)
+  expect(JSON.parse(disk.text!).midi).toEqual(maps)
+  expect((await loaded(browser(disk))).midi()).toEqual(maps) // a browser data wipe: the dev file brings them back
+  lib.setMidi([])
+  expect(JSON.parse(disk.text!).midi).toBeUndefined()
+  expect((await loaded(browser(undefined, { midi: maps }))).midi()).toEqual(maps) // a build's defaults
+})
+
 test("setStar stars the panel's unsaved copy along, so a later save keeps it", async () => {
   const lib = await loaded()
   docs.set('builtin:tunnel', structuredClone(BUILTIN[0]))

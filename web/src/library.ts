@@ -26,6 +26,7 @@ export type View = 'all' | Mark
 const VIEW = 'vjw.view'
 const PERSISTED = 'vjw.persisted' // set once navigator.storage.persist() is granted
 const PRESETS = 'vjw.presets' // { [ref]: Preset[] }: the user's presets (presets.ts), kept and mirrored as the marks
+const MIDI = 'vjw.midi' // the MIDI mappings (midi.ts parses them): kept, mirrored and baked as the presets
 /** The list's order, so the playlist's (user 2026-11-19: ←/→ as the list stands): by name, then id. */
 export const byName = (a: SceneDoc, b: SceneDoc) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
 /** The scene ids of a stored or filed mark; none from a corrupt value. */
@@ -94,11 +95,12 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
   let marks = Object.fromEntries(MARK_IDS.map((m) => [m, ids(stored(MARKS[m]) ?? base[m])])) as Record<Mark, ReadonlySet<string>>
   const keep = (m: Mark) => kv.setItem(MARKS[m], JSON.stringify([...marks[m]]))
   let presets = presetsOf(stored(PRESETS) ?? base.presets)
+  let midi = stored(MIDI) ?? base.midi
   /** web/scene-marks.json's text: each mark's ids, sorted, then the user's stars over the built-ins, by id, then the
-   *  user's presets when there are any. */
+   *  user's presets and MIDI mappings when there are any. */
   const file = () => {
     const on = Object.entries(stars).filter(([, s]) => typeof s === 'boolean').sort(([a], [b]) => (a < b ? -1 : 1))
-    const f = { ...Object.fromEntries(MARK_IDS.map((m) => [m, [...marks[m]].sort()])), stars: Object.fromEntries(on), ...(Object.keys(presets).length && { presets }) }
+    const f = { ...Object.fromEntries(MARK_IDS.map((m) => [m, [...marks[m]].sort()])), stars: Object.fromEntries(on), ...(Object.keys(presets).length && { presets }), ...(Array.isArray(midi) && midi.length && { midi }) }
     return `${JSON.stringify(f, null, 2)}\n`
   }
   const keepPresets = (next: Record<string, Preset[]>) => {
@@ -172,6 +174,7 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
           presets = presetsOf(f.presets)
           kv.setItem(PRESETS, JSON.stringify(presets))
         }
+        if (Array.isArray(f.midi)) kv.setItem(MIDI, JSON.stringify((midi = f.midi)))
       }
       if (f === null || (rec(f) && !rec(f.stars))) disk!.write(file())
       for (const x of await db.all()) {
@@ -231,6 +234,12 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
       const { [ref]: ps = [], ...rest } = presets
       const left = ps.filter((p) => p.name !== name)
       keepPresets(left.length ? { ...rest, [ref]: left } : rest)
+    },
+    /** The MIDI mappings as stored, else the build's (midi.ts checks them). */
+    midi: () => midi,
+    setMidi(m: unknown) {
+      kv.setItem(MIDI, JSON.stringify((midi = m)))
+      disk?.write(file())
     },
     /** The list's view, kept over a reload; the playlist follows it. */
     view: () => view,

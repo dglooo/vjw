@@ -126,6 +126,68 @@
   border-color: #f2c14e88;
 }
 
+/* The MIDI menu (Midi.tsx): a summary in the bar, the menu under it */
+.midi {
+  position: relative;
+}
+.midi summary {
+  padding: 5px 8px;
+  white-space: nowrap;
+  list-style: none;
+  cursor: pointer;
+  background: #121212cc;
+  border: 1px solid #ffffff2a;
+  border-radius: 6px;
+}
+.midi summary::-webkit-details-marker {
+  display: none;
+}
+.midi .menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 280px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 10px;
+  background: #0b0b0bf0;
+  border: 1px solid #ffffff17;
+  border-radius: 10px;
+}
+.midi .line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.midi .map {
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+.midi p {
+  margin: 0;
+}
+.midi .err {
+  color: #ff6b6b;
+}
+.bar .midi button[aria-pressed='false'] {
+  text-decoration: none; /* not the Video toggle's strike-through: off is the label */
+  color: inherit;
+}
+.bar .midi button:is([aria-pressed='true'], .on) {
+  color: #f2c14e;
+  border-color: #f2c14e88;
+}
+/* Learn mode: the sliders a click arms */
+.midi-learn [data-midi] {
+  outline: 1px dashed #f2c14e;
+  outline-offset: 2px;
+  cursor: crosshair;
+}
+
 /* The input meter (dsp_linein_2026-11-16 fix 5) */
 .level {
   display: flex;

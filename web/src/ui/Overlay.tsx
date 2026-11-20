@@ -5,6 +5,7 @@ import { FLOOR } from '../audio/meter'
 import { allowCameras, selectCamera, setVideo } from '../camera/camera'
 import { badge } from '../quality'
 import { Bpm } from './Bpm'
+import { Midi } from './Midi'
 import { PresetSelect } from './Panel'
 import { AnalyserSelect } from './SourcesTab'
 import { clock, store, type UiSnapshot } from '../store'
@@ -212,6 +213,7 @@ export function Overlay() {
         <span className="scene">{s.sceneName}</span>
         <PresetSelect />
         <AnalyserSelect />
+        <Midi />
         <button onClick={() => setEditor(true)}>Editor · L</button>
         <button onClick={() => setShader(true)}>Shader · G</button>
         <Bpm />
