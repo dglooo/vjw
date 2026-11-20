@@ -276,6 +276,81 @@ describe('hold, confidence and hysteresis', () => {
   })
 })
 
+// The manual BPM lock (user 2026-11-20, dsp_kick_snare_misses §7): a DJ mix holds a static BPM, so a typed one holds
+// the tempo, with no auto-fill, until cleared.
+describe('manual lock', () => {
+  const q = 60 / 174
+
+  test('locked at 174: a stream of confident ⅔ (116), rival (140) and agreeing (174.6) readings never moves the period', () => {
+    const src = stub()
+    const s = createSync(src)
+    s.setManual(174)
+    const frames = run(s, 0, 21, grid(q, 21, q), (t) => {
+      if (Math.round(t * 60) % 10) return
+      const bpm = [116, 140, 174.6][Math.floor(t / 7)]
+      const r = 60 / bpm
+      src.set({ bpm, anchor: Math.floor(t / r) * r, confidence: 0.95 })
+    })
+    for (const f of frames) expect(f.bpm).toBeCloseTo(174, 9)
+    expect(frames.filter((f) => f.t > 2).every((f) => f.confidence > 0.95)).toBe(true) // reads high: a rival is no doubt
+    expect(s.manual()).toBe(174)
+  })
+
+  test('the phase still follows the onsets, with no period term: music 20 ms late and 0.5 BPM fast, the tempo stays 174', () => {
+    const s = createSync(stub())
+    s.setManual(174)
+    const p = 60 / 174.5
+    const frames = run(s, 0, 64 * p, grid(p, 64 * p, p, 0.02))
+    for (const f of frames) expect(f.bpm).toBeCloseTo(174, 9)
+    const t = 63 * p + 0.02 // a beat of the music
+    expect(Math.abs(offMs(s, t))).toBeLessThan(6) // the PLL's steady lag on a 1 ms/beat drift; free-running: 42 ms
+  })
+
+  test('a break: no onset for 32 bars, the locked grid runs on, sure; auto drops it after 16', () => {
+    const s = createSync(stub())
+    s.setManual(174)
+    const frames = run(s, 0, 128 * q)
+    expect(frames.every((f) => Math.abs(f.bpm - 174) < 1e-9)).toBe(true)
+    expect(frames.at(-1)!.confidence).toBeGreaterThan(0.99)
+  })
+
+  test('[ and ] halve and double the locked value; taps 1–3 leave it, the 4th sets the tap tempo, rounded to 0.1, on the tap', () => {
+    const s = createSync(stub())
+    s.setManual(174)
+    s.at(1)
+    s.halve()
+    expect(s.manual()).toBe(87)
+    expect(s.at(2).bpm).toBeCloseTo(87, 9)
+    s.double()
+    s.double()
+    expect(s.manual()).toBe(348)
+    s.halve()
+    for (const t of [10, 10.345, 10.69]) s.tap(t)
+    expect(s.manual()).toBe(174)
+    expect(s.at(10.69).bpm).toBeCloseTo(174, 9)
+    s.tap(11.03) // intervals .345 .345 .34: median .345 s = 173.91 BPM
+    expect(s.manual()).toBe(173.9)
+    expect(s.at(11.03).bpm).toBeCloseTo(173.9, 9)
+    expect(s.at(11.03).beat % 1).toBeCloseTo(0, 9) // anchored on the last tap
+  })
+
+  test('cleared, auto is back: confident 140 readings replace the 174 grid after 8 of their beats, the lock had held it', () => {
+    const src = stub()
+    const s = createSync(src)
+    s.setManual(174)
+    const r = 60 / 140
+    const rival = (t: number) => {
+      if (Math.round(t * 60) % 10 === 0) src.set({ bpm: 140, anchor: Math.floor(t / r) * r, confidence: 0.9 })
+    }
+    run(s, 0, 6, grid(0, 6, r), rival)
+    expect(s.at(6).bpm).toBeCloseTo(174, 9)
+    s.setManual(0)
+    expect(s.manual()).toBe(0)
+    run(s, 6, 12, grid(6, 12, r), rival)
+    expect(s.at(12).bpm).toBeCloseTo(140, 0)
+  })
+})
+
 describe('snapOctave', () => {
   const dnb: [number, number] = [160, 185] // PRESETS.dnb.bpm
   const techno: [number, number] = [118, 135] // PRESETS.techno.bpm

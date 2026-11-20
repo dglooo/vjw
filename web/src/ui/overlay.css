@@ -45,7 +45,8 @@
 }
 .bar select,
 .bar button,
-.bar .preset input {
+.bar .preset input,
+.bar .bpm input {
   max-width: 40ch;
   padding: 5px 8px;
   font: inherit;
@@ -100,11 +101,29 @@
 }
 
 .bpm {
+  display: flex; /* the BPM field (Bpm.tsx): the live BPM, or a manual lock in the lock's amber */
+  gap: 6px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.06em;
 }
 .bpm.unsure {
   opacity: 0.35; /* (c) not trusted: the scenes react to energy and onsets only */
+}
+.bpm label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bar .bpm input {
+  width: 6ch;
+  text-align: right;
+}
+.bpm.unsure:focus-within {
+  opacity: 1;
+}
+.bar .bpm.held input {
+  color: #f2c14e;
+  border-color: #f2c14e88;
 }
 
 /* The input meter (dsp_linein_2026-11-16 fix 5) */

@@ -1,6 +1,7 @@
 // (c) controller, always ours (design S2, plan S5.2). Pure: holds the running beat grid, a PLL on the onsets keeps it on
 // the kicks, source readings merge into it or, if they disagree confidently for relockBeats, replace it (hysteresis).
-// Holds through breaks, takes the manual keys, and gives every frame a phase from the audio clock.
+// Holds through breaks, takes the manual keys, and gives every frame a phase from the audio clock. A manual BPM
+// (setManual, user 2026-11-20) holds the tempo: the readings are ignored, the PLL keeps only its phase term.
 import type { Onset } from './onset'
 import type { TempoReading, TempoSource } from './tempo'
 
@@ -13,7 +14,7 @@ export interface Sync {
 export const ZERO_SYNC: Sync = { bpm: 0, beat: 0, bar: 0, confidence: 0 }
 /** A scene's beat envelope: 1 on the beat, decaying to ~0 by the next, × confidence (unsure → energy-only, design S2). */
 export const pulse = (s: Sync, k = 4) => (1 - (s.beat - Math.floor(s.beat))) ** k * s.confidence
-export interface SyncControls { tap(t: number): void; double(): void; halve(): void; nudge(ms: number): void; downbeat(t: number): void }
+export interface SyncControls { tap(t: number): void; double(): void; halve(): void; nudge(ms: number): void; downbeat(t: number): void; setManual(bpm: number): void }
 export interface SyncOpts {
   lead: number // s: the grid is shown this far ahead of the audio clock (calibration; nudge() moves it)
   phaseGain: number // share of an onset's phase error corrected at once
@@ -36,8 +37,9 @@ const LOCK = 0.3 // knob: readings below this confidence neither start a grid no
 const PARTNER = 0.01
 const TAP_GAP = 2 // s: a longer pause starts a new tap count
 const TAPS = 4 // intervals in the tap median
+const MANUAL_TAPS = 4 // a manual lock takes the tap tempo from this many taps on (fewer: a stray T moves nothing)
 
-export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncControls & { at(audioNow: number): Sync; feed(o: Onset): void; seek(): void } {
+export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncControls & { at(audioNow: number): Sync; feed(o: Onset): void; seek(): void; manual(): number } {
   const o = { ...DEFAULTS, ...opts }
   const out: Sync = { ...ZERO_SYNC } // at() returns this object every call
   let period = 0 // s; 0 = no grid
@@ -56,6 +58,7 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
   let pending: { r: TempoReading; since: number } | null = null // a confident other grid, waiting out relockBeats
   let taps: number[] = []
   let rephase = false // seek(): the tempo is kept, the phase is not: the next reading at our tempo re-anchors at once
+  let held = 0 // the manual BPM; 0 = auto
 
   const beatAt = (t: number) => anchorBeat + (t - anchor) / period
   const timeOf = (n: number) => anchor + (n - anchorBeat) * period
@@ -127,7 +130,7 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
       const err = (b - n) * period
       anchor = timeOf(n) + err * o.phaseGain // rebased onto this beat
       anchorBeat = n
-      if (n > lastFix) {
+      if (n > lastFix && !held) {
         period += (err * o.periodGain) / (n - lastFix) // 1 BPM of error would otherwise drift a beat a minute
         lastFix = n
       }
@@ -138,18 +141,18 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
       const r = source.read()
       if (r && r !== seen) {
         seen = r
-        consider(r, audioNow)
+        if (!held) consider(r, audioNow)
       }
       if (!period) return ZERO_SYNC
       const bar = 4 * period
       const idle = (audioNow - lastHit) / bar // bars without an onset on the grid
-      if (idle > o.holdBars) {
+      if (idle > o.holdBars && !held) {
         period = conf = smooth = downbeatOffset = 0 // the next lock counts beats from 0
         pending = null
         return ZERO_SYNC
       }
       const weak = weakSince === null ? 0 : (audioNow - weakSince) / bar
-      const target = Math.max(0, conf - o.holdDecayPerBar * Math.max(0, Math.max(idle, weak) - 1))
+      const target = held ? 1 : Math.max(0, conf - o.holdDecayPerBar * Math.max(0, Math.max(idle, weak) - 1))
       const dt = Number.isNaN(lastAt) ? 0 : Math.max(0, audioNow - lastAt)
       lastAt = audioNow
       smooth += (target - smooth) * (1 - Math.exp(-dt / (o.confidenceSmoothBeats * period)))
@@ -164,20 +167,24 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
       if (t - (taps.at(-1) ?? -Infinity) > TAP_GAP) taps = []
       taps.push(t)
       if (taps.length > TAPS + 1) taps.shift()
-      if (taps.length < 2) return
+      if (taps.length < (held ? MANUAL_TAPS : 2)) return
       const iv = taps.slice(1).map((x, i) => x - taps[i]).sort((a, b) => a - b)
       const m = iv.length
-      lock(60 / (m % 2 ? iv[m >> 1] : (iv[m / 2 - 1] + iv[m / 2]) / 2), t, 1)
+      const bpm = 60 / (m % 2 ? iv[m >> 1] : (iv[m / 2 - 1] + iv[m / 2]) / 2)
+      if (held) held = Math.round(bpm * 10) / 10
+      lock(held || bpm, t, 1)
     },
     double() {
       if (!period) return
       rebase(now)
       period /= 2
+      held *= 2
     },
     halve() {
       if (!period) return
       rebase(now)
       period *= 2
+      held /= 2
     },
     nudge(ms) {
       lead -= ms / 1000 // +ms: the grid comes later. Not the anchor: the PLL would pull it back within a few beats.
@@ -186,5 +193,16 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
       now = Math.max(now, t)
       if (period) downbeatOffset = ((Math.round(beatAt(t + lead)) % 4) + 4) % 4 // round: a press just before the 1 marks it
     },
+    /** Holds the tempo at `bpm` (0 = back to auto) on the running grid's nearest beat, so the beat count and the phase
+     *  go on; with no grid, on the latest time seen. Held, the grid never drops and reads sure. Cleared, it runs on at
+     *  that tempo until the readings merge into it or replace it, as any grid.
+     *  ponytail: the phase is the PLL's alone (and T's); a seek, or a lock typed off the beat, is found by the onsets
+     *  within ±⅛ beat only. A comb phase at the held tempo (tempo.ts update()'s) if it bites. */
+    setManual(bpm) {
+      if (bpm === held) return
+      held = bpm
+      if (bpm) lock(bpm, period ? timeOf(Math.round(beatAt(now))) : Math.max(0, now), 1)
+    },
+    manual: () => held,
   }
 }

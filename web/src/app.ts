@@ -172,12 +172,15 @@ addEventListener('keydown', (e) => {
     }
     case 'KeyT':
       sync.tap(heard())
+      keepManual()
       break
     case 'BracketLeft':
       sync.halve()
+      keepManual()
       break
     case 'BracketRight':
       sync.double()
+      keepManual()
       break
     case 'Comma':
       sync.nudge(-NUDGE_MS)
@@ -235,6 +238,15 @@ const f: FrameInput = {
 const src: Sources = {} // binding sources, refilled every frame
 const features = createFeatures() // kick/snare/hats envelopes from the worklet's hits (S1.4)
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
+// The manual BPM lock (user 2026-11-20): the stored BPM holds the grid's tempo until cleared (sync.ts setManual).
+// T, [ and ] move a held one in the sync; it is stored back, so a reload keeps it.
+const applyManual = () => sync.setManual(settings.get().bpm ?? 0)
+applyManual()
+settings.onChange(applyManual)
+function keepManual() {
+  const bpm = sync.manual()
+  if (bpm && bpm !== settings.get().bpm) settings.patch({ bpm })
+}
 // plan_audio_donor_mode S1.4: the donor-style core runs warm in every mode (spec R4) and writes its syn_* sources into
 // src each frame; src.donorMix (0 ours … 1 donor) ramps toward the stored mode in 2 s. Nothing reads them before CP2.
 const donor = createDonor(ctx.sampleRate, analyser.fftSize)
@@ -366,7 +378,7 @@ function frame(now: number) {
   const eb = f.energy.bands
   let total = 0
   for (let i = 0; i < eb.length; i++) total += eb[i]
-  const [fdn, fdu, fte] = tempo.families([PRESETS.dnb.bpm!, PRESETS.dubstep.bpm!, PRESETS.techno.bpm!]) // the genres always have a band
+  const [fdn, fdu, fte] = tempo.families([PRESETS.dnb.bpm!, PRESETS.dubstep.bpm!, PRESETS.techno.bpm!], sync.manual()) // the genres always have a band; a manual BPM is their evidence
   const lvl = f.energy.level
   // S5.3: the arrangement runs every frame (before style.update, so its freeze can hold through a breakdown: those
   // lack drums). low = the kick-gated sustained bass (bands.ts `held`), high = the log grid's ≥ 4 kHz bands,
@@ -382,9 +394,10 @@ function frame(now: number) {
     configured = active
     sendConfig() // T1: Dubstep's floors and reese band follow Auto too
   }
-  // S3.2: the active preset's band drives the tempo range; a change snaps the running grid one octave toward it.
+  // S3.2: the active preset's band drives the tempo range; a change snaps the running grid one octave toward it. A
+  // manual BPM skips both until cleared, so a band change made meanwhile applies then.
   const band = PRESETS[active].bpm
-  if (band !== lastBand) {
+  if (band !== lastBand && !sync.manual()) {
     lastBand = band
     tempo.setRange(band)
     const g = f.sync.bpm

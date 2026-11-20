@@ -75,6 +75,16 @@ test('vs3: patch({ analyser: vs3 }) comes back after a reload; a stored vs3 pars
   expect(parseSettings({ ...DEFAULTS, analyser: 'vs3' })).toEqual({ ...DEFAULTS, analyser: 'vs3' })
 })
 
+test('the manual BPM lock: patch({ bpm: 174 }) comes back after a reload, undefined clears it; junk reads auto, a far BPM clamps', () => {
+  const { kv } = storage()
+  createSettings(kv).patch({ bpm: 174 })
+  expect(createSettings(kv).get().bpm).toBe(174)
+  createSettings(kv).patch({ bpm: undefined })
+  expect(createSettings(kv).get()).toEqual(DEFAULTS)
+  for (const bpm of [0, -5, NaN, '174', null]) expect(parseSettings({ v: 1, bpm }).bpm, String(bpm)).toBeUndefined()
+  expect([1, 1740].map((bpm) => parseSettings({ v: 1, bpm }).bpm)).toEqual([40, 300])
+})
+
 test('parseSettings: mute keeps the string ids once each; anything else falls back to none', () => {
   expect(parseSettings({ v: 1, mute: ['bass', 'sub', 'bass', 5, null, 'u:ab12cd'] }).mute).toEqual(['bass', 'sub', 'u:ab12cd'])
   for (const mute of ['bass', { bass: true }, null]) expect(parseSettings({ v: 1, mute }).mute, String(mute)).toEqual([])
