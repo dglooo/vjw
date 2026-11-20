@@ -12,7 +12,7 @@ import { ctx } from '../audio/input'
 import { bindable, level, type Binding, type BindState, type Sources } from '../bind'
 import { cam } from '../camera/camera'
 import * as users from '../camera/users' // users.use(): a bare use() reads as React's hook to the rules-of-hooks lint
-import { CODE_MAX, defaults, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
+import { CODE_MAX, defaults, type Blend, type Clip, type LayerDoc, type MaskMode, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
 import * as edit from '../edit'
 import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
@@ -22,6 +22,7 @@ import { donorChain, pushTrail, synClock, synValue, TRAIL } from '../fx/syn'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
 import { factory, presetOf, savable } from '../presets'
+import { FRAME_SDF, frameUniforms } from '../scenes/frame'
 import { store } from '../store'
 import { edits } from '../undo'
 import { audioTex, copy, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
@@ -42,6 +43,8 @@ export interface Live {
   setBlend(layer: number, b: Blend): void
   /** camera CP1: the layer's mask; none → a mode takes the layer's camera user, a mode → none releases it. */
   setMask(layer: number, m: MaskMode | undefined): void
+  /** The show composition: the layer's frame clip (the scene's first native/frame layer); undefined: none. */
+  setClip(layer: number, c: Clip | undefined): void
   /** Preview only (design S2), never saved: a muted layer draws nothing. */
   mute(layer: number, on: boolean): void
   /** A bound input's last evaluated value (`key`: `name`, or `name.i` for one component); undefined when unbound. */
@@ -60,8 +63,8 @@ export interface Live {
 interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number; images: WebGLTexture[] | null; trail?: { t: WebGLTexture; bytes: Uint8Array; states: BindState[] }; lim?: Limiter }
 /** A built layer: its nodes (a null one blacks the layer out), its live opacity/speed (bindable) and res, its clock,
  *  the reused FrameInput copy a native reads, its own target once `res` < 1, and the editor's mute (black too). `mask`
- *  (camera CP1): the doc's; `release` gives back the camera user a masked layer holds (K-3), idempotent. */
-interface Layer { blend: Blend; mask?: MaskMode; release: () => void; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null; muted: boolean }
+ *  (camera CP1): the doc's; `release` gives back the camera user a masked layer holds (K-3), idempotent. `clip`: the doc's. */
+interface Layer { blend: Blend; mask?: MaskMode; clip?: Clip; release: () => void; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null; muted: boolean }
 /** `y`: the value it evaluated last (Live.read). `donor`: a SYN input's donor chain (fx/syn.ts donorChain; none on a
  *  tile), mixed in by `src.donorMix` (post.ts boundStep). */
 interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState; flash?: FlashState; donor?: Chain; y?: number }
@@ -189,16 +192,26 @@ const BLENDS: Record<Exclude<Blend, 'difference' | 'dodge'>, [mode: number, sf: 
 // The layer mask (camera CP1, D4), in both composites: op × m (person) or × (1 − m) (background), m the feathered
 // mask through cam.xf, sampled where scenes/camera.ts samples it (xf.ts's space, y down). So every blend runs at op = m
 // and nothing darkens the feather twice. uMaskMode 0: op as it was (an unmasked scene renders the same bytes).
+// The frame clip (the show composition) multiplies op the same way, by the inside of the scene's first native/frame
+// layer (scenes/frame.ts frameIn) or 1 − it; uClip 0: none, or no frame layer.
 const MASK = `uniform sampler2D uMask;
 uniform int uMaskMode; // 0 none, 1 person, 2 background
 uniform vec4 uXf;
 uniform float uFeather;
+uniform int uClip; // 0 none, 1 inside the frame, 2 outside
+${FRAME_SDF}
 float masked(float op) {
+  if (uClip > 0) {
+    float c = frameIn(gl_FragCoord.xy, uRes);
+    op *= uClip == 1 ? c : 1.0 - c;
+  }
   if (uMaskMode == 0) return op;
   float m = smoothstep(0.5 - uFeather, 0.5 + uFeather, texture(uMask, vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uRes * uXf.xy + uXf.zw).r);
   return op * (uMaskMode == 1 ? m : 1.0 - m);
 }`
 const MASK_MODE = { person: 1, background: 2 } as const
+const CLIP = { inside: 1, outside: 2 } as const
+const FRAME = new Float32Array(12) // the clip's shape (frameUniforms), this frame's: both composites read it
 const FEATHER = 0.15 // D2's global feather f
 // Alpha 0 (add, screen) and 1 (multiply, max) leave acc's alpha as it was.
 const composite = fullscreenProgram(`#version 300 es
@@ -214,7 +227,7 @@ void main() {
   float op = masked(uOpacity);
   outColor = uMode == 0 ? vec4(c.rgb * c.a, c.a) * op : uMode == 1 ? vec4(c.rgb * op, 0.0) : uMode == 3 ? vec4(c.rgb * op, 1.0) : vec4(1.0 - op + op * c.rgb, 1.0);
 }`)
-const cu: Record<string, unknown> = { uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0, uMask: null, uMaskMode: 0, uXf: cam.xf, uFeather: FEATHER } // reused every composite
+const cu: Record<string, unknown> = { uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0, uMask: null, uMaskMode: 0, uXf: cam.xf, uFeather: FEATHER, uClip: 0, uFrame: FRAME } // reused every composite
 // difference/dodge (wave-2 S0.1): the old acc is copied into the scratch below, and this two-sampler pass computes
 // the new acc. uMode: 0 difference |acc − op·src|, 1 dodge acc / max(1e-3, 1 − op·src).
 const compositeDst = fullscreenProgram(`#version 300 es
@@ -232,7 +245,7 @@ void main() {
   float op = masked(uOpacity);
   outColor = uMode == 0 ? vec4(abs(a.rgb - op * c.rgb), a.a) : vec4(a.rgb / max(vec3(1e-3), 1.0 - op * c.rgb), a.a); // no scalar/vec3 max overload in ES 3.00
 }`)
-const cd: Record<string, unknown> = { uAcc: null, uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0, uMask: null, uMaskMode: 0, uXf: cam.xf, uFeather: FEATHER } // reused like cu
+const cd: Record<string, unknown> = { uAcc: null, uSrc: null, uRes: SIZE, uOpacity: 1, uMode: 0, uMask: null, uMaskMode: 0, uXf: cam.xf, uFeather: FEATHER, uClip: 0, uFrame: FRAME } // reused like cu
 const scratch = renderTarget() // module level, shared by every scene: difference/dodge's old-acc copy, fit at use
 let built = 0 // buildLayer calls (__cam.builds(), the camera harness's B7)
 export const builds = () => built
@@ -410,7 +423,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
 
   // A masked layer holds one camera user (K-3); a tile's holds none (N-4), so a library bake or hover never spawns a host.
   const buildLayer = (l: LayerDoc): Layer => (built++, {
-    blend: l.blend, mask: l.mask, release: users.use(!!l.mask && !own), nodes: [node(l.gen), ...l.fx.map(node)], v: { opacity: l.opacity, speed: l.speed, res: l.res }, t: 0,
+    blend: l.blend, mask: l.mask, clip: l.clip, release: users.use(!!l.mask && !own), nodes: [node(l.gen), ...l.fx.map(node)], v: { opacity: l.opacity, speed: l.speed, res: l.res }, t: 0,
     f: {} as FrameInput, small: l.res < 1 ? renderTarget() : null, muted: false,
   })
 
@@ -458,6 +471,8 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       const d = new Date()
       DATE.set([d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()])
       IDATE.set([d.getFullYear(), d.getMonth(), d.getDate(), DATE[3] + d.getMilliseconds() / 1000])
+      const frame = layers.find((l) => l.nodes[0]?.def.id === 'native/frame')?.nodes[0] // the clip's: its values bound this frame
+      if (frame) frameUniforms(frame.u as Record<string, Value>, FRAME)
       for (let i = 0; i < layers.length; i++) {
         const l = layers[i]
         const dt = f.dt * l.v.speed
@@ -467,7 +482,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
         const small = l.v.res < 1 ? (l.small ??= renderTarget()) : null // the panel may lower res after the build
         // The fast path (design E1): its last pass draws straight into acc, unless that pass writes an ISF TARGET or the
         // generator writes straight alpha (LR-7: only the normal composite premultiplies it).
-        const direct = i === 0 && ok && l.blend === 'normal' && l.v.opacity === 1 && !small && !last?.passes.at(-1)?.pair && !l.mask && !straight(l.nodes[0]?.def)
+        const direct = i === 0 && ok && l.blend === 'normal' && l.v.opacity === 1 && !small && !last?.passes.at(-1)?.pair && !l.mask && !l.clip && !straight(l.nodes[0]?.def)
         if (i === 0 && !direct) {
           bindFramebufferInfo(gl, acc)
           gl.clearColor(0, 0, 0, 1)
@@ -483,6 +498,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
         if (direct) continue
         cu.uMask = cd.uMask = cam.mask // the EMA's current target: it swaps per mask
         cu.uMaskMode = cd.uMaskMode = l.mask ? MASK_MODE[l.mask] : 0
+        cu.uClip = cd.uClip = frame && l.clip ? CLIP[l.clip] : 0
         if (l.blend === 'difference' || l.blend === 'dodge') {
           // acc can't be read and written in one pass: copy it, then compute the new acc from the two samplers.
           scratch.fit(acc.width, acc.height)
@@ -562,6 +578,9 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       if (!m) l.release() // a mode → none (idempotent: none → none is a no-op)
       l.mask = m // read per frame
     },
+    setClip(layer, c) {
+      layers[layer].clip = c // read per frame
+    },
     mute(layer, on) {
       layers[layer].muted = on // read per frame
     },
@@ -622,6 +641,7 @@ const op = {
   moveLayer: (from: number, to: number) => restructure((d) => edit.moveLayer(d, from, to), (l) => l.moveLayer(from, to)),
   setBlend: (layer: number, b: Blend) => restructure((d) => edit.setBlend(d, layer, b), (l) => l.setBlend(layer, b)),
   setMask: (layer: number, m: MaskMode | undefined) => restructure((d) => edit.setMask(d, layer, m), (l) => l.setMask(layer, m)),
+  setClip: (layer: number, c: Clip | undefined) => restructure((d) => edit.setClip(d, layer, c), (l) => l.setClip(layer, c)),
   setValue(p: edit.NodePath, input: string, v: Value | undefined) {
     const l = edited()
     const old = edit.setValue(l.doc, p, input, v)
@@ -723,6 +743,8 @@ export const panel = {
   setBlend: (layer: number, b: Blend) => act(() => op.setBlend(layer, b), (old) => op.setBlend(layer, old)),
   /** camera CP1: 'person' | 'background', undefined = none (S1.5's setMask). */
   setMask: (layer: number, m: MaskMode | undefined) => act(() => op.setMask(layer, m), (old) => op.setMask(layer, old)),
+  /** The show composition: 'inside' | 'outside' the scene's frame layer, undefined = none. */
+  setClip: (layer: number, c: Clip | undefined) => act(() => op.setClip(layer, c), (old) => op.setClip(layer, old)),
   /** Preview only (design S2): never saved, never undone. */
   mute: (layer: number, on: boolean) => edited().mute(layer, on),
   /** A pasted Shadertoy `mainImage` (spec §4.4, design E5) as a new top layer. Returns why not (too long, its compile

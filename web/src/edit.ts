@@ -2,7 +2,7 @@
 // built-in is immutable, so a scene's first edit clones it into `docs` under the same id; every edit marks it dirty
 // (unsaved: the library clears that on save, S6). Each op takes the scene's current doc, as `live` finds it.
 import type { Binding } from './bind'
-import type { Blend, LayerDoc, MaskMode, NodeDoc, SceneDoc, SceneId } from './doc'
+import type { Blend, Clip, LayerDoc, MaskMode, NodeDoc, SceneDoc, SceneId } from './doc'
 import type { Value } from './fx/types'
 
 export type NodePath = { layer: number; node: 'gen' | 'layer' | number } // number = fx index
@@ -80,6 +80,15 @@ export function setMask(doc: SceneDoc, layer: number, m: MaskMode | undefined): 
   const old = l.mask
   if (m === undefined) delete l.mask
   else l.mask = m
+  return old
+}
+
+/** The layer's frame clip (the show composition): inside or outside the scene's frame layer, undefined clears it. */
+export function setClip(doc: SceneDoc, layer: number, c: Clip | undefined): Clip | undefined {
+  const l = editable(doc).layers[layer]
+  const old = l.clip
+  if (c === undefined) delete l.clip
+  else l.clip = c
   return old
 }
 
