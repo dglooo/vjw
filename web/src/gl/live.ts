@@ -25,7 +25,7 @@ import { factory, presetOf, savable } from '../presets'
 import { store } from '../store'
 import { edits } from '../undo'
 import { audioTex, copy, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
-import { boundStep, type Chain, type FlashState } from './post'
+import { boundStep, toyStep, type Chain, type FlashState } from './post'
 import { straight, type Native, type NativeDef } from './scene'
 
 export { docs, type NodePath } from '../edit'
@@ -57,7 +57,7 @@ export interface Live {
  *  size the targets were fitted for. `frames`: a shader's FRAMEINDEX, its own draws so far (0 on its first). `images`:
  *  a synScene's IMAGES textures as they load (null: a native, or freed, when a later load deletes its own); its
  *  syn_LevelTrail texture is one of them, `trail` its texels and level states. */
-interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number; images: WebGLTexture[] | null; trail?: { t: WebGLTexture; bytes: Uint8Array; states: BindState[] } }
+interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<string, unknown>; events: string[]; passes: { p: PassDef; pair: Target[] | null }[]; w: number; h: number; frames: number; images: WebGLTexture[] | null; trail?: { t: WebGLTexture; bytes: Uint8Array; states: BindState[] }; lim?: Limiter }
 /** A built layer: its nodes (a null one blacks the layer out), its live opacity/speed (bindable) and res, its clock,
  *  the reused FrameInput copy a native reads, its own target once `res` < 1, and the editor's mute (black too). `mask`
  *  (camera CP1): the doc's; `release` gives back the camera user a masked layer holds (K-3), idempotent. */
@@ -125,6 +125,56 @@ const mips = (t: Target) => {
 const free = (t: Target) => {
   gl.deleteFramebuffer(t.framebuffer)
   gl.deleteTexture(t.attachments[0])
+}
+
+// The toy flash limiter (post.ts toyLimit, its three lines on the GPU; no readback): a toy off a tile draws into its own
+// mipmapped `raw`. LIMIT reads raw's top mip (the frame-mean colour) and the last output's mean (`state`, 1×1) and
+// writes this frame's [mean, k]; MIX writes mix(the last output `hist`, raw, k) into the toy's target, which is then
+// copied into `hist`. `t`: the last frame it ran, so a toy back on stage after a gap starts as drawn, not from a stale
+// frame. Natives and ISF effects are not touched: their light is gated at their ⚡ inputs.
+interface Limiter { raw: Target; hist: Target; state: Target[]; t: number }
+const GAP = 0.25 // knob: s without a frame after which the limiter starts again from the toy as drawn
+const LIMIT = fullscreenProgram(`#version 300 es
+precision highp float;
+uniform sampler2D uRaw;
+uniform sampler2D uState;
+uniform float uStep;
+uniform bool uFirst;
+out vec4 o;
+void main() {
+  float cur = dot(textureLod(uRaw, vec2(0.5), 99.0).rgb, vec3(0.2126, 0.7152, 0.0722)); // Rec. 709, as H2 reads the stage
+  float prev = texelFetch(uState, ivec2(0), 0).r;
+  float d = cur - prev;
+  float k = uFirst || abs(d) <= uStep ? 1.0 : uStep / abs(d);
+  o = vec4(prev + k * d, k, 0.0, 1.0);
+}`)
+const MIX = fullscreenProgram(`#version 300 es
+precision highp float;
+uniform sampler2D uRaw;
+uniform sampler2D uHist;
+uniform sampler2D uState;
+out vec4 o;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  float k = texelFetch(uState, ivec2(0), 0).g;
+  o = texelFetch(uRaw, p, 0);
+  if (k < 1.0) o = mix(texelFetch(uHist, p, 0), o, k); // k is one value per frame: the usual frame skips the history read
+}`)
+const limiter = (): Limiter => ({ raw: renderTarget(false, false, { min: gl.LINEAR_MIPMAP_LINEAR }), hist: renderTarget(false, true), state: [renderTarget(true), renderTarget(true)], t: -Infinity })
+/** The limited toy into `dst`, from what it drew into `m.raw` (fitted to dst) this frame; `dt`, `time`: real s. */
+function limit(m: Limiter, dst: Target, dt: number, time: number, first: boolean) {
+  first ||= time - m.t > GAP
+  m.t = time
+  mips(m.raw)
+  const [s0, s1] = m.state
+  bindFramebufferInfo(gl, s1)
+  LIMIT({ uRaw: m.raw.attachments[0], uState: s0.attachments[0], uStep: toyStep(dt), uFirst: first })
+  m.hist.fit(dst.width, dst.height) // persistent: a resize resamples the last output
+  bindFramebufferInfo(gl, dst)
+  MIX({ uRaw: m.raw.attachments[0], uHist: m.hist.attachments[0], uState: s1.attachments[0] })
+  bindFramebufferInfo(gl, m.hist)
+  copy({ uSrc: dst.attachments[0], uRes: [dst.width, dst.height] })
+  m.state.reverse()
 }
 
 // The layer composite (design E2): the shader pre-scales the source, fixed-function blending does the rest.
@@ -224,7 +274,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     const at = pairsByTarget(passes) // passes naming one TARGET share a pair, built to its first pass's FLOAT/PERSISTENT
     const tex = (p: PassDef) => ({ ...(p.filter === 'nearest' && { minMag: gl.NEAREST }), ...(p.filter === 'mipmap' && { min: gl.LINEAR_MIPMAP_LINEAR }), ...(p.wrap && { wrap: gl.REPEAT }) }) // a synScene TARGET's sampling
     const pairs = passes.map((p, j) => (at[j] === j ? [renderTarget(p.float, p.persistent, tex(p)), renderTarget(p.float, p.persistent, tex(p))] : null))
-    const x: Node = { def, info, u, events, passes: passes.map((p, j) => ({ p, pair: at[j] < 0 ? null : pairs[at[j]] })), w: 0, h: 0, frames: 0, images: [] }
+    const x: Node = { def, info, u, events, passes: passes.map((p, j) => ({ p, pair: at[j] < 0 ? null : pairs[at[j]] })), w: 0, h: 0, frames: 0, images: [], lim: toy && !own ? limiter() : undefined }
     // ponytail: each node loads its own copy, so a library tile bakes (1 frame) before its images land; share a cache
     // by URL if the tiles show it.
     for (const [name, src] of Object.entries(textures)) {
@@ -341,6 +391,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       for (let j = 0; j < n.passes.length; j++) {
         const { p, pair } = n.passes[j]
         out = pair ? pair[1] : dst
+        if (n.lim) (out = n.lim.raw).fit(dst.width, dst.height) // a toy (one pass, no TARGET): limit() finishes it into dst
         bindFramebufferInfo(gl, out)
         RS[0] = out.width
         RS[1] = out.height
@@ -351,6 +402,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
         pair.reverse() // what it drew is now the one later passes (and the next frame) read
         n.u[p.target!] = pair[0].attachments[0]
       }
+      if (n.lim) limit(n.lim, (out = dst), f.dt, f.time, n.frames === 1)
     }
     for (const e of n.events) n.u[e] = false
     return out.attachments[0]
@@ -370,6 +422,8 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     new Set(n.passes.flatMap((x) => x.pair ?? [])).forEach(free) // a shared pair once
     n.images?.forEach((t) => gl.deleteTexture(t))
     n.images = null
+    if (n.lim) [n.lim.raw, n.lim.hist, ...n.lim.state].forEach(free)
+    n.lim = undefined
   }
   function freeLayer(l: Layer) {
     l.release()

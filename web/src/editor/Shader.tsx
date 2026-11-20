@@ -3,14 +3,19 @@
 // once, a bad one lists its errors by line and the last good one keeps playing. Cmd/Ctrl+Enter runs now, Esc closes,
 // and keys typed here never reach the app's shortcuts. It edits the scene on stage when its bottom layer plays a
 // Shadertoy (`toy/…`, so G on a saved one opens its code again), else a new draft (edit.newShader). Star, Save and
-// Save as… are the editor's (L): a saved shader is a user scene as any other.
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
+// Save as… are the editor's (L): a saved shader is a user scene as any other. Export downloads the code as a .glsl file
+// (shaderfile.ts: a header, then the code); Import, or a .glsl dropped on the panel, loads one back (user 2026-11-20).
+// In dev the open editor also answers the AI channel (vite.config.ts aiChannel, docs/ai-shader-guide.md), and Import
+// lists the AI's exports (web/user-shaders/).
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
 import { director, setShader } from '../app'
 import type { SceneId } from '../doc'
 import * as edit from '../edit'
 import { toyErrors } from '../fx/glsl'
-import { fitStage } from '../gl/engine'
+import { fitStage, stage } from '../gl/engine'
 import { live, panel } from '../gl/live'
+import { download, library } from '../library'
+import { readShader, safeName, writeShader } from '../shaderfile'
 import { store } from '../store'
 import { SceneHead, type Say } from '../ui/Panel'
 import './editor.css'
@@ -27,6 +32,21 @@ const NEW = EXAMPLES.get('new')!
 const REST_MS = 700 // knob: typing compiles once the keys rest this long (the friends' value)
 /** A comment's `Credit: …` in the code: the node's credit (an example's names its authors and licence). */
 const creditOf = (code: string) => /^\s*\/\/.*?Credit: (.+)$/m.exec(code)?.[1].trim()
+type Errs = { line: number; msg: string }[]
+type Ask = { id: number; what: 'push' | 'state'; code?: string; name?: string } // the AI channel's (vite.config.ts)
+const STILL_MS = 1500 // knob: the AI channel's still, this long after a good compile (the picture has moved by then)
+const STILL_W = 640 // px: its width at most
+/** The stage as a PNG data URL ≤ STILL_W wide, drawn in the next frame just after the app's draw: the stage keeps no
+ *  drawing buffer (preserveDrawingBuffer off), so outside that frame it reads blank. */
+const still = () =>
+  new Promise<string>((done) =>
+    requestAnimationFrame(() => {
+      const k = Math.min(1, STILL_W / stage.width)
+      const c = Object.assign(document.createElement('canvas'), { width: Math.round(stage.width * k), height: Math.round(stage.height * k) })
+      c.getContext('2d')!.drawImage(stage, 0, 0, c.width, c.height)
+      done(c.toDataURL('image/png'))
+    }),
+  )
 
 export function Shader() {
   const on = useSyncExternalStore(store.subscribe, () => store.getSnapshot().shader)
@@ -39,7 +59,8 @@ function Open({ id }: { id: SceneId }) {
   const code = edit.toyCode(doc) // undefined: no Shadertoy on stage yet (the draft lands on the next frame)
   const [first] = useState(() => code ?? NEW) // the text it opens on: the draft plays NEW too
   const [lines, setLines] = useState(() => first.split('\n').length)
-  const [errs, setErrs] = useState<{ line: number; msg: string }[] | null>(null) // null: nothing compiled yet
+  const [errs, setErrs] = useState<Errs | null>(null) // null: nothing compiled yet
+  const [files, setFiles] = useState<string[]>([]) // dev: web/user-shaders/, newest first (GET /__ai/list)
   const [note, setNote] = useState<{ text: string; err: boolean }>()
   const say: Say = (err, what, done) => setNote(err ? { text: `${what}: ${err}`, err: true } : { text: done, err: false })
   const ta = useRef<HTMLTextAreaElement>(null)
@@ -47,6 +68,9 @@ function Open({ id }: { id: SceneId }) {
   const cell = useRef<HTMLDivElement>(null)
   const timer = useRef(0) // a compile waiting for the keys to rest
   const credit = useRef(code === undefined ? '' : (doc.layers[0].gen.credit ?? '')) // an example's, or the scene's
+  const author = useRef<'AI' | 'user'>('user') // who changed the field last: an export's header
+  const last = useRef<Errs>([]) // the last compile's errors (the AI channel's state)
+  const file = useRef<HTMLInputElement>(null)
   const drafted = useRef(false)
   useLayoutEffect(() => fitStage(cell.current!), [])
   // The opening text through the ref, not defaultValue: React writes a textarea's defaultValue (its text child) after
@@ -65,8 +89,60 @@ function Open({ id }: { id: SceneId }) {
     timer.current = 0
     const text = ta.current!.value
     const log = panel.setToy(text, creditOf(text) ?? credit.current)
-    setErrs(log === null ? [] : toyErrors(log, text.split('\n').length))
+    const e = log === null ? [] : toyErrors(log, text.split('\n').length)
+    setErrs((last.current = e))
+    return e
   }
+  /** `src` into the field, undoable there as typing, then run: an example, an import, the AI channel's push. */
+  const load = (src: string, by: 'AI' | 'user') => {
+    const t = ta.current!
+    t.focus()
+    t.select()
+    if (!document.execCommand('insertText', false, src)) t.value = src
+    credit.current = creditOf(src) ?? ''
+    author.current = by // after insertText: its input event says 'user'
+    setLines(src.split('\n').length)
+    return run()
+  }
+  /** A .glsl file's text (Import, a drop, the AI's folder) into the field without its header; an AI's stays the AI's. */
+  const importText = (name: string, text: Promise<string>) =>
+    text.then(
+      (t) => {
+        const { code, meta } = readShader(t)
+        load(code, meta.author === 'AI' ? 'AI' : 'user')
+        say(null, 'Import', `Imported ${name}`)
+      },
+      (e: unknown) => say(String(e), 'Import', ''),
+    )
+  const exportFile = () => {
+    const name = safeName(doc.name) || 'shader'
+    download(`${name}.glsl`, writeShader(ta.current!.value, { name: doc.name, author: author.current, date: new Date().toISOString(), source: library.get(id)?.name }), 'text/plain')
+    say(null, 'Export', `Exported ${name}.glsl`)
+  }
+  const listFiles = () => void fetch('/__ai/list').then((r) => r.json()).then((r: { files?: string[] }) => setFiles(r.files ?? []), () => {})
+  // The dev AI channel: this open editor announces itself and answers the server's asks.
+  const answer = useEffectEvent(async (m: Ask) => {
+    if (m.what === 'state') return { ok: true, code: ta.current!.value, errors: last.current, author: author.current, scene: doc.name, source: library.get(id)?.name }
+    if (m.name && !library.get(id)) live(id).doc.name = m.name.replace(/\s+/g, ' ').trim().slice(0, 200) // names the draft: Save as… offers it
+    const errors = load(m.code ?? '', 'AI')
+    if (errors.length) return { ok: false, errors, status: 'The last good shader keeps playing.' }
+    await new Promise((ok) => setTimeout(ok, STILL_MS))
+    const png = await Promise.race([still(), new Promise<null>((ok) => setTimeout(ok, 3000, null))]) // a hidden or covered tab draws no frame
+    return { ok: true, errors, status: png ? 'Playing' : 'Playing (no still: the app drew no frame; is its tab in view?)', png }
+  })
+  const opened = useEffectEvent(listFiles)
+  useEffect(() => {
+    const hot = import.meta.hot
+    if (!hot) return
+    const on = (m: Ask) => void answer(m).then((r) => hot.send('vjw:ai-reply', { id: m.id, ...r }), (e: unknown) => hot.send('vjw:ai-reply', { id: m.id, ok: false, error: String(e) }))
+    hot.on('vjw:ai', on)
+    hot.send('vjw:ai-editor', true)
+    opened()
+    return () => {
+      hot.off('vjw:ai', on)
+      hot.send('vjw:ai-editor', false)
+    }
+  }, [])
   const close = () => {
     if (timer.current) run() // what was typed last plays on, when it compiles
     setShader(false)
@@ -87,6 +163,13 @@ function Open({ id }: { id: SceneId }) {
       onPointerUp={(e) => {
         if (e.target instanceof HTMLButtonElement) e.target.blur() // as the editor: G and Esc stay live after a click
       }}
+      onDrop={(e) => {
+        const f = e.dataTransfer.files[0]
+        if (!f || !/\.(glsl|frag|txt)$/i.test(f.name)) return // audio: the document's drop plays it
+        e.preventDefault()
+        e.stopPropagation()
+        void importText(f.name, f.text())
+      }}
     >
       <aside className="stack">
         <header>
@@ -94,16 +177,7 @@ function Open({ id }: { id: SceneId }) {
           <select
             aria-label="Load an example"
             value=""
-            onChange={(e) => {
-              const src = EXAMPLES.get(e.target.value)!
-              const t = ta.current!
-              t.focus()
-              t.select()
-              if (!document.execCommand('insertText', false, src)) t.value = src // undoable in the field, as typing
-              credit.current = creditOf(src) ?? ''
-              setLines(src.split('\n').length)
-              run()
-            }}
+            onChange={(e) => void load(EXAMPLES.get(e.target.value)!, 'user')}
           >
             <option value="" disabled>
               Examples…
@@ -121,7 +195,43 @@ function Open({ id }: { id: SceneId }) {
             Close
           </button>
         </header>
-        <SceneHead id={id} say={say} />
+        <SceneHead id={id} say={say}>
+          <button title="Download the code as a .glsl file" onClick={exportFile}>
+            Export
+          </button>
+          <button title="Load a .glsl file (or drop one here)" onClick={() => file.current!.click()}>
+            Import
+          </button>
+          <input
+            ref={file}
+            type="file"
+            accept=".glsl,.frag,.txt"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = '' // the same file can come in again
+              if (f) void importText(f.name, f.text())
+            }}
+          />
+          {import.meta.env.DEV && (
+            <select
+              aria-label="Import an AI file"
+              title="web/user-shaders/: the AI's exports"
+              value=""
+              onFocus={listFiles}
+              onChange={(e) => void importText(e.target.value, fetch(`/__ai/file?name=${encodeURIComponent(e.target.value)}`).then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))))}
+            >
+              <option value="" disabled>
+                AI files…
+              </option>
+              {files.map((f) => (
+                <option key={f} value={f}>
+                  {f.slice(0, -'.glsl'.length)}
+                </option>
+              ))}
+            </select>
+          )}
+        </SceneHead>
         {note && (
           <p key={note.text} className={note.err ? 'err' : 'note'} onAnimationEnd={() => setNote(undefined)}>
             {note.text}
@@ -144,6 +254,7 @@ function Open({ id }: { id: SceneId }) {
             autoComplete="off"
             autoFocus
             onInput={(e) => {
+              author.current = 'user'
               setLines(e.currentTarget.value.split('\n').length)
               clearTimeout(timer.current)
               timer.current = window.setTimeout(run, REST_MS)

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { evaluate, type Binding, type Sources } from '../bind'
 import { donorChain, SYN_BIND } from '../fx/syn'
-import { boundStep, flashGate, postFor, type Chain, type FlashState } from './post'
+import { boundStep, flashGate, postFor, TOY_STEP, toyLimit, toyStep, type Chain, type FlashState } from './post'
 
 const NONE = Infinity // no drop yet
 const gain = (heat: number, beat: number, conf: number, bpm = 60) => postFor(heat, NONE, beat, bpm, conf).gain // 60 BPM: eighths (2/s) stay under the WCAG cap
@@ -281,5 +281,54 @@ describe('donorChain (lead item C7)', () => {
     const b = SYN_BIND.syn_Level
     expect(donorChain('syn_Level', b)).toBeDefined() // a SYN name: only the clock refuses it
     expect(donorChain('syn_Level', { ...b, clock: { base: 0, k: 1, wrap: true } })).toBeUndefined()
+  })
+})
+
+describe('toyLimit (the toy / shader-editor flash limiter, live.ts)', () => {
+  const FPS = 60
+  /** H2's counter (scratchpad/donor-mode/h2-flash.mjs): frame-to-frame luma steps > .10, the most in any 1 s. */
+  const h2 = (luma: number[]) => {
+    const at = luma.flatMap((y, i) => (i && Math.abs(y - luma[i - 1]) > 0.1 ? [i / FPS] : []))
+    return Math.max(0, ...at.map((t) => at.filter((u) => u >= t && u < t + 1).length))
+  }
+  /** `means` through the limiter frame by frame, as live.ts chains it: the state holds the last output's mean. */
+  const run = (means: number[], dt = 1 / FPS) => {
+    let prev = 0
+    return means.map((cur, i) => {
+      const { mean, k } = toyLimit(prev, cur, toyStep(dt), i === 0)
+      prev = mean
+      return { mean, k }
+    })
+  }
+  const strobe = Array.from({ length: 2 * FPS }, (_, i) => Number(((i / FPS) * 8) % 1 >= 0.5)) // step(.5, fract(iTime * 8.))
+
+  test('RED: an 8 Hz full-frame strobe fails H2 as drawn; limited, no frame steps over the step, even at the post gain 1.4', () => {
+    expect(h2(strobe)).toBeGreaterThan(3)
+    const out = run(strobe).map((x) => x.mean)
+    expect(h2(out)).toBe(0)
+    expect(h2(out.map((y) => 1.4 * y))).toBe(0) // heat + strobe (postFor) multiply the stage after the limiter
+    for (let i = 1; i < out.length; i++) expect(Math.abs(out[i] - out[i - 1])).toBeLessThanOrEqual(TOY_STEP + 1e-12)
+  })
+
+  test('a toy whose light moves slower than the step is drawn as it is: k 1 every frame', () => {
+    const slow = Array.from({ length: 4 * FPS }, (_, i) => 0.4 + 0.2 * Math.sin(Math.PI * (i / FPS)) + 0.005 * Math.sin(i * 7.3)) // 0.5 Hz swell + flicker of 1 %
+    expect(run(slow).every((x) => x.k === 1)).toBe(true)
+  })
+
+  test('the first frame is the toy as drawn, from any old state; a cut-off swing then follows by steps of at most TOY_STEP', () => {
+    const first = toyLimit(0.9, 0.1, TOY_STEP, true)
+    expect(first.k).toBe(1)
+    expect(first.mean).toBeCloseTo(0.1, 12)
+    const { mean, k } = toyLimit(0, 1, TOY_STEP, false)
+    expect(mean).toBeCloseTo(TOY_STEP, 12)
+    expect(k).toBeCloseTo(TOY_STEP, 12) // the mix toward the new frame: 6 % of it over the last output
+  })
+
+  test('the step scales with real time: half at 120 fps (the same swing per second), capped at 30 fps, none at dt 0', () => {
+    expect(toyStep(1 / 60)).toBeCloseTo(TOY_STEP, 12)
+    expect(toyStep(1 / 120)).toBeCloseTo(TOY_STEP / 2, 12)
+    expect(toyStep(1 / 30)).toBe(TOY_STEP)
+    expect(toyStep(0)).toBe(0)
+    expect(toyLimit(0.5, 0.9, 0, false)).toEqual({ mean: 0.5, k: 0 }) // a frame of no time holds the last output
   })
 })

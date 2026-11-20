@@ -323,10 +323,10 @@ function idb(): Db {
   }
 }
 
-/** A file into the downloads, the recorder's way (recorder.ts). */
-function download(name: string, text: string) {
+/** A file into the downloads, the recorder's way (recorder.ts); also the shader editor's Export. */
+export function download(name: string, text: string, type = 'application/json') {
   const a = document.createElement('a')
-  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+  a.href = URL.createObjectURL(new Blob([text], { type }))
   a.download = name
   a.click()
   setTimeout(() => URL.revokeObjectURL(a.href), 40_000)
