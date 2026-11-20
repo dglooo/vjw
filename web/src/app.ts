@@ -7,13 +7,13 @@ import { createFeatures } from './audio/features'
 import { meter } from './audio/meter' // the HUD's input meter (dsp_linein_2026-11-16 fix 5): fed here, read live by the overlay
 import { analyser, analyser2k, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, inputLatency, odfQueue, onsetQueue, player, recDest, togglePlay } from './audio/input'
 import { PRESETS, snapOctave, type Band, type PresetId } from './audio/presets'
-import { activePreset, bandKey, createSettings, workletBands } from './audio/settings'
+import { activePreset, bandKey, createSettings, toggleAnalysis, workletBands } from './audio/settings'
 import { createSync, ZERO_SYNC } from './audio/sync'
 import { createTempoSource } from './audio/tempo'
 import { createVs3, vs3Live } from './audio/vs3'
 import { createStyle, styleIn, type StyleOut } from './audio/style'
 import { type Hit } from './audio/drums'
-import { createRemap, gain, restyle, sources, type Sources } from './bind'
+import { analysis, createRemap, gain, idleDb, restyle, sources, type Sources } from './bind'
 import { cam, camGate, camGpuMs, camMask, readCam, readMask, selectCamera, startCamera, tick as camTick } from './camera/camera'
 import { presence } from './camera/smooth'
 import { count as camUsers } from './camera/users'
@@ -229,6 +229,9 @@ addEventListener('keydown', (e) => {
     case 'KeyX': // every native/text layer on / off (scenes/text.ts)
       showText(!store.getSnapshot().text)
       break
+    case 'KeyA': // the analysis off / back on (settings.ts toggleAnalysis)
+      settings.patch(toggleAnalysis(settings.get()))
+      break
     case 'KeyP': // the file transport (the overlay's buttons do the same)
       if (store.getSnapshot().source?.kind === 'file') togglePlay()
       break
@@ -274,6 +277,15 @@ const f: FrameInput = {
   time: 0, dt: 0, width: 0, height: 0,
 }
 const src: Sources = {} // binding sources, refilled every frame
+// The analysis off (settings.analyser 'off', user 2026-11-21): the scenes hear a steady idle signal. Their frame is f's
+// clock and size with the idle spectrum's energy at its running average (level, att 1), no onset and no grid; the audio
+// textures carry that spectrum and a flat waveform; the post pass rests. The analysis runs on: a turn back on is instant.
+const IDLE_DB = Float32Array.from({ length: analyser.frequencyBinCount }, (_, k) => idleDb((k * ctx.sampleRate) / analyser.fftSize))
+const AVERAGE = { bass: 1, mid: 1, treb: 1 }
+const IDLE_FRAME = { energy: { bands: createEnergy(ctx.sampleRate, analyser.fftSize).update(IDLE_DB, 60).bands, level: AVERAGE, att: AVERAGE }, onsets: [], lastOnset: null, sync: ZERO_SYNC }
+const idle: FrameInput = { ...f }
+const FLAT = new Float32Array(analyser.frequencyBinCount) // a waveform at 0
+const REST = { gain: 1, flash: 0 } // postFor at rest
 const features = createFeatures() // kick/snare/hats envelopes from the worklet's hits (S1.4)
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
 // The manual BPM lock (user 2026-11-20): the stored BPM holds the grid's tempo until cleared (sync.ts setManual).
@@ -383,7 +395,9 @@ function frame(now: number) {
   analyser.getFloatTimeDomainData(wave)
   analyserL.getFloatTimeDomainData(waveL)
   analyserR.getFloatTimeDomainData(waveR)
-  setAudio(magDb, wave, waveL, waveR)
+  const off = settings.get().analyser === 'off'
+  if (off) setAudio(IDLE_DB, FLAT, FLAT, FLAT)
+  else setAudio(magDb, wave, waveL, waveR)
   const frameRms = rms(wave) // arrange's `total`
   // ponytail: the first 512 of each analyser's 1024 samples, ≈ 64 % of a 60 fps frame's (32 % at 30): a lone over can
   // slip by, a clipping feed cannot. Read all 1024 if a single over must light CLIP.
@@ -490,7 +504,7 @@ function frame(now: number) {
   src.presence = presence(camGate.area) // S1.1 (design D3): the gate's held area — stable through flood/strobe; rests at 0 with no camera
   // S1.4 (donor mode): the core on this frame's grid, kick, arrangement, held peak and the instant silence test (G1, not
   // PAUSE's 1 s), then the mix; both on the unscaled dt. A turn to donor counts the core's beats on from our grid's.
-  const donorOn = st.analyser === 'donor' ? 1 : 0
+  const donorOn = (off ? st.resume : st.analyser) === 'donor' ? 1 : 0 // Off holds the mix it returns to
   if (donorOn > donorTarget) donor.seedBeat(Math.floor(f.sync.beat))
   donorTarget = donorOn
   donorIn.beat = f.sync.beat
@@ -507,17 +521,19 @@ function frame(now: number) {
   vs3Live.s = st.analyser === 'vs3' ? vs3.out : null // the vs3 scenes hear it (vs3/host.ts, gl/engine.ts); the rest as ours
   src.donorMix = donorMix = mixStep(donorMix, donorOn, f.dt)
   if (donorMix > 0) setDonorSpectrum(donor.spectrum) // S3.2: syn_Spectrum's donor half at this frame's mix; ours uploads nothing
-  f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)
+  if (!off) f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)
   if (arrangeOut.fired !== null) dropAt = f.time
   // A confident drop cuts once confirmed (0.5 s on, D3′), unless LOCK/panel, or an armed set: its cues hold the bars
-  if (!armedCues && shouldCut(arrangeOut.confirmed, store.getSnapshot().hold)) director.cut(director.peek())
+  if (!armedCues && !off && shouldCut(arrangeOut.confirmed, store.getSnapshot().hold)) director.cut(director.peek())
   // S5.3: the live heat post pass (postFor at rest = identity: the engine skips it).
-  const post = postFor(arrangeOut.heat, dropAt > 0 ? f.time - dropAt : Infinity, f.sync.beat, f.sync.bpm, f.sync.confidence)
+  const post = off ? REST : postFor(arrangeOut.heat, dropAt > 0 ? f.time - dropAt : Infinity, f.sync.beat, f.sync.bpm, f.sync.confidence)
   sources(f, src)
-  gain(src, st) // the Sources tab's gain and mute, on every source once all are in, before anything reads them
+  gain(src, st) // the Sources tab's gain and mute, on every source once all are in, before anything reads them; off: all 0
   const styled = restyle(src, rmFrom, rmTo, rmW, styledOut) // after gain(): the built-ins read the muted sources too
-  if (store.getSnapshot().editor) tiles.frame(f, src) // the library's bake (2b S3.3), its GPU work ahead of this frame's
-  render(shot, f, src, styled, post) // sets f.width/height to the internal size
+  analysis.off = off // every binding bypassed: a bound input reads its stored value (live.ts)
+  const fs = off ? Object.assign(idle, f, IDLE_FRAME) : f // what the scenes read
+  if (store.getSnapshot().editor) tiles.frame(fs, src) // the library's bake (2b S3.3), its GPU work ahead of this frame's
+  render(shot, fs, src, styled, post) // sets fs.width/height to the internal size
   const id = shot.to ?? shot.from // the incoming scene as soon as a fade starts: the name shown, the scene edited
   const { doc, errors } = live(id)
   const snap = store.getSnapshot()

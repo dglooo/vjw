@@ -9,7 +9,7 @@
 // into the library (E4), where `live` finds every scene.
 import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { ctx } from '../audio/input'
-import { bindable, level, type Binding, type BindState, type Sources } from '../bind'
+import { analysis, bindable, idle, level, type Binding, type BindState, type Sources } from '../bind'
 import { cam } from '../camera/camera'
 import * as users from '../camera/users' // users.use(): a bare use() reads as React's hook to the rules-of-hooks lint
 import { CODE_MAX, defaults, type Blend, type Clip, type LayerDoc, type MaskMode, type NodeDoc, type SceneDoc, type SceneId } from '../doc'
@@ -18,7 +18,7 @@ import { tiles } from '../editor/tiles'
 import type { FrameInput } from '../frame'
 import { catalog, toyDef, transitions } from '../fx/catalog'
 import { pairsByTarget, sizeExpr } from '../fx/isf'
-import { donorChain, pushTrail, synClock, synValue, TRAIL } from '../fx/syn'
+import { donorChain, pushTrail, SYN_BIND, synClock, synValue, TRAIL } from '../fx/syn'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
 import { factory, presetOf, savable } from '../presets'
@@ -66,8 +66,11 @@ interface Node { def: EffectDef; native?: Native; info?: ProgramInfo; u: Record<
  *  (camera CP1): the doc's; `release` gives back the camera user a masked layer holds (K-3), idempotent. `clip`: the doc's. */
 interface Layer { blend: Blend; mask?: MaskMode; clip?: Clip; release: () => void; nodes: (Node | null)[]; v: { opacity: number; speed: number; res: number }; t: number; f: FrameInput; small: Target | null; muted: boolean }
 /** `y`: the value it evaluated last (Live.read). `donor`: a SYN input's donor chain (fx/syn.ts donorChain; none on a
- *  tile), mixed in by `src.donorMix` (post.ts boundStep). */
-interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState; flash?: FlashState; donor?: Chain; y?: number }
+ *  tile), mixed in by `src.donorMix` (post.ts boundStep). `rest`: its stored value (the slider's, as a number), what
+ *  it reads with the analysis off; a SYN level's is its binding's idle value (bind.ts idle). */
+interface Bound { u: Record<string, unknown>; name: string; i: number; type: InputType; b: Binding; state: BindState; flash?: FlashState; donor?: Chain; y?: number; rest: number }
+/** A stored value (or its component `i`) as a bound input's `rest`: a bool 0 / 1, anything else not a number 0. */
+const rest = (v: unknown, i: number) => Number(i < 0 ? v : (v as number[])[i]) || 0
 const LAYER_INPUTS: readonly Input[] = [{ name: 'opacity', type: 'float' }, { name: 'speed', type: 'float' }] // bindable
 /** The one flash budget: the allowed onsets' `f.time`s, oldest first, shared by every layer of every scene (both of a
  *  fade). ponytail: hidden layers and a fade's outgoing scene spend it too, and two flashes in one frame count twice;
@@ -329,7 +332,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       const was = old.find((x) => x.u === u && x.name === name && x.i === i)
       const flash = flashes?.includes(name) ? (was?.flash ?? { prev: 0, blocked: false }) : undefined // kept like `state`: a rebind mid-flash neither re-counts nor leaks
       const d = own ? undefined : donorChain(name, b) // a tile stays ours (w 0)
-      bound.push({ u, name, i, type: input.type, b, state: was?.state ?? { y: 0 }, flash, donor: d && { b: d, state: was?.donor?.state ?? { y: 0 } } })
+      bound.push({ u, name, i, type: input.type, b, state: was?.state ?? { y: 0 }, flash, donor: d && { b: d, state: was?.donor?.state ?? { y: 0 } }, rest: Object.hasOwn(SYN_BIND, name) ? idle(b) : rest(base[name], i) })
     }
   }
 
@@ -464,7 +467,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     render(f, s, acc) {
       const w = own ? 0 : (s.donorMix ?? 0) // the donor mix (app.ts), read once; a tile is ours
       for (const x of bound) {
-        const y = boundStep(x, s, w, onsets, f.dt, f.time) // ours / donor crossfade, the flash gate last
+        const y = boundStep(x, s, w, onsets, f.dt, f.time, analysis.off) // ours / donor crossfade, the flash gate last
         x.y = y
         if (x.i >= 0) (x.u[x.name] as number[])[x.i] = y
         else if (x.type === 'bool' || x.type === 'event') [x.u[x.name], x.state.held] = level(x.type, y, x.state.held)
@@ -532,13 +535,16 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     dispose,
     set(p, input, v) {
       const l = layers[p.layer]
+      let u: Record<string, unknown> = l.v
       if (p.node === 'layer') l.v[input as 'res'] = v as number
       else {
         const n = l.nodes[p.node === 'gen' ? 0 : p.node + 1]
         if (!n) return
         v ??= defaults(n.def)[input] // an undone first value
         n.u[input] = Array.isArray(v) ? [...v] : v // our own copy: a binding may write into it
+        u = n.u
       }
+      for (const x of bound) if (x.u === u && x.name === input) x.rest = rest(v, x.i) // a bound input's slider: its value with the analysis off
     },
     rebind: bindAll,
     // The structural ops, mirrored by index as edit.ts made them (nodes[0] is the gen): only what an op adds is built,

@@ -53,6 +53,18 @@ export const sourceGroups = (custom: readonly { id: string; name: string }[] = [
 
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
 
+/** Off's idle spectrum (user 2026-11-21), dB at `hz`: −45 dB at 30 Hz falling TILT dB per band (≈ 3.5 dB per octave, a
+ *  gentle pink), the slope the bands read flat at .5. app.ts's audio textures and milkdrop's waveform carry it. */
+export const idleDb = (hz: number) => (DB_LO + DB_HI) / 2 - (TILT * BAND_COUNT * Math.log(Math.max(hz, 30) / 30)) / Math.log(16000 / 30)
+/** Off's idle signal: a steady track at its average, no hit, no grid. A level reads its middle .5 (bass / mid / treb as
+ *  `att` 1, the bands as idleDb's, the bodies' 60 s mean, the donor levels and presence), anything else 0. */
+export const IDLE: Readonly<Sources> = Object.fromEntries(
+  ['bass', 'mid', 'treb', ...BANDS, 'sub', 'reese', 'subBody', 'reeseBody', 'energy', ...DONOR_GROUPS.filter((g) => /levels|presence/.test(g.label)).flatMap((g) => g.ids)].map((id) => [id, 0.5]),
+)
+/** A binding's settled value on the idle signal: a SYN level input's with the analysis off (live.ts), whose stored
+ *  value is a placeholder 0, so its clocks run at their idle rate (syn_Time .5 / s). */
+export const idle = (b: Binding) => evaluate(b, IDLE, { y: 0 }, Infinity)
+
 /** Whether a binding may drive input `x` (GPU3D RG-2): any but one declared `bindable: false` (native/model's `samples`:
  *  a render-target rebuild per change). live.ts refuses such a binding; the panel draws no bind dot for it. */
 export const bindable = (x: { bindable?: boolean }) => x.bindable !== false
@@ -75,12 +87,22 @@ export function sources(f: FrameInput, out: Sources): Sources {
 
 /** The user's gain and mute per source (the Sources tab), in place: app.ts runs it once per frame after every source is
  *  filled, before Auto-style, a binding, a clock or a scene reads one. × `sens` (missing = 1): a level stays ≤ 1, a
- *  count speeds up. A muted source reads 0, so a binding on it falls to `min` and a clock on it runs at its base. */
-export function gain(out: Sources, { sens, mute }: Pick<AudioSettings, 'sens' | 'mute'>): Sources {
+ *  count speeds up. A muted source reads 0, so a binding on it falls to `min` and a clock on it runs at its base. The
+ *  analyser 'off' (user 2026-11-21): every source reads its IDLE value (`analysis` bypasses the bindings). */
+export function gain(out: Sources, { sens, mute, analyser }: Pick<AudioSettings, 'sens' | 'mute'> & Partial<Pick<AudioSettings, 'analyser'>>): Sources {
+  if (analyser === 'off') {
+    for (const id in out) out[id] = 0
+    return Object.assign(out, IDLE)
+  }
   for (const id in sens) if (Object.hasOwn(out, id)) out[id] = PHASES.includes(id) ? sens[id] * out[id] : Math.min(1, sens[id] * out[id])
   for (const id of mute) out[id] = 0
   return out
 }
+
+/** The analysis switch (settings.analyser 'off', user 2026-11-21), app.ts's every frame: while off, every bound input
+ *  reads its stored value (a SYN level its `idle` one), a ⚡ one 0 (live.ts, post.ts boundStep), and milkdrop hears the
+ *  idle waveform. */
+export const analysis = { off: false }
 
 /** Auto-style's overlay (design C5): `out` (≠ `s`) is a copy of `s`, then each key of either map crossfades from the
  *  source `from` names to the one `to` names, a missing name being the key itself. `w` 0 → 1 is the fade; Auto off is

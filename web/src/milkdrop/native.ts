@@ -4,6 +4,7 @@
 import butterchurn, { type Visualizer } from 'butterchurn'
 import { createTexture } from 'twgl.js'
 import { analyser, ctx } from '../audio/input'
+import { analysis, idleDb } from '../bind'
 import { fullscreenProgram, gl } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
 import { createMix } from './levels'
@@ -39,6 +40,20 @@ export function copy(src: OffscreenCanvas | HTMLCanvasElement | ImageBitmap, w: 
 const bytes = new Uint8Array(analyser.fftSize).fill(128) // 1024, Butterchurn's window; silence until the first draw
 const audioLevels = { timeByteArray: bytes, timeByteArrayL: bytes, timeByteArrayR: bytes } // our analyser is mono
 const PX = { pixelRatio: 1, textureRatio: 1 } // the target's own pixels
+let idle: Uint8Array | null = null // the analysis off: idleWave(), built on the first draw that needs it
+/** Off's waveform (user 2026-11-21): one fixed buffer whose spectrum is the idle one (bind.ts idleDb), each bin at a
+ *  hashed phase, peaking at ±48 around 128: the preset hears a steady track, so one that draws only with sound draws. */
+function idleWave() {
+  const n = bytes.length
+  const x = new Float32Array(n)
+  for (let k = 1; k < n / 2; k++) {
+    const a = 10 ** (idleDb((k * ctx.sampleRate) / n) / 20)
+    const h = Math.sin(k * 12.9898) * 43758.5453
+    for (let i = 0; i < n; i++) x[i] += a * Math.cos((2 * Math.PI * k * i) / n + 2 * Math.PI * (h - Math.floor(h)))
+  }
+  const peak = x.reduce((m, v) => Math.max(m, Math.abs(v)), 0)
+  return Uint8Array.from(x, (v) => 128 + (48 * v) / peak)
+}
 const BEAT = 60 / 174 // s per beat with no grid yet (the drop burst's length)
 let mixing: ReturnType<typeof createMix> | null = null // the drawing native's mix, set around its render() only
 
@@ -96,7 +111,8 @@ export const milkdrop: readonly NativeDef[] = PRESETS.map((p): NativeDef => ({
           return
         }
         if (v.internalCanvas.width !== f.width || v.internalCanvas.height !== f.height) v.setRendererSize(f.width, f.height, PX)
-        analyser.getByteTimeDomainData(bytes)
+        if (analysis.off) bytes.set((idle ??= idleWave())) // the analysis off (user 2026-11-21): the idle waveform
+        else analyser.getByteTimeDomainData(bytes)
         mix.frame(s, sync as number, f.dt, f.sync.bpm > 0 ? 60 / f.sync.bpm : BEAT)
         mixing = mix
         v.render({ audioLevels, elapsedTime: f.dt }) // its unit, G10

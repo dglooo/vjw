@@ -67,8 +67,10 @@ export interface Chain { b: Binding; state: BindState }
 /** One bound input this frame (design rev 2, C1): ours = `evaluate(x.b)`. A SYN input's `donor` (fx/syn.ts donorChain,
  *  its own state) is evaluated on every call, so it is warm at the switch; the two shaped values crossfade by `w`
  *  (0 ours, 1 the donor's). The flash gate runs last, on the mix, at DONOR_WCAG while a donor value is in it. At `w` 0
- *  the value is ours, bit for bit. */
-export function boundStep(x: Chain & { donor?: Chain; flash?: FlashState }, s: Sources, w: number, onsets: number[], dt: number, t: number): number {
+ *  the value is ours, bit for bit. `off` (bind.ts analysis): the binding is bypassed: `rest`, the input's stored value,
+ *  and 0 for a ⚡ one; its states hold for the turn back on. */
+export function boundStep(x: Chain & { donor?: Chain; flash?: FlashState; rest?: number }, s: Sources, w: number, onsets: number[], dt: number, t: number, off = false): number {
+  if (off) return x.flash ? 0 : (x.rest ?? 0)
   let y = evaluate(x.b, s, x.state, dt)
   if (x.donor) {
     const yd = evaluate(x.donor.b, s, x.donor.state, dt)

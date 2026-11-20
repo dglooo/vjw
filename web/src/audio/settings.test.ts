@@ -1,6 +1,9 @@
 import { afterEach, expect, test, vi } from 'vitest'
+import { gain, idle, type Binding, type Sources } from '../bind'
+import { SYN_BIND, synClock } from '../fx/syn'
+import { boundStep } from '../gl/post'
 import { PRESETS, type Band, type Genre, type PresetId } from './presets'
-import { activePreset, bandKey, createSettings, parseSettings, workletBands, type AudioSettings, type CustomBand } from './settings'
+import { activePreset, bandKey, createSettings, parseSettings, toggleAnalysis, workletBands, type AudioSettings, type CustomBand } from './settings'
 
 const KEY = 'vjw.audio'
 const DEFAULTS: AudioSettings = { v: 1, auto: true, pick: null, sens: {}, mute: [], custom: [], analyser: 'ours' }
@@ -73,6 +76,35 @@ test('vs3: patch({ analyser: vs3 }) comes back after a reload; a stored vs3 pars
   expect(createSettings(kv).get().analyser).toBe('vs3')
   expect(JSON.parse(m.get(KEY) ?? 'null').analyser).toBe('vs3')
   expect(parseSettings({ ...DEFAULTS, analyser: 'vs3' })).toEqual({ ...DEFAULTS, analyser: 'vs3' })
+})
+
+test('analysis off (user 2026-11-21): the sources read the idle signal, a bound input its stored value (a ⚡ one 0), syn_Time runs at .5 / s; a reload keeps Off, A turns the mode before back on', () => {
+  const { kv } = storage()
+  const a = createSettings(kv)
+  a.patch({ analyser: 'donor' })
+  a.patch(toggleAnalysis(a.get())) // A: off
+  const s = createSettings(kv) // a reload
+  expect(s.get()).toEqual({ ...DEFAULTS, analyser: 'off', resume: 'donor' })
+  const src: Sources = { bass: 0.8, kick: 1, beat: 12.5, donorMix: 1 }
+  expect(gain(src, s.get())).toMatchObject({ bass: 0.5, band7: 0.5, subBody: 0.5, syn_BassLevel: 0.5, kick: 0, beat: 0, donorMix: 0 }) // levels mid, hits / counts / the mix 0
+  const b: Binding = { source: 'kick', amount: 1, attack: 0, release: 0, min: 0.6, max: 2 } // edit.ts MUSIC_TIME's range on `speed`
+  expect(boundStep({ b, state: { y: 0 }, rest: 1 }, src, 0, [], 1 / 60, 0, true)).toBe(1) // its slider's 1, not min .6
+  expect(boundStep({ b, state: { y: 0 }, rest: 1, flash: { prev: 0, blocked: false } }, src, 0, [], 1 / 60, 0, true)).toBe(0)
+  // a SYN level's stored value is a placeholder 0: it reads its binding's idle value (live.ts), so syn_Time, ∫ syn_Level
+  // dt (fx/syn.ts SYN, as parseSyn compiles it), advances .5 per second
+  const level = boundStep({ b: SYN_BIND.syn_Level, state: { y: 0 }, rest: idle(SYN_BIND.syn_Level) }, src, 0, [], 1 / 60, 0, true)
+  expect(synClock(0, { u: 'syn_Time', rate: [[['syn_Level', -1]]] }, { syn_Level: level }, 2, 0)).toBe(1)
+  expect(idle(SYN_BIND.syn_BassHits)).toBe(0) // a hit stays 0
+  s.patch(toggleAnalysis(s.get())) // A: back on
+  expect(s.get().analyser).toBe('donor')
+  expect(gain({ bass: 0.8 }, s.get())).toEqual({ bass: 0.8 })
+  expect(boundStep({ b, state: { y: 0 }, rest: 1 }, { kick: 1 }, 0, [], 1 / 60, 0, false)).toBe(2) // the binding again
+  s.patch({ analyser: 'vs3' })
+  s.patch({ analyser: 'off' }) // the select's Off
+  s.patch({ analyser: 'off' }) // twice: still back to vs3
+  expect(toggleAnalysis(s.get())).toEqual({ analyser: 'vs3' })
+  expect(parseSettings({ v: 1, analyser: 'off', resume: 'off' })).toEqual({ ...DEFAULTS, analyser: 'off' }) // a resume is a mode
+  expect(toggleAnalysis(parseSettings({ v: 1, analyser: 'off' }))).toEqual({ analyser: 'ours' }) // none stored: ours
 })
 
 test('the manual BPM lock: patch({ bpm: 174 }) comes back after a reload, undefined clears it; junk reads auto, a far BPM clamps', () => {
