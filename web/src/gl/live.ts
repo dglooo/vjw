@@ -21,7 +21,7 @@ import { pairsByTarget, sizeExpr } from '../fx/isf'
 import { donorChain, pushTrail, SYN_BIND, synClock, synValue, TRAIL } from '../fx/syn'
 import type { EffectDef, Input, InputType, PassDef, ShaderDef, Value } from '../fx/types'
 import { library } from '../library'
-import { factory, presetOf, savable } from '../presets'
+import { between, factory, glideTo, MORPH_S, presetOf, savable, type Glide } from '../presets'
 import { FRAME_SDF, frameUniforms } from '../scenes/frame'
 import { store } from '../store'
 import { edits } from '../undo'
@@ -36,6 +36,9 @@ export interface Live {
   /** The panel, after it edited the doc: one input's live value at `p` (undefined: the default), in place; every
    *  binding compiled again. */
   set(p: edit.NodePath, input: string, v: Value | undefined): void; rebind(): void
+  /** A preset's values (undefined: the default) onto node `p` over MORPH_S from the values on screen (presets.ts
+   *  glideTo, between), from its next render; a `fade` input at once. A set() of one of them meanwhile takes it out. */
+  glide(p: edit.NodePath, values: Readonly<Record<string, Value | undefined>>): void
   /** The panel, after edit.ts changed the doc's structure: the same one op on the built layers. Every other node and
    *  layer keeps its state and clock. addFx/addLayer build the doc's fx/layer at `at` (the last one without). */
   addFx(layer: number, at?: number): void; removeFx(layer: number, i: number): void; moveFx(layer: number, from: number, to: number): void
@@ -259,7 +262,17 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
   const errors: string[] = []
   let layers: Layer[] = []
   let bound: Bound[] = []
+  let gliding: (Glide & { u: Record<string, unknown> }) | null = null // a preset's glide (Live.glide) on the node with `u`
   const doc = () => own?.doc ?? find(id)! // the panel's copy (edit.ts) from the scene's first edit on
+  /** One input's value into `u` (a node's uniforms or a layer's values), and a bound one's `rest`. */
+  const write = (u: Record<string, unknown>, input: string, v: Value | undefined) => {
+    u[input] = Array.isArray(v) ? [...v] : v // our own copy: a binding may write into it
+    for (const x of bound) if (x.u === u && x.name === input) x.rest = rest(v, x.i) // a bound input's slider: its value with the analysis off
+  }
+  /** The glide's values at its time share `k` into its node. */
+  const step = (g: NonNullable<typeof gliding>, k: number) => {
+    for (const [name, v] of Object.entries(between(g, k))) write(g.u, name, v)
+  }
   const tmp = own ? [renderTarget(), renderTarget()] : temps // a tile's own ping-pong, at its size
   if (own) for (const t of tmp) t.fit(...own.size)
   const onsets = own ? [] : flashOnsets // a tile never spends the preview's flash budget
@@ -466,6 +479,13 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     errors,
     render(f, s, acc) {
       const w = own ? 0 : (s.donorMix ?? 0) // the donor mix (app.ts), read once; a tile is ours
+      if (gliding) {
+        // before the bindings: a bound input's binding still drives it (the glide moves its rest)
+        if (Number.isNaN(gliding.t0)) gliding.t0 = f.time // its first frame: the values it found
+        const k = (f.time - gliding.t0) / MORPH_S
+        step(gliding, k)
+        if (k >= 1) gliding = null
+      }
       for (const x of bound) {
         const y = boundStep(x, s, w, onsets, f.dt, f.time, analysis.off) // ours / donor crossfade, the flash gate last
         x.y = y
@@ -536,15 +556,27 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     set(p, input, v) {
       const l = layers[p.layer]
       let u: Record<string, unknown> = l.v
-      if (p.node === 'layer') l.v[input as 'res'] = v as number
-      else {
+      if (p.node !== 'layer') {
         const n = l.nodes[p.node === 'gen' ? 0 : p.node + 1]
         if (!n) return
         v ??= defaults(n.def)[input] // an undone first value
-        n.u[input] = Array.isArray(v) ? [...v] : v // our own copy: a binding may write into it
         u = n.u
       }
-      for (const x of bound) if (x.u === u && x.name === input) x.rest = rest(v, x.i) // a bound input's slider: its value with the analysis off
+      if (gliding?.u === u) delete gliding.to[input] // a slider, an undo: the hand's now, not the glide's
+      write(u, input, v)
+    },
+    glide(p, values) {
+      const n = p.node === 'layer' ? null : layers[p.layer].nodes[p.node === 'gen' ? 0 : p.node + 1]
+      if (!n) return
+      const d = defaults(n.def), to: Record<string, Value> = {}
+      for (const [k, v] of Object.entries(values)) {
+        const i = n.def.inputs.find((x) => x.name === k)
+        if (i?.fade) write(n.u, k, v ?? d[k]) // vs3's palette: its native crossfades from here
+        else if (i) to[k] = v ?? d[k]
+      }
+      if (gliding && gliding.u !== n.u) step(gliding, 1) // another node's: done at once
+      const eased = new Set(n.def.inputs.filter((i) => i.type === 'float' || i.type === 'color' || i.type === 'point2D').map((i) => i.name))
+      gliding = { u: n.u, ...glideTo(n.u, to, eased, gliding?.u === n.u ? gliding : undefined) }
     },
     rebind: bindAll,
     // The structural ops, mirrored by index as edit.ts made them (nodes[0] is the gen): only what an op adds is built,
@@ -658,10 +690,12 @@ const op = {
     l.set(p, input, v)
     return old
   },
-  setValues(p: edit.NodePath, values: Readonly<Record<string, Value | undefined>>) {
+  /** `glide`: the running scene gets there over MORPH_S (Live.glide); the doc at once. */
+  setValues(p: edit.NodePath, values: Readonly<Record<string, Value | undefined>>, glide = false) {
     const l = edited()
     const old = edit.setValues(l.doc, p, values)
-    for (const [k, v] of Object.entries(values)) l.set(p, k, v)
+    if (glide) l.glide(p, values)
+    else for (const [k, v] of Object.entries(values)) l.set(p, k, v)
     return old
   },
   setBinding(p: edit.NodePath, key: string, b: Binding | null) {
@@ -697,9 +731,11 @@ export const panel = {
     const old = op.setValue(p, input, v)
     edits.record({ undo: shown(() => op.setValue(p, input, old)), redo: shown(() => op.setValue(p, input, v)), key: `${p.layer}/${p.node}/${input}` })
   },
-  /** A preset (presets.ts) onto node `p`: exactly its values, one undo step; the panel's controls start again from them. */
-  setValues(p: edit.NodePath, values: Readonly<Record<string, Value>>) {
-    const old = op.setValues(p, values)
+  /** A preset (presets.ts) onto node `p`: exactly its values, one undo step; the panel's controls start again from them.
+   *  `glide` (a pick of the scene on stage): the picture glides there over MORPH_S (the donor's preset morph); its undo
+   *  and redo land at once. */
+  setValues(p: edit.NodePath, values: Readonly<Record<string, Value>>, glide = false) {
+    const old = op.setValues(p, values, glide)
     edits.record({ undo: shown(() => op.setValues(p, old)), redo: shown(() => op.setValues(p, values)) })
     rerender()
   },
@@ -720,7 +756,7 @@ export const panel = {
     const t = panel.presetNode()
     if (!t) return
     const n = t.list.length, i = t.now ? t.list.indexOf(t.now) : d > 0 ? -1 : n
-    panel.setValues(t.path, t.list[(i + d + n) % n].values)
+    panel.setValues(t.path, t.list[(i + d + n) % n].values, true)
   },
   /** presetNode()'s values as the user's preset `name`, over one of that name. */
   savePreset(name: string) {

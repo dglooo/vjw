@@ -34,7 +34,7 @@ export function Presets() {
   const close = () => store.patch({ browse: false })
   function pick(ref: string, p: Preset) {
     const at = panel.presetNode()
-    if (at?.ref === ref) panel.setValues(at.path, p.values)
+    if (at?.ref === ref) panel.setValues(at.path, p.values, true)
     else {
       const s = sceneOf(ref)
       if (s) cutTo(s.id, p.name)

@@ -26,6 +26,7 @@ import { copy, fullscreenProgram, stage, gl as stageGl } from '../gl/engine'
 import { glState, PASS_LIST, restore } from '../gl/glstate'
 import { heatStep } from '../gl/post'
 import type { NativeDef } from '../gl/scene'
+import { ease, MORPH_S } from '../presets'
 import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
 import PARAMS from './params.json'
@@ -102,6 +103,7 @@ void main() { // donor engine/post-shaders.js FinishShader, the grain and the wa
 }`
 let finish: ReturnType<typeof fullscreenProgram> | undefined
 const SLOTS = ['bg', 'shadow', 'mid', 'accent', 'glow'] as const
+const GAP_MS = 250 // knob: a draw this long after the last one is back on stage (gl/live.ts limit()'s GAP)
 
 let libs: Promise<Awaited<ReturnType<typeof open>>> | undefined
 async function open(gl: WebGL2RenderingContext) {
@@ -178,7 +180,9 @@ export const PALETTES = ['nocturne', 'ember', 'glacial', 'orchid', 'moss', 'sodi
 async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, ps: readonly Input[]) {
   const { R, guard, texture } = L
   const colors = (i: number) => L.PRESETS[i].colors.map((c) => new L.Color(c))
-  let palIx = PALETTES.indexOf(look.palette), pal = colors(palIx)
+  // the five shown and a crossfade's two ends; palIx -1: nothing drawn yet, so the first palette lands at once
+  const pal = colors(PALETTES.indexOf(look.palette)), from = colors(0), to = colors(0)
+  let palIx = -1, palK = 1, seen = -Infinity
   const made = new Set<{ dispose(): void }>()
   const s = { specHi: new Float32Array(192) } as Signal
   const P = sc.params ?? {}
@@ -190,8 +194,23 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
     draw(f: { width: number; height: number; dt: number; time: number }, vals: Readonly<Record<string, Value>>, src: Readonly<Sources>, input: WebGLTexture | null) {
       const hit = vals.hit as number, mid = (vals.mid as number | undefined) ?? 0
       put(P, ps, vals)
-      const pi = vals.palette as number
-      if (pi !== palIx && L.PRESETS[pi]) pal = colors((palIx = pi)) // the select (a preset) switched it: at once, as a cut
+      const pi = vals.palette as number, now = performance.now()
+      if (pi !== palIx && L.PRESETS[pi]) {
+        // the select (a preset) switched it: a crossfade from the colours on screen over the preset glide's time (the
+        // donor's PaletteEngine), at once on the first draw or back on stage. ponytail: on the layer's clock, so a
+        // layer at speed ≠ 1 fades at its pace; the gap is wall time (the layer clock stops off stage).
+        palIx = pi
+        from.forEach((c, i) => c.copy(pal[i]))
+        to.forEach((c, i) => c.set(L.PRESETS[pi].colors[i]))
+        palK = now - seen > GAP_MS ? 1 : 0
+        if (palK) pal.forEach((c, i) => c.copy(to[i]))
+      }
+      seen = now
+      if (palK < 1) {
+        palK = Math.min(1, palK + f.dt / MORPH_S)
+        const e = ease(palK)
+        pal.forEach((c, i) => c.lerpColors(from[i], to[i], e))
+      }
       Object.assign(L.scenePointer, look.pointer ? live : DEAD) // one shared object: this scene's view of it for its update
       if (sc.source) sc.source.sourceTexture = input // a filter's picture: the previous layer
       const v = vs3Live.s // analyser 'vs3': the core's levels and spectrum
@@ -242,8 +261,8 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
   return {
     id: `native/vs3-${name}`, name: `vs3 ${name}`, kind: look.filter ? 'filter' : 'generator', credit: "vs3: the friends' three.js engine, used with permission; three.js r187 (MIT)",
     // ⚡ the donor kick (+ onMid / onHigh): all a hit lights through; the palette, never bound (a swap per beat would
-    // strobe the whole picture); the rows: plain sliders, never auto-bound
-    inputs: [...flash.map((n): Input => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), { name: 'palette', type: 'long', values: PALETTES.map((_, i) => i), labels: PALETTES, default: PALETTES.indexOf(look.palette), bindable: false }, ...ps],
+    // strobe the whole picture) and crossfaded here (`fade`); the rows: plain sliders, never auto-bound
+    inputs: [...flash.map((n): Input => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), { name: 'palette', type: 'long', values: PALETTES.map((_, i) => i), labels: PALETTES, default: PALETTES.indexOf(look.palette), bindable: false, fade: true }, ...ps],
     flash,
     load,
     warm: () => ready(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden

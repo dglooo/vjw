@@ -1,7 +1,7 @@
 // presets.ts: the factory data against the natives it names, and the current preset / custom of a node's values.
 import { expect, test, vi } from 'vitest'
 import { defaults } from './doc'
-import { factory, factoryRefs, presetOf, savable } from './presets'
+import { between, ease, factory, factoryRefs, glideTo, MORPH_S, presetOf, savable } from './presets'
 import { VS3 } from './vs3/host'
 import FACTORY from './vs3/presets.json'
 
@@ -47,4 +47,39 @@ test('presetOf: the preset the values match; one edit makes it custom, the edit 
   expect(presetOf(list, { ...cur, fill: 0.9 })?.name).toBe('mine')
   expect(presetOf(list, { ...cur, fill: 0.91 })).toBeUndefined() // custom
   expect(presetOf(list, { ...cur, hit: 1 })?.name).toBe('★ ring — Welcome To Tendril') // a value no preset names changes nothing
+})
+
+test('the preset glide: numbers ease in-out from the values on screen to the preset\'s, selects and checkboxes switch at the midpoint, exactly the preset from the end on', () => {
+  expect(MORPH_S).toBe(1.8) // the donor's
+  expect([ease(-1), ease(0), ease(1), ease(2)]).toEqual([0, 0, 1, 1])
+  expect(ease(0.5)).toBeCloseTo(0.5, 12)
+  expect(ease(0.1)).toBeLessThan(0.1) // slow out of the start …
+  expect(ease(0.9)).toBeGreaterThan(0.9) // … and into the end
+  const eased = new Set(['speed', 'tint'])
+  const g = glideTo({ speed: 0.2, mode: 1, eyeFollow: true, tint: [0, 0, 0, 1], hit: 1 }, { speed: 0.8, mode: 4, eyeFollow: false, tint: [1, 0.5, 0, 1] }, eased)
+  expect(Number.isNaN(g.t0)).toBe(true) // its first frame starts it
+  expect(between(g, 0)).toEqual({ speed: 0.2, mode: 1, eyeFollow: true, tint: [0, 0, 0, 1] }) // the values it found
+  expect(between(g, 0.25).speed).toBeCloseTo(0.2 + 0.6 * ease(0.25), 12)
+  expect(between(g, 0.49)).toMatchObject({ mode: 1, eyeFollow: true }) // the old select and checkbox until the midpoint …
+  const half = between(g, 0.5)
+  expect(half).toMatchObject({ mode: 4, eyeFollow: false }) // … the new from it
+  expect([half.speed, ...(half.tint as number[])].map((x) => +(x as number).toFixed(9))).toEqual([0.5, 0.5, 0.25, 0, 1]) // halfway
+  expect(between(g, 1)).toEqual({ speed: 0.8, mode: 4, eyeFollow: false, tint: [1, 0.5, 0, 1] })
+  expect(between(g, 3).speed).toBe(0.8) // never past it
+  expect(between(glideTo({ a: 0 }, { a: 7 }, new Set()), 0.3).a).toBe(0) // a number not eased (a select's index) never walks through the ones between
+  const cur = { tint: [0, 0, 0, 1] }
+  const copy = glideTo(cur, { tint: [1, 1, 1, 1] }, eased)
+  cur.tint[0] = 0.9 // a binding writing into the live array
+  expect(copy.from.tint).toEqual([0, 0, 0, 1])
+})
+
+test('a pick mid-glide starts from the in-between values, and the first glide\'s other inputs still reach their targets', () => {
+  const eased = new Set(['speed', 'fill'])
+  const first = glideTo({ speed: 0, fill: 0, mode: 0 }, { speed: 1, fill: 1, mode: 2 }, eased)
+  const mid = between(first, 0.3) // on screen 0.54 s in
+  const next = glideTo(mid, { speed: 0.1, mode: 5 }, eased, first)
+  expect(next.from).toEqual(mid)
+  expect(next.to).toEqual({ speed: 0.1, fill: 1, mode: 5 }) // fill heads on for the first preset's 1
+  expect(between(next, 0)).toEqual(mid) // no jump at the re-pick
+  expect(between(next, 1)).toEqual({ speed: 0.1, fill: 1, mode: 5 })
 })
