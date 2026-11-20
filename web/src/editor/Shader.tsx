@@ -123,17 +123,18 @@ function Open({ id }: { id: SceneId }) {
   // The dev AI channel: this open editor announces itself and answers the server's asks.
   const answer = useEffectEvent(async (m: Ask) => {
     if (m.what === 'state') return { ok: true, code: ta.current!.value, errors: last.current, author: author.current, scene: doc.name, source: library.get(id)?.name }
-    if (m.name && !library.get(id)) live(id).doc.name = m.name.slice(0, 200) // names the draft: Save as… offers it
+    if (m.name && !library.get(id)) live(id).doc.name = m.name.replace(/\s+/g, ' ').trim().slice(0, 200) // names the draft: Save as… offers it
     const errors = load(m.code ?? '', 'AI')
     if (errors.length) return { ok: false, errors, status: 'The last good shader keeps playing.' }
     await new Promise((ok) => setTimeout(ok, STILL_MS))
-    return { ok: true, errors, status: 'Playing', png: await still() }
+    const png = await Promise.race([still(), new Promise<null>((ok) => setTimeout(ok, 3000, null))]) // a hidden or covered tab draws no frame
+    return { ok: true, errors, status: png ? 'Playing' : 'Playing (no still: the app drew no frame; is its tab in view?)', png }
   })
   const opened = useEffectEvent(listFiles)
   useEffect(() => {
     const hot = import.meta.hot
     if (!hot) return
-    const on = (m: Ask) => void answer(m).then((r) => hot.send('vjw:ai-reply', { id: m.id, ...r }))
+    const on = (m: Ask) => void answer(m).then((r) => hot.send('vjw:ai-reply', { id: m.id, ...r }), (e: unknown) => hot.send('vjw:ai-reply', { id: m.id, ok: false, error: String(e) }))
     hot.on('vjw:ai', on)
     hot.send('vjw:ai-editor', true)
     opened()
