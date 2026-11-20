@@ -2039,6 +2039,25 @@ const VS3: readonly SceneDoc[] = [
   },
 ]
 
+// The clip layer (backlog 8, scenes/video.ts): empty until a clip is dropped or picked (its hint, «drop a clip»), so
+// unstarred. The def's bind, repeated: the kick surges the clip (the playbackRate: motion), ⚡ each phrase cuts it to a
+// random point (an event, flash-gated; the toy limiter caps the cut's luma step).
+const VIDEO_CLIP: SceneDoc = {
+  v: 1, id: 'builtin:video-clip', name: 'Video clip', star: false,
+  layers: [
+    {
+      gen: {
+        ref: 'native/video',
+        bind: {
+          speed: { source: 'kick', amount: 1, attack: 0.02, release: 0.3, min: 0.7, max: 1.6 },
+          jump: { source: 'bar', shape: 'square', rate: 0.25, amount: 1, attack: 0, release: 0, min: 0, max: 1 },
+        },
+      },
+      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+    },
+  ],
+}
+
 // The calibration view (user 2026-11-17): what the analyser hears, a tile per source (scenes/calib.ts). No bindings: it
 // reads `src` itself, never Auto-style's remap (bind.ts sourcesFor). Starred by the user's order, and last, so the
 // autopilot's order before it stays as it was.
@@ -2048,4 +2067,4 @@ const CALIBRATION: SceneDoc = {
 }
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
-export const BUILTIN: readonly SceneDoc[] = [...spread([...OWN, ...DJ], MILK_SCENES), ...DEMOS, ...TEXT, ...SHOW, ...VS3, CALIBRATION]
+export const BUILTIN: readonly SceneDoc[] = [...spread([...OWN, ...DJ], MILK_SCENES), ...DEMOS, ...TEXT, ...SHOW, VIDEO_CLIP, ...VS3, CALIBRATION]

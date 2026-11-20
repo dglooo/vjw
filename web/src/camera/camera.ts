@@ -385,7 +385,8 @@ function timed(fn: () => void) {
   flight.push(q)
 }
 
-function hiddenVideo() {
+/** A muted inline <video> in the document, hidden but still decoding: the camera's, and each native/video clip's. */
+export function hiddenVideo() {
   const v = document.createElement('video')
   v.muted = true
   v.playsInline = true
@@ -397,15 +398,19 @@ export const video = DOM ? hiddenVideo() : (null as unknown as HTMLVideoElement)
 let mirror = false // a webcam preview is mirrored (like a mirror); a clip is not
 let clipUrl: string | null = null
 
-/** The copy rule: sub-image while the size holds, a reallocation (and the xf's refresh) when it changes. */
+/** The copy rule, for every <video> frame upload (cam.tex, native/video): sub-image while the size `at` holds, else a
+ *  reallocation, which records the new size in `at`. */
+export function copyFrame(tex: WebGLTexture, src: TexImageSource, w: number, h: number, at: { w: number; h: number }) {
+  gl.bindTexture(gl.TEXTURE_2D, tex)
+  if (w === at.w && h === at.h) return gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src)
+  at.w = w
+  at.h = h
+}
+
+/** cam.tex by the copy rule, then the xf's refresh. */
 function uploadTex(src: TexImageSource, w: number, h: number) {
-  gl.bindTexture(gl.TEXTURE_2D, cam.tex)
-  if (w === cam.w && h === cam.h) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src)
-  else {
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src)
-    cam.w = w
-    cam.h = h
-  }
+  copyFrame(cam.tex, src, w, h, cam)
   cam.xf.set(coverFit(stage.clientWidth, stage.clientHeight, cam.w, cam.h, mirror))
   imageFresh = true
   if (camStat.at.push(performance.now()) > 20000) camStat.at.shift()

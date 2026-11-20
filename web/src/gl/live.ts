@@ -134,7 +134,8 @@ const free = (t: Target) => {
 // mipmapped `raw`. LIMIT reads raw's top mip (the frame-mean colour) and the last output's mean (`state`, 1×1) and
 // writes this frame's [mean, k]; MIX writes mix(the last output `hist`, raw, k) into the toy's target, which is then
 // copied into `hist`. `t`: the last frame it ran, so a toy back on stage after a gap starts as drawn, not from a stale
-// frame. Natives and ISF effects are not touched: their light is gated at their ⚡ inputs.
+// frame. ISF effects and the other natives are not touched: their light is gated at their ⚡ inputs. native/video is:
+// a user's clip brings its own light (backlog 8).
 interface Limiter { raw: Target; hist: Target; state: Target[]; t: number }
 const GAP = 0.25 // knob: s without a frame after which the limiter starts again from the toy as drawn
 const LIMIT = fullscreenProgram(`#version 300 es
@@ -273,7 +274,8 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     if (!def) return fail(`unknown ref ${n.ref}`)
     const u: Record<string, unknown> = { ...defaults(def), ...n.values }
     const events = def.inputs.filter((x) => x.type === 'event').map((x) => x.name)
-    if ('create' in def) return { def, native: (def as NativeDef).create(gl, own?.size), u, events, passes: [], w: 0, h: 0, frames: 0, images: null }
+    // native/video: a user's clip carries its own light (a filmed strobe), so it runs under the toy limiter too
+    if ('create' in def) return { def, native: (def as NativeDef).create(gl, own?.size), u, events, passes: [], w: 0, h: 0, frames: 0, images: null, lim: def.id === 'native/video' && !own ? limiter() : undefined }
     const { vs, fs, passes, inputs, textures = {} } = def as ShaderDef
     const info = program(vs, fs) // null when it fails to compile; twgl logged why
     if (!info) return fail(`${n.ref}: ${toy ? toyLog(fs, toy.prefixLines) : 'shader failed to compile'}`)
@@ -379,13 +381,15 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
   function run(n: Node, l: Layer, f: FrameInput, dt: number, src: WebGLTexture | null, dst: Target, s: Sources, w: number) {
     let out = dst
     if (n.native) {
-      bindFramebufferInfo(gl, dst)
+      if (n.lim) (out = n.lim.raw).fit(dst.width, dst.height) // a limited native (native/video): limit() finishes it into dst
+      bindFramebufferInfo(gl, out)
       const fl = Object.assign(l.f, f) // no allocation: the layer's own copy, on its clock and at its size
       fl.time = l.t
       fl.dt = dt
       fl.width = dst.width
       fl.height = dst.height
       n.native.draw(fl, n.u as Record<string, Value>, src, s, l.blend) // a native filter reads src; null for a generator
+      if (n.lim) limit(n.lim, (out = dst), f.dt, f.time, false) // its first frame: limit()'s gap rule (t starts at -∞)
     } else {
       if (n.w !== dst.width || n.h !== dst.height) resize(n, dst.width, dst.height)
       n.u.TIME = n.u.iTime = l.t // ISF's names and a toy's

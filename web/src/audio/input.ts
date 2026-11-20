@@ -1,5 +1,6 @@
 // Audio input (design S2): one AudioContext; the line-in or file source feeds a fan-out hub.
 // Module-level singletons, never created in Effects (design S1).
+import { isClip } from '../clips'
 import { pickSaved, store, type UiSnapshot } from '../store'
 import type { Hit } from './drums'
 import { rms } from './energy'
@@ -144,7 +145,7 @@ document.addEventListener('dragover', (e) => e.preventDefault())
 document.addEventListener('drop', (e) => {
   e.preventDefault()
   const file = e.dataTransfer?.files[0]
-  if (!file) return
+  if (!file || isClip(file)) return // a video file is a clip (ui/Clips.tsx), never the music
   setSource(playerNode, { kind: 'file', name: file.name })
   URL.revokeObjectURL(player.src)
   player.src = URL.createObjectURL(file)

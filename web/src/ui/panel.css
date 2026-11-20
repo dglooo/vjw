@@ -211,6 +211,34 @@
 .lib li.on {
   opacity: 1; /* the scene on screen */
 }
+/* native/video's clip library (ui/Clips.tsx): the folder's buttons, then each clip with its duration and × */
+.clips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 6px;
+}
+.clips ul {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+.clips li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+  opacity: 0.7;
+}
+.clips li > span {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 :is(.panel, .stack) .head > span {
   flex: 1;
   overflow: hidden;
