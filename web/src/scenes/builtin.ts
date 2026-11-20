@@ -32,6 +32,13 @@ const syn = (...names: string[]): Record<string, Binding> => Object.fromEntries(
 const SOFT_SNARE: Binding = { ...SYN_BIND.syn_Hits, attack: 0.04, amount: 6 }
 const SOFT_KICK: Binding = { ...SYN_BIND.syn_BassHits, attack: 0.04, amount: 6 }
 
+// The melody (dsp_genre_melodic §6; user 2026-11-21 «как на это реагируем, мелодики»), added beside each scene's own
+// bindings. `pitch` (k/12; a class wins after it leads 1 s) turns a hue over ≤ .3 of the wheel, gliding 0.5 s each way:
+// colour only, ≤ 1 change a second, B → C glides back instead of jumping. `tonal` (pads, vocals, leads) eases a shape:
+// broader, softer, more flowing when melodic. Neither drives light (no ⚡, brightness, exposure or opacity).
+const pitchHue = (min: number, max: number): Binding => ({ source: 'pitch', amount: 1, attack: 0.5, release: 0.5, min, max })
+const tonalShape = (min: number, max: number): Binding => ({ source: 'tonal', amount: 1, attack: 0.4, release: 1, min, max })
+
 // Built-in scenes (design E4): JSON-compatible literals, so tsc checks them and doc.test.ts round-trips them. Immutable:
 // edits go to a copy. The order is the autopilot's: the natives, then the combinations, with the MilkDrop scenes
 // spread evenly among them (BUILTIN, at the end).
@@ -53,7 +60,7 @@ const OWN: readonly SceneDoc[] = [
   },
   {
     v: 1, id: 'builtin:glitch', name: 'Glitch', star: true,
-    layers: [{ gen: { ref: 'native/glitch', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    layers: [{ gen: { ref: 'native/glitch', bind: { ...KICK_HIT, hue: pitchHue(0.5, 0.8), pixel: tonalShape(14, 6) } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }], // the melody fines the mosaic
   },
   {
     v: 1, id: 'builtin:kaleido-tunnel', name: 'Kaleido tunnel', star: true,
@@ -113,7 +120,7 @@ const OWN: readonly SceneDoc[] = [
   {
     v: 1, id: 'builtin:flythrough', name: 'Flythrough', star: true,
     layers: [{
-      gen: { ref: 'own/flythrough', bind: { glow: { source: 'sub', amount: 1, attack: 0.02, release: 0.25, min: 0.3, max: 2 } } },
+      gen: { ref: 'own/flythrough', bind: { glow: { source: 'sub', amount: 1, attack: 0.02, release: 0.25, min: 0.3, max: 2 }, hue: pitchHue(0.4, 0.7), sway: tonalShape(0.3, 0.9) } }, // the melody sways the flight
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
       bind: { speed: { source: 'reese', amount: 1, attack: 0.05, release: 0.5, min: 0.7, max: 2 } }, // faster flight on bass
     }],
@@ -319,15 +326,15 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:fluid', name: 'Fluid', star: true,
     layers: [{
-      gen: { ref: 'own/domain-warp', bind: { warp: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 1, max: 2.2 } } }, // folds deeper on bass
+      gen: { ref: 'own/domain-warp', bind: { warp: { source: 'reese', amount: 1, attack: 0.05, release: 0.4, min: 1, max: 2.2 }, hue: pitchHue(0.15, 0.45), scale: tonalShape(1.15, 0.8) } }, // folds deeper on bass, broadens on the melody
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
     }],
   },
   {
     v: 1, id: 'builtin:lava-smoke', name: 'Lava smoke', star: true,
     layers: [{
-      gen: { ref: 'own/metaballs', bind: { size: { source: 'sub', amount: 1, attack: 0.03, release: 0.3, min: 0.9, max: 1.3 } } },
-      fx: [{ ref: 'own/smoke', bind: { curl: { source: 'reese', amount: 1, attack: 0.05, release: 0.5, min: 0.2, max: 0.7 } } }], // the blobs steam
+      gen: { ref: 'own/metaballs', bind: { size: { source: 'sub', amount: 1, attack: 0.03, release: 0.3, min: 0.9, max: 1.3 }, hue: pitchHue(0.86, 1) } }, // warm only: yellow-orange → red
+      fx: [{ ref: 'own/smoke', bind: { curl: { source: 'reese', amount: 1, attack: 0.05, release: 0.5, min: 0.2, max: 0.7 }, eddies: tonalShape(4, 2) } }], // the blobs steam, in broader eddies on the melody
       blend: 'normal', opacity: 1, speed: 1, res: 1,
     }],
   },
@@ -377,7 +384,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:bloom-glitch', name: 'Bloom glitch', star: true, // no bass-class binding, so Auto-style changes nothing
-    layers: [{ gen: { ref: 'native/glitch', bind: KICK_HIT }, fx: [{ ref: 'own/bloom', bind: BLOOM }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    layers: [{ gen: { ref: 'native/glitch', bind: { ...KICK_HIT, hue: pitchHue(0.5, 0.8), pixel: tonalShape(14, 6) } }, fx: [{ ref: 'own/bloom', bind: BLOOM }], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:light-tunnel', name: 'Light tunnel', star: true,
@@ -1126,7 +1133,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:kaleidowhoa-man', name: 'KaleidoWHOA, MAN', star: true, // dnb · Meebs (syn_BeatTime: the beat count, unbound)
     // res .85 (was .4, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
-    layers: [{ gen: { ref: 'syn/kaleidowhoa_man', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Presence', 'syn_HighHits', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
+    // the melody: color_selector is a hue offset (its HSV hue + it), complexity the fold's x scale
+    layers: [{ gen: { ref: 'syn/kaleidowhoa_man', bind: { ...syn('syn_OnBeat', 'syn_BassLevel', 'syn_Presence', 'syn_HighHits', 'syn_Level'), color_selector: pitchHue(2.7, 3), complexity: tonalShape(1.2, 0.8) } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   // Port lane B2a (2026-11-17): the scenes with clocks and manual control decisions (each file's header says which).
   {
@@ -1152,7 +1160,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   {
     v: 1, id: 'builtin:fractilian-foundation', name: 'Fractilian Foundation', star: true, // dnb · mojovideotech, CC BY-NC-SA 3.0 · I-FL1 1/s, billed p95 6.68 ms
-    layers: [{ gen: { ref: 'syn/fractilian_foundation', bind: syn('syn_Presence', 'syn_BPMSin4', 'syn_ToggleOnBeat', 'syn_Level', 'syn_BassLevel') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
+    // the melody: colorModifier shifts the palette index, fractal_softness the rings' frequency (lower = softer)
+    layers: [{ gen: { ref: 'syn/fractilian_foundation', bind: { ...syn('syn_Presence', 'syn_BPMSin4', 'syn_ToggleOnBeat', 'syn_Level', 'syn_BassLevel'), colorModifier: pitchHue(0.7, 1), fractal_softness: tonalShape(0.28, 0.12) } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
   {
     v: 1, id: 'builtin:hex-array', name: 'Hex Array', star: true, // dnb · sheltron (syn_BeatTime: the beat count, unbound) · I-FL1 1/s, billed p95 4.77 ms
@@ -1573,7 +1582,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   {
     v: 1, id: 'builtin:lost-in-the-sauce', name: 'Lost in the Sauce', star: true, // Keijiro Takahashi x Meebs · ⚡ syn_OnBeat (no media: the side lines feed it) · I-FL1 1/s, billed p95 3.72 ms
     // res .85 (was .5, 2026-11-19, agents/guides/guide_syn_res_085.md): res only
-    layers: [{ gen: { ref: 'syn/lost_in_the_sauce', bind: syn('syn_OnBeat', 'syn_BassLevel', 'syn_Level') }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
+    // the melody: hue_adjust turns the lines' HSV hue, scale the feedback displacement's noise (lower = broader)
+    layers: [{ gen: { ref: 'syn/lost_in_the_sauce', bind: { ...syn('syn_OnBeat', 'syn_BassLevel', 'syn_Level'), hue_adjust: pitchHue(0, 0.3), scale: tonalShape(0.6, 0.35) } }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.85 }],
   },
   {
     // Library-only: the donor's audio monitor (spectrum, waveform, the level trail, the input meter), a tool, not a look
