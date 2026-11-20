@@ -10,9 +10,12 @@ export interface CustomBand { id: string; name: string; lo: number; hi: number; 
 // pick: a preset chosen by hand (null = follow the detected genre); sens: the user's gain per source id, 0..2, missing = 1;
 // mute: the source ids that read 0 (bind.ts gain() applies both, in every scene); analyser: the detection the syn_* inputs
 // follow, ours or the donor-style core (plan_audio_donor_mode S1.4; app.ts ramps src.donorMix toward it), or 'vs3': the
-// vs3 scenes hear through the vs3 core (audio/vs3.ts), every other scene as ours; bpm: the manual BPM lock (sync.ts
-// setManual, user 2026-11-20), missing = auto
-export interface AudioSettings { v: 1; auto: boolean; pick: PresetId | null; sens: Record<string, number>; mute: string[]; custom: CustomBand[]; analyser: 'ours' | 'donor' | 'vs3'; bpm?: number }
+// vs3 scenes hear through the vs3 core (audio/vs3.ts), every other scene as ours, or 'off' (user 2026-11-21): the
+// analysis runs on, the visuals hear silence and every bound input sits at its stored value (app.ts, bind.ts gain(),
+// post.ts boundStep); resume: the mode Off turned off, which toggleAnalysis turns back on; bpm: the manual BPM lock
+// (sync.ts setManual, user 2026-11-20), missing = auto
+export interface AudioSettings { v: 1; auto: boolean; pick: PresetId | null; sens: Record<string, number>; mute: string[]; custom: CustomBand[]; analyser: Mode | 'off'; resume?: Mode; bpm?: number }
+type Mode = 'ours' | 'donor' | 'vs3'
 type Kv = Pick<Storage, 'getItem' | 'setItem'>
 type Obj = Record<string, unknown>
 
@@ -31,7 +34,8 @@ const MAX_RATE = 96_000
 const LIMITS = [['gain', 'gain', 4], ['gate', 'threshold', 1], ['attack', 'attack (s)', 2], ['release', 'release (s)', 2]] as const
 
 const defaults = (): AudioSettings => ({ v: 1, auto: true, pick: null, sens: {}, mute: [], custom: [], analyser: 'ours' })
-const isAnalyser = (x: unknown): x is AudioSettings['analyser'] => x === 'ours' || x === 'donor' || x === 'vs3'
+const isMode = (x: unknown): x is Mode => x === 'ours' || x === 'donor' || x === 'vs3'
+const isAnalyser = (x: unknown): x is AudioSettings['analyser'] => isMode(x) || x === 'off'
 const isObj = (x: unknown): x is Obj => typeof x === 'object' && x !== null && !Array.isArray(x)
 const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
 const within = (x: unknown, lo: number, hi: number): x is number => finite(x) && x >= lo && x <= hi
@@ -59,6 +63,7 @@ export function parseSettings(x: unknown): AudioSettings {
   if (isObj(x.sens)) for (const [k, v] of Object.entries(x.sens)) if (finite(v)) s.sens[k] = Math.min(2, Math.max(0, v))
   if (Array.isArray(x.mute)) s.mute = [...new Set(x.mute.filter((k): k is string => typeof k === 'string'))]
   if (isAnalyser(x.analyser)) s.analyser = x.analyser
+  if (isMode(x.resume)) s.resume = x.resume
   if (finite(x.bpm) && x.bpm > 0) s.bpm = Math.min(BPM_RANGE[1], Math.max(BPM_RANGE[0], x.bpm))
   for (const c of Array.isArray(x.custom) ? x.custom : []) {
     if (s.custom.length >= MAX_BANDS) break
@@ -92,9 +97,12 @@ export function createSettings(kv: Kv, sampleRate = RATE) {
     /** The settings in force: a snapshot, replaced (never edited) by every change, so it can feed `useSyncExternalStore`. */
     get: () => state,
     /** Changes the named fields (`sens` and `mute` are replaced as a whole) and re-checks the result, so a slider's NaN or a
-     *  bad pick is repaired. An invalid `analyser` keeps the mode in force (plan S1.4 T4c), not the default. */
-    patch: (p: Partial<Pick<AudioSettings, 'auto' | 'pick' | 'sens' | 'mute' | 'analyser' | 'bpm'>>) =>
-      commit(parseSettings({ ...state, ...p, analyser: isAnalyser(p.analyser) ? p.analyser : state.analyser })),
+     *  bad pick is repaired. An invalid `analyser` keeps the mode in force (plan S1.4 T4c), not the default. A turn to
+     *  'off' keeps the mode it turns off as `resume`. */
+    patch: (p: Partial<Pick<AudioSettings, 'auto' | 'pick' | 'sens' | 'mute' | 'analyser' | 'bpm'>>) => {
+      const analyser = isAnalyser(p.analyser) ? p.analyser : state.analyser
+      commit(parseSettings({ ...state, ...p, analyser, resume: isMode(state.analyser) && analyser === 'off' ? state.analyser : state.resume }))
+    },
     /** Adds a custom band under a new id. Returns an error message, or null once added (the band is `get().custom.at(-1)`). */
     addBand(b: Omit<CustomBand, 'id'>): string | null {
       const err = state.custom.length >= MAX_BANDS ? `at most ${MAX_BANDS} custom bands` : bandError(b, TOP * Math.min(sampleRate, MAX_RATE))
@@ -112,6 +120,9 @@ export function createSettings(kv: Kv, sampleRate = RATE) {
     },
   }
 }
+
+/** The analysis switch (the A hotkey, a MIDI pad): Off, or back on in the mode Off turned off (ours if none). */
+export const toggleAnalysis = (s: AudioSettings): Pick<AudioSettings, 'analyser'> => ({ analyser: s.analyser === 'off' ? (s.resume ?? 'ours') : 'off' })
 
 /** The preset in force (design C4): a hand pick wins, else the detected genre while Auto is on, else Default. */
 export const activePreset = (s: AudioSettings, detected: Genre | null): PresetId => s.pick ?? (s.auto ? (detected ?? 'default') : 'default')

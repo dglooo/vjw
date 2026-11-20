@@ -75,12 +75,21 @@ export function sources(f: FrameInput, out: Sources): Sources {
 
 /** The user's gain and mute per source (the Sources tab), in place: app.ts runs it once per frame after every source is
  *  filled, before Auto-style, a binding, a clock or a scene reads one. × `sens` (missing = 1): a level stays ≤ 1, a
- *  count speeds up. A muted source reads 0, so a binding on it falls to `min` and a clock on it runs at its base. */
-export function gain(out: Sources, { sens, mute }: Pick<AudioSettings, 'sens' | 'mute'>): Sources {
+ *  count speeds up. A muted source reads 0, so a binding on it falls to `min` and a clock on it runs at its base. The
+ *  analyser 'off' (user 2026-11-21): every source reads 0, as in silence (`analysis` bypasses the bindings). */
+export function gain(out: Sources, { sens, mute, analyser }: Pick<AudioSettings, 'sens' | 'mute'> & Partial<Pick<AudioSettings, 'analyser'>>): Sources {
+  if (analyser === 'off') {
+    for (const id in out) out[id] = 0
+    return out
+  }
   for (const id in sens) if (Object.hasOwn(out, id)) out[id] = PHASES.includes(id) ? sens[id] * out[id] : Math.min(1, sens[id] * out[id])
   for (const id of mute) out[id] = 0
   return out
 }
+
+/** The analysis switch (settings.analyser 'off', user 2026-11-21), app.ts's every frame: while off, every bound input
+ *  reads its stored value, a ⚡ one 0 (live.ts, post.ts boundStep), and milkdrop hears silence. */
+export const analysis = { off: false }
 
 /** Auto-style's overlay (design C5): `out` (≠ `s`) is a copy of `s`, then each key of either map crossfades from the
  *  source `from` names to the one `to` names, a missing name being the key itself. `w` 0 → 1 is the fade; Auto off is

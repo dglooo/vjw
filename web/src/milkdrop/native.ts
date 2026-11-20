@@ -4,6 +4,7 @@
 import butterchurn, { type Visualizer } from 'butterchurn'
 import { createTexture } from 'twgl.js'
 import { analyser, ctx } from '../audio/input'
+import { analysis } from '../bind'
 import { fullscreenProgram, gl } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'
 import { createMix } from './levels'
@@ -96,7 +97,8 @@ export const milkdrop: readonly NativeDef[] = PRESETS.map((p): NativeDef => ({
           return
         }
         if (v.internalCanvas.width !== f.width || v.internalCanvas.height !== f.height) v.setRendererSize(f.width, f.height, PX)
-        analyser.getByteTimeDomainData(bytes)
+        if (analysis.off) bytes.fill(128) // the analysis off (user 2026-11-21): the preset hears silence
+        else analyser.getByteTimeDomainData(bytes)
         mix.frame(s, sync as number, f.dt, f.sync.bpm > 0 ? 60 / f.sync.bpm : BEAT)
         mixing = mix
         v.render({ audioLevels, elapsedTime: f.dt }) // its unit, G10
