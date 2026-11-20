@@ -187,6 +187,8 @@ All three sources come from one new `AnalyserNode` (`fftSize` 4096, `smoothingTi
 
 Order: G1 → G2 (genre lane) ‖ M1 → M2 → D1 (melody lane). The two lanes touch disjoint files except `app.ts` (one line each).
 
+- [x] **G1** (frontend-coder 2026-11-21): the drums.test.ts pluck test measured P 1.00 / R 1.00 at `minGap` 0.3 and P .50 / R 1.00 at 0.06. **Changed during implementation:** (1) `synth.ts` (the test fixtures) gains `tone` + `norm`, copied from `fx.ts`: the drums test (pluck) and the arrange test (pad, rumble) share them. (2) The three 4/4 presets spread one `FOUR` base, so Psytrance and House also carry Techno's Auto-style `map` (onset → kick, treb → hats). (3) Picker order: Default, Drum & Bass, Dubstep / bass, Psytrance, Techno, House.
+
 ## §8 Risks, ambiguous cases, gaps
 - **No real psytrance, techno or house track.** Every 4/4 number is synthetic: one drum kit (`synth.ts`), one bass per genre, one lead, no master chain. Ask the user for 3–5 tracks per genre (FLAC/WAV in `tracks/`, never committed). Then re-run `replay2.mjs` on 70 s windows with drum refs (`dsp-misses/ref.py` on demucs `drums` stems) before G1/G2 ship as more than a manual pick.
 - **A real rolling psy bass** may trip the kick gate: the synthetic one did not. `minGap` 0.3 s suppresses a bass note only after a detected kick. If a bass note leads, the real kick is lost for 0.3 s.
