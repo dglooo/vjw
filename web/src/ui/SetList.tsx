@@ -4,8 +4,8 @@ import { docs, move } from '../edit'
 import { adjustForSource, insertIndex } from '../editor/dnd'
 import { transitions } from '../fx/catalog'
 import { panel } from '../gl/live'
-import { library } from '../library'
-import { BARS, type Cue, type SetList } from '../setlist'
+import { download, library } from '../library'
+import { BARS, importSets, setFile, type Cue, type SetList } from '../setlist'
 import { store } from '../store'
 
 const sceneName = (id: string) => (docs.get(id) ?? library.get(id))?.name
@@ -21,7 +21,8 @@ const release = (e: PointerEvent) => {
 
 /** The top bar's Set menu (setlist.ts, user 2026-11-20: the groundwork): pick, make, rename or delete a set; add the
  *  scene on stage with its preset as a cue; drag the cues into order by their names; give each its bars or a hold and
- *  a transition into it; delete one; arm / disarm the set (app.ts armSet). Armed, its summary reads the cue on stage. */
+ *  a transition into it; delete one; arm / disarm the set (app.ts armSet). Armed, its summary reads the cue on stage.
+ *  Step 2 (user 2026-11-21): export the set or all sets as a .json file, import one (the button, or a drop on the menu). */
 export function SetMenu() {
   const sets = useSyncExternalStore(library.onChange, library.sets)
   const armed = useSyncExternalStore(store.subscribe, () => store.getSnapshot().armedSet)
@@ -31,6 +32,8 @@ export function SetMenu() {
   const [sure, setSure] = useState(false) // delete set: the second click deletes
   const [line, setLine] = useState(-1) // a drag's insert line: above cue `line` (the cue count: the end)
   const drag = useRef<number | null>(null)
+  const file = useRef<HTMLInputElement>(null)
+  const [note, setNote] = useState<{ text: string; dropped: string[] } | null>(null) // the last import's report
   const i = Math.min(pick, sets.length - 1) // -1: no set yet
   const set = sets[i] as SetList | undefined
   const playing = armed === i ? director.cue()?.of : undefined
@@ -59,6 +62,17 @@ export function SetMenu() {
     const preset = panel.presetNode()?.now?.name
     if (edited) save({ ...set!, cues: [...set!.cues, { scene: edited, bars: 16, ...(preset && { preset }) }] })
   }
+  /** A set file's sets after the user's, the first picked (setlist.ts importSets: a taken name gets a suffix), and the
+   *  report: what came in, each left-out set or cue with its reason. */
+  async function load(f: File) {
+    const have = library.sets()
+    const { sets: got, dropped } = importSets(have, await f.text())
+    if (got.length) {
+      library.setSets([...have, ...got])
+      choose(have.length)
+    }
+    setNote({ text: got.length ? `Imported ${got.map((s) => `"${s.name}"`).join(', ')}` : `No set in ${f.name}`, dropped })
+  }
   /** The drop's insert index under the pointer, or null for a drag that is not a cue's (a file: the document plays it). */
   const over = (e: DragEvent<HTMLElement>) => {
     if (drag.current === null) return null
@@ -70,7 +84,20 @@ export function SetMenu() {
     setLine(-1)
   }
   return (
-    <details className="midi setlist" onPointerUp={release}>
+    <details
+      className="midi setlist"
+      onPointerUp={release}
+      onToggle={(e) => {
+        if (!e.currentTarget.open) setNote(null)
+      }}
+      onDrop={(e) => {
+        const f = e.dataTransfer.files[0]
+        if (!f?.name.toLowerCase().endsWith('.json')) return // audio: the document's drop plays it
+        e.preventDefault()
+        e.stopPropagation()
+        void load(f)
+      }}
+    >
       <summary className={armed === null ? undefined : 'on'}>{cue || 'Set'}</summary>
       <div className="menu">
         {naming && set ? (
@@ -195,6 +222,38 @@ export function SetMenu() {
             </div>
           </>
         )}
+        <span className="line">
+          {set && (
+            <button title="Download this set as a .json file" onClick={() => download(`veejay-set-${set.name}.json`, setFile([set]))}>
+              export
+            </button>
+          )}
+          {sets.length > 1 && (
+            <button title="Download every set as one .json file" onClick={() => download('veejay-sets.json', setFile(sets))}>
+              export all
+            </button>
+          )}
+          <button title="Add the sets of a .json set file (or drop one on this menu)" onClick={() => file.current!.click()}>
+            import…
+          </button>
+          <input
+            ref={file}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = '' // the same file can come in again
+              if (f) void load(f)
+            }}
+          />
+        </span>
+        {note && <p>{note.text}</p>}
+        {note?.dropped.map((d, k) => (
+          <p key={k} className="err">
+            left out: {d}
+          </p>
+        ))}
       </div>
     </details>
   )

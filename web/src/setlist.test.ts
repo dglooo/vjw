@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { parseSets } from './setlist'
+import { importSets, parseSets, setFile, type SetList } from './setlist'
 
 test('parseSets keeps the good cues and sets, and drops each bad one with its reason', () => {
   const good = { scene: 'builtin:tunnel', preset: 'hall', bars: 16, transition: 'gl/Swirl' }
@@ -31,4 +31,20 @@ test('parseSets keeps the good cues and sets, and drops each bad one with its re
   })
   expect(parseSets(null)).toEqual({ sets: [], dropped: [] }) // nothing stored
   expect(parseSets({ name: 'not a list' }).sets).toEqual([])
+})
+
+test('a set file round-trips; a taken name gets a suffix, both kept; a bad file reports its reasons and keeps the good cues', () => {
+  const set: SetList = { name: 'Friday', cues: [{ scene: 'builtin:tunnel', preset: 'hall', bars: 16, transition: 'gl/Swirl' }, { scene: 'x', bars: 'hold' }] }
+  expect(importSets([], setFile([set]))).toEqual({ sets: [set], dropped: [] })
+  expect(importSets([set], setFile([set, set])).sets.map((s) => s.name)).toEqual(['Friday (2)', 'Friday (3)'])
+  expect(importSets([], JSON.stringify([set])).sets).toEqual([set]) // a bare list, as vjw.sets holds
+  expect(importSets([], JSON.stringify({ sets: [{ name: 'A', cues: [set.cues[0], { bars: 4 }] }, { cues: [] }] }))).toEqual({
+    sets: [{ name: 'A', cues: [set.cues[0]] }],
+    dropped: ['set "A", cue 2: no scene id', 'set 2: no name'],
+  })
+  const bad = importSets([set], '{"sets": [')
+  expect(bad.sets).toEqual([])
+  expect(bad.dropped).toHaveLength(1)
+  expect(bad.dropped[0]).toMatch(/^not a set file: /)
+  expect(importSets([], JSON.stringify({ v: 1, scenes: [] }))).toEqual({ sets: [], dropped: [] }) // a library file: no set
 })

@@ -2,7 +2,7 @@
 // optional preset of it (presets.ts, by name), its length in bars or a hold (it stays until the next →), and an optional
 // transition into it (fx/catalog.ts `transitions`, by id). An armed set's cues play on the bar lines in place of the
 // playlist (director.ts arm). The sets are kept beside the marks (library.ts: vjw.sets, the dev mirror, the build's
-// bake). Pure.
+// bake) and travel as set files (setFile / importSets). Pure.
 import type { SceneId } from './doc'
 
 export interface Cue { scene: SceneId; preset?: string; bars: number | 'hold'; transition?: string }
@@ -48,6 +48,32 @@ export function parseSets(x: unknown): { sets: SetList[]; dropped: string[] } {
     return [{ name: s.name, cues }]
   })
   return { sets, dropped }
+}
+
+/** A set file's text (the Set menu's export): `{ v: 1, sets }`; importSets reads it back. */
+export const setFile = (sets: readonly SetList[]) => `${JSON.stringify({ v: 1, sets }, null, 2)}\n`
+
+/** The sets of a set file's `text` (a bare list too, as vjw.sets holds), through the trust boundary (parseSets), to add
+ *  after `have`: a name `have` or an earlier one of the file already takes gets ` (2)`, ` (3)`… (both kept). `dropped`:
+ *  each left-out set or cue with its reason, or why the text is no set file. */
+export function importSets(have: readonly SetList[], text: string): { sets: SetList[]; dropped: string[] } {
+  let x: unknown
+  try {
+    x = JSON.parse(text)
+  } catch (e) {
+    return { sets: [], dropped: [`not a set file: ${(e as Error).message}`] }
+  }
+  const { sets, dropped } = parseSets(rec(x) ? x.sets : x)
+  const taken = new Set(have.map((s) => s.name))
+  return {
+    sets: sets.map((s) => {
+      let name = s.name
+      for (let n = 2; taken.has(name); n++) name = `${s.name} (${n})`
+      taken.add(name)
+      return { ...s, name }
+    }),
+    dropped,
+  }
 }
 
 /** The bar's line for the armed set's cue `i` (from 0) of `n`: `cue 3 / 12 · 7 bars left`, `left` Infinity: a hold;
