@@ -77,6 +77,23 @@ export function boundStep(x: Chain & { donor?: Chain; flash?: FlashState }, s: S
   return x.flash ? flashGate(y, x.flash, onsets, t, x.donor && w > 0 ? DONOR_WCAG : WCAG) : y
 }
 
+// knob: the toy limiter's (live.ts) largest frame-mean luma step per frame: under H2's .10 even through the post pass's
+// gain 1.4 (postFor: heat + strobe), .06 × 1.4 = .084, with room for the mip mean's error
+export const TOY_STEP = 0.06
+const TOY_RATE = TOY_STEP * 60 // per s: at 120 fps a frame takes half, so a fast strobe keeps the same swing per second
+/** The toy limiter's step this frame, `dt` s of real time (not the layer's clock, which MUSIC_TIME speeds up). */
+export const toyStep = (dt: number) => Math.min(TOY_STEP, TOY_RATE * dt)
+/** The toy / shader-editor flash limiter (hardening 2026-11-19; live.ts runs it on the GPU, the same three lines in
+ *  LIMIT): a toy's own light follows its frame-mean luma `cur` by at most `step` per frame from the last output's `prev`.
+ *  `k`: the mix from the last output toward the new frame (1: the toy as drawn), so `mean` is the output's luma exactly.
+ *  The first frame is the toy's. ponytail: it caps the per-frame step (H2), not the swing: an 8 Hz full-frame strobe
+ *  still pulses ≈ .2 at 60 fps; count WCAG flash pairs on the GPU if a softer pulse must go too. */
+export function toyLimit(prev: number, cur: number, step: number, first: boolean) {
+  const d = cur - prev
+  const k = first || Math.abs(d) <= step ? 1 : step / Math.abs(d)
+  return { mean: prev + k * d, k }
+}
+
 // knob: s, a native's ⚡ hit's rise time constant as drawn: a frame takes 1 - e^(-dt/HOT_RISE) of the step (34 % at
 // 60 fps), so an allowed hit's full light step (particles: ≈ +.11 frame-mean luma at 65 536 points) never makes a luma
 // step > .10 in one frame (I-FL1)
