@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { createAnalysis } from './analysis'
-import { createDrums, type Drum, type Floors } from './drums'
+import { createDrums, KNOBS, type Drum, type Knobs } from './drums'
 import type { Genre } from './presets'
 import { parseSettings, workletBands } from './settings'
 import { mix, pattern, reese, room, SR, sub, wobble, type Stem, type Track } from './synth'
@@ -11,15 +11,16 @@ const DRUMS: Drum[] = ['kick', 'snare', 'hats']
 const BED: Stem[] = ['reese', 'sub', 'room']
 
 /** Hit times per drum for a signal run through the worklet's body (analysis.ts) in render quanta, after a 0.5 s warm-up
- *  (the bed's own start); at `genre`'s config (its floors) if given, else the default floors. */
-function hitsOf(x: Float32Array, genre?: Genre) {
+ *  (the bed's own start); at `genre`'s config (its knobs) if given, else the default knobs; `knobs` overrides. */
+function hitsOf(x: Float32Array, genre?: Genre, knobs?: Knobs) {
   const a = createAnalysis(SR)
-  if (genre) a.configure({ kind: 'config', rev: 1, ...workletBands(parseSettings(null), genre) })
+  const c = workletBands(parseSettings(null), genre ?? 'default')
+  if (genre || knobs) a.configure({ kind: 'config', rev: 1, ...c, knobs: knobs ?? c.knobs })
   const hits: Record<Drum, number[]> = { kick: [], snare: [], hats: [] }
   for (let i = 0; i + 128 <= x.length; i += 128)
     a.block([x.subarray(i, i + 128)], i, (h) => {
       if (h.kind !== 'hit') return
-      expect(h.strength).toBeGreaterThanOrEqual(h.drum === 'kick' ? 1.35 : 1.5) // odf/mean or the kick's gate ratio (KICK), capped at 4
+      expect(h.strength).toBeGreaterThanOrEqual({ kick: 1.35, snare: 1.3, hats: 1.5 }[h.drum]) // the kick's gate ratio (trigger) or odf/mean (threshold), capped at 4
       expect(h.strength).toBeLessThanOrEqual(4)
       if (h.t > 0.5) hits[h.drum].push(h.t)
     })
@@ -178,16 +179,52 @@ test('a double kick 53 ms apart fires once, 64 ms apart twice (the <60 ms re-tri
   expect([kicks(10), kicks(12)]).toEqual([1, 2])
 })
 
-test('floors: snare 40 / hats 50 by default, setFloors moves them (real-track ruling 2026-11-05: Dubstep sends 80/100)', () => {
+test('snare floor 30 + threshold 1.3 (dsp_kick_snare_misses §6): a backbeat at .8 of the old floor of 40, and at .85 of the old mean × 1.5 + 40 over a busy band, fires', () => {
+  // 43 snare bins at one level rise 43·log1p(1000·level) from a 0 hop: lvl(f) is that hop with a rise of f
+  const lvl = (f: number) => frame([[11, 53]], Math.expm1(f / 43) / 1000)
+  const quiet = frame([])
+  // 32 hops alternating 60 and 0: the 16-hop mean is 30 at the end, so 1.3·30 + 30 = 69 (master: 1.5·30 + 40 = 85).
+  // The bed's own last hit is 22 hops (117 ms) before the end: no minGap left.
+  const bed = Array.from({ length: 32 }, (_, i) => (i % 2 ? quiet : lvl(60)))
+  const snare = (pre: Float32Array[], f: number, k = KNOBS) => {
+    const d = createDrums(SR, N)
+    d.setKnobs(k)
+    return fire([...pre, lvl(f)], d).at(-1)!.includes('snare')
+  }
+  expect([32, 28].map((f) => snare([quiet, quiet], f))).toEqual([true, false]) // from silence: the floor alone
+  expect([72, 66].map((f) => snare(bed, f))).toEqual([true, false])
+  expect(snare(bed, 72, { ...KNOBS, snareThreshold: 1.5 })).toBe(false) // a preset's threshold applies in place
+})
+
+/** A held 55 Hz sub (0.2) that 8 kicks tuned to it lift by +6 dB: a sin² rise over `rise` s, then a 60 ms decay. The
+ *  kicks are 411.3 ms apart from 0.6 s, off the hop grid, so each sits at another hop phase. */
+function swell(rise: number) {
+  const at = Array.from({ length: 8 }, (_, k) => 0.6 + 0.4113 * k)
+  const env = (t: number) => (t < 0 || t > 0.4 ? 0 : t < rise ? Math.sin((Math.PI / 2) * (t / rise)) ** 2 : Math.exp(-(t - rise) / 0.06))
+  return Float32Array.from({ length: 4 * SR }, (_, i) => {
+    const t = i / SR
+    return 0.2 * (1 + (10 ** (6 / 20) - 1) * Math.max(...at.map((s) => env(t - s)))) * Math.sin(2 * Math.PI * 55 * t)
+  })
+}
+
+test('a kick +6 dB over a held sub with a 70 ms low-end rise fires, a 120 ms swell does not (the kick-only 40 ms follower, dsp_kick_snare_misses §6)', () => {
+  // The 20 ms gate follower keeps up with a 70 ms rise (ratio under the 1.35 trigger, master: 0 of 8); the 40 ms one lags
+  // it. Real masters' missed kicks rise 2–7.5 dB over a −6 to −11 dBFS bed (§4.2). A bass note's slower swell stays out.
+  expect([hitsOf(swell(0.07)).kick.length, hitsOf(swell(0.12)).kick.length]).toEqual([8, 0])
+  expect(hitsOf(swell(0.07), undefined, { ...KNOBS, kickSlow: 0.02 }).kick.length).toBe(0) // a preset's τ reaches the tempo bank
+})
+
+test('knobs: snare 30 / hats 50 and the kick at 1.35 by default, setKnobs moves them in place (Dubstep sends 80/100)', () => {
   // From silence, 43 snare bins at 0.003 rise 43·log1p(3) ≈ 60 and 96 hats bins at 0.001 rise 96·log1p(1) ≈ 67
   const mid = Float32Array.from({ length: N / 2 + 1 }, (_, k) => (k >= 11 && k <= 53 ? 0.003 : k >= 75 && k <= 170 ? 0.001 : 0))
   const quiet = frame([])
-  const at = (f: Floors) => {
+  const at = (k: Knobs, m = mid) => {
     const d = createDrums(SR, N)
-    d.setFloors(f)
-    return fire([quiet, quiet, mid], d)[2]
+    d.setKnobs(k)
+    return fire([quiet, quiet, m], d)[2]
   }
   expect(fire([quiet, quiet, mid])[2]).toEqual(['hats', 'snare'])
-  expect(at({ snare: 80, hats: 100 })).toEqual([])
-  expect(at({ snare: 40, hats: 100 })).toEqual(['snare'])
+  expect(at({ ...KNOBS, floors: { snare: 80, hats: 100 } })).toEqual([])
+  expect(at({ ...KNOBS, floors: { snare: 40, hats: 100 } })).toEqual(['snare'])
+  expect([at(KNOBS, frame([[1, 1]])), at({ ...KNOBS, kick: 2.5 }, frame([[1, 1]]))]).toEqual([['kick'], []]) // at ratio 2
 })

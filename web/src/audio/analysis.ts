@@ -46,7 +46,7 @@ export function createAnalysis(sampleRate: number): {
 
   return {
     /** An older or repeated rev is ignored. Drums restart only when their bands change: a restart drops the flux
-     * history, so the next hop would fire every drum at full strength. Floors apply in place, at once (drum Hz are equal
+     * history, so the next hop would fire every drum at full strength. Knobs apply in place, at once (drum Hz are equal
      * across presets, so a preset switch restarts nothing). */
     configure(c) {
       if (c.rev <= (next?.rev ?? rev)) return
@@ -56,7 +56,8 @@ export function createAnalysis(sampleRate: number): {
         drumKey = key
         drums.configure(c.drums)
       }
-      drums.setFloors(c.floors)
+      drums.setKnobs(c.knobs)
+      tempo.setKickSlow(c.knobs.kickSlow)
     },
     /** One render quantum; `frame` = the worklet's currentFrame. */
     block(chans, frame, post) {
@@ -84,7 +85,9 @@ export function createAnalysis(sampleRate: number): {
       const t = (frame + BLOCK) / sampleRate // end of the window: the block that completed this hop
       const onset = detector.detect(mag, t)
       if (onset) post({ kind: 'onset', ...onset })
-      for (const h of drums.detect(mag, t, tempo.ratio(0))) post({ kind: 'hit', ...h }) // the onset's hop (C2); the kick's gate (ruling 2026-11-05)
+      // the onset's hop (C2); the kick triggers on its own 40 ms gate follower (dsp_kick_snare_misses §6), the crosstalk
+      // weighs it on the 20 ms one
+      for (const h of drums.detect(mag, t, tempo.kickRatio(0), tempo.ratio(0))) post({ kind: 'hit', ...h })
       odf[hops % ODF_BATCH] = Math.max(0, tempo.ratio(0) - 1) + Math.max(0, tempo.ratio(1) - 1)
       if (++hops % ODF_BATCH === 0) {
         post({ kind: 'odf', t0: t - (ODF_BATCH - 1) * hop, hop, values: odf.slice() })

@@ -20,8 +20,8 @@ const MAX_STRENGTH = 4
 
 export function createDetector(opts?: Partial<DetectorOpts>) {
   const o = { ...DEFAULTS, ...opts }
-  const { threshold, meanWindow, minGap } = o
-  let { floor } = o
+  const { meanWindow, minGap } = o
+  let { threshold, floor } = o
   const hist = new Float64Array(meanWindow) // ODF ring, oldest at `pos`
   let pos = 0
   let prev: Float64Array | null = null // last hop's log-compressed magnitudes
@@ -39,6 +39,13 @@ export function createDetector(opts?: Partial<DetectorOpts>) {
     },
     set floor(v: number) {
       floor = v
+    },
+    /** The threshold, settable in place as the floor (drums.ts's per-preset snare threshold). */
+    get threshold() {
+      return threshold
+    },
+    set threshold(v: number) {
+      threshold = v
     },
     /** `ok` false vetoes the hop (drums.ts: the snare's tilt): its ODF is 0, so it arms no minGap, wins no peak window
      *  and doesn't lift the mean, and the last hop that passed stays the reference (a snare right after a vetoed saw
