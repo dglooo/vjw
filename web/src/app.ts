@@ -66,7 +66,7 @@ const playlist = () => library.playlist((playLive = cam.live))
 const director = createDirector(playlist(), { confidentTheta: CONFIDENT, slot: (id) => library.slot(id, playLive) })
 library.onChange(() => director.setPlaylist(playlist()))
 // The set list (setlist.ts, user 2026-11-20): the armed set's cues play in place of the playlist (director.arm), each
-// fading in with its own transition and preset (frame()); ←/→ step through them. A cue whose scene is gone (a deleted
+// fading in with its own transition, preset and switches (frame()); ←/→ step through them. A cue whose scene is gone (a deleted
 // user scene, New's draft after a reload) sits out: `live` throws on an unknown id. An edit of the armed set re-arms it
 // (the same cue objects: the cue on stage plays on); a set with no playable cue disarms.
 let armedCues: readonly Cue[] | null = null
@@ -491,6 +491,8 @@ function frame(now: number) {
     if (cue?.transition && transitions.includes(cue.transition)) setTransition((transition = cue.transition))
     else if (others.length) setTransition((transition = others[Math.floor(Math.random() * others.length)]))
     presetDue = cue?.preset ? cue : null
+    if (cue?.text !== undefined) showText(cue.text) // its switches (setlist.ts), as X and A would; absent: as they are
+    if (cue?.analysis !== undefined && cue.analysis === (settings.get().analyser === 'off')) settings.patch(toggleAnalysis(settings.get()))
   }
   fadingTo = shot.to
   // Between fades: the next scene built, the others freed (E2). The editor holds, so no next scene (a ring costs 62 MB).

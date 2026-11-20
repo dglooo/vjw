@@ -33,8 +33,16 @@ test('parseSets keeps the good cues and sets, and drops each bad one with its re
   expect(parseSets({ name: 'not a list' }).sets).toEqual([])
 })
 
+test('a cue\'s switches parse; a bad value drops its cue with the reason', () => {
+  const on = { scene: 'a', bars: 4, text: false, analysis: true }
+  expect(parseSets([{ name: 'S', cues: [on, { scene: 'b', bars: 4, text: 'on' }, { scene: 'c', bars: 4, analysis: 1 }, { scene: 'd', bars: 4, text: null }]}])).toEqual({
+    sets: [{ name: 'S', cues: [on] }],
+    dropped: ['set "S", cue 2: text "on": true, false or absent', 'set "S", cue 3: analysis 1: true, false or absent', 'set "S", cue 4: text null: true, false or absent'],
+  })
+})
+
 test('a set file round-trips; a taken name gets a suffix, both kept; a bad file reports its reasons and keeps the good cues', () => {
-  const set: SetList = { name: 'Friday', cues: [{ scene: 'builtin:tunnel', preset: 'hall', bars: 16, transition: 'gl/Swirl' }, { scene: 'x', bars: 'hold' }] }
+  const set: SetList = { name: 'Friday', cues: [{ scene: 'builtin:tunnel', preset: 'hall', bars: 16, transition: 'gl/Swirl', text: true }, { scene: 'x', bars: 'hold', analysis: false }] }
   expect(importSets([], setFile([set]))).toEqual({ sets: [set], dropped: [] })
   expect(importSets([set], setFile([set, set])).sets.map((s) => s.name)).toEqual(['Friday (2)', 'Friday (3)'])
   expect(importSets([], JSON.stringify([set])).sets).toEqual([set]) // a bare list, as vjw.sets holds

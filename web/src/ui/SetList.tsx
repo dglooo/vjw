@@ -15,6 +15,11 @@ const mid = (el: Element, across: boolean) => {
   return across ? r.left + r.width / 2 : r.top + r.height / 2
 }
 const length = (bars: Cue['bars']) => (bars === 'hold' ? 'hold' : `${bars} bar${bars === 1 ? '' : 's'}`)
+/** A cue's switches (setlist.ts): the select's label and title. */
+const SWITCHES = {
+  text: ['text', 'The text layers (X) as this cue starts'],
+  analysis: ['analyser', 'The analysis (A) as this cue starts; off: the scenes hear a steady idle signal'],
+} as const
 /** A clicked button or summary keeps the focus, and a focused control eats the hotkeys; a select or a field keeps it. */
 const release = (e: PointerEvent) => {
   if (!(e.target instanceof HTMLSelectElement || e.target instanceof HTMLInputElement)) (document.activeElement as HTMLElement | null)?.blur()
@@ -25,7 +30,8 @@ const release = (e: PointerEvent) => {
  *  a transition into it; delete one; arm / disarm the set (app.ts armSet). Armed, its summary reads the cue on stage.
  *  Step 2 (user 2026-11-21): export the set or all sets as a .json file, import one (the button, or a drop on the menu);
  *  a timeline strip, the cues as blocks sized by their bars: armed, the cue on stage lit with a playhead through it on
- *  the bar clock, a click plays a block's cue from the next bar line (director.jump); the blocks drag into order too. */
+ *  the bar clock, a click plays a block's cue from the next bar line (director.jump); the blocks drag into order too;
+ *  each cue's switches: the text layers and the analysis on, off or as they are as it starts (app.ts frame). */
 export function SetMenu() {
   const sets = useSyncExternalStore(library.onChange, library.sets)
   const armed = useSyncExternalStore(store.subscribe, () => store.getSnapshot().armedSet)
@@ -253,6 +259,27 @@ export function SetMenu() {
                   <button aria-label="Delete cue" onClick={() => save({ ...set, cues: set.cues.toSpliced(k, 1) })}>
                     ×
                   </button>
+                  <div className="at">
+                    {(['text', 'analysis'] as const).map((key) => (
+                      <select
+                        key={key}
+                        aria-label={SWITCHES[key][1]}
+                        title={SWITCHES[key][1]}
+                        value={c[key] === undefined ? '' : c[key] ? 'on' : 'off'}
+                        onChange={(e) => {
+                          const v = e.currentTarget.value
+                          e.currentTarget.blur()
+                          edit(k, { ...c, [key]: v ? v === 'on' : undefined })
+                        }}
+                      >
+                        {['', 'on', 'off'].map((v) => (
+                          <option key={v} value={v}>
+                            {SWITCHES[key][0]}: {v || 'as is'}
+                          </option>
+                        ))}
+                      </select>
+                    ))}
+                  </div>
                 </div>
               ))}
               <button className={line === set.cues.length ? 'ins' : undefined} onClick={add}>
