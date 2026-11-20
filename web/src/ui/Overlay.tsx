@@ -4,6 +4,7 @@ import { allowDevices, player, selectDevice, start, togglePlay } from '../audio/
 import { FLOOR } from '../audio/meter'
 import { allowCameras, selectCamera, setVideo } from '../camera/camera'
 import { badge } from '../quality'
+import { Bpm } from './Bpm'
 import { PresetSelect } from './Panel'
 import { AnalyserSelect } from './SourcesTab'
 import { clock, store, type UiSnapshot } from '../store'
@@ -213,7 +214,7 @@ export function Overlay() {
         <AnalyserSelect />
         <button onClick={() => setEditor(true)}>Editor · L</button>
         <button onClick={() => setShader(true)}>Shader · G</button>
-        {s.bpm > 0 && <span className={s.confident ? 'bpm' : 'bpm unsure'}>BPM {s.bpm.toFixed(1)}</span>}
+        <Bpm />
         {s.hold && <span className="lock">Lock</span>}
         <span className="quality">{badge(s)}</span>
         {s.recording && <span className="rec">REC</span>}

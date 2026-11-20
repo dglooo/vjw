@@ -10,13 +10,15 @@ export interface CustomBand { id: string; name: string; lo: number; hi: number; 
 // pick: a preset chosen by hand (null = follow the detected genre); sens: the user's gain per source id, 0..2, missing = 1;
 // mute: the source ids that read 0 (bind.ts gain() applies both, in every scene); analyser: the detection the syn_* inputs
 // follow, ours or the donor-style core (plan_audio_donor_mode S1.4; app.ts ramps src.donorMix toward it), or 'vs3': the
-// vs3 scenes hear through the vs3 core (audio/vs3.ts), every other scene as ours
-export interface AudioSettings { v: 1; auto: boolean; pick: PresetId | null; sens: Record<string, number>; mute: string[]; custom: CustomBand[]; analyser: 'ours' | 'donor' | 'vs3' }
+// vs3 scenes hear through the vs3 core (audio/vs3.ts), every other scene as ours; bpm: the manual BPM lock (sync.ts
+// setManual, user 2026-11-20), missing = auto
+export interface AudioSettings { v: 1; auto: boolean; pick: PresetId | null; sens: Record<string, number>; mute: string[]; custom: CustomBand[]; analyser: 'ours' | 'donor' | 'vs3'; bpm?: number }
 type Kv = Pick<Storage, 'getItem' | 'setItem'>
 type Obj = Record<string, unknown>
 
 const KEY = 'vjw.audio'
 const MAX_BANDS = 8 // bounds the audio-thread cost of the band bank
+export const BPM_RANGE = [40, 300] as const // a manual BPM clamps into this ([ and ] too)
 const NAME_MAX = 24
 const ID = /^u:\w{1,24}$/
 const TOP = 0.45 // a band's top edge stays below this share of the sample rate
@@ -57,6 +59,7 @@ export function parseSettings(x: unknown): AudioSettings {
   if (isObj(x.sens)) for (const [k, v] of Object.entries(x.sens)) if (finite(v)) s.sens[k] = Math.min(2, Math.max(0, v))
   if (Array.isArray(x.mute)) s.mute = [...new Set(x.mute.filter((k): k is string => typeof k === 'string'))]
   if (isAnalyser(x.analyser)) s.analyser = x.analyser
+  if (finite(x.bpm) && x.bpm > 0) s.bpm = Math.min(BPM_RANGE[1], Math.max(BPM_RANGE[0], x.bpm))
   for (const c of Array.isArray(x.custom) ? x.custom : []) {
     if (s.custom.length >= MAX_BANDS) break
     if (isObj(c) && typeof c.id === 'string' && ID.test(c.id) && !bandError(c, TOP * MAX_RATE) && !s.custom.some((b) => b.id === c.id)) {
@@ -90,7 +93,7 @@ export function createSettings(kv: Kv, sampleRate = RATE) {
     get: () => state,
     /** Changes the named fields (`sens` and `mute` are replaced as a whole) and re-checks the result, so a slider's NaN or a
      *  bad pick is repaired. An invalid `analyser` keeps the mode in force (plan S1.4 T4c), not the default. */
-    patch: (p: Partial<Pick<AudioSettings, 'auto' | 'pick' | 'sens' | 'mute' | 'analyser'>>) =>
+    patch: (p: Partial<Pick<AudioSettings, 'auto' | 'pick' | 'sens' | 'mute' | 'analyser' | 'bpm'>>) =>
       commit(parseSettings({ ...state, ...p, analyser: isAnalyser(p.analyser) ? p.analyser : state.analyser })),
     /** Adds a custom band under a new id. Returns an error message, or null once added (the band is `get().custom.at(-1)`). */
     addBand(b: Omit<CustomBand, 'id'>): string | null {

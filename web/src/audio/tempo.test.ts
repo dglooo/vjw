@@ -241,6 +241,17 @@ describe('setRange and families (design C3)', () => {
     expect(d).toBeGreaterThanOrEqual(u)
     expect(d).toBeGreaterThanOrEqual(t)
   })
+
+  // The manual BPM lock (sync.ts setManual): the classifier's tempo evidence is the typed BPM, not the ACF's guess.
+  test('families with a manual BPM: 1 for each window whose candidates hold it, else 0, ACF or none', () => {
+    const W = [dnb, dubstep, techno]
+    const src = createTempoSource()
+    expect(src.families(W, 174)).toEqual([1, 0, 0])
+    listen(src, 'dnb', 174) // the ACF's own evidence does not count
+    expect(src.families(W, 87)).toEqual([1, 0, 0]) // the ½ octave
+    expect(src.families(W, 140)).toEqual([0, 1, 1]) // the ±10% windows overlap, as the ACF's do
+    expect(src.families(W, 128)).toEqual([0, 1, 1])
+  })
 })
 
 // dsp_linein_2026-11-16 fix 1: the bands' slow followers sit near 0 after silence, so the first ODF values of a signal
