@@ -851,7 +851,16 @@ return { // vjw: was `export default {`
   paramOrder: ['speed', 'complexity', 'fill', 'density', 'contrast'],
 
   // vjw: buildPanel(folder, ...) stripped: the donor console's DOM rows (elements, click/pointer
-  // listeners, ctx.pickLogo's file picker). Our panel sets nothing here; the params keep their defaults.
+  // listeners, ctx.pickLogo's file picker). Its sliders kept as data, for vs3/host.ts paramInputs (our panel's
+  // inputs, so the factory presets that set them come in): key, min, max, label, its folder. Left out: the logo
+  // chips (no logo here) and the regrow / clear buttons (counters).
+  panelRows: [
+    ['body', -1, 1, 'body'],
+    ['shape', 0, 1, 'where', 'second area'], ['zoneSize', 0, 1, 'size', 'second area'], ['zonePattern', -1, 1, 'pattern', 'second area'],
+    ['current', 0, 1, 'current', 'current'], ['push', -1, 1, 'strength', 'current'],
+    ['grain', 0, 1, 'grain', 'grain'], ['grip', 0, 1, 'strength', 'grain'],
+    ['hue', -1, 1, 'hue', 'color'], ['sat', -1, 1, 'saturation', 'color'], ['bands', 0, 1, 'bands', 'color'],
+  ],
 
   // main.js: a logo just landed (a drop in this window). Use it.
   onLogo() {

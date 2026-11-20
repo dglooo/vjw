@@ -135,8 +135,9 @@ function feed() {
   stage.addEventListener('pointerleave', () => Object.assign(live, DEAD))
 }
 type Lib = Awaited<ReturnType<typeof open>>
-/** The donor scene's panel fields (research §1): flat 0..1 sliders, labels per mode ('*': any), their order, the modes. */
-interface Rows { params?: Record<string, unknown>; paramLabels?: Record<string, Record<string, string | null>>; paramOrder?: string[]; modes?: string[]; models?(): string[] }
+/** The donor scene's panel fields (research §1): flat 0..1 sliders, labels per mode ('*': any), their order, the modes.
+ *  `panelRows` (ours, morphogen 2.0): the scene's own panel's sliders, from its stripped buildPanel. */
+interface Rows { params?: Record<string, unknown>; paramLabels?: Record<string, Record<string, string | null>>; paramOrder?: string[]; modes?: string[]; models?(): string[]; panelRows?: [key: string, min: number, max: number, label: string, group?: string][] }
 /** The donor scene as the host reads it (research §1). */
 interface Scene extends Rows { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null } }
 
@@ -148,9 +149,9 @@ const CHECKS = ['eyeFollow', 'invert']
 /** The scene's panel rows as the original builds them (main.js addSceneRows) → our inputs: `modes` = `mode`, a select by
  *  index (the scene reads the name); limitless 3d's `model` the same over its `models()` (the math shapes, then the
  *  scans); the 0..1 sliders in paramOrder's order, else the donor's, labelled as in the default mode (main.js
- *  sceneLabel); then each CHECKS boolean a checkbox. Defaults are the scene's own: untouched inputs leave it as it was.
- *  ponytail: one label per slider (the donor relabels per mode), paramChoices / paramSteps as plain sliders, rows
- *  outside paramOrder (morphogen 2.0's own: body, the second area…) left out; add them when a scene needs them. */
+ *  sceneLabel); then its panelRows' sliders at their ranges, folded by their folder; then each CHECKS boolean a
+ *  checkbox. Defaults are the scene's own: untouched inputs leave it as it was.
+ *  ponytail: one label per slider (the donor relabels per mode), paramChoices / paramSteps as plain sliders. */
 export function paramInputs(sc: Rows): Input[] {
   const P = sc.params ?? {}, mode = P.mode as string, out: Input[] = []
   const select = (name: string, labels: string[], v: string) => out.push({ name, type: 'long', values: labels.map((_, i) => i), labels, default: Math.max(0, labels.indexOf(v)) })
@@ -158,6 +159,7 @@ export function paramInputs(sc: Rows): Input[] {
   if (sc.models && typeof P.model === 'string') select('model', sc.models(), P.model)
   const m = sc.paramLabels?.[mode] ?? {}, all = sc.paramLabels?.['*'] ?? {}
   for (const k of sc.paramOrder ?? ORDER) if (typeof P[k] === 'number') out.push({ name: k, type: 'float', label: (k in m ? m[k] : all[k]) ?? undefined, default: P[k], min: 0, max: 1 }) // a null label: a slider this mode greys out
+  for (const [k, min, max, label, group] of sc.panelRows ?? []) if (typeof P[k] === 'number') out.push({ name: k, type: 'float', label, default: P[k], min, max, ...(group && { group }) })
   for (const k of CHECKS) if (typeof P[k] === 'boolean') out.push({ name: k, type: 'bool', default: P[k] })
   return out
 }

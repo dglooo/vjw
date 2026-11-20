@@ -739,17 +739,19 @@ export const panel = {
     edits.record({ undo: shown(() => op.setValues(p, old)), redo: shown(() => op.setValues(p, values)) })
     rerender()
   },
-  /** The edited scene's node with presets: the first layer's generator with any (the factory's, then the user's from
-   *  `factory` on). `now`: the one its values match, undefined: custom. Undefined before Start, or with none. */
+  /** The edited scene's node with presets: the first one with any, layer by layer, a generator before its effects (vs3
+   *  limitless is a filter); its list: the factory's, then the user's from `factory` on. `now`: the one its values
+   *  match, undefined: custom. Undefined before Start, or with none. */
   presetNode() {
     if (!store.getSnapshot().edited) return undefined
-    for (const [layer, { gen }] of edited().doc.layers.entries()) {
-      const def = catalog.get(gen.ref), own = factory(gen.ref)
-      const list = [...own, ...library.presets(gen.ref)]
-      if (!def || !list.length) continue
-      const cur = { ...defaults(def), ...gen.values }
-      return { path: { layer, node: 'gen' } as edit.NodePath, ref: gen.ref, def, list, factory: own.length, cur, now: presetOf(list, cur) }
-    }
+    for (const [layer, { gen, fx }] of edited().doc.layers.entries())
+      for (const [k, n] of [gen, ...fx].entries()) {
+        const def = catalog.get(n.ref), own = factory(n.ref)
+        const list = [...own, ...library.presets(n.ref)]
+        if (!def || !list.length) continue
+        const cur = { ...defaults(def), ...n.values }
+        return { path: { layer, node: k ? k - 1 : 'gen' } as edit.NodePath, ref: n.ref, def, list, factory: own.length, cur, now: presetOf(list, cur) }
+      }
   },
   /** presetNode()'s next (1) or previous (-1) preset; from custom the first or the last (keys ↓ / ↑, app.ts). */
   stepPreset(d: 1 | -1) {

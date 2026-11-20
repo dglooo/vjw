@@ -17,6 +17,14 @@
   {"name":"★ analyzer — sandwich","values":{"palette":4,"mode":0,"speed":0.34,"shape":0.11,"complexity":0.6,"density":0.5,"fill":0.76,"contrast":0.55},"thumb":"signal-analyzer-sandwich.jpg"},
   {"name":"★ lissajous — lissafucker","values":{"palette":23,"mode":4,"speed":0.58,"shape":0.58,"complexity":0.6,"density":0.46,"fill":0.81,"contrast":0.55},"thumb":"signal-lissajous-lissafucker.jpg"}
 ],
+"native/vs3-limitless": [
+  {"name":"★ melt — coo coo","values":{"mode":8,"speed":0.39,"complexity":0.84,"fill":0.51,"contrast":0.5},"thumb":"limitless-melt-coo-coo.jpg"},
+  {"name":"★ smear — oh fawk","values":{"mode":1,"speed":0.39,"complexity":0.84,"fill":0.51,"contrast":0.5},"thumb":"limitless-smear-oh-fawk.jpg"},
+  {"name":"★ droste — ay yo?","values":{"mode":2,"speed":0.39,"complexity":0.84,"fill":0.51,"contrast":0.5},"thumb":"limitless-droste-ay-yo.jpg"},
+  {"name":"★ smear — tokyomelt","values":{"mode":1,"speed":0.34,"complexity":0.28,"fill":0.59,"contrast":0.42},"thumb":"limitless-smear-tokyomelt.jpg"},
+  {"name":"★ smear — watertrip","values":{"mode":1,"speed":0.72,"complexity":1,"fill":0.7,"contrast":0.66},"thumb":"limitless-smear-watertrip.jpg"},
+  {"name":"★ breathe — forestlayers","values":{"mode":12,"speed":0.68,"complexity":0.94,"fill":0,"contrast":0.5},"thumb":"limitless-breathe-forestlayers.jpg"}
+],
 "native/vs3-citadel": [
   {"name":"★ pushing in","values":{"palette":3,"speed":0.3,"shape":0.030000000000000027,"complexity":0.61,"density":0.63,"fill":0,"contrast":0.43},"thumb":"citadel-pushing-in.jpg"},
   {"name":"★ soaring","values":{"palette":0,"speed":0,"shape":0.03,"complexity":0.77,"density":0.25,"fill":0,"contrast":0.4},"thumb":"citadel-soaring.jpg"},
@@ -187,6 +195,18 @@
   {"name":"★ Virtual Sunset","values":{"palette":21,"pattern":0.95,"form":0.2,"rig":0.91,"complexity":0.76,"formation":0.73,"shape":0.5,"fill":0.55,"tilt":0.47,"phase":1,"movement":0.27,"speed":0.43,"color":0.58,"contrast":0.69,"density":1,"room":0.03,"screen":0,"colors":0.44,"wall":0,"chase":0.48,"edge":0.96,"strips":0.75},"thumb":"main-stage-virtual-sunset.jpg"},
   {"name":"★ RGB overhead","values":{"palette":2,"pattern":0.96,"form":0.08,"rig":0.71,"complexity":0.9,"formation":0.65,"shape":0.5,"fill":0.89,"tilt":0,"phase":0.5,"movement":0.65,"speed":0.24,"color":0.48,"contrast":0.85,"density":0.6,"room":0.38,"screen":0,"colors":0.98,"wall":0.5,"chase":0,"edge":0.5,"strips":0.5},"thumb":"main-stage-rgb-overhead.jpg"},
   {"name":"★ Shoot da roof","values":{"palette":2,"pattern":0.74,"form":1,"rig":0.33,"complexity":0.6,"formation":0.43,"shape":0.48,"fill":0.66,"tilt":1,"phase":0.42,"movement":0.84,"speed":0.27,"color":0.84,"contrast":0.85,"density":0.27,"room":0.65,"screen":0.16,"colors":0.56,"wall":1,"chase":0.13,"edge":1,"strips":1},"thumb":"main-stage-shoot-da-roof.jpg"}
+],
+"native/vs3-morphogen2": [
+  {"name":"★ tide — Inkblot","values":{"palette":7,"mode":1,"speed":0.56,"shape":0.91,"complexity":0.79,"density":0.35,"fill":0.26,"contrast":0.88,"body":-0.47,"zoneSize":0.98,"zonePattern":0.4,"current":0.59,"push":-0.56,"grain":0.31,"grip":0,"hue":-0.01,"sat":0.64,"bands":0,"invert":false},"thumb":"morphogen-2-0-tide-inkblot.jpg"},
+  {"name":"★ match palette — Oil Slick Flo","values":{"palette":2,"mode":0,"speed":0.61,"shape":0,"complexity":0.6,"density":0.73,"fill":0.38,"contrast":1,"body":0.3,"zoneSize":0.85,"zonePattern":-0.44,"current":0,"push":0,"grain":1,"grip":0.14,"hue":-0.01,"sat":0.81,"bands":0.81,"invert":false},"thumb":"morphogen-2-0-match-palette-oil-slick-flo.jpg"},
+  {"name":"★ magma — Magmatic Eye","values":{"palette":2,"mode":5,"speed":0.57,"shape":0,"complexity":0.83,"density":0.49,"fill":0.89,"contrast":0.44,"body":-0.47,"zoneSize":0.85,"zonePattern":-0.44,"current":0.01,"push":0,"grain":0.01,"grip":0.77,"hue":-0.01,"sat":0.64,"bands":0,"invert":false},"thumb":"morphogen-2-0-magma-magmatic-eye.jpg"},
+  {"name":"★ jade — Jade Flow","values":{"palette":7,"mode":3,"speed":1,"shape":1,"complexity":1,"density":1,"fill":0,"contrast":0.88,"body":-0.1,"zoneSize":0.78,"zonePattern":0.42,"current":0.43,"push":0,"grain":0.91,"grip":0,"hue":-0.01,"sat":0.64,"bands":0,"invert":false},"thumb":"morphogen-2-0-jade-jade-flow.jpg"},
+  {"name":"★ lagoon — Friendly","values":{"palette":7,"mode":4,"speed":0.64,"shape":0.36,"complexity":0.54,"density":0.85,"fill":0.38,"contrast":0.88,"body":0.08,"zoneSize":1,"zonePattern":0.39,"current":0.48,"push":0,"grain":0.39,"grip":0,"hue":-0.01,"sat":0.64,"bands":0.39,"invert":false},"thumb":"morphogen-2-0-lagoon-friendly.jpg"},
+  {"name":"★ coral — Eel Frenzy","values":{"palette":7,"mode":6,"speed":0.56,"shape":0.91,"complexity":0.79,"density":0.77,"fill":0.26,"contrast":0.26,"body":0,"zoneSize":0.98,"zonePattern":0.4,"current":0.59,"push":-0.56,"grain":0.61,"grip":1,"hue":0.09,"sat":0.64,"bands":0.29,"invert":false},"thumb":"morphogen-2-0-coral-eel-frenzy.jpg"},
+  {"name":"★ match palette — Cellular Movement","values":{"palette":22,"mode":0,"speed":0.88,"shape":0.8,"complexity":1,"density":0.39,"fill":0.39,"contrast":0.57,"body":0.1,"zoneSize":0.34,"zonePattern":0.3,"current":0.19,"push":0.79,"grain":0.21,"grip":0.14,"hue":-0.82,"sat":0.64,"bands":0.96,"invert":false},"thumb":"morphogen-2-0-match-palette-cellular-movement.jpg"},
+  {"name":"★ porcelain — Second Area: Ring","values":{"palette":2,"mode":2,"speed":0.55,"shape":0.6,"complexity":0.6,"density":1,"fill":0.45,"contrast":0.8,"body":0,"zoneSize":0.8,"zonePattern":0.8,"current":0,"push":0,"grain":0,"grip":0,"hue":0,"sat":0,"bands":0,"invert":false},"thumb":"morphogen-2-0-porcelain-second-area-ring.jpg"},
+  {"name":"★ jade — Color: Bands and Hue","values":{"palette":2,"mode":3,"speed":0.55,"shape":0,"complexity":0.85,"density":1,"fill":0.7,"contrast":0.8,"body":0,"zoneSize":0,"zonePattern":0,"current":0,"push":0,"grain":0,"grip":0,"hue":0.5,"sat":0.6,"bands":0.8,"invert":false},"thumb":"morphogen-2-0-jade-color-bands-and-hue.jpg"},
+  {"name":"★ tide — Virus Spread","values":{"palette":22,"mode":1,"speed":0.34,"shape":0.85,"complexity":0.26,"density":0.87,"fill":0.46,"contrast":0.57,"body":0.08,"zoneSize":0.88,"zonePattern":0.25,"current":0.4,"push":0,"grain":0.56,"grip":0,"hue":-0.82,"sat":0.64,"bands":0,"invert":false},"thumb":"morphogen-2-0-tide-virus-spread.jpg"}
 ],
 "native/vs3-tendril": [
   {"name":"★ lace","values":{"palette":2,"mode":3,"speed":0.5,"shape":0.5,"complexity":0.5,"density":0.45,"fill":0.5,"contrast":0.5},"thumb":"tendril-lace.jpg"},
