@@ -77,6 +77,12 @@ test('paramInputs: mode = a select by index, sliders in paramOrder (else the don
     { name: 'eyeFollow', type: 'bool', default: true }, // a boolean: a checkbox
   ])
   expect(paramInputs({})).toEqual([]) // aurora, blob: no params
+  expect(paramInputs({ paramOrder: ['speed'], params: { speed: 0.5, body: 0, hue: 0.1, logo: 0, invert: false }, panelRows: [['body', -1, 1, 'body'], ['hue', -1, 1, 'hue', 'color'], ['gone', 0, 1, 'x']] })).toEqual([
+    { name: 'speed', type: 'float', label: undefined, default: 0.5, min: 0, max: 1 },
+    { name: 'body', type: 'float', label: 'body', default: 0, min: -1, max: 1 }, // morphogen 2.0's own rows, at their ranges …
+    { name: 'hue', type: 'float', label: 'hue', default: 0.1, min: -1, max: 1, group: 'color' }, // … folded by their folder
+    { name: 'invert', type: 'bool', default: false },
+  ]) // a row the scene lacks is skipped; logo has no row
 })
 
 test('put: the values into the params, mode back to its name, a mode index out of range keeps the current one', () => {

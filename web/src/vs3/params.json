@@ -288,6 +288,17 @@
   {"name":"fill","type":"float","label":"scale","default":0.5,"min":0,"max":1},
   {"name":"density","type":"float","label":"spread","default":1,"min":0,"max":1},
   {"name":"contrast","type":"float","label":"relief","default":0.75,"min":0,"max":1},
+  {"name":"body","type":"float","label":"body","default":0,"min":-1,"max":1},
+  {"name":"shape","type":"float","label":"where","default":0.2,"min":0,"max":1,"group":"second area"},
+  {"name":"zoneSize","type":"float","label":"size","default":1,"min":0,"max":1,"group":"second area"},
+  {"name":"zonePattern","type":"float","label":"pattern","default":0,"min":-1,"max":1,"group":"second area"},
+  {"name":"current","type":"float","label":"current","default":0,"min":0,"max":1,"group":"current"},
+  {"name":"push","type":"float","label":"strength","default":0,"min":-1,"max":1,"group":"current"},
+  {"name":"grain","type":"float","label":"grain","default":0,"min":0,"max":1,"group":"grain"},
+  {"name":"grip","type":"float","label":"strength","default":0,"min":0,"max":1,"group":"grain"},
+  {"name":"hue","type":"float","label":"hue","default":0,"min":-1,"max":1,"group":"color"},
+  {"name":"sat","type":"float","label":"saturation","default":0,"min":-1,"max":1,"group":"color"},
+  {"name":"bands","type":"float","label":"bands","default":0,"min":0,"max":1,"group":"color"},
   {"name":"invert","type":"bool","default":false}
 ],
 "locus": [

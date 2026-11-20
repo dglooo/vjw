@@ -551,20 +551,22 @@ function frame(now: number) {
   analysis.off = off // every binding bypassed: a bound input reads its stored value (live.ts)
   const fs = off ? Object.assign(idle, f, IDLE_FRAME) : f // what the scenes read
   if (store.getSnapshot().editor) tiles.frame(fs, src) // the library's bake (2b S3.3), its GPU work ahead of this frame's
-  render(shot, fs, src, styled, post) // sets fs.width/height to the internal size
   const id = shot.to ?? shot.from // the incoming scene as soon as a fade starts: the name shown, the scene edited
   const { doc, errors } = live(id)
   const snap = store.getSnapshot()
   if (id !== snap.edited) edits.clear() // undo is per edited scene (design S3): open, Save as, the autopilot
   if (doc.name !== snap.sceneName || id !== snap.edited) store.patch({ sceneName: doc.name, edited: id })
   if (presetDue?.scene === id) {
-    // the cue's preset (presets.ts, by name) onto its scene, as the preset picker would; one gone since: none
+    // the cue's preset (presets.ts, by name) onto its scene, as the preset picker would; one gone since: none. Before
+    // the render, so the scene's first frame is the preset's. It glides on the scene on stage (a cue of the same
+    // scene); one coming in starts at it (the donor's rule: the scene change is the transition).
     const { preset } = presetDue
     const t = panel.presetNode()
     const p = t?.list.find((x) => x.name === preset)
-    if (t && p) panel.setValues(t.path, p.values)
+    if (t && p) panel.setValues(t.path, p.values, id === snap.edited)
     presetDue = null
   }
+  render(shot, fs, src, styled, post) // sets fs.width/height to the internal size
   governor.frame(now, performance.now() - start, gpuMs.get(id)) // fed only on rendered frames; GPU3D N4: + the scene's GL ms
   if (now - badgeAt >= BADGE_MS) {
     badgeAt = now

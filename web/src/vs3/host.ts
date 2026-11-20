@@ -26,6 +26,7 @@ import { copy, fullscreenProgram, stage, gl as stageGl } from '../gl/engine'
 import { glState, PASS_LIST, restore } from '../gl/glstate'
 import { heatStep } from '../gl/post'
 import type { NativeDef } from '../gl/scene'
+import { ease, MORPH_S } from '../presets'
 import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
 import PARAMS from './params.json'
@@ -102,6 +103,7 @@ void main() { // donor engine/post-shaders.js FinishShader, the grain and the wa
 }`
 let finish: ReturnType<typeof fullscreenProgram> | undefined
 const SLOTS = ['bg', 'shadow', 'mid', 'accent', 'glow'] as const
+const GAP_MS = 250 // knob: a draw this long after the last one is back on stage (gl/live.ts limit()'s GAP)
 
 let libs: Promise<Awaited<ReturnType<typeof open>>> | undefined
 async function open(gl: WebGL2RenderingContext) {
@@ -133,8 +135,9 @@ function feed() {
   stage.addEventListener('pointerleave', () => Object.assign(live, DEAD))
 }
 type Lib = Awaited<ReturnType<typeof open>>
-/** The donor scene's panel fields (research §1): flat 0..1 sliders, labels per mode ('*': any), their order, the modes. */
-interface Rows { params?: Record<string, unknown>; paramLabels?: Record<string, Record<string, string | null>>; paramOrder?: string[]; modes?: string[]; models?(): string[] }
+/** The donor scene's panel fields (research §1): flat 0..1 sliders, labels per mode ('*': any), their order, the modes.
+ *  `panelRows` (ours, morphogen 2.0): the scene's own panel's sliders, from its stripped buildPanel. */
+interface Rows { params?: Record<string, unknown>; paramLabels?: Record<string, Record<string, string | null>>; paramOrder?: string[]; modes?: string[]; models?(): string[]; panelRows?: [key: string, min: number, max: number, label: string, group?: string][] }
 /** The donor scene as the host reads it (research §1). */
 interface Scene extends Rows { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null } }
 
@@ -146,9 +149,9 @@ const CHECKS = ['eyeFollow', 'invert']
 /** The scene's panel rows as the original builds them (main.js addSceneRows) → our inputs: `modes` = `mode`, a select by
  *  index (the scene reads the name); limitless 3d's `model` the same over its `models()` (the math shapes, then the
  *  scans); the 0..1 sliders in paramOrder's order, else the donor's, labelled as in the default mode (main.js
- *  sceneLabel); then each CHECKS boolean a checkbox. Defaults are the scene's own: untouched inputs leave it as it was.
- *  ponytail: one label per slider (the donor relabels per mode), paramChoices / paramSteps as plain sliders, rows
- *  outside paramOrder (morphogen 2.0's own: body, the second area…) left out; add them when a scene needs them. */
+ *  sceneLabel); then its panelRows' sliders at their ranges, folded by their folder; then each CHECKS boolean a
+ *  checkbox. Defaults are the scene's own: untouched inputs leave it as it was.
+ *  ponytail: one label per slider (the donor relabels per mode), paramChoices / paramSteps as plain sliders. */
 export function paramInputs(sc: Rows): Input[] {
   const P = sc.params ?? {}, mode = P.mode as string, out: Input[] = []
   const select = (name: string, labels: string[], v: string) => out.push({ name, type: 'long', values: labels.map((_, i) => i), labels, default: Math.max(0, labels.indexOf(v)) })
@@ -156,6 +159,7 @@ export function paramInputs(sc: Rows): Input[] {
   if (sc.models && typeof P.model === 'string') select('model', sc.models(), P.model)
   const m = sc.paramLabels?.[mode] ?? {}, all = sc.paramLabels?.['*'] ?? {}
   for (const k of sc.paramOrder ?? ORDER) if (typeof P[k] === 'number') out.push({ name: k, type: 'float', label: (k in m ? m[k] : all[k]) ?? undefined, default: P[k], min: 0, max: 1 }) // a null label: a slider this mode greys out
+  for (const [k, min, max, label, group] of sc.panelRows ?? []) if (typeof P[k] === 'number') out.push({ name: k, type: 'float', label, default: P[k], min, max, ...(group && { group }) })
   for (const k of CHECKS) if (typeof P[k] === 'boolean') out.push({ name: k, type: 'bool', default: P[k] })
   return out
 }
@@ -178,7 +182,9 @@ export const PALETTES = ['nocturne', 'ember', 'glacial', 'orchid', 'moss', 'sodi
 async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, ps: readonly Input[]) {
   const { R, guard, texture } = L
   const colors = (i: number) => L.PRESETS[i].colors.map((c) => new L.Color(c))
-  let palIx = PALETTES.indexOf(look.palette), pal = colors(palIx)
+  // the five shown and a crossfade's two ends; palIx -1: nothing drawn yet, so the first palette lands at once
+  const pal = colors(PALETTES.indexOf(look.palette)), from = colors(0), to = colors(0)
+  let palIx = -1, palK = 1, seen = -Infinity
   const made = new Set<{ dispose(): void }>()
   const s = { specHi: new Float32Array(192) } as Signal
   const P = sc.params ?? {}
@@ -190,8 +196,23 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
     draw(f: { width: number; height: number; dt: number; time: number }, vals: Readonly<Record<string, Value>>, src: Readonly<Sources>, input: WebGLTexture | null) {
       const hit = vals.hit as number, mid = (vals.mid as number | undefined) ?? 0
       put(P, ps, vals)
-      const pi = vals.palette as number
-      if (pi !== palIx && L.PRESETS[pi]) pal = colors((palIx = pi)) // the select (a preset) switched it: at once, as a cut
+      const pi = vals.palette as number, now = performance.now()
+      if (pi !== palIx && L.PRESETS[pi]) {
+        // the select (a preset) switched it: a crossfade from the colours on screen over the preset glide's time (the
+        // donor's PaletteEngine), at once on the first draw or back on stage. ponytail: on the layer's clock, so a
+        // layer at speed ≠ 1 fades at its pace; the gap is wall time (the layer clock stops off stage).
+        palIx = pi
+        from.forEach((c, i) => c.copy(pal[i]))
+        to.forEach((c, i) => c.set(L.PRESETS[pi].colors[i]))
+        palK = now - seen > GAP_MS ? 1 : 0
+        if (palK) pal.forEach((c, i) => c.copy(to[i]))
+      }
+      seen = now
+      if (palK < 1) {
+        palK = Math.min(1, palK + f.dt / MORPH_S)
+        const e = ease(palK)
+        pal.forEach((c, i) => c.lerpColors(from[i], to[i], e))
+      }
       Object.assign(L.scenePointer, look.pointer ? live : DEAD) // one shared object: this scene's view of it for its update
       if (sc.source) sc.source.sourceTexture = input // a filter's picture: the previous layer
       const v = vs3Live.s // analyser 'vs3': the core's levels and spectrum
@@ -242,8 +263,8 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
   return {
     id: `native/vs3-${name}`, name: `vs3 ${name}`, kind: look.filter ? 'filter' : 'generator', credit: "vs3: the friends' three.js engine, used with permission; three.js r187 (MIT)",
     // ⚡ the donor kick (+ onMid / onHigh): all a hit lights through; the palette, never bound (a swap per beat would
-    // strobe the whole picture); the rows: plain sliders, never auto-bound
-    inputs: [...flash.map((n): Input => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), { name: 'palette', type: 'long', values: PALETTES.map((_, i) => i), labels: PALETTES, default: PALETTES.indexOf(look.palette), bindable: false }, ...ps],
+    // strobe the whole picture) and crossfaded here (`fade`); the rows: plain sliders, never auto-bound
+    inputs: [...flash.map((n): Input => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), { name: 'palette', type: 'long', values: PALETTES.map((_, i) => i), labels: PALETTES, default: PALETTES.indexOf(look.palette), bindable: false, fade: true }, ...ps],
     flash,
     load,
     warm: () => ready(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden

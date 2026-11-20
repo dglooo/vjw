@@ -355,7 +355,7 @@ export function PresetSelect() {
         if (v === 'save') setNaming(true)
         else if (v === 'browse') store.patch({ browse: true })
         else if (v === 'delete') library.deletePreset(t.ref, t.now!.name)
-        else panel.setValues(t.path, t.list[+v].values)
+        else panel.setValues(t.path, t.list[+v].values, true)
       }}
     >
       <option value={-1} disabled>

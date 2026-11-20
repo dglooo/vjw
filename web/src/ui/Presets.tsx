@@ -6,8 +6,8 @@ import { factory, factoryRefs, thumbUrl, type Preset } from '../presets'
 import { BUILTIN } from '../scenes/builtin'
 import { store } from '../store'
 
-/** The built-in a ref's presets play on: the one with a layer that generates with it (one per vs3 native). */
-const sceneOf = (ref: string) => BUILTIN.find((d) => d.layers.some((l) => l.gen.ref === ref))
+/** The built-in a ref's presets play on: the one with a layer that runs it (one per vs3 native; limitless as an effect). */
+const sceneOf = (ref: string) => BUILTIN.find((d) => d.layers.some((l) => l.gen.ref === ref || l.fx.some((n) => n.ref === ref)))
 /** A ref's presets: the factory's, then the user's (as the bar picker lists them). */
 const listOf = (ref: string): readonly Preset[] => [...factory(ref), ...library.presets(ref)]
 type View = 'scene' | 'all' | 'favs'
@@ -34,7 +34,7 @@ export function Presets() {
   const close = () => store.patch({ browse: false })
   function pick(ref: string, p: Preset) {
     const at = panel.presetNode()
-    if (at?.ref === ref) panel.setValues(at.path, p.values)
+    if (at?.ref === ref) panel.setValues(at.path, p.values, true)
     else {
       const s = sceneOf(ref)
       if (s) cutTo(s.id, p.name)
