@@ -14,6 +14,7 @@ export interface SceneDoc { v: 1; id: SceneId; name: string; star: boolean; crea
 export interface LibraryFile { v: 1; scenes: SceneDoc[] }
 
 export const CODE_MAX = 65536 // knob: chars of inline shader code per node
+export const TEXT_MAX = 200 // knob: chars of a text input's value (native/text)
 const LAYERS_MAX = 4
 const BLENDS: readonly string[] = ['normal', 'add', 'screen', 'multiply', 'max', 'difference', 'dodge'] satisfies Blend[]
 const MASKS: readonly string[] = ['person', 'background'] satisfies MaskMode[]
@@ -59,6 +60,7 @@ function binding(x: unknown, at: string): Binding {
 
 function value(x: unknown, at: string): Value {
   if (typeof x === 'boolean') return x
+  if (typeof x === 'string') return x.length <= TEXT_MAX ? x : fail(at, `not a string of at most ${TEXT_MAX} chars`)
   return Array.isArray(x) ? x.map((v, i) => num(v, `${at}[${i}]`)) : num(x, at)
 }
 
@@ -125,6 +127,7 @@ const FALLBACK: Partial<Record<InputType, (i: Input) => Value>> = {
   event: () => false,
   color: (i) => i.default ?? [0, 0, 0, 1],
   point2D: (i) => i.default ?? [0, 0],
+  text: (i) => i.default ?? '',
 }
 
 /** Every value-bearing input's default; images and audio have none. Arrays are the def's own: copy before writing. */

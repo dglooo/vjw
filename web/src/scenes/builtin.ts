@@ -1720,6 +1720,63 @@ const DEMOS: readonly SceneDoc[] = [
   },
 ]
 
+// The text layer (backlog 6, scenes/text.ts) over a dark generator: unstarred, after the spread like the demos. The
+// kick pulses the scale (motion); its light only through ⚡ hit (KICK_HIT), the snare glitches (motion).
+const TEXT: readonly SceneDoc[] = [
+  {
+    v: 1, id: 'builtin:text-title', name: 'Text title', star: false, // the playing file's title over the plexus web
+    layers: [
+      {
+        gen: {
+          ref: 'native/plexus', // builtin:plexus' binds
+          bind: {
+            drift: { source: 'lfo', shape: 'sine', rate: 0.05, amount: 1, attack: 0, release: 0, min: 0, max: 1 },
+            dist: { source: 'sub', amount: 1, attack: 0.05, release: 0.3, min: 0.18, max: 0.45 },
+            size: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 2, max: 5 },
+            hue: { source: 'snare', amount: 1, attack: 0, release: 0.3, min: 0.35, max: 0.65 },
+          },
+        },
+        fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+      },
+      {
+        gen: {
+          ref: 'native/text', values: { source: 1, font: 0, size: 0.1, accent: [0.4, 0.85, 1, 1], glow: 0.6 }, // white Helvetica, a soft cyan glow (the web's hues)
+          bind: { pulse: { source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0, max: 0.04 } },
+        },
+        fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+      },
+    ],
+  },
+  {
+    v: 1, id: 'builtin:text-dj', name: 'Text DJ', star: false, // the DJ name, big, in neon over the stars
+    layers: [
+      {
+        gen: {
+          ref: 'own/stars', // builtin:stars' binds
+          bind: {
+            prob: { source: 'hats', amount: 1, attack: 0, release: 0.1, min: 0.06, max: 0.35 },
+            radius: { source: 'kick', amount: 1, attack: 0, release: 0.1, min: 0.06, max: 0.3 },
+            scroll: { source: 'reese', amount: 1, attack: 0, release: 0.3, min: 0, max: 0.3 },
+            mode: { source: 'drop', amount: 1, attack: 0, release: 1.5, min: 0, max: 1 },
+          },
+        },
+        fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+      },
+      {
+        gen: {
+          ref: 'native/text', values: { source: 2, font: 2, size: 0.3, outline: 0.03, glow: 1, accent: [1, 0.15, 0.55, 1] }, // Impact, a magenta line and glow
+          bind: {
+            ...KICK_HIT, // ⚡ the glow flares
+            pulse: { source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0, max: 0.12 },
+            glitch: { source: 'snare', amount: 1, attack: 0, release: 0.15, min: 0, max: 0.5 },
+          },
+        },
+        fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+      },
+    ],
+  },
+]
+
 // The friends' scenes through the vs3 host (vs3/host.ts, agents/guides/guide_vs3_port.md): unstarred until the user
 // has looked. ⚡ hit = the donor kick (KICK_HIT). The donor post chain's closest fx after it (original main.js
 // FX_DEFAULTS rows; bloom, aberration, the grade and the vignette run in the host): ink's mirror 2 = isf/Mirror both
@@ -1955,4 +2012,4 @@ const CALIBRATION: SceneDoc = {
 }
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
-export const BUILTIN: readonly SceneDoc[] = [...spread([...OWN, ...DJ], MILK_SCENES), ...DEMOS, ...VS3, CALIBRATION]
+export const BUILTIN: readonly SceneDoc[] = [...spread([...OWN, ...DJ], MILK_SCENES), ...DEMOS, ...TEXT, ...VS3, CALIBRATION]
