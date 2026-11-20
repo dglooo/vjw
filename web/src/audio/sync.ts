@@ -1,7 +1,7 @@
 // (c) controller, always ours (design S2, plan S5.2). Pure: holds the running beat grid, a PLL on the onsets keeps it on
 // the kicks, source readings merge into it or, if they disagree confidently for relockBeats, replace it (hysteresis).
 // Holds through breaks, takes the manual keys, and gives every frame a phase from the audio clock. A manual BPM
-// (setManual, user 2026-11-20) holds the tempo: the readings are ignored, the PLL keeps only its phase term.
+// (setManual, user 2026-11-20) holds the tempo: the readings never move it, the PLL keeps only its phase term.
 import type { Onset } from './onset'
 import type { TempoReading, TempoSource } from './tempo'
 
@@ -94,6 +94,11 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
     if (!period) return lock(r.bpm, r.anchor, r.confidence) // a fresh lock
     const k = Math.round(Math.log2(60 / r.bpm / period)) // our octave of it: ×2 / ÷2 stick
     const p = 60 / r.bpm / 2 ** k
+    // A manual lock: never its tempo; its phase once, from the first reading at its tempo after the lock or a seek
+    if (held) {
+      if (rephase && Math.abs(p / period - 1) < MERGE) lock(held, r.anchor, 1)
+      return
+    }
     if (Math.abs(p / period / 0.75 - 1) < PARTNER) return // DnB's two-step reads its ⅔ lag (174 → 116) for long stretches
     if (rephase && Math.abs(p / period - 1) < MERGE) return lock(60 / p, r.anchor, r.confidence) // the new spot's phase
     if (Math.abs(p / period - 1) < MERGE && Math.abs(phase(r, period, anchor)) <= TOL) {
@@ -141,7 +146,7 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
       const r = source.read()
       if (r && r !== seen) {
         seen = r
-        if (!held) consider(r, audioNow)
+        consider(r, audioNow)
       }
       if (!period) return ZERO_SYNC
       const bar = 4 * period
@@ -193,15 +198,20 @@ export function createSync(source: TempoSource, opts?: Partial<SyncOpts>): SyncC
       now = Math.max(now, t)
       if (period) downbeatOffset = ((Math.round(beatAt(t + lead)) % 4) + 4) % 4 // round: a press just before the 1 marks it
     },
-    /** Holds the tempo at `bpm` (0 = back to auto) on the running grid's nearest beat, so the beat count and the phase
-     *  go on; with no grid, on the latest time seen. Held, the grid never drops and reads sure. Cleared, it runs on at
-     *  that tempo until the readings merge into it or replace it, as any grid.
-     *  ponytail: the phase is the PLL's alone (and T's); a seek, or a lock typed off the beat, is found by the onsets
-     *  within ±⅛ beat only. A comb phase at the held tempo (tempo.ts update()'s) if it bites. */
+    /** Holds the tempo at `bpm` (0 = back to auto) on the running grid's nearest beat, so the beat count goes on; with
+     *  no grid, on the latest time seen. The first confident reading at that tempo (any octave) then sets the phase, as
+     *  after a seek (a cold lock's is arbitrary: Kanine sat half a beat off); else the PLL keeps the phase it has. Held,
+     *  the grid never drops and reads sure. Cleared, it runs on at that tempo until the readings merge into it or
+     *  replace it, as any grid.
+     *  ponytail: a two-step's phase can sit half a beat off either way: its kicks fit the off-beat grid too, for the PLL
+     *  and for the source's comb (Sili's cold lock turns off-beat on a 174 reading at 44 s). T fixes it by hand; a
+     *  snare-weighted phase (snares on 2 and 4) if it bites. */
     setManual(bpm) {
       if (bpm === held) return
       held = bpm
-      if (bpm) lock(bpm, period ? timeOf(Math.round(beatAt(now))) : Math.max(0, now), 1)
+      if (!bpm) return
+      lock(bpm, period ? timeOf(Math.round(beatAt(now))) : Math.max(0, now), 1)
+      rephase = true
     },
     manual: () => held,
   }

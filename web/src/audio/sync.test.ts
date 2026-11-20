@@ -334,6 +334,30 @@ describe('manual lock', () => {
     expect(s.at(11.03).beat % 1).toBeCloseTo(0, 9) // anchored on the last tap
   })
 
+  test('a lock, or a seek while locked, takes its phase from the first confident reading at its tempo (any octave), once; the tempo stays', () => {
+    const src = stub()
+    const s = createSync(src)
+    s.setManual(174) // no grid: anchored at 0, a phase of its own
+    s.at(1)
+    for (const r of [{ bpm: 116, anchor: 1.1, confidence: 0.9 }, { bpm: 174, anchor: 1.15, confidence: 0.1 }]) {
+      src.set(r) // the ⅔ lag, a weak one: no
+      expect(s.at(1.2).beat).toBeCloseTo(1.2 / q, 9)
+    }
+    src.set({ bpm: 87, anchor: 1.25, confidence: 0.9 }) // our tempo an octave down, off our phase: its beat
+    expect(s.at(1.25).beat).toBeCloseTo(4, 9) // numbered on: 3.6 beats in
+    src.set({ bpm: 174, anchor: 1.4, confidence: 0.9 }) // once: the PLL has it from here
+    expect(s.at(1.4).beat).toBeCloseTo(4 + 0.15 / q, 9)
+    s.seek()
+    src.set({ bpm: 174.5, anchor: 2, confidence: 0.9 })
+    const f = s.at(2)
+    expect(f.beat - Math.round(f.beat)).toBeCloseTo(0, 9)
+    expect(f.bpm).toBeCloseTo(174, 9)
+    s.seek()
+    for (const t of [3, 3.345, 3.69, 4.035]) s.tap(t) // T after a seek: the user's phase wins over the next reading's
+    src.set({ bpm: 174, anchor: 4.1, confidence: 0.9 })
+    expect(s.at(4.1).beat % 1).toBeCloseTo(((4.1 - 4.035) * 173.9) / 60, 9) // on the last tap, at the tap tempo
+  })
+
   test('cleared, auto is back: confident 140 readings replace the 174 grid after 8 of their beats, the lock had held it', () => {
     const src = stub()
     const s = createSync(src)
