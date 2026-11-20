@@ -77,10 +77,11 @@ function rearm() {
   director.arm(armedCues)
   if (!armedCues) store.patch({ armedSet: null, cue: '' })
 }
-/** Arms set `i` of library.sets() (its first cue fades in at once), or disarms (null): the autopilot plays on from the
- *  scene on stage. */
+/** Arms set `i` of library.sets() (its first cue fades in at once, another set armed or not), or disarms (null): the
+ *  autopilot plays on from the scene on stage. */
 export function armSet(i: number | null) {
-  store.patch({ armedSet: i })
+  director.arm(null) // armed afresh, not as an edit of the set armed before
+  store.patch({ armedSet: i, cue: '' })
   rearm()
 }
 library.onChange(rearm)
@@ -282,7 +283,7 @@ let donorTarget = donorMix // the previous frame's target: a 0 → 1 turn seeds 
 const vs3 = createVs3(ctx.sampleRate, analyser2k.fftSize) // the vs3 core (audio/vs3.ts), warm in every mode like the donor's
 const mag2k = new Float32Array(analyser2k.frequencyBinCount) // its bins, dB
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
-if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets }) // ?debug: the live binding sources, settings and the flash budget's onsets, for DevTools and browser checks
+if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets, __transition: () => transition }) // ?debug: the live binding sources, settings, the flash budget's onsets and the fades' transition, for DevTools and browser checks
 // plan_camera CP1 (S1.2b): the camera's harness hooks — mask users, SegmentWorker constructions, frames posted to a
 // host; also on the probe and bench pages (their harnesses read it, camGpuMs under ?bench)
 if (DEBUG || /camprobe|bench/.test(location.search))
@@ -513,9 +514,10 @@ function frame(now: number) {
   if (doc.name !== snap.sceneName || id !== snap.edited) store.patch({ sceneName: doc.name, edited: id })
   if (presetDue?.scene === id) {
     // the cue's preset (presets.ts, by name) onto its scene, as the preset picker would; one gone since: none
+    const { preset } = presetDue
     const t = panel.presetNode()
-    const p = t?.list.find((x) => x.name === presetDue!.preset)
-    if (p) panel.setValues(t!.path, p.values)
+    const p = t?.list.find((x) => x.name === preset)
+    if (t && p) panel.setValues(t.path, p.values)
     presetDue = null
   }
   governor.frame(now, performance.now() - start, gpuMs.get(id)) // fed only on rendered frames; GPU3D N4: + the scene's GL ms
