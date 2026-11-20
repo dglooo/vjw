@@ -1,19 +1,25 @@
-import { useRef, useState, useSyncExternalStore, type DragEvent, type PointerEvent } from 'react'
+import { useEffect, useReducer, useRef, useState, useSyncExternalStore, type DragEvent, type PointerEvent } from 'react'
 import { armSet, director } from '../app'
-import { docs, move } from '../edit'
+import { docs } from '../edit'
 import { adjustForSource, insertIndex } from '../editor/dnd'
 import { transitions } from '../fx/catalog'
 import { panel } from '../gl/live'
-import { library } from '../library'
-import { BARS, type Cue, type SetList } from '../setlist'
-import { store } from '../store'
+import { download, library } from '../library'
+import { BARS, importSets, reorder, seconds, setFile, type Cue, type SetList } from '../setlist'
+import { clock, store } from '../store'
 
 const sceneName = (id: string) => (docs.get(id) ?? library.get(id))?.name
 const short = (id: string) => id.slice(id.indexOf('/') + 1) // gl/Swirl → Swirl
-const mid = (el: Element) => {
+const mid = (el: Element, across: boolean) => {
   const r = el.getBoundingClientRect()
-  return r.top + r.height / 2
+  return across ? r.left + r.width / 2 : r.top + r.height / 2
 }
+const length = (bars: Cue['bars']) => (bars === 'hold' ? 'hold' : `${bars} bar${bars === 1 ? '' : 's'}`)
+/** A cue's switches (setlist.ts): the select's label and title. */
+const SWITCHES = {
+  text: ['text', 'The text layers (X) as this cue starts'],
+  analysis: ['analyser', 'The analysis (A) as this cue starts; off: the scenes hear a steady idle signal'],
+} as const
 /** A clicked button or summary keeps the focus, and a focused control eats the hotkeys; a select or a field keeps it. */
 const release = (e: PointerEvent) => {
   if (!(e.target instanceof HTMLSelectElement || e.target instanceof HTMLInputElement)) (document.activeElement as HTMLElement | null)?.blur()
@@ -21,7 +27,12 @@ const release = (e: PointerEvent) => {
 
 /** The top bar's Set menu (setlist.ts, user 2026-11-20: the groundwork): pick, make, rename or delete a set; add the
  *  scene on stage with its preset as a cue; drag the cues into order by their names; give each its bars or a hold and
- *  a transition into it; delete one; arm / disarm the set (app.ts armSet). Armed, its summary reads the cue on stage. */
+ *  a transition into it; delete one; arm / disarm the set (app.ts armSet). Armed, its summary reads the cue on stage.
+ *  Step 2 (user 2026-11-21): export the set or all sets as a .json file, import one (the button, or a drop on the menu);
+ *  a timeline strip, the cues as blocks sized by their bars: armed, the cue on stage lit with a playhead through it on
+ *  the bar clock, a click plays a block's cue from the next bar line (director.jump); the blocks drag into order too;
+ *  each cue's switches: the text layers and the analysis on, off or as they are as it starts (app.ts frame), and its
+ *  track time, m:ss: a playing file starts it there, the cue before holding until then. */
 export function SetMenu() {
   const sets = useSyncExternalStore(library.onChange, library.sets)
   const armed = useSyncExternalStore(store.subscribe, () => store.getSnapshot().armedSet)
@@ -30,11 +41,33 @@ export function SetMenu() {
   const [naming, setNaming] = useState(false)
   const [sure, setSure] = useState(false) // delete set: the second click deletes
   const [line, setLine] = useState(-1) // a drag's insert line: above cue `line` (the cue count: the end)
+  const [open, setOpen] = useState(false)
+  const [, rerender] = useReducer((n: number) => n + 1, 0) // a jump's block outlined at once
   const drag = useRef<number | null>(null)
+  const file = useRef<HTMLInputElement>(null)
+  const strip = useRef<HTMLDivElement>(null)
+  const head = useRef<HTMLElement>(null)
+  const [note, setNote] = useState<{ text: string; dropped: string[] } | null>(null) // the last import's report
   const i = Math.min(pick, sets.length - 1) // -1: no set yet
   const set = sets[i] as SetList | undefined
-  const playing = armed === i ? director.cue()?.of : undefined
-  const on = playing ? set!.cues.indexOf(playing) : -1 // the cue on stage, lit
+  const playing = armed === i ? director.cue() : null
+  const on = playing ? set!.cues.indexOf(playing.of) : -1 // the cue on stage, lit
+  // The playhead, open and armed: through the cue on stage's block by its bars played, round a hold's each bar. One rAF
+  // loop writes its transform, no React state (as the input meter).
+  useEffect(() => {
+    if (!open || armed !== i || !set) return
+    let raf = 0
+    const loop = () => {
+      raf = requestAnimationFrame(loop)
+      const c = director.cue()
+      const el = c && (strip.current?.children[set.cues.indexOf(c.of)] as HTMLElement | undefined)
+      if (!c || !el) return
+      const f = c.of.bars === 'hold' ? c.at % 1 : Math.min(1, c.at / c.of.bars)
+      head.current!.style.transform = `translateX(${el.offsetLeft + el.offsetWidth * f}px)`
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [open, armed, i, set])
   const save = (next: SetList) => library.setSets(sets.with(i, next))
   const edit = (k: number, c: Cue) => save({ ...set!, cues: set!.cues.with(k, c) })
   const choose = (k: number) => {
@@ -59,18 +92,59 @@ export function SetMenu() {
     const preset = panel.presetNode()?.now?.name
     if (edited) save({ ...set!, cues: [...set!.cues, { scene: edited, bars: 16, ...(preset && { preset }) }] })
   }
-  /** The drop's insert index under the pointer, or null for a drag that is not a cue's (a file: the document plays it). */
+  /** A set file's sets after the user's, the first picked (setlist.ts importSets: a taken name gets a suffix), and the
+   *  report: what came in, each left-out set or cue with its reason. */
+  async function load(f: File) {
+    const have = library.sets()
+    const { sets: got, dropped } = importSets(have, await f.text())
+    if (got.length) {
+      library.setSets([...have, ...got])
+      choose(have.length)
+    }
+    setNote({ text: got.length ? `Imported ${got.map((s) => `"${s.name}"`).join(', ')}` : `No set in ${f.name}`, dropped })
+  }
+  /** The drop's insert index under the pointer (the strip's blocks across, the list's rows down), or null for a drag
+   *  that is not a cue's (a file: this menu imports a set file, the document plays the rest). */
   const over = (e: DragEvent<HTMLElement>) => {
     if (drag.current === null) return null
     e.preventDefault()
-    return insertIndex(e.clientY, Array.from(e.currentTarget.querySelectorAll(':scope > .cue'), mid))
+    const across = e.currentTarget === strip.current
+    return insertIndex(across ? e.clientX : e.clientY, Array.from(e.currentTarget.querySelectorAll(':scope > :is(.cue, .blk)'), (el) => mid(el, across)))
   }
   const end = () => {
     drag.current = null
     setLine(-1)
   }
+  const dragOver = (e: DragEvent<HTMLElement>) => {
+    const at = over(e)
+    if (at !== null) setLine(at)
+  }
+  const drop = (e: DragEvent<HTMLElement>) => {
+    const at = over(e)
+    const from = drag.current
+    end()
+    if (at !== null && from !== null && adjustForSource(at, from) !== from) save({ ...set!, cues: reorder(set!.cues, from, at) })
+  }
+  const dragStart = (e: DragEvent<HTMLElement>, k: number) => {
+    e.dataTransfer.effectAllowed = 'move'
+    drag.current = k
+  }
   return (
-    <details className="midi setlist" onPointerUp={release}>
+    <details
+      className="midi setlist"
+      onPointerUp={release}
+      onToggle={(e) => {
+        setOpen(e.currentTarget.open)
+        if (!e.currentTarget.open) setNote(null)
+      }}
+      onDrop={(e) => {
+        const f = e.dataTransfer.files[0]
+        if (!f?.name.toLowerCase().endsWith('.json')) return // audio: the document's drop plays it
+        e.preventDefault()
+        e.stopPropagation()
+        void load(f)
+      }}
+    >
       <summary className={armed === null ? undefined : 'on'}>{cue || 'Set'}</summary>
       <div className="menu">
         {naming && set ? (
@@ -121,34 +195,33 @@ export function SetMenu() {
                 {armed === i ? 'armed · disarm' : 'arm'}
               </button>
             </span>
-            <div
-              onDragOver={(e) => {
-                const at = over(e)
-                if (at !== null) setLine(at)
-              }}
-              onDrop={(e) => {
-                const at = over(e)
-                const from = drag.current
-                end()
-                if (at === null || from === null) return
-                const to = adjustForSource(at, from)
-                if (to === from) return
-                const cues = [...set.cues]
-                move(cues, from, to)
-                save({ ...set, cues })
-              }}
-              onDragEnd={end}
-            >
-              {set.cues.map((c, k) => (
-                <div key={k} className={`line cue${k === on ? ' on' : ''}${sceneName(c.scene) ? '' : ' gone'}${line === k ? ' ins' : ''}`}>
-                  <span
+            {set.cues.length > 0 && (
+              <div className="strip" ref={strip} onDragOver={dragOver} onDrop={drop} onDragEnd={end}>
+                {set.cues.map((c, k) => (
+                  <button
+                    key={k}
+                    className={`blk${k === on ? ' on' : ''}${c === playing?.jump ? ' next' : ''}${sceneName(c.scene) ? '' : ' gone'}${line === k ? ' ins' : ''}${line === set.cues.length && k === line - 1 ? ' end' : ''}`}
+                    style={{ flex: c.bars === 'hold' ? 'none' : `${c.bars} 1 0` }}
                     draggable
-                    title={`${c.scene}: drag to reorder`}
-                    onDragStart={(e) => {
-                      e.dataTransfer.effectAllowed = 'move'
-                      drag.current = k
+                    title={`${k + 1}. ${sceneName(c.scene) ?? 'missing scene'} · ${length(c.bars)}${c.time === undefined ? '' : ` · at ${clock(c.time)}`}${armed === i ? ' · click: from the next bar line' : ''} · drag to reorder`}
+                    onDragStart={(e) => dragStart(e, k)}
+                    onClick={() => {
+                      if (armed !== i) return
+                      director.jump(c)
+                      rerender()
                     }}
                   >
+                    {k + 1}
+                    {c.bars === 'hold' ? ' ∞' : ` ${sceneName(c.scene) ?? ''}`}
+                  </button>
+                ))}
+                <i ref={head} className="head" hidden={armed !== i} />
+              </div>
+            )}
+            <div onDragOver={dragOver} onDrop={drop} onDragEnd={end}>
+              {set.cues.map((c, k) => (
+                <div key={k} className={`line cue${k === on ? ' on' : ''}${sceneName(c.scene) ? '' : ' gone'}${line === k ? ' ins' : ''}`}>
+                  <span draggable title={`${c.scene}: drag to reorder`} onDragStart={(e) => dragStart(e, k)}>
                     {k + 1}. {sceneName(c.scene) ?? 'missing scene'}
                     {c.preset && ` · ${c.preset}`}
                   </span>
@@ -187,6 +260,43 @@ export function SetMenu() {
                   <button aria-label="Delete cue" onClick={() => save({ ...set, cues: set.cues.toSpliced(k, 1) })}>
                     ×
                   </button>
+                  <div className="at">
+                    {(['text', 'analysis'] as const).map((key) => (
+                      <select
+                        key={key}
+                        aria-label={SWITCHES[key][1]}
+                        title={SWITCHES[key][1]}
+                        value={c[key] === undefined ? '' : c[key] ? 'on' : 'off'}
+                        onChange={(e) => {
+                          const v = e.currentTarget.value
+                          e.currentTarget.blur()
+                          edit(k, { ...c, [key]: v ? v === 'on' : undefined })
+                        }}
+                      >
+                        {['', 'on', 'off'].map((v) => (
+                          <option key={v} value={v}>
+                            {SWITCHES[key][0]}: {v || 'as is'}
+                          </option>
+                        ))}
+                      </select>
+                    ))}
+                    <input
+                      key={c.time ?? ''} // uncontrolled: a reorder or an import shows the cue's own
+                      aria-label="Track time: a playing file starts this cue there (m:ss); empty: after the cue before"
+                      title="Track time: a playing file starts this cue there (m:ss); empty: after the cue before"
+                      placeholder="at m:ss"
+                      defaultValue={c.time === undefined ? '' : clock(c.time)}
+                      autoComplete="off"
+                      spellCheck={false}
+                      onKeyDown={(e) => e.code === 'Enter' && e.currentTarget.blur()}
+                      onBlur={(e) => {
+                        const v = e.currentTarget.value.trim()
+                        const t = v ? seconds(v) : undefined
+                        if (t === null) e.currentTarget.value = c.time === undefined ? '' : clock(c.time) // not m:ss: back to the cue's
+                        else if (t !== c.time) edit(k, { ...c, time: t })
+                      }}
+                    />
+                  </div>
                 </div>
               ))}
               <button className={line === set.cues.length ? 'ins' : undefined} onClick={add}>
@@ -195,6 +305,38 @@ export function SetMenu() {
             </div>
           </>
         )}
+        <span className="line">
+          {set && (
+            <button title="Download this set as a .json file" onClick={() => download(`veejay-set-${set.name}.json`, setFile([set]))}>
+              export
+            </button>
+          )}
+          {sets.length > 1 && (
+            <button title="Download every set as one .json file" onClick={() => download('veejay-sets.json', setFile(sets))}>
+              export all
+            </button>
+          )}
+          <button title="Add the sets of a .json set file (or drop one on this menu)" onClick={() => file.current!.click()}>
+            import…
+          </button>
+          <input
+            ref={file}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = '' // the same file can come in again
+              if (f) void load(f)
+            }}
+          />
+        </span>
+        {note && <p>{note.text}</p>}
+        {note?.dropped.map((d, k) => (
+          <p key={k} className="err">
+            left out: {d}
+          </p>
+        ))}
       </div>
     </details>
   )

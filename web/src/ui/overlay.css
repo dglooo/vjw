@@ -46,7 +46,8 @@
 .bar select,
 .bar button,
 .bar .preset input,
-.bar .bpm input {
+.bar .bpm input,
+.bar .setlist .at input {
   max-width: 40ch;
   padding: 5px 8px;
   font: inherit;
@@ -192,7 +193,20 @@
   border-color: #f2c14e88;
 }
 .setlist .cue {
-  flex-wrap: nowrap;
+  flex-wrap: wrap; /* its switches on a second line */
+}
+.setlist .cue .at {
+  display: flex;
+  flex-basis: 100%;
+  gap: 6px;
+  padding-left: 1.4em;
+}
+.bar .setlist .cue .at :is(select, input) {
+  max-width: none;
+  opacity: 0.8;
+}
+.bar .setlist .cue .at input {
+  width: 7ch;
 }
 .setlist .cue > span {
   flex: 1;
@@ -210,6 +224,45 @@
 }
 .setlist .ins {
   box-shadow: 0 -3px 0 #f2c14e;
+}
+/* The timeline strip (SetList.tsx): a block per cue, its width by its bars (a hold: a short ∞ block), the cue on stage
+   lit (the MIDI menu's .on), a jump's cue outlined until its bar line, the playhead through the cue on stage; the
+   insert line left of the block a drop lands before (past the last: right of it). */
+.setlist .strip {
+  position: relative;
+  flex: none; /* a scroll container: in the menu's column it would shrink to nothing when the list overflows */
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+}
+.bar .setlist .strip button {
+  min-width: 22px;
+  padding: 4px 5px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: left;
+  font-size: 11px;
+}
+.setlist .strip .next {
+  outline: 1px dashed #f2c14e;
+  outline-offset: -3px;
+}
+.setlist .strip .gone {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+.setlist .strip .ins {
+  box-shadow: -3px 0 0 #f2c14e;
+}
+.setlist .strip .end {
+  box-shadow: 3px 0 0 #f2c14e;
+}
+.setlist .strip .head {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: #fff;
+  pointer-events: none;
 }
 
 /* Learn mode: the sliders a click arms */

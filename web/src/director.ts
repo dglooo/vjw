@@ -1,6 +1,6 @@
 // The autopilot (design S3), pure: while the (c) phase is confident it switches on bar lines, otherwise on time.
 // `now` is seconds. `update` returns the same Shot object every frame. An armed set (setlist.ts) plays its cues in
-// place of the playlist, each for its own bars; ←/→ step through them.
+// place of the playlist, each for its own bars; ←/→ step through them, a timeline click jumps on the next bar line.
 import type { Sync } from './audio/sync'
 import type { SceneId } from './doc'
 import type { Cue } from './setlist'
@@ -13,9 +13,14 @@ export interface Director {
   /** A set's cues in place of the playlist, faded to from the first at the next update; the armed set again (an edit:
    *  the same cue objects) keeps the cue on stage. Null or none: back to the playlist, the scene on stage playing on. */
   arm(cues: readonly Cue[] | null): void
-  /** The armed set's cue on stage (the incoming one during a fade), its index and the bars left in it (Infinity: a
-   *  hold); not `sure`, timed at cueBpm. Null: no set armed. */
-  cue(): { index: number; of: Cue; left: number; sure: boolean } | null
+  /** The armed set's cue `of` from its next bar line (the Set menu's timeline), or `now` at once (a time-code cue's
+   *  track time, app.ts): a fade into it, as a step's. Its own cue on stage: none. ←/→ or an arm drop it; a cue gone from
+   *  the set by then is skipped. */
+  jump(of: Cue, now?: boolean): void
+  /** The armed set's cue on stage (the incoming one during a fade), its index, the bars left in it (Infinity: a hold)
+   *  and the bars played, fractional; not `sure`, timed at cueBpm. `jump`: the cue a jump waits to play. Null: no set
+   *  armed. */
+  cue(): { index: number; of: Cue; left: number; at: number; sure: boolean; jump: Cue | null } | null
 }
 export interface DirectorOpts {
   barsPerShot: number // confident: switch this many bars after the last switch, on a bar line …
@@ -49,6 +54,9 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
   let saved = playlist // the library's playlist while a set plays
   let enter = false // arm(): fade to cue `cur` at the next update
   let stand = false // a cut scene stands in for the armed set's cue on stage: one step on is the next cue
+  let jumpTo: Cue | null = null // jump(): the cue to fade to on the next bar line …
+  let jumpNow = false // … or at the next update
+  const barS = 240 / o.cueBpm // s: an armed set's bar while unsure (4 beats of 60 / bpm s)
 
   /** The playlist index `by` steps from the current scene. If it left the playlist, the scene that followed it now
    *  holds its slot `cur`, so one step on lands there. */
@@ -69,10 +77,11 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
     switchedBar = bar
   }
 
-  /** The shot's length in bars: the cue's (a hold never ends), else barsPerShot. */
+  /** The shot's length in bars: the cue's (a hold never ends; nor does the cue before a time-code one, which its track
+   *  time starts), else barsPerShot. */
   function length() {
     const b = cues?.[cur].bars
-    return b === undefined ? o.barsPerShot : b === 'hold' ? Infinity : b
+    return b === undefined ? o.barsPerShot : b === 'hold' || cues![(cur + 1) % cues!.length].time !== undefined ? Infinity : b
   }
 
   /** The playlist `ids`. The shot (a fade too) plays on. A dropped current scene keeps its slot, clamped: the next switch
@@ -112,6 +121,20 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
         begin(enter ? cur : away(step), 0, now, line)
         step = 0
         enter = false
+        jumpTo = null
+      } else if (jumpTo && cues) {
+        // On the first frame past the cue's next bar line as its bars count (sure: the grid's, else every barS from the
+        // switch), already faded by the part of it that has passed; the lock (hold) does not stop it, as ←/→.
+        const k = Math.floor((now - switchedAt) / barS)
+        if (jumpNow || (sure ? line > Math.floor(last.bar) : k > Math.floor((last.now - switchedAt) / barS))) {
+          const j = cues.indexOf(jumpTo)
+          const at = jumpNow ? now : switchedAt + k * barS
+          jumpTo = null
+          if (j >= 0 && (j !== cur || stand)) {
+            if (sure && !jumpNow) begin(j, (bar - line) / o.barsTransition, now, line)
+            else begin(j, (now - at) / o.fallbackTransition, at, line)
+          }
+        }
       } else if (!shot.to && !hold) {
         const n = length()
         const secs = cues ? (n * 240) / o.cueBpm : o.fallbackSeconds // a bar: 4 beats of 60 / bpm s
@@ -155,7 +178,7 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
     arm(next) {
       if (!next?.length) {
         if (cues) relist(saved)
-        cues = null
+        cues = jumpTo = null
         enter = stand = false
         return
       }
@@ -169,15 +192,20 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
         saved = playlist
         cur = 0
         enter = true
+        jumpTo = null
       }
       cues = next
       playlist = next.map((c) => c.scene)
     },
+    jump(of, now = false) {
+      jumpTo = of
+      jumpNow = now
+    },
     cue() {
       if (!cues) return null
       const n = length()
-      const left = !last ? n : sure ? n - (Math.floor(last.bar) - switchedBar) : Math.ceil(n - ((last.now - switchedAt) * o.cueBpm) / 240)
-      return { index: cur, of: cues[cur], left: Math.max(0, left), sure }
+      const at = !last ? 0 : sure ? last.bar - switchedBar : (last.now - switchedAt) / barS
+      return { index: cur, of: cues[cur], left: Math.max(0, sure ? n - Math.floor(at) : Math.ceil(n - at)), at, sure, jump: jumpTo }
     },
   }
 }

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { parseSets } from './setlist'
+import { importSets, parseSets, reorder, seconds, setFile, type SetList } from './setlist'
 
 test('parseSets keeps the good cues and sets, and drops each bad one with its reason', () => {
   const good = { scene: 'builtin:tunnel', preset: 'hall', bars: 16, transition: 'gl/Swirl' }
@@ -31,4 +31,50 @@ test('parseSets keeps the good cues and sets, and drops each bad one with its re
   })
   expect(parseSets(null)).toEqual({ sets: [], dropped: [] }) // nothing stored
   expect(parseSets({ name: 'not a list' }).sets).toEqual([])
+})
+
+test('a cue\'s switches parse; a bad value drops its cue with the reason', () => {
+  const on = { scene: 'a', bars: 4, text: false, analysis: true }
+  expect(parseSets([{ name: 'S', cues: [on, { scene: 'b', bars: 4, text: 'on' }, { scene: 'c', bars: 4, analysis: 1 }, { scene: 'd', bars: 4, text: null }]}])).toEqual({
+    sets: [{ name: 'S', cues: [on] }],
+    dropped: ['set "S", cue 2: text "on": true, false or absent', 'set "S", cue 3: analysis 1: true, false or absent', 'set "S", cue 4: text null: true, false or absent'],
+  })
+})
+
+test('a cue\'s track time parses (seconds ≥ 0); a bad one drops its cue with the reason; m:ss reads as seconds', () => {
+  const at = { scene: 'a', bars: 4, time: 90.5 }
+  expect(parseSets([{ name: 'S', cues: [at, { scene: 'b', bars: 4, time: -1 }, { scene: 'c', bars: 4, time: '1:30' }, { scene: 'd', bars: 4, time: null }] }])).toEqual({
+    sets: [{ name: 'S', cues: [at] }],
+    dropped: ['set "S", cue 2: time -1: seconds ≥ 0 or absent', 'set "S", cue 3: time "1:30": seconds ≥ 0 or absent', 'set "S", cue 4: time null: seconds ≥ 0 or absent'],
+  })
+  expect(['1:30', ' 0:05 ', '72:00', '1:60', '1:5', '90', '', '-1:00'].map(seconds)).toEqual([90, 5, 4320, null, null, null, null, null])
+})
+
+test('a set file round-trips; a taken name gets a suffix, both kept; a bad file reports its reasons and keeps the good cues', () => {
+  const set: SetList = { name: 'Friday', cues: [{ scene: 'builtin:tunnel', preset: 'hall', bars: 16, transition: 'gl/Swirl', text: true }, { scene: 'x', bars: 'hold', analysis: false }] }
+  expect(importSets([], setFile([set]))).toEqual({ sets: [set], dropped: [] })
+  expect(importSets([set], setFile([set, set])).sets.map((s) => s.name)).toEqual(['Friday (2)', 'Friday (3)'])
+  expect(importSets([], JSON.stringify([set])).sets).toEqual([set]) // a bare list, as vjw.sets holds
+  expect(importSets([], JSON.stringify({ sets: [{ name: 'A', cues: [set.cues[0], { bars: 4 }] }, { cues: [] }] }))).toEqual({
+    sets: [{ name: 'A', cues: [set.cues[0]] }],
+    dropped: ['set "A", cue 2: no scene id', 'set 2: no name'],
+  })
+  const bad = importSets([set], '{"sets": [')
+  expect(bad.sets).toEqual([])
+  expect(bad.dropped).toHaveLength(1)
+  expect(bad.dropped[0]).toMatch(/^not a set file: /)
+  expect(importSets([], JSON.stringify({ v: 1, scenes: [] }))).toEqual({ sets: [], dropped: [] }) // a library file: no set
+})
+
+test('reorder keeps every cue once, at each drop line', () => {
+  const cues = ['a', 'b', 'c', 'd'].map((scene) => ({ scene, bars: 4 }))
+  for (let from = 0; from < cues.length; from++)
+    for (let at = 0; at <= cues.length; at++) {
+      const out = reorder(cues, from, at)
+      expect(new Set(out)).toEqual(new Set(cues))
+      expect(out).toHaveLength(cues.length)
+    }
+  expect(reorder(cues, 0, 4).map((c) => c.scene).join('')).toBe('bcda') // past the last
+  expect(reorder(cues, 3, 0).map((c) => c.scene).join('')).toBe('dabc')
+  expect(reorder(cues, 1, 2)).toEqual(cues) // its own line: no move
 })
