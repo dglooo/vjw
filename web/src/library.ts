@@ -142,14 +142,18 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
   }
   /** The autopilot's and ←/→'s order: the list of the view and the group (user 2026-11-19, 2026-11-20) less the scenes
    *  out of rotation. View All: in every group the starred scenes (a built-in starred off, the heavy and utility ones,
-   *  stays out), in one group all its scenes; a mark's view: its scenes, starred or not; the trash's: All's. `camLive`
-   *  false: a scene that needs the camera sits out (user 2026-11-16: it played as a duplicate); a manual pick
-   *  (director.cut) still opens it. An empty view plays the group's All, an empty group every group's; nothing there:
-   *  the built-ins starred by default, trashed or not, as the director needs a non-empty playlist (plan S2.1). */
+   *  stays out), in one group all its scenes; a mark's view: its scenes, starred or not; the trash's: All's. A scene
+   *  marked rework sits out of every view but its own (user 2026-11-21: «те, что стоят на реворк, убираем сейчас из
+   *  прокрутки»); the list still shows it. `camLive` false: a scene that needs the camera sits out (user 2026-11-16: it
+   *  played as a duplicate). A manual pick (director.cut) still opens either. An empty view plays the group's All, an
+   *  empty group every group's; nothing there: the built-ins starred by default, marked or not, as the director needs a
+   *  non-empty playlist (plan S2.1). */
   function playlist(camLive = true): SceneId[] {
     const on = (d: SceneDoc) => camLive || !needsCamera(d)
     const rotation = (w: View, g: Group) =>
-      listed(w, g).filter((d) => on(d) && (w === 'all' ? g !== 'all' || d.star : w !== 'trash')).map((d) => d.id)
+      listed(w, g)
+        .filter((d) => on(d) && (w === 'rework' || !marks.rework.has(d.id)) && (w === 'all' ? g !== 'all' || d.star : w !== 'trash'))
+        .map((d) => d.id)
     for (const [w, g] of [[view, group], ['all', group], ['all', 'all']] as const) {
       const p = rotation(w, g)
       if (p.length) return p
