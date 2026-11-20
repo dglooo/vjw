@@ -487,6 +487,23 @@ test('MIDI mappings (midi.ts): stored over a reload, mirrored into the marks fil
   expect((await loaded(browser(undefined, { midi: maps }))).midi()).toEqual(maps) // a build's defaults
 })
 
+test('set lists (setlist.ts): stored over a reload, mirrored into the marks file (none: left out), back after a wipe, baked, a bad cue left out', async () => {
+  const disk: { text?: string } = {}
+  const b = browser(disk)
+  const lib = await loaded(b)
+  const sets = [{ name: 'Friday', cues: [{ scene: 'builtin:tunnel', bars: 4 }, { scene: 'builtin:plexus', preset: 'x', bars: 'hold' as const, transition: 'gl/Swirl' }] }]
+  lib.setSets(sets)
+  expect((await loaded(b)).sets()).toEqual(sets) // a reload
+  expect(JSON.parse(disk.text!).sets).toEqual(sets)
+  expect((await loaded(browser(disk))).sets()).toEqual(sets) // a browser data wipe: the dev file brings them back
+  lib.setSets([])
+  expect(JSON.parse(disk.text!).sets).toBeUndefined()
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  const baked = await loaded(browser(undefined, { sets: [{ name: 'B', cues: [{ scene: 'builtin:tunnel', bars: 8 }, { scene: 'builtin:tunnel', bars: -1 }] }] }))
+  expect(baked.sets()).toEqual([{ name: 'B', cues: [{ scene: 'builtin:tunnel', bars: 8 }] }]) // a build's defaults, the bad cue left out
+  expect(warn).toHaveBeenCalledWith('set list: set "B", cue 2: bars -1: a whole number ≥ 1 or "hold" (left out)')
+})
+
 test("setStar stars the panel's unsaved copy along, so a later save keeps it", async () => {
   const lib = await loaded()
   docs.set('builtin:tunnel', structuredClone(BUILTIN[0]))

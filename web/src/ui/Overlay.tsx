@@ -9,6 +9,7 @@ import { AllowClips } from './Clips'
 import { Midi } from './Midi'
 import { showText } from '../scenes/text'
 import { PresetSelect } from './Panel'
+import { SetMenu } from './SetList'
 import { AnalyserSelect } from './SourcesTab'
 import { clock, store, type UiSnapshot } from '../store'
 import './overlay.css'
@@ -217,6 +218,7 @@ export function Overlay() {
         <PresetSelect />
         <AnalyserSelect />
         <Midi />
+        <SetMenu />
         <button aria-pressed={s.text} title="Every text layer on / off · X" onClick={() => showText(!s.text)}>
           Text
         </button>

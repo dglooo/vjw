@@ -7,6 +7,7 @@ import { docs } from './edit'
 import type { Value } from './fx/types'
 import type { Preset } from './presets'
 import { BUILTIN } from './scenes/builtin'
+import { parseSets, type SetList } from './setlist'
 
 export interface Db { all(): Promise<unknown[]>; put(doc: SceneDoc): Promise<unknown>; del(id: SceneId): Promise<unknown> }
 type Kv = Pick<Storage, 'getItem' | 'setItem'>
@@ -27,6 +28,7 @@ const VIEW = 'vjw.view'
 const PERSISTED = 'vjw.persisted' // set once navigator.storage.persist() is granted
 const PRESETS = 'vjw.presets' // { [ref]: Preset[] }: the user's presets (presets.ts), kept and mirrored as the marks
 const MIDI = 'vjw.midi' // the MIDI mappings (midi.ts parses them): kept, mirrored and baked as the presets
+const SETS = 'vjw.sets' // the set lists (setlist.ts): kept, mirrored and baked as the presets
 /** The list's order, so the playlist's (user 2026-11-19: ←/→ as the list stands): by name, then id. */
 export const byName = (a: SceneDoc, b: SceneDoc) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
 /** The scene ids of a stored or filed mark; none from a corrupt value. */
@@ -96,11 +98,18 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
   const keep = (m: Mark) => kv.setItem(MARKS[m], JSON.stringify([...marks[m]]))
   let presets = presetsOf(stored(PRESETS) ?? base.presets)
   let midi = stored(MIDI) ?? base.midi
+  /** The sets of a stored or filed value; a bad one or a bad cue is left out with a console warning. */
+  const setsOf = (x: unknown) => {
+    const { sets, dropped } = parseSets(x)
+    for (const why of dropped) console.warn(`set list: ${why} (left out)`)
+    return sets
+  }
+  let sets = setsOf(stored(SETS) ?? base.sets)
   /** web/scene-marks.json's text: each mark's ids, sorted, then the user's stars over the built-ins, by id, then the
-   *  user's presets and MIDI mappings when there are any. */
+   *  user's presets, MIDI mappings and sets when there are any. */
   const file = () => {
     const on = Object.entries(stars).filter(([, s]) => typeof s === 'boolean').sort(([a], [b]) => (a < b ? -1 : 1))
-    const f = { ...Object.fromEntries(MARK_IDS.map((m) => [m, [...marks[m]].sort()])), stars: Object.fromEntries(on), ...(Object.keys(presets).length && { presets }), ...(Array.isArray(midi) && midi.length && { midi }) }
+    const f = { ...Object.fromEntries(MARK_IDS.map((m) => [m, [...marks[m]].sort()])), stars: Object.fromEntries(on), ...(Object.keys(presets).length && { presets }), ...(Array.isArray(midi) && midi.length && { midi }), ...(sets.length && { sets }) }
     return `${JSON.stringify(f, null, 2)}\n`
   }
   const keepPresets = (next: Record<string, Preset[]>) => {
@@ -175,6 +184,7 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
           kv.setItem(PRESETS, JSON.stringify(presets))
         }
         if (Array.isArray(f.midi)) kv.setItem(MIDI, JSON.stringify((midi = f.midi)))
+        if (Array.isArray(f.sets)) kv.setItem(SETS, JSON.stringify((sets = setsOf(f.sets))))
       }
       if (f === null || (rec(f) && !rec(f.stars))) disk!.write(file())
       for (const x of await db.all()) {
@@ -240,6 +250,14 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
     setMidi(m: unknown) {
       kv.setItem(MIDI, JSON.stringify((midi = m)))
       disk?.write(file())
+    },
+    /** The set lists (setlist.ts), in the Set menu's order; a new array per change. */
+    sets: (): readonly SetList[] => sets,
+    setSets(next: readonly SetList[]) {
+      sets = [...next]
+      kv.setItem(SETS, JSON.stringify(sets))
+      disk?.write(file())
+      notify()
     },
     /** The list's view, kept over a reload; the playlist follows it. */
     view: () => view,
