@@ -333,12 +333,14 @@ test('the list and the playlist (user 2026-11-19): one order by name; All plays 
   expect(lib.playlist()).toEqual(inOrder(lib, ['builtin:spectrum', 'builtin:demo-fluid']))
   expect(lib.listed().map((d) => d.id)).toEqual(lib.playlist())
   expect(b.open().view()).toBe('favourite')
-  // Rework: a mark only, it still plays in All; its view plays its scenes.
+  // Rework (user 2026-11-21): All lists it, but only its own view plays it, starred or not.
+  expect(all).toContain('builtin:glitch') // starred
   lib.mark('rework', 'builtin:glitch', true)
   lib.setView('rework')
   expect(lib.playlist()).toEqual(['builtin:glitch'])
   lib.setView('all')
-  expect(lib.playlist()).toEqual(all)
+  expect(lib.listed().map((d) => d.id)).toContain('builtin:glitch')
+  expect(lib.playlist()).toEqual(all.filter((id) => id !== 'builtin:glitch'))
   for (const bad of ['"toString"', '"nope"', '{ oops', '5']) {
     b.kv.set('vjw.view', bad)
     expect(b.open().view()).toBe('all')
@@ -367,7 +369,8 @@ test('a group lists and plays all its scenes, starred or not, less the trash; th
   const b = browser()
   const lib = await loaded(b)
   const VS3 = BUILTIN.filter((d) => d.id.startsWith('builtin:vs3-')).map((d) => d.id)
-  expect(BUILTIN.filter((d) => VS3.includes(d.id) && d.star)).toEqual([]) // all unstarred: All never plays them
+  expect(BUILTIN.filter((d) => VS3.includes(d.id) && !d.star)).toEqual([]) // all starred by default (user 2026-11-21): All plays them
+  expect(lib.playlist()).toEqual(expect.arrayContaining(VS3))
   expect(lib.group()).toBe('all')
   lib.setGroup('vs3')
   const list = inOrder(lib, VS3)
@@ -384,18 +387,22 @@ test('a group lists and plays all its scenes, starred or not, less the trash; th
   lib.mark('favourite', VS3[1], true)
   lib.mark('favourite', 'builtin:tunnel', true) // another group's
   expect(lib.playlist()).toEqual([VS3[1]])
+  lib.mark('rework', VS3[1], true) // out of the favourites and the group too: the group's All plays, less it
+  expect(lib.playlist()).toEqual(rest.filter((id) => id !== VS3[1]))
+  lib.mark('rework', VS3[1], false)
   expect(b.open().group()).toBe('vs3')
 
   lib.setView('all')
-  lib.setGroup('mine') // empty: every group, All's starred
+  lib.setGroup('mine') // empty: every group, All's starred (less the trashed vs3 scene, starred too)
   expect(lib.listed()).toEqual([])
-  expect(lib.playlist()).toEqual(STARRED)
+  const starred = STARRED.filter((id) => id !== VS3[0])
+  expect(lib.playlist()).toEqual(starred)
   await lib.put(scene('u-1')) // unstarred, still plays in its group
   expect(lib.playlist()).toEqual(['u-1'])
   lib.setGroup('camera') // no live camera: nothing of it plays, so every group's All less the camera scenes
   const DJ = ['builtin:dj-over-tunnel', 'builtin:dj-inside', 'builtin:dj-ghost']
   expect(lib.playlist(true)).toEqual(inOrder(lib, [...DJ, 'builtin:show-frame-cam'])) // the show template: unstarred, in its group
-  expect(lib.playlist(false)).toEqual(STARRED.filter((id) => !DJ.includes(id)))
+  expect(lib.playlist(false)).toEqual(starred.filter((id) => !DJ.includes(id)))
   for (const bad of ['"all"', '"toString"', '"favourite"', '{ oops', '5']) {
     b.kv.set('vjw.group', bad)
     expect(b.open().group()).toBe('all')

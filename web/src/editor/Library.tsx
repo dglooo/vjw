@@ -13,7 +13,7 @@ const GROUPS: readonly [Group, string][] = [
 const MARKS: readonly [Mark, string, string][] = [
   ['favourite', '★', 'Favourite'],
   ['trash', '🗑️', 'Trash: out of All, the favourites and the rotation'],
-  ['rework', '🔧', 'Rework: a mark only, it still plays'],
+  ['rework', '🔧', 'Rework: out of the rotation; only the Rework view plays it'],
 ]
 const KEY = 'vjw.search' // sessionStorage: the search, kept over a reload
 let rev = 0 // +1 per library change (a scene, a mark, the view), as Panel.tsx's
