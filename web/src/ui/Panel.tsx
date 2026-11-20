@@ -4,14 +4,16 @@ import { activePreset } from '../audio/settings'
 import { PRESETS } from '../audio/presets'
 import { BAND_COUNT } from '../audio/energy'
 import { BIND_DEFAULTS, bindable, PHASES, sourceGroups, type Binding, type Shape } from '../bind'
-import { defaults, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
+import { defaults, TEXT_MAX, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
 import { donorChain } from '../fx/syn'
 import type { Input, Kind, Value } from '../fx/types'
 import { live, panel, type NodePath } from '../gl/live'
 import { library } from '../library'
+import { paramId } from '../midi'
 import { SourcesTab } from './SourcesTab'
 import { BUILTIN } from '../scenes/builtin'
+import { DJ, dj } from '../scenes/text'
 import { store, type UiSnapshot } from '../store'
 import './panel.css'
 
@@ -64,9 +66,10 @@ library.onChange(() => libRev++)
 // A file dragged in wakes the idle overlay as a mouse move does, so the panel is there to take a dropped library.
 addEventListener('dragover', () => dispatchEvent(new MouseEvent('mousemove')))
 
-/** Uncontrolled: dragging calls `set` and nothing re-renders. */
-const slider = (lo: number, hi: number, v: number, set: (v: number) => void, step = (hi - lo) / 100) => (
-  <input type="range" min={lo} max={hi} step={step} defaultValue={v} onInput={(e) => set(e.currentTarget.valueAsNumber)} />
+/** Uncontrolled: dragging calls `set` and nothing re-renders. `midi`: a layer input's paramId, so MIDI learn can arm it
+ *  and a knob moves it (ui/Midi.tsx). */
+const slider = (lo: number, hi: number, v: number, set: (v: number) => void, step = (hi - lo) / 100, midi?: string) => (
+  <input type="range" min={lo} max={hi} step={step} defaultValue={v} data-midi={midi} onInput={(e) => set(e.currentTarget.valueAsNumber)} />
 )
 
 /** `gate`: a bool or event, on at .5 (bind.ts `level`): its block has amount, release and invert, no attack/min/max.
@@ -237,7 +240,7 @@ export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove
             const hi = (x.max as number | undefined) ?? 1
             return (
               <Param key={x.name} label={label} bind={bind(x.name, lo, hi, TURN.test(x.name))}>
-                {slider(lo, hi, val as number, set)}
+                {slider(lo, hi, val as number, set, undefined, paramId({ ...path, input: x.name }))}
               </Param>
             )
           }
@@ -290,6 +293,14 @@ export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove
                 </Param>
               )
             })
+          }
+          case 'text': {
+            const app = x === DJ // the DJ name: one app-wide setting, not the node's
+            return (
+              <Param key={x.name} label={label}>
+                <input type="text" maxLength={TEXT_MAX} defaultValue={app ? dj.name : String(val)} onChange={(e) => (app ? dj.set(e.target.value) : set(e.target.value))} />
+              </Param>
+            )
           }
           default:
             return null // images and audio: the engine wires them
@@ -407,15 +418,16 @@ export function LayerHead({ i, l, n, children }: { i: number; l: LayerDoc; n: nu
 export function LayerParams({ i, l }: { i: number; l: LayerDoc }) {
   const at: NodePath = { layer: i, node: 'layer' }
   const set = (k: string) => (y: number) => panel.setValue(at, k, y)
+  const tag = (k: string) => paramId({ ...at, input: k })
   return (
     <>
       <Param label="opacity" bind={{ path: at, k: 'opacity', lo: 0, hi: 1, init: l.bind?.opacity, wrap: false }}>
-        {slider(0, 1, l.opacity, set('opacity'))}
+        {slider(0, 1, l.opacity, set('opacity'), undefined, tag('opacity'))}
       </Param>
       <Param label="layer speed" bind={{ path: at, k: 'speed', lo: 0, hi: 4, init: l.bind?.speed, wrap: false }}>
-        {slider(0, 4, l.speed, set('speed'))}
+        {slider(0, 4, l.speed, set('speed'), undefined, tag('speed'))}
       </Param>
-      <Param label="res">{slider(0.25, 1, l.res, set('res'), 0.05)}</Param>
+      <Param label="res">{slider(0.25, 1, l.res, set('res'), 0.05, tag('res'))}</Param>
     </>
   )
 }

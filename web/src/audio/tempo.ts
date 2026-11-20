@@ -14,8 +14,9 @@ export interface TempoSource {
   setRange(bpm: Band | null): void
   /** Design C3/C4, for the classifier: per window, the ACF prominence of its best candidate lag mapped to 0–1 like the
    *  confidence. The ACF always spans 45–360 BPM, so this never depends on the active range. T1: `windows[0]` is DnB's.
-   *  A later window whose best lag reads ⅔ or 4/5 of DnB's best tempo (octave-folded) gets at most DnB's evidence. */
-  families(windows: readonly Band[]): number[]
+   *  A later window whose best lag reads ⅔ or 4/5 of DnB's best tempo (octave-folded) gets at most DnB's evidence.
+   *  `manual` (a manual BPM lock, sync.ts setManual; 0 = none): 1 for each window whose candidates (`near`) hold it, else 0. */
+  families(windows: readonly Band[], manual?: number): number[]
   /** The music jumped at audio time `t` (a file's seek or resume): the onsets before `t` are dropped and the first
    *  SETTLE s of ODF from `t` read 0 (the start settle). The onsets carry the phase: a reading on the old grid finds none
    *  on it, so it reads no confidence. The ODF window stays: the ACF is phase-blind and a track keeps its tempo (a 1.43 s
@@ -195,7 +196,8 @@ export function createTempoSource(opts?: Partial<TempoOpts>): TempoSource {
       centre = bpm ? Math.sqrt(bpm[0] * bpm[1]) : PRIOR_BPM
       ;[min, max] = bpm ? [centre / Math.SQRT2, centre * Math.SQRT2] : [o.minBpm, o.maxBpm]
     },
-    families: (windows) => {
+    families: (windows, manual) => {
+      if (manual) return windows.map((w) => (near(manual, w) ? 1 : 0))
       const best = windows.map((w) => {
         let [top, at] = [0, 0]
         for (let lag = lo + 1; lag < hi; lag++) if (near(60 / (lag * hop), w) && acf[lag] > top) [top, at] = [acf[lag], lag]

@@ -301,7 +301,8 @@
 }
 :is(.panel, .stack) select,
 :is(.panel, .stack) button,
-:is(.panel, .stack) header input {
+:is(.panel, .stack) header input,
+:is(.panel, .stack) .row > input[type='text'] {
   min-width: 0;
   padding: 2px 6px;
   font: inherit;

@@ -17,6 +17,6 @@ export const factory = (ref: string): readonly Preset[] => (FACTORY as Record<st
 export const presetOf = (list: readonly Preset[], cur: Readonly<Record<string, Value>>) => list.find((p) => Object.entries(p.values).every(([k, v]) => cur[k] === v))
 
 /** What Save as preset keeps of a node: each value-bearing input's value, less the def's ⚡ inputs (an impulse drives
- *  them) and events. */
+ *  them), events and texts (a preset is a look: native/text keeps its words). */
 export const savable = (def: EffectDef, cur: Readonly<Record<string, Value>>): Record<string, Value> =>
-  Object.fromEntries(def.inputs.filter((i) => i.type !== 'event' && !def.flash?.includes(i.name) && cur[i.name] !== undefined).map((i) => [i.name, cur[i.name]]))
+  Object.fromEntries(def.inputs.filter((i) => i.type !== 'event' && i.type !== 'text' && !def.flash?.includes(i.name) && cur[i.name] !== undefined).map((i) => [i.name, cur[i.name]]))

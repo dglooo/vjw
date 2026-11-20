@@ -4,6 +4,9 @@ import { allowDevices, player, selectDevice, start, togglePlay } from '../audio/
 import { FLOOR } from '../audio/meter'
 import { allowCameras, selectCamera, setVideo } from '../camera/camera'
 import { badge } from '../quality'
+import { Bpm } from './Bpm'
+import { Midi } from './Midi'
+import { showText } from '../scenes/text'
 import { PresetSelect } from './Panel'
 import { AnalyserSelect } from './SourcesTab'
 import { clock, store, type UiSnapshot } from '../store'
@@ -211,9 +214,13 @@ export function Overlay() {
         <span className="scene">{s.sceneName}</span>
         <PresetSelect />
         <AnalyserSelect />
+        <Midi />
+        <button aria-pressed={s.text} title="Every text layer on / off · X" onClick={() => showText(!s.text)}>
+          Text
+        </button>
         <button onClick={() => setEditor(true)}>Editor · L</button>
         <button onClick={() => setShader(true)}>Shader · G</button>
-        {s.bpm > 0 && <span className={s.confident ? 'bpm' : 'bpm unsure'}>BPM {s.bpm.toFixed(1)}</span>}
+        <Bpm />
         {s.hold && <span className="lock">Lock</span>}
         <span className="quality">{badge(s)}</span>
         {s.recording && <span className="rec">REC</span>}

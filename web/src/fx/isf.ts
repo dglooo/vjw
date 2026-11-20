@@ -35,7 +35,7 @@ interface IsfInput { NAME: string; TYPE: InputType; LABEL?: string; DEFAULT?: Va
 interface IsfPass { TARGET?: string; PERSISTENT?: boolean; FLOAT?: boolean; WIDTH?: string | number; HEIGHT?: string | number }
 interface IsfHeader { CREDIT?: string; CATEGORIES?: string[]; INPUTS?: IsfInput[]; PASSES?: IsfPass[]; IMPORTED?: Record<string, unknown>; VJW_BIND?: Record<string, Binding>; VJW_FLASH?: string[] }
 
-const UNIFORM: Record<InputType, string> = {
+const UNIFORM: Partial<Record<InputType, string>> = { // no text: ISF has none (native/text's)
   float: 'float', long: 'int', bool: 'bool', event: 'bool', color: 'vec4', point2D: 'vec2',
   image: 'sampler2D', audio: 'sampler2D', audioFFT: 'sampler2D',
 }
