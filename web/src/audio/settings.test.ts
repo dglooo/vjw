@@ -408,13 +408,15 @@ test('workletBands knobs (dsp_kick_snare_misses §6): Dubstep floors 80/100, the
   for (const k of [DUB, { ...DEF, snareThreshold: 1.5 }, { ...DEF, kick: 1.3 }, { ...DEF, kickSlow: 0.02 }, { ...DEF, minGap: 0.3 }]) expect(bandKey({ ...b, knobs: k })).not.toBe(bandKey(b)) // a knobs-only change is a send
 })
 
-test("G1 (dsp_genre_melodic §4): Psytrance and House are hand picks with Techno's 4/4 knobs (kick minGap 0.3 s, no cut drops); the classifier never scores them", () => {
+test("G1 + G2 (dsp_genre_melodic §4): Psytrance and House are hand picks with Techno's 4/4 knobs (kick minGap 0.3 s, no cut drops, the arrangement's low = sub); the classifier never scores them", () => {
   expect(parseSettings({ v: 1, pick: 'psy' }).pick).toBe('psy')
   expect(workletBands(cfg('house'), 'house').knobs.minGap).toBe(0.3)
   for (const id of ['psy', 'techno', 'house'] as const) {
     expect(PRESETS[id].knobs, id).toEqual({ ...KNOBS, minGap: 0.3 })
     expect(PRESETS[id].cuts, id).toBe(false)
+    expect(PRESETS[id].low, id).toBe('sub')
   }
+  for (const id of ['default', 'dnb', 'dubstep'] as const) expect(PRESETS[id].low, id).toBeUndefined() // sub + reese
   expect(['psy', 'techno', 'house'].map((id) => PRESETS[id as PresetId].name)).toEqual(['Psytrance', 'Techno', 'House'])
   expect([PRESETS.psy.bpm, PRESETS.house.bpm]).toEqual([[135, 150], [118, 130]])
   expect([PRESETS.psy.proto, PRESETS.house.proto]).toEqual([undefined, undefined])

@@ -14,6 +14,7 @@ export interface Preset {
   proto?: { kickPerBeat: number; hatsPerBeat: number; wobble: number; bass: number } // classifier (genres only)
   knobs: Knobs // the worklet's drum knobs (drums.ts): floors, snare threshold, kick trigger and its follower
   cuts?: false // a deep bass cut doesn't arm a drop (arrange.ts `cuts`, drop v2 (2)); missing = it does
+  low?: 'sub' // the arrangement's `low` (app.ts) reads the sub band alone; missing = sub + reese
 }
 
 const BANDS: Preset['bands'] = { kick: [40, 150], snare: [1000, 5000], hats: [7000, 16000], sub: [30, 60], reese: [60, 250], wobble: [150, 1500] }
@@ -30,8 +31,10 @@ export const snapOctave = (bpm: number, band: Band): 'double' | 'halve' | 'none'
 // their real ranges overlap, so the classifier keeps one 4/4 class (techno) and Psytrance / House are hand picks. kick
 // minGap 0.3 s = one kick per beat region at 118–150 BPM: house's off-beat bass read as kicks (P .56–.62 → 1.00 on the
 // fixtures). No cut drops: a 1-bar fill (1.66–1.82 s) passes cutMin as a deep cut, and its refractory delayed or swallowed
-// the real drop. ⚠️ Synthetic fixtures only: no real psy/techno/house track was measured.
-const FOUR: Omit<Preset, 'name' | 'bpm'> = { bands: { ...BANDS }, sens: {}, map: { onset: 'kick', treb: 'hats' }, knobs: { ...KNOBS, minGap: 0.3 }, cuts: false }
+// the real drop. low = sub: a break's pad plays in the reese band (60–250 Hz) and held sub + reese at ≈ .65 G, over
+// `sparse` .6, so no real drop fired; the sub band falls 15–60× there. ⚠️ Synthetic fixtures only: no real psy/techno/house
+// track was measured, and a break over a sub drone never reads sparse.
+const FOUR: Omit<Preset, 'name' | 'bpm'> = { bands: { ...BANDS }, sens: {}, map: { onset: 'kick', treb: 'hats' }, knobs: { ...KNOBS, minGap: 0.3 }, cuts: false, low: 'sub' }
 
 // `sens` is all 1 everywhere for now (tuned on the fixtures and the user's tracks), so it stays empty.
 // ponytail: C3 fixes only kicks/beat per genre; the other `proto` numbers are starting values for S4.1 to tune on the fixtures.

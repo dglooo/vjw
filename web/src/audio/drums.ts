@@ -21,7 +21,7 @@ export interface Knobs {
   kickSlow: number // s: the kick trigger's own gate slow follower
   minGap: number // s between kicks (onset.ts's snare/hats minGap stays 0.05)
 }
-// The defaults (Default, DnB, Techno; Dubstep keeps floors 80/100). The snare: real DnB masters' backbeat flux reads p50
+// The defaults (Default, DnB; Dubstep keeps floors 80/100, the 4/4 presets take minGap 0.3). The snare: real DnB masters' backbeat flux reads p50
 // 16–17 / p90 32–50 (real-track ruling 2026-11-05), and at floor 40 / threshold 1.5 all 441 missed snares of 8 real
 // windows sat under the floor or under mean × 1.5 (.54–.79 of it); floor 30 / threshold 1.3 take R .47 → .67, P .69 → .62,
 // for ≈ +3 false snares a minute of drumless audio (dsp_kick_snare_misses §4.1, §6). The kick trigger (ruling 2026-11-05
