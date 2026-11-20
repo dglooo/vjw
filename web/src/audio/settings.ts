@@ -13,8 +13,9 @@ export interface CustomBand { id: string; name: string; lo: number; hi: number; 
 // vs3 scenes hear through the vs3 core (audio/vs3.ts), every other scene as ours, or 'off' (user 2026-11-21): the
 // analysis runs on, the visuals hear a steady idle signal and every bound input sits at its stored value (app.ts, bind.ts
 // IDLE, post.ts boundStep); resume: the mode Off turned off, which toggleAnalysis turns back on; bpm: the manual BPM lock
-// (sync.ts setManual, user 2026-11-20), missing = auto
-export interface AudioSettings { v: 1; auto: boolean; pick: PresetId | null; sens: Record<string, number>; mute: string[]; custom: CustomBand[]; analyser: Mode | 'off'; resume?: Mode; bpm?: number }
+// (sync.ts setManual, user 2026-11-20), missing = auto; sensitivity: the kick/snare detectors' Low or High (user
+// 2026-11-21, workletBands SENSITIVITY), missing = Mid: the preset's knobs as tuned
+export interface AudioSettings { v: 1; auto: boolean; pick: PresetId | null; sens: Record<string, number>; mute: string[]; custom: CustomBand[]; analyser: Mode | 'off'; resume?: Mode; bpm?: number; sensitivity?: 'low' | 'high' }
 type Mode = 'ours' | 'donor' | 'vs3'
 type Kv = Pick<Storage, 'getItem' | 'setItem'>
 type Obj = Record<string, unknown>
@@ -65,6 +66,7 @@ export function parseSettings(x: unknown): AudioSettings {
   if (isAnalyser(x.analyser)) s.analyser = x.analyser
   if (isMode(x.resume)) s.resume = x.resume
   if (finite(x.bpm) && x.bpm > 0) s.bpm = Math.min(BPM_RANGE[1], Math.max(BPM_RANGE[0], x.bpm))
+  if (x.sensitivity === 'low' || x.sensitivity === 'high') s.sensitivity = x.sensitivity // 'mid' or junk: Mid, no field
   for (const c of Array.isArray(x.custom) ? x.custom : []) {
     if (s.custom.length >= MAX_BANDS) break
     if (isObj(c) && typeof c.id === 'string' && ID.test(c.id) && !bandError(c, TOP * MAX_RATE) && !s.custom.some((b) => b.id === c.id)) {
@@ -99,7 +101,7 @@ export function createSettings(kv: Kv, sampleRate = RATE) {
     /** Changes the named fields (`sens` and `mute` are replaced as a whole) and re-checks the result, so a slider's NaN or a
      *  bad pick is repaired. An invalid `analyser` keeps the mode in force (plan S1.4 T4c), not the default. A turn to
      *  'off' keeps the mode it turns off as `resume`. */
-    patch: (p: Partial<Pick<AudioSettings, 'auto' | 'pick' | 'sens' | 'mute' | 'analyser' | 'bpm'>>) => {
+    patch: (p: Partial<Pick<AudioSettings, 'auto' | 'pick' | 'sens' | 'mute' | 'analyser' | 'bpm' | 'sensitivity'>>) => {
       const analyser = isAnalyser(p.analyser) ? p.analyser : state.analyser
       commit(parseSettings({ ...state, ...p, analyser, resume: isMode(state.analyser) && analyser === 'off' ? state.analyser : state.resume }))
     },
@@ -136,15 +138,26 @@ export function pickToPatch(kind: 'picker' | 'toggle', value: string | boolean, 
   return value ? { auto: true, pick: null } : { auto: false, pick: activePreset(s, detected) }
 }
 
+/** The sensitivity's factor on the active preset's kick and snare thresholds (user 2026-11-21): the snare floor and
+ *  threshold and the kick trigger. The kick's slow follower divides by it: a longer one reads a kick higher
+ *  (dsp_kick_snare_misses §6: 20 → 40 ms took kick R .65 → .70). The §6 margins: High's .87 is the step that took the
+ *  snare threshold 1.5 → 1.3 (R +.05), and it puts the kick trigger at 1.17, between the measured 1.15 (R .88 / P .53)
+ *  and 1.20 (R .81 / P .61), both at the old 20 ms follower. Low's 1.15 puts the snare threshold back at 1.5 and the
+ *  kick trigger at 1.55 (not measured). */
+const SENSITIVITY = { low: 1.15, high: 0.87 } as const
+
 /** The worklet config for the preset in force (`active`, as app.ts's frame resolves it: picked or detected): its drum
- *  bands and knobs, and the band list: `sub`, `reese`, `wobble` first (the S2.4 contract — features.ts reads bands 0–2
- *  by position), then the user's bands. Pure: no `rev`, which app.ts grows per send. */
+ *  bands and knobs (scaled by the sensitivity; Mid sends the preset's own), and the band list: `sub`, `reese`, `wobble`
+ *  first (the S2.4 contract — features.ts reads bands 0–2 by position), then the user's bands. Pure: no `rev`, which
+ *  app.ts grows per send. */
 export function workletBands(s: AudioSettings, active: PresetId): { drums: Record<Drum, Band>; knobs: Knobs; bands: BandSpec[] } {
   const p = PRESETS[active]
   const b = p.bands
+  const k = p.knobs
+  const f = s.sensitivity && SENSITIVITY[s.sensitivity]
   return {
     drums: { kick: b.kick, snare: b.snare, hats: b.hats },
-    knobs: p.knobs,
+    knobs: f ? { ...k, floors: { ...k.floors, snare: k.floors.snare * f }, snareThreshold: k.snareThreshold * f, kick: k.kick * f, kickSlow: k.kickSlow / f } : k,
     bands: (['sub', 'reese', 'wobble'] as const).map((id): BandSpec => ({ id, lo: b[id][0], hi: b[id][1] })).concat(s.custom.map((c): BandSpec => ({ id: c.id, lo: c.lo, hi: c.hi }))),
   }
 }

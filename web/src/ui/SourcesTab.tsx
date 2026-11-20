@@ -111,6 +111,30 @@ export function GenreSelect() {
   )
 }
 
+const SENS_HINT = 'Kick and snare detector sensitivity for the genre profile: low = fewer hits (thresholds × 1.15), mid = the profile as tuned, high = more hits (× 0.87), more false ones too. A hit\'s light stays flash-gated.'
+/** The detector sensitivity beside the genre pick (user 2026-11-21; settings.ts workletBands scales the active preset's
+ *  kick and snare thresholds). Hidden while the analyser is off, as the genre pick. */
+export function SensitivitySelect() {
+  const s = useSyncExternalStore(settings.onChange, settings.get)
+  if (s.analyser === 'off') return null
+  return (
+    <select
+      aria-label="Sensitivity"
+      title={SENS_HINT}
+      value={s.sensitivity ?? 'mid'}
+      onChange={(e) => {
+        e.currentTarget.blur() // a focused select would eat hotkeys as type-ahead
+        const v = e.currentTarget.value
+        settings.patch({ sensitivity: v === 'low' || v === 'high' ? v : undefined }) // mid = no field
+      }}
+    >
+      <option value="low">sens: low</option>
+      <option value="mid">sens: mid</option>
+      <option value="high">sens: high</option>
+    </select>
+  )
+}
+
 /** The Sources tab (S6.1/S6.2): live meters driven by one rAF loop writing each meter's `value` directly — no React
  * state — with the C8 controls (preset picker, Auto toggle, custom-band form) and, per source and per group
  * (bind.ts sourceGroups()), a gain slider and a mute (user 2026-11-17) wired to the `settings` store, so they persist

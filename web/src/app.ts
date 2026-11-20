@@ -330,7 +330,7 @@ function sendConfig() {
   configure({ kind: 'config', rev: ++rev, ...b })
 }
 sendConfig() // start: the first config wakes the band bank (one drum restart blip, contract 3)
-settings.onChange(sendConfig) // custom-band edits and preset switches; sens/auto leave the key untouched
+settings.onChange(sendConfig) // custom-band edits, preset and sensitivity switches; sens/auto leave the key untouched
 const muted = () => store.patch({ muted: settings.get().mute }) // the Calibration tiles dim a muted source
 muted()
 settings.onChange(muted)

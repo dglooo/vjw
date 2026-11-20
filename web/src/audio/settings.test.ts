@@ -118,6 +118,16 @@ test('the manual BPM lock: patch({ bpm: 174 }) comes back after a reload, undefi
   expect([1, 1740].map((bpm) => parseSettings({ v: 1, bpm }).bpm)).toEqual([40, 300])
 })
 
+test('sensitivity (user 2026-11-21): patch({ sensitivity: high }) comes back after a reload, undefined is Mid (no field); a stored mid or junk reads Mid', () => {
+  const { kv } = storage()
+  createSettings(kv).patch({ sensitivity: 'high' })
+  expect(createSettings(kv).get().sensitivity).toBe('high')
+  createSettings(kv).patch({ sensitivity: undefined })
+  expect(createSettings(kv).get()).toEqual(DEFAULTS)
+  expect(['low', 'high'].map((sensitivity) => parseSettings({ v: 1, sensitivity }).sensitivity)).toEqual(['low', 'high'])
+  for (const sensitivity of ['mid', 'HIGH', 0.87, null, {}]) expect(parseSettings({ v: 1, sensitivity }), String(sensitivity)).toEqual(DEFAULTS)
+})
+
 test('parseSettings: mute keeps the string ids once each; anything else falls back to none', () => {
   expect(parseSettings({ v: 1, mute: ['bass', 'sub', 'bass', 5, null, 'u:ab12cd'] }).mute).toEqual(['bass', 'sub', 'u:ab12cd'])
   for (const mute of ['bass', { bass: true }, null]) expect(parseSettings({ v: 1, mute }).mute, String(mute)).toEqual([])
@@ -438,6 +448,25 @@ test('workletBands knobs (dsp_kick_snare_misses §6): Dubstep floors 80/100, the
   expect([knobs(cfg('dnb'), 'dubstep'), knobs(cfg('dubstep'), 'dnb'), knobs(cfg(null, [], { auto: false }), 'dubstep')]).toEqual([DEF, DUB, DEF])
   const b = workletBands(cfg(), 'default')
   for (const k of [DUB, { ...DEF, snareThreshold: 1.5 }, { ...DEF, kick: 1.3 }, { ...DEF, kickSlow: 0.02 }, { ...DEF, minGap: 0.3 }]) expect(bandKey({ ...b, knobs: k })).not.toBe(bandKey(b)) // a knobs-only change is a send
+})
+
+test('workletBands sensitivity: Mid (no field) sends every preset its own knobs, bit-identical; High lowers and Low raises the kick and snare thresholds by .87 / 1.15, the kick follower the other way, a re-send', () => {
+  const DEF = { floors: { snare: 30, hats: 50 }, snareThreshold: 1.3, kick: 1.35, kickSlow: 0.04, minGap: 0.06 } // today's
+  expect(workletBands(parseSettings({ v: 1, sensitivity: 'mid' }), 'default').knobs).toEqual(DEF)
+  for (const id of Object.keys(PRESETS) as PresetId[]) {
+    const mid = workletBands(cfg(), id).knobs
+    expect(mid, id).toBe(PRESETS[id].knobs) // the preset's own object: not a number moves
+    for (const [level, f] of [['high', 0.87], ['low', 1.15]] as const) {
+      const k = workletBands(cfg(null, [], { sensitivity: level }), id).knobs
+      const ratio = [k.floors.snare / mid.floors.snare, k.snareThreshold / mid.snareThreshold, k.kick / mid.kick, mid.kickSlow / k.kickSlow]
+      for (const r of ratio) expect(r, `${id} ${level}`).toBeCloseTo(f, 12)
+      expect([k.floors.hats, k.minGap], `${id} ${level}`).toEqual([mid.floors.hats, mid.minGap]) // the hats and the kick gap stay
+      expect(bandKey({ ...workletBands(cfg(), id), knobs: k })).not.toBe(bandKey(workletBands(cfg(), id)))
+    }
+  }
+  const at = (sensitivity?: 'low' | 'high') => workletBands(cfg(null, [], { sensitivity }), 'default').knobs
+  expect([at('high').kick, at().kick, at('low').kick]).toEqual([1.35 * 0.87, 1.35, 1.35 * 1.15]) // High < Mid < Low
+  expect(at('high').kickSlow).toBeGreaterThan(at('low').kickSlow) // a longer follower reads a kick higher: more kicks
 })
 
 test("G1 + G2 (dsp_genre_melodic §4): Psytrance and House are hand picks with Techno's 4/4 knobs (kick minGap 0.3 s, no cut drops, the arrangement's low = sub); the classifier never scores them", () => {
