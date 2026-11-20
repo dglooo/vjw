@@ -4,6 +4,8 @@
 // playlist (director.ts arm). The sets are kept beside the marks (library.ts: vjw.sets, the dev mirror, the build's
 // bake) and travel as set files (setFile / importSets). Pure.
 import type { SceneId } from './doc'
+import { move } from './edit'
+import { adjustForSource } from './editor/dnd'
 
 export interface Cue { scene: SceneId; preset?: string; bars: number | 'hold'; transition?: string }
 export interface SetList { name: string; cues: Cue[] }
@@ -74,6 +76,14 @@ export function importSets(have: readonly SetList[], text: string): { sets: SetL
     }),
     dropped,
   }
+}
+
+/** `cues` with the one at `from` moved to a drop's insert index `at`, counted in the list as it stands (0: before the
+ *  first, the length: past the last; editor/dnd.ts insertIndex). */
+export function reorder(cues: readonly Cue[], from: number, at: number) {
+  const out = [...cues]
+  move(out, from, adjustForSource(at, from))
+  return out
 }
 
 /** The bar's line for the armed set's cue `i` (from 0) of `n`: `cue 3 / 12 · 7 bars left`, `left` Infinity: a hold;

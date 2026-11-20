@@ -235,7 +235,7 @@ describe('an armed set (setlist.ts)', () => {
     const d = createDirector(playlist)
     d.arm(cues)
     const a = frames(d, 0, 6.5, sure)
-    expect(d.cue()).toEqual({ index: 1, of: cues[1], left: 2, sure: true }) // particles since bar 4: bars 6 and 7 left
+    expect(d.cue()).toEqual({ index: 1, of: cues[1], left: 2, at: 2.5, sure: true, jump: null }) // particles since bar 4: bars 6 and 7 left
     const b = frames(d, 6.5 + 1 / 60, 40, sure)
     expect(fades([...a, ...b])).toEqual([
       [0, 'tunnel', 'spectrum'], // armed: the first cue at once
@@ -256,7 +256,7 @@ describe('an armed set (setlist.ts)', () => {
     const secs = (4 * 240) / 174 // 4 bars ≈ 5.52 s
     const on = (t: number) => Math.ceil(t * 60) / 60 // the first frame at or after t
     const a = frames(d, 0, 3)
-    expect(d.cue()).toEqual({ index: 0, of: cues[0], left: 2, sure: false }) // 3 s = 2.2 bars at 174: bars 3 and 4 left
+    expect(d.cue()).toEqual({ index: 0, of: cues[0], left: 2, at: expect.closeTo(2.175), sure: false, jump: null }) // 3 s = 2.2 bars at 174: bars 3 and 4 left
     const s = [...a, ...frames(d, 3 + 1 / 60, 60)]
     expect(fades(s)).toEqual([
       [0, 'tunnel', 'spectrum'],
@@ -264,6 +264,37 @@ describe('an armed set (setlist.ts)', () => {
       [on(2 * secs), 'particles', 'glitch'],
     ])
     expect(s.at(-1)).toMatchObject({ from: 'glitch', to: null })
+  })
+
+  test('a jump fades on the next bar line (the lock does not stop it); to the cue on stage: none; a step drops it', () => {
+    const d = createDirector(playlist)
+    d.arm(cues)
+    const s = frames(d, 0, 2.5, sure)
+    d.setHold(true)
+    d.jump(cues[2])
+    expect(d.cue()).toMatchObject({ index: 0, jump: cues[2] })
+    s.push(...frames(d, 2.5 + 1 / 60, 3.5, sure))
+    expect(d.cue()).toMatchObject({ index: 2, at: 0.5, jump: null })
+    d.jump(cues[2])
+    s.push(...frames(d, 3.5 + 1 / 60, 5.5, sure))
+    d.jump(cues[1])
+    d.next()
+    s.push(...frames(d, 5.5 + 1 / 60, 7.5, sure))
+    expect(fades(s)).toEqual([
+      [0, 'tunnel', 'spectrum'],
+      [3, 'spectrum', 'glitch'], // bar line 3, not the cue's end (bar 4)
+      [331 / 60, 'glitch', 'spectrum'], // the step: at once (wrapped), the jump dropped; the jump to glitch on stage: none
+    ])
+    expect(d.cue()).toMatchObject({ index: 0, jump: null })
+
+    const u = createDirector(playlist) // unsure: on the cue's bars at cueBpm from the switch
+    u.arm(cues)
+    const a = frames(u, 0, 2) // 1.45 bars
+    u.jump(cues[1])
+    expect(fades([...a, ...frames(u, 2 + 1 / 60, 4)])).toEqual([
+      [0, 'tunnel', 'spectrum'],
+      [Math.ceil(((2 * 240) / 174) * 60) / 60, 'spectrum', 'particles'], // the first frame past bar 2
+    ])
   })
 
   test('the playlist waits for the disarm; an edit keeps the cue on stage; a cut stands in for it', () => {

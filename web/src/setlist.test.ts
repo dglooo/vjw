@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { importSets, parseSets, setFile, type SetList } from './setlist'
+import { importSets, parseSets, reorder, setFile, type SetList } from './setlist'
 
 test('parseSets keeps the good cues and sets, and drops each bad one with its reason', () => {
   const good = { scene: 'builtin:tunnel', preset: 'hall', bars: 16, transition: 'gl/Swirl' }
@@ -47,4 +47,17 @@ test('a set file round-trips; a taken name gets a suffix, both kept; a bad file 
   expect(bad.dropped).toHaveLength(1)
   expect(bad.dropped[0]).toMatch(/^not a set file: /)
   expect(importSets([], JSON.stringify({ v: 1, scenes: [] }))).toEqual({ sets: [], dropped: [] }) // a library file: no set
+})
+
+test('reorder keeps every cue once, at each drop line', () => {
+  const cues = ['a', 'b', 'c', 'd'].map((scene) => ({ scene, bars: 4 }))
+  for (let from = 0; from < cues.length; from++)
+    for (let at = 0; at <= cues.length; at++) {
+      const out = reorder(cues, from, at)
+      expect(new Set(out)).toEqual(new Set(cues))
+      expect(out).toHaveLength(cues.length)
+    }
+  expect(reorder(cues, 0, 4).map((c) => c.scene).join('')).toBe('bcda') // past the last
+  expect(reorder(cues, 3, 0).map((c) => c.scene).join('')).toBe('dabc')
+  expect(reorder(cues, 1, 2)).toEqual(cues) // its own line: no move
 })
