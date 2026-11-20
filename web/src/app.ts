@@ -18,6 +18,7 @@ import { cam, camGate, camGpuMs, camMask, readCam, readMask, selectCamera, start
 import { presence } from './camera/smooth'
 import { count as camUsers } from './camera/users'
 import { createDirector } from './director'
+import { docs } from './edit'
 import { tiles } from './editor/tiles'
 import type { FrameInput } from './frame'
 import { catalog, transitions } from './fx/catalog'
@@ -28,6 +29,7 @@ import { library } from './library'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
 import { startRecording } from './recorder'
 import { showText } from './scenes/text'
+import { readout, type Cue } from './setlist'
 import { store } from './store'
 import { edits } from './undo'
 
@@ -62,6 +64,26 @@ let playLive = cam.live // the camera state the director's playlist was made for
 const playlist = () => library.playlist((playLive = cam.live))
 const director = createDirector(playlist(), { confidentTheta: CONFIDENT, slot: (id) => library.slot(id, playLive) })
 library.onChange(() => director.setPlaylist(playlist()))
+// The set list (setlist.ts, user 2026-11-20): the armed set's cues play in place of the playlist (director.arm), each
+// fading in with its own transition and preset (frame()); ←/→ step through them. A cue whose scene is gone (a deleted
+// user scene, New's draft after a reload) sits out: `live` throws on an unknown id. An edit of the armed set re-arms it
+// (the same cue objects: the cue on stage plays on); a set with no playable cue disarms.
+let armedCues: readonly Cue[] | null = null
+let presetDue: Cue | null = null // the cue a fade just began, whose preset goes on once its scene is the edited one
+function rearm() {
+  const i = store.getSnapshot().armedSet
+  const cues = (i === null ? undefined : library.sets()[i])?.cues.filter((c) => docs.has(c.scene) || library.get(c.scene))
+  armedCues = cues?.length ? cues : null
+  director.arm(armedCues)
+  if (!armedCues) store.patch({ armedSet: null, cue: '' })
+}
+/** Arms set `i` of library.sets() (its first cue fades in at once), or disarms (null): the autopilot plays on from the
+ *  scene on stage. */
+export function armSet(i: number | null) {
+  store.patch({ armedSet: i })
+  rearm()
+}
+library.onChange(rearm)
 const loaded = library.load().catch((e: unknown) => console.error('library', e)) // no IndexedDB: the built-ins only
 // Compile-all at Start (design E2): once the audio context runs (the Start click, or at load when autoplay is allowed)
 // and the library is read, every program of the playlist compiles while the loop plays on.
@@ -437,8 +459,11 @@ function frame(now: number) {
   if (cam.live !== playLive) director.setPlaylist(playlist()) // the camera scenes join or leave the rotation
   const shot = director.update(f.time, f.sync) // rAF's now is on the performance.now() clock
   if (shot.to && shot.to !== fadingTo) {
+    const cue = director.cue()?.of // an armed set: the cue this fade begins
     const others = transitions.filter((id) => id !== transition) // empty with one transition: it stays
-    if (others.length) setTransition((transition = others[Math.floor(Math.random() * others.length)]))
+    if (cue?.transition && transitions.includes(cue.transition)) setTransition((transition = cue.transition))
+    else if (others.length) setTransition((transition = others[Math.floor(Math.random() * others.length)]))
+    presetDue = cue?.preset ? cue : null
   }
   fadingTo = shot.to
   // Between fades: the next scene built, the others freed (E2). The editor holds, so no next scene (a ring costs 62 MB).
@@ -472,7 +497,8 @@ function frame(now: number) {
   if (donorMix > 0) setDonorSpectrum(donor.spectrum) // S3.2: syn_Spectrum's donor half at this frame's mix; ours uploads nothing
   f.dt *= 1 + 0.5 * arrangeOut.heat // heat speeds the frame; fill and remap above used the unscaled dt (recomputed next frame)
   if (arrangeOut.fired !== null) dropAt = f.time
-  if (shouldCut(arrangeOut.confirmed, store.getSnapshot().hold)) director.cut(director.peek()) // a confident drop cuts once confirmed (0.5 s on, D3′), unless LOCK/panel
+  // A confident drop cuts once confirmed (0.5 s on, D3′), unless LOCK/panel, or an armed set: its cues hold the bars
+  if (!armedCues && shouldCut(arrangeOut.confirmed, store.getSnapshot().hold)) director.cut(director.peek())
   // S5.3: the live heat post pass (postFor at rest = identity: the engine skips it).
   const post = postFor(arrangeOut.heat, dropAt > 0 ? f.time - dropAt : Infinity, f.sync.beat, f.sync.bpm, f.sync.confidence)
   sources(f, src)
@@ -485,12 +511,21 @@ function frame(now: number) {
   const snap = store.getSnapshot()
   if (id !== snap.edited) edits.clear() // undo is per edited scene (design S3): open, Save as, the autopilot
   if (doc.name !== snap.sceneName || id !== snap.edited) store.patch({ sceneName: doc.name, edited: id })
+  if (presetDue?.scene === id) {
+    // the cue's preset (presets.ts, by name) onto its scene, as the preset picker would; one gone since: none
+    const t = panel.presetNode()
+    const p = t?.list.find((x) => x.name === presetDue!.preset)
+    if (p) panel.setValues(t!.path, p.values)
+    presetDue = null
+  }
   governor.frame(now, performance.now() - start, gpuMs.get(id)) // fed only on rendered frames; GPU3D N4: + the scene's GL ms
   if (now - badgeAt >= BADGE_MS) {
     badgeAt = now
     const bpm = Math.round(f.sync.bpm * 10) / 10
     const ms = gpuMs.get(id)
     const prev = store.getSnapshot().nodeErrors
+    const c = director.cue()
+    const set = c && library.sets()[store.getSnapshot().armedSet ?? -1]?.cues // its numbering, the cues sitting out too
     store.patch({
       quality: mode, scale, drops: governor.drops, bpm, confident: f.sync.confidence >= CONFIDENT,
       gpuMs: ms === undefined ? null : Math.round(ms * 10) / 10, // the panel's GPU hint
@@ -498,6 +533,7 @@ function frame(now: number) {
       style: { detected: styleOut.detected, confidence: styleOut.confidence }, // S4.3: the badge reads it at 4×/s
       clip: meter.clip, // the input meter's CLIP light and hint (latched 1.5 s, so 4×/s never misses one)
       clipHint: meter.hint,
+      cue: c && set ? readout(set.indexOf(c.of), set.length, c.left, c.sure) : '',
     })
     if (DEBUG) {
       const o = offsets.slice().sort((a, b) => a - b)

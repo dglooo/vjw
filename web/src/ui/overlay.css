@@ -181,6 +181,37 @@
   color: #f2c14e;
   border-color: #f2c14e88;
 }
+/* The Set menu (SetList.tsx) wears the MIDI menu's look; armed, its summary in the lock's amber. Its cues drag into
+   order by their names, the insert line above the row a drop lands before (the add button: the end). */
+.setlist .menu {
+  width: 380px;
+}
+.bar .setlist summary.on,
+.setlist .cue.on > span {
+  color: #f2c14e;
+  border-color: #f2c14e88;
+}
+.setlist .cue {
+  flex-wrap: nowrap;
+}
+.setlist .cue > span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: grab;
+}
+.setlist .cue.gone > span {
+  text-decoration: line-through; /* its scene is gone: the cue sits out */
+  opacity: 0.55;
+}
+.bar .setlist .cue select {
+  max-width: 11ch;
+}
+.setlist .ins {
+  box-shadow: 0 -3px 0 #f2c14e;
+}
+
 /* Learn mode: the sliders a click arms */
 .midi-learn [data-midi] {
   outline: 1px dashed #f2c14e;

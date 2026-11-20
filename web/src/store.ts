@@ -45,6 +45,8 @@ export interface UiSnapshot {
   clipHint: boolean
   muted: readonly string[] // the Sources tab's muted source ids (audio settings), for the Calibration tiles
   text: boolean // the app-wide text switch (scenes/text.ts showText, key X): off, every native/text layer is hidden
+  armedSet: number | null // the set list's (ui/SetList.tsx): the armed set's index in library.sets(); null: the playlist plays
+  cue: string // its cue on stage as the bar reads it (setlist.ts readout), 4×/s; '' unarmed
 }
 
 let snap: UiSnapshot = {
@@ -52,7 +54,7 @@ let snap: UiSnapshot = {
   hold: false, recording: false, quality: '60-adaptive', scale: 1, drops: 0, compiling: null, debug: null, debugSync: null,
   panel: false, editRev: 0, edited: '', gpuMs: null, nodeErrors: [], style: { detected: null, confidence: 0 },
   editor: false, shader: false, cameras: [], camera: null, camLive: false, camVideo: true, camError: null, camFail: null,
-  clip: false, clipHint: false, muted: [], text: true,
+  clip: false, clipHint: false, muted: [], text: true, armedSet: null, cue: '',
 }
 const subs = new Set<() => void>()
 

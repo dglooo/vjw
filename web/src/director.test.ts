@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { ZERO_SYNC, type Sync } from './audio/sync'
 import { createDirector, type Director, type Shot } from './director'
+import type { Cue } from './setlist'
 
 const playlist = ['tunnel', 'spectrum', 'particles', 'glitch']
 
@@ -221,5 +222,69 @@ describe.each(timelines)('fps independence: %s', (_, sync, want) => {
       if (w && (got.from !== w.from || got.to !== w.to || Math.abs(got.mix - w.mix) > 1e-6)) bad.push({ t, got, w })
     }
     expect(bad.slice(0, 3)).toEqual([])
+  })
+})
+
+describe('an armed set (setlist.ts)', () => {
+  const cues: Cue[] = [{ scene: 'spectrum', bars: 4 }, { scene: 'particles', bars: 4 }, { scene: 'glitch', bars: 'hold' }]
+  /** Each fade's first frame: [t, from, to]. */
+  const fades = (s: Frame[]) => s.filter((x, i) => x.to && x.to !== s[i - 1]?.to).map((x) => [x.t, x.from, x.to])
+  const sure = bars(() => 1) // sure from bar 2
+
+  test('each cue lasts its bars from the bar line it began on, a hold waits for →, the set wraps, ← steps back', () => {
+    const d = createDirector(playlist)
+    d.arm(cues)
+    const a = frames(d, 0, 6.5, sure)
+    expect(d.cue()).toEqual({ index: 1, of: cues[1], left: 2, sure: true }) // particles since bar 4: bars 6 and 7 left
+    const b = frames(d, 6.5 + 1 / 60, 40, sure)
+    expect(fades([...a, ...b])).toEqual([
+      [0, 'tunnel', 'spectrum'], // armed: the first cue at once
+      [4, 'spectrum', 'particles'],
+      [8, 'particles', 'glitch'],
+    ])
+    expect(d.cue()).toMatchObject({ index: 2, left: Infinity })
+    d.next()
+    expect({ ...d.update(40.05, sure(40.05)) }).toEqual({ from: 'glitch', to: 'spectrum', mix: 0 })
+    d.prev() // mid-fade: the incoming cue becomes current at once
+    expect({ ...d.update(40.1, sure(40.1)) }).toEqual({ from: 'spectrum', to: 'glitch', mix: 0 })
+    expect(d.cue()!.index).toBe(2)
+  })
+
+  test('unsure, a cue lasts its bars at 174 BPM (cueBpm), the fades on time', () => {
+    const d = createDirector(playlist)
+    d.arm(cues)
+    const secs = (4 * 240) / 174 // 4 bars ≈ 5.52 s
+    const on = (t: number) => Math.ceil(t * 60) / 60 // the first frame at or after t
+    const a = frames(d, 0, 3)
+    expect(d.cue()).toEqual({ index: 0, of: cues[0], left: 2, sure: false }) // 3 s = 2.2 bars at 174: bars 3 and 4 left
+    const s = [...a, ...frames(d, 3 + 1 / 60, 60)]
+    expect(fades(s)).toEqual([
+      [0, 'tunnel', 'spectrum'],
+      [on(secs), 'spectrum', 'particles'],
+      [on(2 * secs), 'particles', 'glitch'],
+    ])
+    expect(s.at(-1)).toMatchObject({ from: 'glitch', to: null })
+  })
+
+  test('the playlist waits for the disarm; an edit keeps the cue on stage; a cut stands in for it', () => {
+    const d = createDirector(playlist)
+    frames(d, 0, 2.5, sure)
+    d.arm(cues)
+    frames(d, 2.5 + 1 / 60, 6.5, sure) // spectrum from bar 2, particles from bar 6
+    d.setPlaylist(['glitch', 'tunnel']) // the library changed meanwhile
+    const edited = [cues[1], { ...cues[0], bars: 8 }] // particles moved first, spectrum now 8 bars, the hold deleted
+    d.arm(edited)
+    expect(d.cue()).toMatchObject({ index: 0, of: cues[1] })
+    expect(d.peek()).toBe('spectrum')
+    d.cut('glitch') // a pick in L: it plays in particles' place, counted afresh
+    const s = frames(d, 6.5 + 1 / 60, 20.5, sure)
+    expect(fades(s)).toEqual([
+      [10, 'glitch', 'spectrum'], // particles' 4 bars from the cut's bar 6, then the next cue
+      [18, 'spectrum', 'particles'], // its 8 bars, then the set wraps
+    ])
+    d.arm(null) // disarmed: the playlist set meanwhile, the scene on stage playing on, the autopilot on
+    expect(d.cue()).toBeNull()
+    expect(d.peek()).toBe('glitch')
+    expect(fades(frames(d, 20.5 + 1 / 60, 40, sure))).toEqual([[34, 'particles', 'glitch']]) // barsPerShot 16 from bar 18
   })
 })
