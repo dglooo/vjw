@@ -134,22 +134,29 @@ function feed() {
 }
 type Lib = Awaited<ReturnType<typeof open>>
 /** The donor scene's panel fields (research §1): flat 0..1 sliders, labels per mode ('*': any), their order, the modes. */
-interface Rows { params?: Record<string, unknown>; paramLabels?: Record<string, Record<string, string | null>>; paramOrder?: string[]; modes?: string[] }
+interface Rows { params?: Record<string, unknown>; paramLabels?: Record<string, Record<string, string | null>>; paramOrder?: string[]; modes?: string[]; models?(): string[] }
 /** The donor scene as the host reads it (research §1). */
 interface Scene extends Rows { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null } }
 
 // The donor panel's slider order for a scene without paramOrder (original renderer/main.js:7523, addSceneRows).
 const ORDER = ['speed', 'shape', 'complexity', 'density', 'fill', 'tilt', 'open', 'morph', 'edge', 'contrast', 'growth', 'movement', 'curl', 'relief', 'pattern', 'form', 'rig', 'room', 'color', 'phase', 'formation', 'screen', 'colors', 'wall', 'chase', 'strips']
+// The boolean rows of the donor panels: visage's eyeFollow, morphogen 2.0's colour › invert. Not every boolean param:
+// morphogen 2.0's `cream` is a legacy flag it turns into its mode (P.cream = false), which a written input would undo.
+const CHECKS = ['eyeFollow', 'invert']
 /** The scene's panel rows as the original builds them (main.js addSceneRows) → our inputs: `modes` = `mode`, a select by
- *  index (the scene reads the name); the 0..1 sliders in paramOrder's order, else the donor's, labelled as in the default
- *  mode (main.js sceneLabel). Defaults are the scene's own: untouched inputs leave it as it was. ponytail: one label per
- *  slider (the donor relabels per mode), paramChoices / paramSteps as plain sliders, booleans (visage eyeFollow) and
- *  limitless 3d's model left out; add them when a scene needs them. */
+ *  index (the scene reads the name); limitless 3d's `model` the same over its `models()` (the math shapes, then the
+ *  scans); the 0..1 sliders in paramOrder's order, else the donor's, labelled as in the default mode (main.js
+ *  sceneLabel); then each CHECKS boolean a checkbox. Defaults are the scene's own: untouched inputs leave it as it was.
+ *  ponytail: one label per slider (the donor relabels per mode), paramChoices / paramSteps as plain sliders, rows
+ *  outside paramOrder (morphogen 2.0's own: body, the second area…) left out; add them when a scene needs them. */
 export function paramInputs(sc: Rows): Input[] {
   const P = sc.params ?? {}, mode = P.mode as string, out: Input[] = []
-  if (sc.modes && mode !== undefined) out.push({ name: 'mode', type: 'long', values: sc.modes.map((_, i) => i), labels: sc.modes, default: Math.max(0, sc.modes.indexOf(mode)) })
+  const select = (name: string, labels: string[], v: string) => out.push({ name, type: 'long', values: labels.map((_, i) => i), labels, default: Math.max(0, labels.indexOf(v)) })
+  if (sc.modes && mode !== undefined) select('mode', sc.modes, mode)
+  if (sc.models && typeof P.model === 'string') select('model', sc.models(), P.model)
   const m = sc.paramLabels?.[mode] ?? {}, all = sc.paramLabels?.['*'] ?? {}
   for (const k of sc.paramOrder ?? ORDER) if (typeof P[k] === 'number') out.push({ name: k, type: 'float', label: (k in m ? m[k] : all[k]) ?? undefined, default: P[k], min: 0, max: 1 }) // a null label: a slider this mode greys out
+  for (const k of CHECKS) if (typeof P[k] === 'boolean') out.push({ name: k, type: 'bool', default: P[k] })
   return out
 }
 /** The node's values into the scene's params, each frame (a binding moves them): `mode` back to its name, an index
@@ -287,7 +294,7 @@ export const VS3: readonly ReturnType<typeof vs3>[] = [
   vs3('sand', () => import('./kit/scenes/sand.js'), { palette: 'nocturne', bloomMul: 1.5, aber: 1.2, vignette: 0.35 }),
   vs3('chorus', () => import('./kit/scenes/chorus.js'), { palette: 'sodium', bloomMul: 1.2, aber: 1.2, vignette: 0.5 }), // its thumb's amber: the factory preset ★ chorus — choir (main.js:9826)
   vs3('chorus-hall', () => import('./kit/scenes/chorus.js'), { palette: 'sodium', bloomMul: 1.2, aber: 1.2, vignette: 0.5, pointer: true }), // chorus with the stage pointer (user 2026-11-20: an additional scene, chorus untouched)
-  vs3('visage', () => import('./kit/scenes/visage.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 1.4, vignette: 0.5 }),
+  vs3('visage', () => import('./kit/scenes/visage.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 1.4, vignette: 0.5, pointer: true }), // its eyes follow the cursor (eyeFollow, user 2026-11-21)
   vs3('limitless3d', () => import('./kit/scenes/limitless3d.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.35 }),
   vs3('lasers', () => import('./kit/scenes/lasers.js'), { palette: 'vapor', bloomMul: 1, aber: 0, vignette: 0.2 }),
   // Batch 2a (2026-11-19). Rows 254 (crystal), 255 (pearl), 270 (spiral): lib/recursive-flight.js.

@@ -333,3 +333,119 @@
   margin: 8px 0 0;
   font: inherit;
 }
+
+/* The preset browser (Presets.tsx): thumbs in a grid on the stage's left, under the bar, clear of the E panel's column
+   on the right. It fades with the bar as the E panel does, so a forgotten one never covers the show. */
+.presets {
+  position: absolute;
+  top: 58px;
+  left: 14px;
+  width: min(660px, calc(100% - 340px));
+  max-height: calc(100% - 140px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  padding: 10px 12px 12px;
+  background: #0b0b0bf0;
+  border: 1px solid #ffffff17;
+  border-radius: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff2e transparent;
+  pointer-events: auto;
+  transition: opacity 0.5s ease;
+}
+:root:has(.bar.hidden) .presets {
+  opacity: 0;
+  pointer-events: none;
+}
+.presets header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.presets header .name {
+  margin-right: auto;
+  opacity: 0.55;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.presets button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.presets header button {
+  padding: 3px 9px;
+  background: #121212cc;
+  border: 1px solid #ffffff2a;
+  border-radius: 6px;
+}
+.presets header button.on,
+.presets .fav.on {
+  color: #f2c14e;
+  border-color: #f2c14e88;
+}
+.presets h3 {
+  margin: 12px 0 6px;
+  font: inherit;
+  opacity: 0.55;
+}
+.presets p {
+  margin: 12px 0 0;
+  opacity: 0.55;
+}
+.presets .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(144px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.presets h3 + .grid {
+  margin-top: 0;
+}
+.presets .tile {
+  position: relative;
+}
+.presets .tile > button:first-child {
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  background: #121212;
+  border: 1px solid #ffffff17;
+  border-radius: 6px;
+}
+.presets .tile > button:first-child:hover {
+  border-color: #ffffff55;
+}
+.presets .tile.on > button:first-child {
+  border-color: #f2c14e;
+}
+.presets .tile img,
+.presets .tile .none {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #1c1c1c;
+}
+.presets .tile .name {
+  display: block;
+  padding: 4px 7px 5px;
+  overflow: hidden;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.presets .fav {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 0 6px;
+  font-size: 14px;
+  line-height: 20px;
+  background: #000000a8;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}

@@ -480,6 +480,28 @@ test('user presets (presets.ts): saved per ref after a reload, a name saved agai
   expect((await loaded(baked)).presets(ref)).toEqual([{ name: 'y', values: { fill: 0 } }]) // a stored one beats them
 })
 
+test('preset favourites (ui/Presets.tsx): ☆ per ref over a reload, mirrored into the marks file (none: left out), back after a wipe, baked', async () => {
+  const disk: { text?: string } = {}
+  const b = browser(disk)
+  const lib = await loaded(b)
+  const ref = 'native/vs3-tendril'
+  lib.setPresetFav(ref, '★ lace', true)
+  lib.setPresetFav(ref, 'mine', true)
+  lib.setPresetFav('native/vs3-ink', '★ tripped', true)
+  lib.setPresetFav(ref, '★ lace', false)
+  const favs = { [ref]: ['mine'], 'native/vs3-ink': ['★ tripped'] }
+  expect((await loaded(b)).presetFavs()).toEqual(favs) // a reload
+  expect(JSON.parse(disk.text!).presetFavs).toEqual(favs)
+  expect((await loaded(browser(disk))).presetFavs()).toEqual(favs) // a browser data wipe: the dev file brings them back
+  lib.setPresetFav(ref, 'mine', false)
+  lib.setPresetFav('native/vs3-ink', '★ tripped', false)
+  expect([lib.presetFavs(), JSON.parse(disk.text!).presetFavs]).toEqual([{}, undefined]) // none: left out of the file
+  const baked = browser(undefined, { presetFavs: { [ref]: ['x', 5], 'native/vs3-ink': 'no' } })
+  expect((await loaded(baked)).presetFavs()).toEqual({ [ref]: ['x'] }) // a build's defaults, the corrupt ones left out
+  baked.kv.set('vjw.presetFavs', JSON.stringify({ [ref]: ['y'] }))
+  expect((await loaded(baked)).presetFavs()).toEqual({ [ref]: ['y'] }) // a stored one beats them
+})
+
 test('MIDI mappings (midi.ts): stored over a reload, mirrored into the marks file (empty: left out), back after a wipe, baked', async () => {
   const disk: { text?: string } = {}
   const b = browser(disk)

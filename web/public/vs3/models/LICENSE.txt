@@ -1,0 +1,50 @@
+Built-in mesh models for the limitless 3d scene
+
+skull.lm3d, bust.lm3d and hand.lm3d are simplified public domain
+models, packed for App by tools/build_limitless_models.mjs.
+They are welded, cleaned of loose specks, turned upright, centered,
+simplified to 60,000 to 90,000 triangles and stored without textures.
+Source files are not in this repository. Download the files below,
+rename them to the builder filenames, then run:
+
+  node tools/build_limitless_models.mjs <source folder>
+
+skull.lm3d
+  "Skull - Realistic", by Paul Kotelevets and Tonatiuh de San Julián,
+  from Blender Studio's Human Base Meshes collection.
+  License: CC0 1.0.
+  Source: https://commons.wikimedia.org/wiki/File:Skull_-_Realistic_by_Paul_Kotelevets,_Tonatiuh_de_San_Juli%C3%A1n_(CC0).stl
+  Download: https://upload.wikimedia.org/wikipedia/commons/9/96/Skull_-_Realistic_by_Paul_Kotelevets%2C_Tonatiuh_de_San_Juli%C3%A1n_%28CC0%29.stl
+  Builder filename: skull_blender.stl (297,830,484 bytes)
+  SHA256: 5c691051fc8e0323e9f80f8f85cba2a85ad75a45fbf8e14e800938a26b20f869
+  Complete crown, jaw and teeth. Replaces the NIH 3DPX-000849 skull
+  used before 2026-09-27; the model name and preset id remain unchanged.
+
+bust.lm3d
+  George Washington, marble, c. 1819, attributed to Massimiliano Ravenna,
+  a copy after Giuseppe Ceracchi's 1792 original. National Portrait
+  Gallery, Smithsonian Institution (NPG.70.4). 3D scan by the Smithsonian.
+  License: CC0 1.0 (public domain, "free of copyright restrictions").
+  Source: https://ids.si.edu/ids/media_view?id=3d_package:d8c63fde-4ebc-11ea-b77f-2e728ce88125
+  File used, from the mirror https://zenodo.org/records/21369869
+  (doi 10.5281/zenodo.21369869):
+  23630d35f855409e9c00c810b1416c71_normalized.glb
+  (14,608,616 bytes, md5 b2edc063fb3df83f2fb1ffa9dabcc272)
+  Builder filename: bust_washington.glb
+
+hand.lm3d
+  "Hand realistic", by Dan Ulrich, from Blender Studio's Human Base
+  Meshes collection v1.2.0. Complete open hand with all five fingers.
+  License: CC0 1.0.
+  Source: https://commons.wikimedia.org/wiki/File:Hand_realistic_by_Dan_Ulrich_(CC0).stl
+  Download: https://upload.wikimedia.org/wikipedia/commons/archive/1/1a/20250311192533%21Hand_realistic_by_Dan_Ulrich_%28CC0%29.stl
+  Builder filename: hand_blender.stl (21,107,284 bytes)
+  SHA256: fde46dd0da4c35a95ea7f3428825e0cbf1c54e152ab79db61ef169e136020eb2
+  Uses the earlier, less subdivided STL revision. Replaces the Hiram
+  Powers fragment used before 2026-09-27, which had missing fingers.
+  The model name and preset id remain unchanged.
+
+Collection: https://www.blender.org/download/demo-files/
+CC0 1.0: https://creativecommons.org/publicdomain/zero/1.0/
+None of these licenses require credit. Credit is given here and in
+THIRD-PARTY-NOTICES.txt. Smithsonian terms: https://www.si.edu/Termsofuse

@@ -29,6 +29,7 @@ const PERSISTED = 'vjw.persisted' // set once navigator.storage.persist() is gra
 const PRESETS = 'vjw.presets' // { [ref]: Preset[] }: the user's presets (presets.ts), kept and mirrored as the marks
 const MIDI = 'vjw.midi' // the MIDI mappings (midi.ts parses them): kept, mirrored and baked as the presets
 const SETS = 'vjw.sets' // the set lists (setlist.ts): kept, mirrored and baked as the presets
+const PRESET_FAVS = 'vjw.presetFavs' // { [ref]: preset names }: the ☆ on a preset (ui/Presets.tsx), kept, mirrored and baked as the presets
 /** The list's order, so the playlist's (user 2026-11-19: ←/→ as the list stands): by name, then id. */
 export const byName = (a: SceneDoc, b: SceneDoc) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
 /** The scene ids of a stored or filed mark; none from a corrupt value. */
@@ -42,6 +43,15 @@ const presetsOf = (x: unknown): Record<string, Preset[]> =>
         Object.entries(x)
           .map(([ref, ps]) => [ref, Array.isArray(ps) ? ps.filter((p): p is Preset => rec(p) && typeof p.name === 'string' && rec(p.values) && Object.values(p.values).every(value)) : []] as const)
           .filter(([, ps]) => ps.length),
+      )
+    : {}
+/** The preset favourites of a stored or filed value: each ref's names, a name that is no string left out. */
+const favsOf = (x: unknown): Record<string, string[]> =>
+  rec(x)
+    ? Object.fromEntries(
+        Object.entries(x)
+          .map(([ref, ns]) => [ref, Array.isArray(ns) ? ns.filter((n): n is string => typeof n === 'string') : []] as const)
+          .filter(([, ns]) => ns.length),
       )
     : {}
 const CAMERA = new Set(['native/camera', 'native/outline'])
@@ -105,11 +115,12 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
     return sets
   }
   let sets = setsOf(stored(SETS) ?? base.sets)
+  let presetFavs = favsOf(stored(PRESET_FAVS) ?? base.presetFavs)
   /** web/scene-marks.json's text: each mark's ids, sorted, then the user's stars over the built-ins, by id, then the
-   *  user's presets, MIDI mappings and sets when there are any. */
+   *  user's presets, MIDI mappings, sets and preset favourites when there are any. */
   const file = () => {
     const on = Object.entries(stars).filter(([, s]) => typeof s === 'boolean').sort(([a], [b]) => (a < b ? -1 : 1))
-    const f = { ...Object.fromEntries(MARK_IDS.map((m) => [m, [...marks[m]].sort()])), stars: Object.fromEntries(on), ...(Object.keys(presets).length && { presets }), ...(Array.isArray(midi) && midi.length && { midi }), ...(sets.length && { sets }) }
+    const f = { ...Object.fromEntries(MARK_IDS.map((m) => [m, [...marks[m]].sort()])), stars: Object.fromEntries(on), ...(Object.keys(presets).length && { presets }), ...(Array.isArray(midi) && midi.length && { midi }), ...(sets.length && { sets }), ...(Object.keys(presetFavs).length && { presetFavs }) }
     return `${JSON.stringify(f, null, 2)}\n`
   }
   const keepPresets = (next: Record<string, Preset[]>) => {
@@ -189,6 +200,7 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
         }
         if (Array.isArray(f.midi)) kv.setItem(MIDI, JSON.stringify((midi = f.midi)))
         if (Array.isArray(f.sets)) kv.setItem(SETS, JSON.stringify((sets = setsOf(f.sets))))
+        if (rec(f.presetFavs)) kv.setItem(PRESET_FAVS, JSON.stringify((presetFavs = favsOf(f.presetFavs))))
       }
       if (f === null || (rec(f) && !rec(f.stars))) disk!.write(file())
       for (const x of await db.all()) {
@@ -248,6 +260,16 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
       const { [ref]: ps = [], ...rest } = presets
       const left = ps.filter((p) => p.name !== name)
       keepPresets(left.length ? { ...rest, [ref]: left } : rest)
+    },
+    /** The ☆ favourite presets (ui/Presets.tsx), factory and user ones alike: each ref's names; a new object per change. */
+    presetFavs: (): Readonly<Record<string, readonly string[]>> => presetFavs,
+    setPresetFav(ref: string, name: string, on: boolean) {
+      const next = { ...presetFavs, [ref]: (presetFavs[ref] ?? []).filter((n) => n !== name).concat(on ? [name] : []) }
+      if (!next[ref].length) delete next[ref]
+      presetFavs = next
+      kv.setItem(PRESET_FAVS, JSON.stringify(presetFavs))
+      disk?.write(file())
+      notify()
     },
     /** The MIDI mappings as stored, else the build's (midi.ts checks them). */
     midi: () => midi,

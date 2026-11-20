@@ -1,6 +1,7 @@
 // Copied from donor/vs3/visual_kit/src/lib/model-scans.js (the friends' engine, used with permission, 2026-11-19).
-// vjw: the scan URL is our static path /vs3/models/ (web/public/vs3/). The scans are not copied there yet: the scene's
-// default model is the math knot and nothing in our app picks a scan.
+// vjw: the scan URL is our static path /vs3/models/ (web/public/vs3/models/, the three files + their LICENSE.txt, copied
+// 2026-11-21); the scene's `model` select (vs3/host.ts paramInputs) and its factory presets pick them. loadScan hands
+// every pick its own Group (see there).
 // The mesh built-ins of the limitless 3d scene: a human skull, a
 // marble bust and a complete hand, all public domain models (sources and
 // terms in vendor/models/LICENSE.txt), cut down and packed by
@@ -86,21 +87,22 @@ export function decodeScan(buf) {
 const pending = new Map();
 export function loadScan(name) {
   if (!SCANS.includes(name)) return Promise.reject(new Error(`no scan called ${name}`));
-  if (pending.has(name)) return pending.get(name);
-  const urls = [`${import.meta.env.BASE_URL}vs3/models/${name}.lm3d${REVISIONS[name] ? `?v=${REVISIONS[name]}` : ''}`]; // vjw: our static path, was import.meta.url + document.baseURI
-  const tryAt = (i) => fetch(urls[i])
-    .then((r) => { if (!r.ok) throw new Error(`${name} ${r.status}`); return r.arrayBuffer(); })
-    .catch((e) => {
-      if (i + 1 < urls.length && urls[i + 1] !== urls[i]) return tryAt(i + 1);
-      throw e;
-    });
-  const p = tryAt(0).then((buf) => {
-    const g = new THREE.Group();
-    g.add(new THREE.Mesh(decodeScan(buf), LOOKS[name]()));
-    return g;
-  });
-  // A failed fetch may be retried by a later pick.
-  p.catch(() => pending.delete(name));
-  pending.set(name, p);
-  return p;
+  let p = pending.get(name);
+  if (!p) {
+    const urls = [`${import.meta.env.BASE_URL}vs3/models/${name}.lm3d${REVISIONS[name] ? `?v=${REVISIONS[name]}` : ''}`]; // vjw: our static path, was import.meta.url + document.baseURI
+    const tryAt = (i) => fetch(urls[i])
+      .then((r) => { if (!r.ok) throw new Error(`${name} ${r.status}`); return r.arrayBuffer(); })
+      .catch((e) => {
+        if (i + 1 < urls.length && urls[i + 1] !== urls[i]) return tryAt(i + 1);
+        throw e;
+      });
+    p = tryAt(0).then(decodeScan); // vjw: the cache holds the decoded geometry, never a Group
+    // A failed fetch may be retried by a later pick.
+    p.catch(() => pending.delete(name));
+    pending.set(name, p);
+  }
+  // vjw: every pick its own Group, mesh, geometry and material (the donor cached one Group): the stage re-parents and
+  // re-centres the root (model-load.js finishModel) and disposes it with its layer, so a Group shared by two layers
+  // (a fade between two limitless 3d scenes, a library tile) would jump to the last one and die with the first.
+  return p.then((geo) => new THREE.Group().add(new THREE.Mesh(geo.clone(), LOOKS[name]())));
 }

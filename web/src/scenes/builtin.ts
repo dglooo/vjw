@@ -1960,12 +1960,14 @@ const VS3: readonly SceneDoc[] = [
     v: 1, id: 'builtin:vs3-chorus-hall', name: 'vs3 Chorus Hall', star: true,
     layers: [{ gen: { ref: 'native/vs3-chorus-hall', values: { shape: 1 }, bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
-  // visage (row 232: persist .3 left out): the same, its close-up head.
+  // visage (row 232: persist .3 left out): the same, its close-up head; its eyes follow a moving cursor (look.pointer,
+  // its eyeFollow checkbox on: user 2026-11-21).
   {
     v: 1, id: 'builtin:vs3-visage', name: 'vs3 Visage', star: true,
     layers: [{ gen: { ref: 'native/vs3-visage', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
   },
-  // limitless 3d (row 240: persist .25 left out): its default, the math knot in form mode (the three scans are not copied).
+  // limitless 3d (row 240: persist .25 left out): its default, the math knot in form mode (the model select and its
+  // factory presets pick the other shapes and the three scans, public/vs3/models/).
   {
     v: 1, id: 'builtin:vs3-limitless3d', name: 'vs3 Limitless 3D', star: true,
     layers: [{ gen: { ref: 'native/vs3-limitless3d', bind: KICK_HIT }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }],
