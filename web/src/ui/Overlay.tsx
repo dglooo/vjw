@@ -6,6 +6,7 @@ import { allowCameras, selectCamera, setVideo } from '../camera/camera'
 import { badge } from '../quality'
 import { Bpm } from './Bpm'
 import { Midi } from './Midi'
+import { showText } from '../scenes/text'
 import { PresetSelect } from './Panel'
 import { AnalyserSelect } from './SourcesTab'
 import { clock, store, type UiSnapshot } from '../store'
@@ -214,6 +215,9 @@ export function Overlay() {
         <PresetSelect />
         <AnalyserSelect />
         <Midi />
+        <button aria-pressed={s.text} title="Every text layer on / off · X" onClick={() => showText(!s.text)}>
+          Text
+        </button>
         <button onClick={() => setEditor(true)}>Editor · L</button>
         <button onClick={() => setShader(true)}>Shader · G</button>
         <Bpm />

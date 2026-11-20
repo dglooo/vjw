@@ -44,6 +44,7 @@ export interface UiSnapshot {
   clip: boolean
   clipHint: boolean
   muted: readonly string[] // the Sources tab's muted source ids (audio settings), for the Calibration tiles
+  text: boolean // the app-wide text switch (scenes/text.ts showText, key X): off, every native/text layer is hidden
 }
 
 let snap: UiSnapshot = {
@@ -51,7 +52,7 @@ let snap: UiSnapshot = {
   hold: false, recording: false, quality: '60-adaptive', scale: 1, drops: 0, compiling: null, debug: null, debugSync: null,
   panel: false, editRev: 0, edited: '', gpuMs: null, nodeErrors: [], style: { detected: null, confidence: 0 },
   editor: false, shader: false, cameras: [], camera: null, camLive: false, camVideo: true, camError: null, camFail: null,
-  clip: false, clipHint: false, muted: [],
+  clip: false, clipHint: false, muted: [], text: true,
 }
 const subs = new Set<() => void>()
 

@@ -59,6 +59,16 @@ export const dj = {
   },
 }
 
+const SHOW_KEY = 'vjw.text'
+/** The app-wide text switch (user 2026-11-20 «текст надо уметь отключать»; key X, the bar's Text, a MIDI pad): off,
+ *  every native/text layer is hidden, so live.ts skips it (no draw, no cost) and the rest of the scene plays on. Kept
+ *  in localStorage `vjw.text`, default on; the store shows it. */
+export function showText(on: boolean) {
+  store.patch({ text: on })
+  globalThis.localStorage?.setItem(SHOW_KEY, on ? '1' : '0')
+}
+store.patch({ text: globalThis.localStorage?.getItem(SHOW_KEY) !== '0' })
+
 /** A file name as a title: no extension. A store slug (no space: `1-Kanine-Feel-The-Vibrat-EW6MXW.flac`) also loses
  *  its track number and download code, and its dashes read as spaces, a run of them as " - ". Pure. */
 export function cleanTitle(file: string) {
@@ -200,6 +210,7 @@ export const text: NativeDef = {
       dispose() {
         gl.deleteTexture(tex)
       },
+      hidden: () => !store.getSnapshot().text,
     }
   },
 }

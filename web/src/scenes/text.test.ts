@@ -5,7 +5,7 @@ import { bindable } from '../bind'
 import type { FrameInput } from '../frame'
 import { store } from '../store'
 import { BUILTIN } from './builtin'
-import { cleanTitle, text } from './text'
+import { cleanTitle, showText, text } from './text'
 
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {} })) // takes the page's canvas + WebGL at import
 
@@ -68,5 +68,19 @@ test('the raster uploads only when the text, font, size step or outline change, 
   frame()
   expect(uploads).toBe(6)
   expect(said.at(-1)).toBe('Kanine Feel The Vibrat')
+  vi.unstubAllGlobals()
+})
+
+test('the app-wide switch (key X, the bar, a MIDI pad): off hides every text layer (live.ts skips it), on shows them; stored', () => {
+  const kv = new Map<string, string>()
+  vi.stubGlobal('localStorage', { getItem: (k: string) => kv.get(k) ?? null, setItem: (k: string, v: string) => void kv.set(k, v) })
+  vi.stubGlobal('OffscreenCanvas', class { width = 1; height = 1; getContext = () => null })
+  const gl = new Proxy({}, { get: (_o, k) => (typeof k === 'string' && /^[A-Z]/.test(k) ? 0 : () => null) })
+  const [a, b] = [text.create(gl as WebGL2RenderingContext), text.create(gl as WebGL2RenderingContext)] // two scenes' text layers
+  expect([a.hidden!(), b.hidden!()]).toEqual([false, false]) // default on
+  showText(false)
+  expect([a.hidden!(), b.hidden!(), kv.get('vjw.text'), store.getSnapshot().text]).toEqual([true, true, '0', false])
+  showText(true)
+  expect([a.hidden!(), b.hidden!(), kv.get('vjw.text')]).toEqual([false, false, '1'])
   vi.unstubAllGlobals()
 })

@@ -27,6 +27,7 @@ import { postFor } from './gl/post'
 import { library } from './library'
 import { createGovernor, nextMode, outputFor, type QualityMode } from './quality'
 import { startRecording } from './recorder'
+import { showText } from './scenes/text'
 import { store } from './store'
 import { edits } from './undo'
 
@@ -190,6 +191,9 @@ addEventListener('keydown', (e) => {
       break
     case 'KeyB':
       sync.downbeat(heard())
+      break
+    case 'KeyX': // every native/text layer on / off (scenes/text.ts)
+      showText(!store.getSnapshot().text)
       break
     case 'KeyP': // the file transport (the overlay's buttons do the same)
       if (store.getSnapshot().source?.kind === 'file') togglePlay()

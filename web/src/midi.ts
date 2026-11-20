@@ -18,6 +18,7 @@ interface MidiIn { name: string | null; state: string; onmidimessage: ((e: MIDIM
 /** The pad actions, by hotkey (app.ts). No flash: a manual strobe pad would bypass the flash gate (I-FL1). */
 export const KEYS: Readonly<Record<string, string>> = {
   ArrowLeft: 'scene ←', ArrowRight: 'scene →', ArrowUp: 'preset ↑', ArrowDown: 'preset ↓', KeyT: 'tap', BracketLeft: 'BPM ½', BracketRight: 'BPM ×2', KeyB: 'downbeat',
+  KeyX: 'text on/off',
 }
 
 /** A message's control and value: a CC (0xBn), a note-on (0x9n) at velocity > 0. A note-off (0x8n, or 0x9n at 0) and
