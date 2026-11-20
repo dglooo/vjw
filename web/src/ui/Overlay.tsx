@@ -11,7 +11,7 @@ import { showText } from '../scenes/text'
 import { PresetSelect } from './Panel'
 import { Presets } from './Presets'
 import { SetMenu } from './SetList'
-import { AnalyserSelect } from './SourcesTab'
+import { AnalyserSelect, GenreSelect } from './SourcesTab'
 import { clock, store, type UiSnapshot } from '../store'
 import './overlay.css'
 
@@ -218,6 +218,7 @@ export function Overlay() {
         <span className="scene">{s.sceneName}</span>
         <PresetSelect />
         <AnalyserSelect />
+        <GenreSelect />
         <Midi />
         <SetMenu />
         <button aria-pressed={s.text} title="Every text layer on / off · X" onClick={() => showText(!s.text)}>

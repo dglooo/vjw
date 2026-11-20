@@ -80,6 +80,37 @@ export function AnalyserSelect() {
   )
 }
 
+/** The genre pick (`auto` or a preset id), from the top bar's select and this tab's: one write through pickToPatch, and
+ *  both show `pick ?? 'auto'`, so the two stay in step (SourcesTab.test.ts). */
+const pickGenre = (value: string) => settings.patch(pickToPatch('picker', value, settings.get(), store.getSnapshot().style.detected))
+
+const GENRE_HINT = 'The analyser profile per genre (the Sources tab preset): its tempo range and kick/snare knobs. auto follows the detected genre (dnb, dubstep or techno); psy and house are hand picks.'
+/** The genre profile in the top bar (user 2026-11-21), short labels; under Auto it names the detected genre. Hidden while
+ *  the analyser is off: no scene hears it then. */
+export function GenreSelect() {
+  const s = useSyncExternalStore(settings.onChange, settings.get)
+  const detected = useSyncExternalStore(store.subscribe, () => store.getSnapshot().style.detected)
+  if (s.analyser === 'off') return null
+  return (
+    <select
+      aria-label="Genre"
+      title={GENRE_HINT}
+      value={s.pick ?? 'auto'}
+      onChange={(e) => {
+        e.currentTarget.blur() // a focused select would eat hotkeys as type-ahead
+        pickGenre(e.currentTarget.value)
+      }}
+    >
+      <option value="auto">{s.auto && detected ? `genre: auto · ${detected}` : 'genre: auto'}</option>
+      {(Object.keys(PRESETS) as PresetId[]).map((id) => (
+        <option key={id} value={id}>
+          genre: {id}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 /** The Sources tab (S6.1/S6.2): live meters driven by one rAF loop writing each meter's `value` directly — no React
  * state — with the C8 controls (preset picker, Auto toggle, custom-band form) and, per source and per group
  * (bind.ts sourceGroups()), a gain slider and a mute (user 2026-11-17) wired to the `settings` store, so they persist
@@ -114,7 +145,7 @@ export function SourcesTab() {
         <select
           aria-label="Preset"
           value={s.pick ?? 'auto'} // follow mode (Locked or not) shows "Auto"; a hand pick shows the pick
-          onChange={(e) => settings.patch(pickToPatch('picker', e.currentTarget.value, s, detected()))}
+          onChange={(e) => pickGenre(e.currentTarget.value)}
         >
           <option value="auto">Auto</option>
           {(Object.keys(PRESETS) as PresetId[]).map((id) => (
