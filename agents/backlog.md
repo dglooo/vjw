@@ -15,7 +15,7 @@
 4. ✅ **WebGPU: millions of particles, fluids** (GPU3D built; S6 + tester + close paused).
 5. ✅ **3D on Three.js: models incl. animals, chrome reflections** (GPU3D, chrome/glass wolf).
 6. ✅ **Text layer** — DONE 2026-11-20 on `dev` (tag `text-layer`).
-7. **MIDI controller** — basic, without extras. ⚠️ Assumption, needs confirmation: the transcription reads «мобиль»; the lead reads it as MIDI (the first item of the gap list).
+7. ✅ **MIDI controller** — DONE 2026-11-20 on `dev` (tag `midi-text-switch`): learn, CC → sliders, pads → scene/preset/tap/BPM/downbeat/text. Was: basic, without extras. ⚠️ Assumption, needs confirmation: the transcription reads «мобиль»; the lead reads it as MIDI (the first item of the gap list).
 8. **Video files as a source.**
 9. **Set list / timeline** — lay the groundwork only («закладываем»).
 10. **Rekordbox audio capture** — the last stage.
