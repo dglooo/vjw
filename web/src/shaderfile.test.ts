@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { CODE_MAX } from './doc'
-import { checkExport, checkPush, localOrigin, readShader, safeName, SHADER_MAX, writeShader } from './shaderfile'
+import { answerAsk, checkExport, checkPush, localOrigin, readShader, safeName, SHADER_MAX, writeShader } from './shaderfile'
 
 const CODE = 'void mainImage(out vec4 fragColor, in vec2 fragCoord) {\n    fragColor = vec4(0.5);\n}\n'
 
@@ -68,5 +68,41 @@ describe('the AI channel checks (vite.config.ts)', () => {
   test('origin: none (a CLI) or this machine; another site is refused', () => {
     for (const ok of [undefined, 'http://localhost:5173', 'http://127.0.0.1:5177', 'http://[::1]:5173', 'https://localhost']) expect(localOrigin(ok)).toBe(true)
     for (const no of ['https://evil.com', 'http://localhost.evil.com', 'http://evil.com/?http://localhost:5173', 'null', '']) expect(localOrigin(no)).toBe(false)
+  })
+})
+
+describe('answerAsk: the open editor answers the dev server and the remote relay alike', () => {
+  /** A fake editor: what it was asked, in order. */
+  const editor = () => {
+    const did: unknown[][] = []
+    return {
+      did,
+      state: () => (did.push(['state']), { ok: true, code: CODE }),
+      push: async (code: string, name?: string) => (did.push(['push', code, name]), { ok: true, status: 'Playing' }),
+      export: (name: string) => (did.push(['export', name]), { ok: true, file: `${name}.glsl` }),
+    }
+  }
+
+  test('each ask to its handler, the answer under its id', async () => {
+    const ed = editor()
+    expect(await answerAsk({ id: 1, what: 'state' }, ed)).toEqual({ id: 1, ok: true, code: CODE })
+    expect(await answerAsk({ id: 2, what: 'push', code: CODE, name: 'Rings' }, ed)).toEqual({ id: 2, ok: true, status: 'Playing' })
+    expect(await answerAsk({ id: 3, what: 'export', name: ' Neon tunnel ', overwrite: true }, ed)).toEqual({ id: 3, ok: true, file: 'Neon tunnel.glsl' })
+    expect(ed.did).toEqual([['state'], ['push', CODE, 'Rings'], ['export', 'Neon tunnel']])
+  })
+
+  test('a bad ask answers its error under its id and runs nothing; a handler that throws still answers', async () => {
+    const ed = editor()
+    expect(await answerAsk({ id: 4, what: 'push', code: '' }, ed)).toEqual({ id: 4, ok: false, error: 'code: not a non-empty string' })
+    expect(await answerAsk({ id: 5, what: 'push', code: 'x'.repeat(SHADER_MAX + 1) }, ed)).toMatchObject({ id: 5, ok: false })
+    expect(await answerAsk({ id: 6, what: 'export', name: '../..' }, ed)).toMatchObject({ id: 6, ok: false })
+    expect(await answerAsk({ id: 7, what: 'eval' }, ed)).toEqual({ id: 7, ok: false, error: 'what: push, state or export, not eval' })
+    expect(await answerAsk('not an ask', ed)).toMatchObject({ ok: false })
+    expect(ed.did).toEqual([])
+    const boom = () => {
+      throw new Error('boom')
+    }
+    expect(await answerAsk({ id: 8, what: 'state' }, { ...ed, state: boom })).toEqual({ id: 8, ok: false, error: 'Error: boom' })
+    expect(await answerAsk({ id: 9, what: 'push', code: CODE }, { ...ed, push: async () => boom() })).toEqual({ id: 9, ok: false, error: 'Error: boom' })
   })
 })
