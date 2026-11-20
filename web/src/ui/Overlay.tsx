@@ -9,6 +9,7 @@ import { AllowClips } from './Clips'
 import { Midi } from './Midi'
 import { showText } from '../scenes/text'
 import { PresetSelect } from './Panel'
+import { Presets } from './Presets'
 import { SetMenu } from './SetList'
 import { AnalyserSelect } from './SourcesTab'
 import { clock, store, type UiSnapshot } from '../store'
@@ -266,6 +267,7 @@ export function Overlay() {
           <pre>{JSON.stringify(d.settings, null, 1)}</pre>
         </div>
       )}
+      <Presets />
       {s.needsStart && (
         <button className="start" onClick={() => void start()}>
           Start

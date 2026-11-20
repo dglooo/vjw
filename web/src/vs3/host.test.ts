@@ -5,6 +5,7 @@ import { defaults } from '../doc'
 import type { Input } from '../fx/types'
 import { PALETTES, paramInputs, put, screen, signal, specHi, VS3, type Signal } from './host'
 
+const fsId = 'node:fs' // the app tsconfig has no node types (serpent.test.ts T-F2d)
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, gl: {} })) // takes the page's canvas + WebGL at import
 
 test('signal: levels from the donor-mode bands, kick = hit, onKick on its rise × kickAccent, onMid = onHigh on the rise of mid', () => {
@@ -61,15 +62,20 @@ test('screen: null and undefined mean the layer RT, the buffer size is its size,
 test('paramInputs: mode = a select by index, sliders in paramOrder (else the donor order), labels as the default mode reads them', () => {
   const sc = {
     modes: ['ring', 'cross'], paramOrder: ['fill', 'speed', 'gone'],
-    params: { mode: 'cross', speed: 0.5, fill: 0.2, shape: 0.7, eyeFollow: true, model: 'knot' },
+    params: { mode: 'cross', speed: 0.5, fill: 0.2, shape: 0.7, model: 'knot' },
     paramLabels: { '*': { fill: 'zoom', speed: 'rate' }, cross: { speed: null } },
   }
   expect(paramInputs(sc)).toEqual([
     { name: 'mode', type: 'long', values: [0, 1], labels: ['ring', 'cross'], default: 1 },
     { name: 'fill', type: 'float', label: 'zoom', default: 0.2, min: 0, max: 1 },
     { name: 'speed', type: 'float', label: undefined, default: 0.5, min: 0, max: 1 }, // null in this mode: the name
-  ]) // shape is not in paramOrder, a bool and a string are no sliders, a key the scene lacks is skipped
+  ]) // shape is not in paramOrder, a string is no slider (a model only with models()), a key the scene lacks is skipped
   expect(paramInputs({ params: { contrast: 0.5, speed: 0.3 } }).map((i) => i.name)).toEqual(['speed', 'contrast']) // the donor order
+  expect(paramInputs({ models: () => ['knot', 'bust'], params: { model: 'bust', fill: 0.5, eyeFollow: true } })).toEqual([
+    { name: 'model', type: 'long', values: [0, 1], labels: ['knot', 'bust'], default: 1 }, // limitless 3d's model
+    { name: 'fill', type: 'float', label: undefined, default: 0.5, min: 0, max: 1 },
+    { name: 'eyeFollow', type: 'bool', default: true }, // a boolean: a checkbox
+  ])
   expect(paramInputs({})).toEqual([]) // aurora, blob: no params
 })
 
@@ -96,4 +102,19 @@ test('params.json = every registered scene\'s rows (regenerate: npx vitest run -
   expect(Object.values(rows).flat().length).toBeGreaterThan(200)
   const json = `{\n${Object.entries(rows).map(([k, v]) => `${JSON.stringify(k)}: [${v.map((i) => `\n  ${JSON.stringify(i)}`).join(',')}\n]`).join(',\n')}\n}\n`
   await expect(json).toMatchFileSnapshot('./params.json')
+})
+
+test('loadScan (limitless 3d): one fetch and decode per scan, every pick its own Group, mesh, geometry and material', async () => {
+  const { readFileSync } = (await import(/* @vite-ignore */ fsId)) as { readFileSync(p: string): Uint8Array<ArrayBuffer> }
+  const fetch = vi.fn(async () => new Response(readFileSync('public/vs3/models/hand.lm3d')))
+  vi.stubGlobal('fetch', fetch)
+  const { loadScan } = await import('./kit/lib/model-scans.js')
+  const [a, b] = await Promise.all([loadScan('hand'), loadScan('hand')])
+  vi.unstubAllGlobals()
+  const [ma, mb] = [a.children[0], b.children[0]]
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(a).not.toBe(b) // two layers never share one (finishModel re-parents and re-centres it)
+  expect([ma.geometry === mb.geometry, ma.material === mb.material]).toEqual([false, false])
+  expect(ma.geometry.attributes.position.count).toBe(mb.geometry.attributes.position.count)
+  expect(ma.geometry.attributes.position.count).toBeGreaterThan(10000)
 })

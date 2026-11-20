@@ -18,6 +18,7 @@ import { cam, camGate, camGpuMs, camMask, readCam, readMask, selectCamera, start
 import { presence } from './camera/smooth'
 import { count as camUsers } from './camera/users'
 import { createDirector } from './director'
+import type { SceneId } from './doc'
 import { docs } from './edit'
 import { tiles } from './editor/tiles'
 import type { FrameInput } from './frame'
@@ -69,7 +70,7 @@ library.onChange(() => director.setPlaylist(playlist()))
 // user scene, New's draft after a reload) sits out: `live` throws on an unknown id. An edit of the armed set re-arms it
 // (the same cue objects: the cue on stage plays on); a set with no playable cue disarms.
 let armedCues: readonly Cue[] | null = null
-let presetDue: Cue | null = null // the cue a fade just began, whose preset goes on once its scene is the edited one
+let presetDue: Pick<Cue, 'scene' | 'preset'> | null = null // the cue a fade just began (or cutTo's pick), whose preset goes on once its scene is the edited one
 function rearm() {
   const i = store.getSnapshot().armedSet
   const cues = (i === null ? undefined : library.sets()[i])?.cues.filter((c) => docs.has(c.scene) || library.get(c.scene))
@@ -85,6 +86,12 @@ export function armSet(i: number | null) {
   rearm()
 }
 library.onChange(rearm)
+/** The preset browser's pick of another scene's preset (ui/Presets.tsx): a cut to that scene, as the Library's, and the
+ *  preset (by name) on it once it is the edited one, as a cue's. */
+export function cutTo(scene: SceneId, preset: string) {
+  director.cut(scene)
+  presetDue = { scene, preset }
+}
 const loaded = library.load().catch((e: unknown) => console.error('library', e)) // no IndexedDB: the built-ins only
 // Compile-all at Start (design E2): once the audio context runs (the Start click, or at load when autoplay is allowed)
 // and the library is read, every program of the playlist compiles while the loop plays on.
@@ -176,6 +183,10 @@ addEventListener('keydown', (e) => {
     case 'Escape':
       setPanel(false)
       setShader(false)
+      store.patch({ browse: false })
+      break
+    case 'KeyW': // the preset browser (ui/Presets.tsx): Q, the donor's key for theirs, is the quality's here
+      store.patch({ browse: !store.getSnapshot().browse })
       break
     case 'ArrowLeft':
       director.prev()

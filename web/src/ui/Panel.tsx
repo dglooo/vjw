@@ -314,7 +314,8 @@ export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove
 }
 
 /** The preset picker (presets.ts) of the edited scene's preset node, in the bar and in E: the preset its values match,
- *  else "custom"; the factory's, then the user's; Save as preset… and, on a user one, Delete. Hidden without presets.
+ *  else "custom"; the factory's, then the user's; Browse (the thumbs, ui/Presets.tsx), Save as preset… and, on a user
+ *  one, Delete. Hidden without presets.
  *  It re-reads on every store change (the bar's 4×/s too), so a moved slider shows "custom" within 250 ms. */
 export function PresetSelect() {
   useSyncExternalStore(library.onChange, () => libRev)
@@ -352,6 +353,7 @@ export function PresetSelect() {
         const v = e.currentTarget.value
         e.currentTarget.blur() // a focused select would eat hotkeys as type-ahead
         if (v === 'save') setNaming(true)
+        else if (v === 'browse') store.patch({ browse: true })
         else if (v === 'delete') library.deletePreset(t.ref, t.now!.name)
         else panel.setValues(t.path, t.list[+v].values)
       }}
@@ -364,6 +366,7 @@ export function PresetSelect() {
           {p.name}
         </option>
       ))}
+      <option value="browse">Browse presets… · W</option>
       <option value="save">Save as preset…</option>
       {i >= t.factory && <option value="delete">Delete “{t.now!.name}”</option>}
     </select>

@@ -396,7 +396,7 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `scenes/lasers.js` (main stage) | the friends' engine | donor/vs3/visual_kit/src/scenes/lasers.js | used with permission (2026-11-19) |
 | `lib/limitless3d-stage.js` | the friends' engine | donor/vs3/visual_kit/src/lib/limitless3d-stage.js | used with permission (2026-11-19) |
 | `lib/model-load.js` | the friends' engine | donor/vs3/visual_kit/src/lib/model-load.js (the drop loaders' import()s stripped) | used with permission (2026-11-19) |
-| `lib/model-scans.js` | the friends' engine; fflate (101arrowz, vendored in three r187 `examples/jsm/libs/fflate.module.js`) | donor/vs3/visual_kit/src/lib/model-scans.js (the scan URL is /vs3/models/) | used with permission (2026-11-19); fflate: MIT |
+| `lib/model-scans.js` | the friends' engine; fflate (101arrowz, vendored in three r187 `examples/jsm/libs/fflate.module.js`) | donor/vs3/visual_kit/src/lib/model-scans.js (the scan URL is /vs3/models/; every pick its own Group, the decoded geometry cached) | used with permission (2026-11-19); fflate: MIT |
 | `lib/model-shapes.js` | the friends' engine | donor/vs3/visual_kit/src/lib/model-shapes.js | used with permission (2026-11-19) |
 | `lib/laser-stage.js` | the friends' engine | donor/vs3/visual_kit/src/lib/laser-stage.js (the plants from /vs3/lasers/) | used with permission (2026-11-19) |
 | `lib/laser-rig.js` | the friends' engine | donor/vs3/visual_kit/src/lib/laser-rig.js | used with permission (2026-11-19) |
@@ -423,6 +423,9 @@ The scenes' binary assets, `public/vs3/`, copied from `donor/vs3/visual_kit/publ
 |---|---|---|---|
 | `visage/head.bin`, `visage/head_lo.bin` (visage, chorus) | USC Institute for Creative Technologies (ICT FaceKit light model, https://github.com/ICT-VGL/ICT-FaceKit), converted by the friends | donor/vs3/visual_kit/public/vendor/visage/ | MIT (`visage/LICENSE.txt`) |
 | `lasers/plants.bin` (main stage) | Poly Haven, "Anthurium Botany 01" (https://polyhaven.com/a/anthurium_botany_01), reduced by the friends | donor/vs3/visual_kit/public/vendor/lasers/ | CC0 1.0 (`lasers/LICENSE.txt`) |
+| `models/skull.lm3d`, `models/bust.lm3d`, `models/hand.lm3d` (limitless 3d's scans, 2026-11-21) | skull: Paul Kotelevets and Tonatiuh de San Julián (Blender Studio, Human Base Meshes); bust: George Washington, marble, c. 1819, attr. Massimiliano Ravenna, after Giuseppe Ceracchi (National Portrait Gallery, Smithsonian, NPG.70.4; Smithsonian 3D scan); hand: Dan Ulrich (Blender Studio, Human Base Meshes v1.2.0); packed by the friends | donor/vs3/visual_kit/public/vendor/models/ | CC0 1.0 (`models/LICENSE.txt`, with each source URL) |
+
+The factory presets (2026-11-21): `src/vs3/presets.json`, written by `scripts/vs3-presets.mjs` from the `FACTORY_PRESETS` table of `donor/vs3/visual_system_3/renderer/main.js` (read as text, never run; 152 of its 173 looks, the rest dropped with a reason), and their thumbs, `public/vs3/thumbs/presets/*.jpg` (152 jpgs, 320×180, the donor's file names), copied from `donor/vs3/visual_system_3/renderer/vendor/thumbs/presets/`. The friends' engine, used with permission (2026-11-19). `★ hall` (chorus) is ours.
 
 ## Shader editor examples
 
