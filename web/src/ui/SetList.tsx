@@ -5,8 +5,8 @@ import { adjustForSource, insertIndex } from '../editor/dnd'
 import { transitions } from '../fx/catalog'
 import { panel } from '../gl/live'
 import { download, library } from '../library'
-import { BARS, importSets, reorder, setFile, type Cue, type SetList } from '../setlist'
-import { store } from '../store'
+import { BARS, importSets, reorder, seconds, setFile, type Cue, type SetList } from '../setlist'
+import { clock, store } from '../store'
 
 const sceneName = (id: string) => (docs.get(id) ?? library.get(id))?.name
 const short = (id: string) => id.slice(id.indexOf('/') + 1) // gl/Swirl → Swirl
@@ -31,7 +31,8 @@ const release = (e: PointerEvent) => {
  *  Step 2 (user 2026-11-21): export the set or all sets as a .json file, import one (the button, or a drop on the menu);
  *  a timeline strip, the cues as blocks sized by their bars: armed, the cue on stage lit with a playhead through it on
  *  the bar clock, a click plays a block's cue from the next bar line (director.jump); the blocks drag into order too;
- *  each cue's switches: the text layers and the analysis on, off or as they are as it starts (app.ts frame). */
+ *  each cue's switches: the text layers and the analysis on, off or as they are as it starts (app.ts frame), and its
+ *  track time, m:ss: a playing file starts it there, the cue before holding until then. */
 export function SetMenu() {
   const sets = useSyncExternalStore(library.onChange, library.sets)
   const armed = useSyncExternalStore(store.subscribe, () => store.getSnapshot().armedSet)
@@ -202,7 +203,7 @@ export function SetMenu() {
                     className={`blk${k === on ? ' on' : ''}${c === playing?.jump ? ' next' : ''}${sceneName(c.scene) ? '' : ' gone'}${line === k ? ' ins' : ''}${line === set.cues.length && k === line - 1 ? ' end' : ''}`}
                     style={{ flex: c.bars === 'hold' ? 'none' : `${c.bars} 1 0` }}
                     draggable
-                    title={`${k + 1}. ${sceneName(c.scene) ?? 'missing scene'} · ${length(c.bars)}${armed === i ? ' · click: from the next bar line' : ''} · drag to reorder`}
+                    title={`${k + 1}. ${sceneName(c.scene) ?? 'missing scene'} · ${length(c.bars)}${c.time === undefined ? '' : ` · at ${clock(c.time)}`}${armed === i ? ' · click: from the next bar line' : ''} · drag to reorder`}
                     onDragStart={(e) => dragStart(e, k)}
                     onClick={() => {
                       if (armed !== i) return
@@ -279,6 +280,22 @@ export function SetMenu() {
                         ))}
                       </select>
                     ))}
+                    <input
+                      key={c.time ?? ''} // uncontrolled: a reorder or an import shows the cue's own
+                      aria-label="Track time: a playing file starts this cue there (m:ss); empty: after the cue before"
+                      title="Track time: a playing file starts this cue there (m:ss); empty: after the cue before"
+                      placeholder="at m:ss"
+                      defaultValue={c.time === undefined ? '' : clock(c.time)}
+                      autoComplete="off"
+                      spellCheck={false}
+                      onKeyDown={(e) => e.code === 'Enter' && e.currentTarget.blur()}
+                      onBlur={(e) => {
+                        const v = e.currentTarget.value.trim()
+                        const t = v ? seconds(v) : undefined
+                        if (t === null) e.currentTarget.value = c.time === undefined ? '' : clock(c.time) // not m:ss: back to the cue's
+                        else if (t !== c.time) edit(k, { ...c, time: t })
+                      }}
+                    />
                   </div>
                 </div>
               ))}

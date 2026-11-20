@@ -66,9 +66,10 @@ const playlist = () => library.playlist((playLive = cam.live))
 const director = createDirector(playlist(), { confidentTheta: CONFIDENT, slot: (id) => library.slot(id, playLive) })
 library.onChange(() => director.setPlaylist(playlist()))
 // The set list (setlist.ts, user 2026-11-20): the armed set's cues play in place of the playlist (director.arm), each
-// fading in with its own transition, preset and switches (frame()); ←/→ step through them. A cue whose scene is gone (a deleted
-// user scene, New's draft after a reload) sits out: `live` throws on an unknown id. An edit of the armed set re-arms it
-// (the same cue objects: the cue on stage plays on); a set with no playable cue disarms.
+// fading in with its own transition, preset and switches (frame()); ←/→ step through them, a time-code cue starts at its
+// track time. A cue whose scene is gone (a deleted user scene, New's draft after a reload) sits out: `live` throws on an
+// unknown id. An edit of the armed set re-arms it (the same cue objects: the cue on stage plays on); a set with no
+// playable cue disarms.
 let armedCues: readonly Cue[] | null = null
 let presetDue: Pick<Cue, 'scene' | 'preset'> | null = null // the cue a fade just began (or cutTo's pick), whose preset goes on once its scene is the edited one
 function rearm() {
@@ -364,6 +365,7 @@ let tick = 0
 let badgeAt = -Infinity
 let lastBand: Band | null = null // the last tempo range applied (S3.2): a band change sets it, and only then snaps
 let fadingTo: string | null = null // the previous frame's shot.to: a new id starts a fade
+let trackAt = -1 // the previous frame's file time, s (no file: -1), for the time-code cues
 // ?debug (c) metrics (S5.4): each onset's distance to the grid before it corrects it, and time to confident.
 const offsets: number[] = [] // ms, the last 64 onsets within ±⅛ beat
 let lastHeard = 0
@@ -484,6 +486,11 @@ function frame(now: number) {
     locked = f.sync.bpm > 0
   }
   if (cam.live !== playLive) director.setPlaylist(playlist()) // the camera scenes join or leave the rotation
+  // A time-code cue (setlist.ts `time`): the playing file crossing its track time (a seek forward too) starts it at once
+  const tt = store.getSnapshot().source?.kind === 'file' ? player.currentTime : -1
+  const timed = tt > trackAt && armedCues?.findLast((c) => c.time !== undefined && trackAt < c.time && c.time <= tt)
+  if (timed) director.jump(timed, true)
+  trackAt = tt
   const shot = director.update(f.time, f.sync) // rAF's now is on the performance.now() clock
   if (shot.to && shot.to !== fadingTo) {
     const cue = director.cue()?.of // an armed set: the cue this fade begins

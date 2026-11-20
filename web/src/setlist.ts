@@ -1,14 +1,15 @@
 // The set list (user 2026-11-20, backlog 9: the groundwork only): a named, ordered list of cues. A cue is a scene, an
 // optional preset of it (presets.ts, by name), its length in bars or a hold (it stays until the next →), an optional
-// transition into it (fx/catalog.ts `transitions`, by id) and the switches it sets as it starts (step 2, user
-// 2026-11-21): the text layers (X) and the analysis (A) on or off, absent: as they are. An armed set's cues play on the
-// bar lines in place of the playlist (director.ts arm). The sets are kept beside the marks (library.ts: vjw.sets, the
+// transition into it (fx/catalog.ts `transitions`, by id), the switches it sets as it starts (step 2, user
+// 2026-11-21): the text layers (X) and the analysis (A) on or off, absent: as they are, and an optional track time: a
+// playing file crossing it starts the cue at once, the cue before holding until then (app.ts). An armed set's cues play
+// on the bar lines in place of the playlist (director.ts arm). The sets are kept beside the marks (library.ts: vjw.sets, the
 // dev mirror, the build's bake) and travel as set files (setFile / importSets). Pure.
 import type { SceneId } from './doc'
 import { move } from './edit'
 import { adjustForSource } from './editor/dnd'
 
-export interface Cue { scene: SceneId; preset?: string; bars: number | 'hold'; transition?: string; text?: boolean; analysis?: boolean }
+export interface Cue { scene: SceneId; preset?: string; bars: number | 'hold'; transition?: string; text?: boolean; analysis?: boolean; time?: number }
 export interface SetList { name: string; cues: Cue[] }
 /** The lengths the Set menu offers, in bars (a file may hold any whole number). */
 export const BARS = [1, 2, 4, 8, 16, 32, 64]
@@ -24,6 +25,7 @@ function wrong(x: unknown) {
   if (!name(x.preset)) return 'preset: not a name'
   if (!name(x.transition)) return 'transition: not an id'
   for (const k of ['text', 'analysis']) if (x[k] !== undefined && typeof x[k] !== 'boolean') return `${k} ${JSON.stringify(x[k])}: true, false or absent`
+  if (x.time !== undefined && !(typeof x.time === 'number' && x.time >= 0 && x.time < Infinity)) return `time ${JSON.stringify(x.time)}: seconds ≥ 0 or absent`
   return null
 }
 
@@ -46,12 +48,18 @@ export function parseSets(x: unknown): { sets: SetList[]; dropped: string[] } {
         dropped.push(`set "${s.name}", cue ${k + 1}: ${why}`)
         return []
       }
-      const { scene, preset, bars, transition, text, analysis } = c as Cue
-      return [{ scene, bars, ...(preset && { preset }), ...(transition && { transition }), ...(text !== undefined && { text }), ...(analysis !== undefined && { analysis }) }]
+      const { scene, preset, bars, transition, text, analysis, time } = c as Cue
+      return [{ scene, bars, ...(preset && { preset }), ...(transition && { transition }), ...(text !== undefined && { text }), ...(analysis !== undefined && { analysis }), ...(time !== undefined && { time }) }]
     })
     return [{ name: s.name, cues }]
   })
   return { sets, dropped }
+}
+
+/** The seconds of a cue's track time as the Set menu takes it, `m:ss` (store.ts clock's form); null: not that. */
+export function seconds(text: string) {
+  const m = /^(\d+):([0-5]\d)$/.exec(text.trim())
+  return m ? +m[1] * 60 + +m[2] : null
 }
 
 /** A set file's text (the Set menu's export): `{ v: 1, sets }`; importSets reads it back. */

@@ -297,6 +297,21 @@ describe('an armed set (setlist.ts)', () => {
     ])
   })
 
+  test('a time-code cue: the cue before holds past its bars until the time starts it at once (jump now)', () => {
+    const timed: Cue[] = [{ scene: 'spectrum', bars: 2 }, { scene: 'particles', bars: 2, time: 30 }, { scene: 'glitch', bars: 2 }]
+    const d = createDirector(playlist)
+    d.arm(timed)
+    const s = frames(d, 0, 6.5, sure)
+    expect(d.cue()).toMatchObject({ index: 0, left: Infinity }) // its 2 bars are over: it waits for particles' time
+    d.jump(timed[1], true) // app.ts: the file crossed 0:30
+    s.push(...frames(d, 6.5 + 1 / 60, 9.5, sure))
+    expect(fades(s)).toEqual([
+      [0, 'tunnel', 'spectrum'],
+      [391 / 60, 'spectrum', 'particles'], // at once, not on bar line 7
+      [8, 'particles', 'glitch'], // its 2 bars from bar line 6
+    ])
+  })
+
   test('the playlist waits for the disarm; an edit keeps the cue on stage; a cut stands in for it', () => {
     const d = createDirector(playlist)
     frames(d, 0, 2.5, sure)

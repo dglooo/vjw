@@ -46,7 +46,8 @@
 .bar select,
 .bar button,
 .bar .preset input,
-.bar .bpm input {
+.bar .bpm input,
+.bar .setlist .at input {
   max-width: 40ch;
   padding: 5px 8px;
   font: inherit;
@@ -200,9 +201,12 @@
   gap: 6px;
   padding-left: 1.4em;
 }
-.bar .setlist .cue .at select {
+.bar .setlist .cue .at :is(select, input) {
   max-width: none;
   opacity: 0.8;
+}
+.bar .setlist .cue .at input {
+  width: 7ch;
 }
 .setlist .cue > span {
   flex: 1;

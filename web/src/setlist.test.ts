@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { importSets, parseSets, reorder, setFile, type SetList } from './setlist'
+import { importSets, parseSets, reorder, seconds, setFile, type SetList } from './setlist'
 
 test('parseSets keeps the good cues and sets, and drops each bad one with its reason', () => {
   const good = { scene: 'builtin:tunnel', preset: 'hall', bars: 16, transition: 'gl/Swirl' }
@@ -39,6 +39,15 @@ test('a cue\'s switches parse; a bad value drops its cue with the reason', () =>
     sets: [{ name: 'S', cues: [on] }],
     dropped: ['set "S", cue 2: text "on": true, false or absent', 'set "S", cue 3: analysis 1: true, false or absent', 'set "S", cue 4: text null: true, false or absent'],
   })
+})
+
+test('a cue\'s track time parses (seconds ≥ 0); a bad one drops its cue with the reason; m:ss reads as seconds', () => {
+  const at = { scene: 'a', bars: 4, time: 90.5 }
+  expect(parseSets([{ name: 'S', cues: [at, { scene: 'b', bars: 4, time: -1 }, { scene: 'c', bars: 4, time: '1:30' }, { scene: 'd', bars: 4, time: null }] }])).toEqual({
+    sets: [{ name: 'S', cues: [at] }],
+    dropped: ['set "S", cue 2: time -1: seconds ≥ 0 or absent', 'set "S", cue 3: time "1:30": seconds ≥ 0 or absent', 'set "S", cue 4: time null: seconds ≥ 0 or absent'],
+  })
+  expect(['1:30', ' 0:05 ', '72:00', '1:60', '1:5', '90', '', '-1:00'].map(seconds)).toEqual([90, 5, 4320, null, null, null, null, null])
 })
 
 test('a set file round-trips; a taken name gets a suffix, both kept; a bad file reports its reasons and keeps the good cues', () => {
