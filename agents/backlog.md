@@ -14,7 +14,7 @@
 3. ✅ **Audio in: line-in = the same signal decoding as the file** (§ Audio input).
 4. ✅ **WebGPU: millions of particles, fluids** (GPU3D built; S6 + tester + close paused).
 5. ✅ **3D on Three.js: models incl. animals, chrome reflections** (GPU3D, chrome/glass wolf).
-6. **Text layer** — just a text layer.
+6. ✅ **Text layer** — DONE 2026-11-20 on `dev` (tag `text-layer`).
 7. **MIDI controller** — basic, without extras. ⚠️ Assumption, needs confirmation: the transcription reads «мобиль»; the lead reads it as MIDI (the first item of the gap list).
 8. **Video files as a source.**
 9. **Set list / timeline** — lay the groundwork only («закладываем»).

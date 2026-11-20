@@ -6,8 +6,8 @@ import type { FrameInput } from '../frame'
 // describe their parameters with the same `inputs`.
 export type Category = 'feedback' | 'geometry' | 'liquid' | 'retro'
 export type Kind = 'generator' | 'filter' | 'transition'
-export type InputType = 'float' | 'long' | 'bool' | 'event' | 'color' | 'point2D' | 'image' | 'audio' | 'audioFFT'
-export type Value = number | boolean | readonly number[] // color [r,g,b,a], point2D [x,y]
+export type InputType = 'float' | 'long' | 'bool' | 'event' | 'color' | 'point2D' | 'image' | 'audio' | 'audioFFT' | 'text'
+export type Value = number | boolean | string | readonly number[] // color [r,g,b,a], point2D [x,y], text (native/text)
 /** `bindable: false` (GPU3D RG-2): no binding drives it (bind.ts bindable()).
  *  `group`: the panel folds a run of inputs with one group under its name (native/calib: a tile's controls). */
 export interface Input { name: string; type: InputType; label?: string; default?: Value; min?: Value; max?: Value; values?: number[]; labels?: string[]; bindable?: false; group?: string }

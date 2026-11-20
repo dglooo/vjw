@@ -13,3 +13,4 @@ tracks/
 
 # the editor list's scene marks (web/vite.config.ts, dev): user data, the lead reads the working tree
 web/scene-marks.json
+web/user-shaders/

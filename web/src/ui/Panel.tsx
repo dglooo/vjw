@@ -4,7 +4,7 @@ import { activePreset } from '../audio/settings'
 import { PRESETS } from '../audio/presets'
 import { BAND_COUNT } from '../audio/energy'
 import { BIND_DEFAULTS, bindable, PHASES, sourceGroups, type Binding, type Shape } from '../bind'
-import { defaults, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
+import { defaults, TEXT_MAX, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
 import { donorChain } from '../fx/syn'
 import type { Input, Kind, Value } from '../fx/types'
@@ -13,6 +13,7 @@ import { library } from '../library'
 import { paramId } from '../midi'
 import { SourcesTab } from './SourcesTab'
 import { BUILTIN } from '../scenes/builtin'
+import { DJ, dj } from '../scenes/text'
 import { store, type UiSnapshot } from '../store'
 import './panel.css'
 
@@ -292,6 +293,14 @@ export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove
                 </Param>
               )
             })
+          }
+          case 'text': {
+            const app = x === DJ // the DJ name: one app-wide setting, not the node's
+            return (
+              <Param key={x.name} label={label}>
+                <input type="text" maxLength={TEXT_MAX} defaultValue={app ? dj.name : String(val)} onChange={(e) => (app ? dj.set(e.target.value) : set(e.target.value))} />
+              </Param>
+            )
           }
           default:
             return null // images and audio: the engine wires them
