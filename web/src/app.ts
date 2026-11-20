@@ -306,7 +306,7 @@ let donorMix = settings.get().analyser === 'donor' ? 1 : 0 // a stored donor mod
 let donorTarget = donorMix // the previous frame's target: a 0 → 1 turn seeds the core's beat count
 const vs3 = createVs3(ctx.sampleRate, analyser2k.fftSize) // the vs3 core (audio/vs3.ts), warm in every mode like the donor's
 const mag2k = new Float32Array(analyser2k.frequencyBinCount) // its bins, dB
-const melody = createMelody(ctx.sampleRate, analyser4k.fftSize) // tonal, pitch (dsp_genre_melodic §6), every mode
+const melody = createMelody(ctx.sampleRate, analyser4k.fftSize) // tonal, pitch, voice (dsp_genre_melodic §6), every mode
 const mag4k = new Float32Array(analyser4k.frequencyBinCount)
 const hits = { kick: 0, snare: 0, hats: 0 } // ?debug: hits drained per drum, printed by the overlay
 if (DEBUG) Object.assign(window, { __src: src, __settings: settings, __flash: flashOnsets, __transition: () => transition }) // ?debug: the live binding sources, settings, the flash budget's onsets and the fades' transition, for DevTools and browser checks
@@ -526,6 +526,7 @@ function frame(now: number) {
   analyser4k.getFloatFrequencyData(mag4k)
   const mel = melody.update(mag4k, f.dt, paused)
   src.tonal = mel.tonal
+  src.voice = mel.voice
   if (!off) src.pitch = mel.pitch // Off holds the key colour where it was (gain() leaves it)
   src.donorMix = donorMix = mixStep(donorMix, donorOn, f.dt)
   if (donorMix > 0) setDonorSpectrum(donor.spectrum) // S3.2: syn_Spectrum's donor half at this frame's mix; ours uploads nothing

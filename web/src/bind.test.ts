@@ -69,13 +69,14 @@ describe('sources', () => {
     out.build = 0.5 // build/drop: app.ts fills these (the arrangement, S5.3), not sources()/fill()
     out.drop = 0.2
     out.energy = 0.5 // P2: the arrangement's too
-    out.tonal = 0.5 // tonal/pitch: app.ts fills them (the melodic layer, audio/melody.ts)
+    out.tonal = 0.5 // tonal/pitch/voice: app.ts fills them (the melodic layer, audio/melody.ts)
     out.pitch = 0.75
+    out.voice = 0.3
     out.presence = 0.3 // presence: app.ts fills it (the camera, S1.1), not sources()/fill()
     const g = { beat: 0, bpm: 0, confidence: 0, kick: false, fired: false, build: 0, peakDb: -60, silent: false }
     createDonor(48000, 1024).update(new Float32Array(512).fill(-60), new Float32Array(1024), 1 / 60, g, out) // the donor core: app.ts runs it every frame (S1.4)
     expect(Object.keys(out).sort()).toEqual([...SOURCE_IDS, 'syn_BeatTime', 'syn_BPMTwitcher', 'syn_BPM', 'syn_BPMConfidence', 'syn_PrimeAndBang'].sort()) // + its 5 unlisted keys (PA1)
-    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 7 + 3 + 1 + 31 + 1 + 2) // bass 5 → 7 (subBody, reeseBody: P1), arrangement 2 → 3 (energy: P2), + 31 donor ids (design L109–114), + kickAccent (S5.1: P4, spec R5), + melody 2 (tonal, pitch)
+    expect(SOURCE_IDS).toHaveLength(3 + BAND_COUNT + 5 + 3 + 7 + 3 + 1 + 31 + 1 + 3) // bass 5 → 7 (subBody, reeseBody: P1), arrangement 2 → 3 (energy: P2), + 31 donor ids (design L109–114), + kickAccent (S5.1: P4, spec R5), + melody 3 (tonal, pitch, voice)
     for (const k of SOURCE_IDS) expect(Number.isFinite(out[k]), k).toBe(true)
   })
 })
@@ -361,8 +362,8 @@ describe('gain (the Sources tab, user 2026-11-17)', () => {
     expect([once(bind({ min: 2, max: 3 }), s), once(bind({ source: 'mid' }), s)]).toEqual([2, 0.6])
   })
 
-  test('off: tonal reads its idle .5, pitch holds what app.ts last wrote', () => {
-    expect(gain({ tonal: 0.9, pitch: 0.75, kick: 1 }, { sens: { pitch: 0.5 }, mute: ['pitch'], analyser: 'off' })).toMatchObject({ tonal: 0.5, pitch: 0.75, kick: 0 })
+  test('off: tonal reads its idle .5, voice 0, pitch holds what app.ts last wrote', () => {
+    expect(gain({ tonal: 0.9, pitch: 0.75, voice: 0.8, kick: 1 }, { sens: { pitch: 0.5 }, mute: ['pitch'], analyser: 'off' })).toMatchObject({ tonal: 0.5, pitch: 0.75, voice: 0, kick: 0 })
   })
 
   test('T3b: a donor source takes its gain like ours', () => {

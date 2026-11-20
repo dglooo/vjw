@@ -62,7 +62,7 @@ test('silence (−Infinity dB) and a paused input: no NaN, tonal falls to 0, pit
   const silent = new Float32Array(N / 2).fill(-Infinity)
   for (let i = 0; i < 600; i++) {
     const o = m.update(silent, 1 / 60, i % 2 === 0)
-    expect(Number.isFinite(o.tonal) && Number.isFinite(o.pitch)).toBe(true)
+    expect([o.tonal, o.pitch, o.voice].every(Number.isFinite)).toBe(true)
     expect(o.pitch).toBe(9 / 12)
   }
   expect(m.update(silent, 1 / 60).tonal).toBe(0)
@@ -70,4 +70,17 @@ test('silence (−Infinity dB) and a paused input: no NaN, tonal falls to 0, pit
   expect(m.update(silent, 1 / 60).pitch).toBe(9 / 12)
   const fresh = createMelody(SR, N).update(silent, 0) // the app's first frame: dt 0, no sound yet
   expect([fresh.tonal, fresh.pitch]).toEqual([0, 0])
+  expect(fresh.voice).toBeLessThan(0.01)
+})
+
+test('M2 voice: in [0, 1] and NaN-free over silence, white noise and a saw; the same input gives the same output', () => {
+  const r = rng(2)
+  const x = cat(new Float32Array(SR / 2), Float32Array.from({ length: SR }, () => 0.3 * (2 * r() - 1)), saw(440, 1))
+  const run = () => {
+    const m = createMelody(SR, N)
+    return Array.from(frames(x), (db) => m.update(db, 1 / 60).voice)
+  }
+  const v = run()
+  expect(v.filter((y) => !(y >= 0 && y <= 1))).toEqual([]) // a NaN fails both
+  expect(run()).toEqual(v)
 })
