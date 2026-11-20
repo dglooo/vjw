@@ -5,6 +5,7 @@ import { FLOOR } from '../audio/meter'
 import { allowCameras, selectCamera, setVideo } from '../camera/camera'
 import { badge } from '../quality'
 import { Bpm } from './Bpm'
+import { AllowClips } from './Clips'
 import { Midi } from './Midi'
 import { showText } from '../scenes/text'
 import { PresetSelect } from './Panel'
@@ -210,6 +211,7 @@ export function Overlay() {
             Video
           </button>
         )}
+        <AllowClips />
         {s.compiling && <span className="hint">{s.compiling}</span>}
         <span className="scene">{s.sceneName}</span>
         <PresetSelect />

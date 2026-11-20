@@ -11,9 +11,11 @@ import type { Input, Kind, Value } from '../fx/types'
 import { live, panel, type NodePath } from '../gl/live'
 import { library } from '../library'
 import { paramId } from '../midi'
+import { ClipRow } from './Clips'
 import { SourcesTab } from './SourcesTab'
 import { BUILTIN } from '../scenes/builtin'
 import { DJ, dj } from '../scenes/text'
+import { CLIP } from '../scenes/video'
 import { store, type UiSnapshot } from '../store'
 import './panel.css'
 
@@ -295,6 +297,7 @@ export function Fx({ path, n, onRemove }: { path: NodePath; n: NodeDoc; onRemove
             })
           }
           case 'text': {
+            if (x === CLIP) return <ClipRow key={x.name} value={String(val)} set={set} /> // native/video's: the clip library
             const app = x === DJ // the DJ name: one app-wide setting, not the node's
             return (
               <Param key={x.name} label={label}>
