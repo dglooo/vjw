@@ -37,6 +37,7 @@ describe('parseScene', () => {
     expect(() => parseScene(doc({ layers: Array(5).fill(LAYER) }))).toThrow(/^layers: /)
     expect(() => parseScene(withLayer({ blend: 'xor' }))).toThrow(/^layers\[0\]\.blend: /)
     expect(() => parseScene(withLayer({ mask: 'face' }))).toThrow(/^layers\[0\]\.mask: /)
+    expect(() => parseScene(withLayer({ clip: 'person' }))).toThrow(/^layers\[0\]\.clip: /)
     expect(() => parseScene(withLayer({ opacity: NaN }))).toThrow(/^layers\[0\]\.opacity: /)
     expect(() => parseScene(withLayer({ gen: { ref: 'a', code: 'x'.repeat(65537) } }))).toThrow(/^layers\[0\]\.gen\.code: /)
     expect(() => parseScene(5)).toThrow(/^scene: not an object/)
@@ -73,6 +74,12 @@ describe('parseScene', () => {
     expect(parseScene(doc()).layers[0].mask).toBeUndefined()
     expect(parseScene(withLayer({ mask: 'person' }))).toStrictEqual(withLayer({ mask: 'person' }))
     expect(parseScene(withLayer({ mask: 'background' }))).toStrictEqual(withLayer({ mask: 'background' }))
+  })
+
+  test('clip is optional: absent by default, inside and outside round-trip, beside a mask', () => {
+    expect(parseScene(doc()).layers[0].clip).toBeUndefined()
+    expect(parseScene(withLayer({ clip: 'inside' }))).toStrictEqual(withLayer({ clip: 'inside' }))
+    expect(parseScene(withLayer({ clip: 'outside', mask: 'person' }))).toStrictEqual(withLayer({ clip: 'outside', mask: 'person' }))
   })
 
   test('code may be exactly CODE_MAX chars; opacity, speed and res clamp', () => {

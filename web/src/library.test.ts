@@ -347,7 +347,7 @@ test('the list and the playlist (user 2026-11-19): one order by name; All plays 
 
 test('groups (user 2026-11-20): read off the nodes; every built-in in one, the camera scenes also in ours', () => {
   const of = (d: SceneDoc) => Object.entries(GROUPS).filter(([, f]) => f(d)).map(([g]) => g)
-  const DJ = ['builtin:dj-over-tunnel', 'builtin:dj-inside', 'builtin:dj-ghost']
+  const DJ = ['builtin:dj-over-tunnel', 'builtin:dj-inside', 'builtin:dj-ghost', 'builtin:show-frame-cam']
   const MILK = MILK_SCENES.map((d) => d.id) // not by id: builtin:milk-honey-smoke-bile is a synScene
   for (const d of BUILTIN) {
     const id = d.id
@@ -356,7 +356,7 @@ test('groups (user 2026-11-20): read off the nodes; every built-in in one, the c
     else expect([['ours'], ['vs2']], id).toContainEqual(of(d))
   }
   const count = (g: keyof typeof GROUPS) => BUILTIN.filter(GROUPS[g]).length
-  expect([count('vs3'), count('vs2'), count('camera'), count('mine')]).toEqual([38, 85, 3, 0]) // the donor port: 85 of 87
+  expect([count('vs3'), count('vs2'), count('camera'), count('mine')]).toEqual([38, 85, 4, 0]) // the donor port: 85 of 87
   expect(of(BUILTIN.find((d) => d.id === 'builtin:vs3-limitless')!)).toEqual(['vs3']) // a vs3 filter over our tunnel
   const plain = scene('x').layers[0]
   expect(of(scene('u-1', { layers: [plain, { ...plain, gen: { ref: 'milk/x' } }] }))).toEqual(['milk', 'ours', 'mine'])
@@ -394,7 +394,7 @@ test('a group lists and plays all its scenes, starred or not, less the trash; th
   expect(lib.playlist()).toEqual(['u-1'])
   lib.setGroup('camera') // no live camera: nothing of it plays, so every group's All less the camera scenes
   const DJ = ['builtin:dj-over-tunnel', 'builtin:dj-inside', 'builtin:dj-ghost']
-  expect(lib.playlist(true)).toEqual(inOrder(lib, DJ))
+  expect(lib.playlist(true)).toEqual(inOrder(lib, [...DJ, 'builtin:show-frame-cam'])) // the show template: unstarred, in its group
   expect(lib.playlist(false)).toEqual(STARRED.filter((id) => !DJ.includes(id)))
   for (const bad of ['"all"', '"toString"', '"favourite"', '{ oops', '5']) {
     b.kv.set('vjw.group', bad)

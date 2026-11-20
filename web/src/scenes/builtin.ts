@@ -1777,6 +1777,42 @@ const TEXT: readonly SceneDoc[] = [
   },
 ]
 
+// The show composition (user 2026-11-20): bottom → top, a scene that reacts to everything, a neon frame
+// (scenes/frame.ts), a layer clipped inside it, the DJ name. show-frame-cam's inside is you (the camera cut-out, the
+// Camera group's rules: L0 the fallback, the person fades with presence, no camera → it adds nothing); show-frame's is
+// a second scene, for a show without a webcam. Effects go behind the frame (below it), inside it (clip inside) or over
+// it (above, clip none): the layer order and the clip are L's. The kick pulses the frame and the name (motion); their
+// light only through ⚡ hit (KICK_HIT). Unstarred, after the spread like the demos.
+const SHOW_FRAME: LayerDoc = {
+  gen: {
+    ref: 'native/frame', values: { shape: 1, size: 0.7, aspect: 1.45, round: 0.25, y: 0.55, width: 0.006, color: [1, 0.2, 0.65, 1], glow: 0.9, fill: [0, 0, 0, 0.55] }, // a magenta rounded window, dimmed inside
+    bind: { ...KICK_HIT, pulse: { source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0, max: 0.02 } },
+  },
+  fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+}
+const SHOW_TEXT: LayerDoc = {
+  gen: {
+    ref: 'native/text', values: { source: 2, font: 2, size: 0.09, y: 0.1, outline: 0.03, glow: 0.8, accent: [1, 0.2, 0.65, 1] }, // the DJ name under the frame, the frame's magenta
+    bind: { ...KICK_HIT, pulse: { source: 'kick', amount: 1, attack: 0, release: 0.15, min: 0, max: 0.06 } },
+  },
+  fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1,
+}
+const SHOW: readonly SceneDoc[] = [
+  {
+    v: 1, id: 'builtin:show-frame-cam', name: 'Show frame + camera', star: false,
+    layers: [
+      td('builtin:light-tunnel'),
+      SHOW_FRAME,
+      { gen: { ref: 'native/camera' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1, mask: 'person', clip: 'inside', bind: { opacity: PRESENCE } }, // cut none: the mask cuts (D4), the frame clips
+      SHOW_TEXT,
+    ],
+  },
+  {
+    v: 1, id: 'builtin:show-frame', name: 'Show frame', star: false,
+    layers: [td('builtin:light-tunnel'), SHOW_FRAME, { ...td('builtin:edge-rings'), clip: 'inside' }, SHOW_TEXT], // the rings' tunnel through the window
+  },
+]
+
 // The friends' scenes through the vs3 host (vs3/host.ts, agents/guides/guide_vs3_port.md): unstarred until the user
 // has looked. ⚡ hit = the donor kick (KICK_HIT). The donor post chain's closest fx after it (original main.js
 // FX_DEFAULTS rows; bloom, aberration, the grade and the vignette run in the host): ink's mirror 2 = isf/Mirror both
@@ -2012,4 +2048,4 @@ const CALIBRATION: SceneDoc = {
 }
 
 // Design Q4: Tunnel stays first (library.test.ts), both orders kept.
-export const BUILTIN: readonly SceneDoc[] = [...spread([...OWN, ...DJ], MILK_SCENES), ...DEMOS, ...TEXT, ...VS3, CALIBRATION]
+export const BUILTIN: readonly SceneDoc[] = [...spread([...OWN, ...DJ], MILK_SCENES), ...DEMOS, ...TEXT, ...SHOW, ...VS3, CALIBRATION]

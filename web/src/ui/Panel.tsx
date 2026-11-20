@@ -4,7 +4,7 @@ import { activePreset } from '../audio/settings'
 import { PRESETS } from '../audio/presets'
 import { BAND_COUNT } from '../audio/energy'
 import { BIND_DEFAULTS, bindable, PHASES, sourceGroups, type Binding, type Shape } from '../bind'
-import { defaults, TEXT_MAX, type Blend, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
+import { defaults, TEXT_MAX, type Blend, type Clip, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
 import { catalog, toyDef } from '../fx/catalog'
 import { donorChain } from '../fx/syn'
 import type { Input, Kind, Value } from '../fx/types'
@@ -414,7 +414,7 @@ export function LayerHead({ i, l, n, children }: { i: number; l: LayerDoc; n: nu
   )
 }
 
-/** A layer's opacity and speed (both bindable) and res. */
+/** A layer's opacity and speed (both bindable), res and frame clip (the scene's first Frame layer's inside or outside). */
 export function LayerParams({ i, l }: { i: number; l: LayerDoc }) {
   const at: NodePath = { layer: i, node: 'layer' }
   const set = (k: string) => (y: number) => panel.setValue(at, k, y)
@@ -428,6 +428,13 @@ export function LayerParams({ i, l }: { i: number; l: LayerDoc }) {
         {slider(0, 4, l.speed, set('speed'), undefined, tag('speed'))}
       </Param>
       <Param label="res">{slider(0.25, 1, l.res, set('res'), 0.05, tag('res'))}</Param>
+      <Param label="frame clip">
+        <select defaultValue={l.clip ?? ''} onChange={(e) => panel.setClip(i, (e.target.value || undefined) as Clip | undefined)}>
+          <option value="">none</option>
+          <option value="inside">inside frame</option>
+          <option value="outside">outside frame</option>
+        </select>
+      </Param>
     </>
   )
 }

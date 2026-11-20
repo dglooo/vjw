@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from 'vitest'
 import type { Binding } from './bind'
 import { parseScene, type LayerDoc, type SceneDoc } from './doc'
-import { addFx, addLayer, dirty, docs, insertLayer, moveFx, moveLayer, newNode, newScene, removeFx, removeLayer, setBinding, setBlend, setGen, setMask, setValue, setValues } from './edit'
+import { addFx, addLayer, dirty, docs, insertLayer, moveFx, moveLayer, newNode, newScene, removeFx, removeLayer, setBinding, setBlend, setClip, setGen, setMask, setValue, setValues } from './edit'
 
 const B: Binding = { source: 'bass', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }
 const layer = (ref: string, over: Partial<LayerDoc> = {}): LayerDoc => ({ gen: { ref }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1, ...over })
@@ -126,6 +126,7 @@ const roundTrips: [string, (d: SceneDoc) => (c: SceneDoc) => unknown][] = [
   ['setBinding', (d) => { const old = setBinding(d, { layer: 0, node: 'gen' }, 'glow', B); return (c) => setBinding(c, { layer: 0, node: 'gen' }, 'glow', old) }],
   ['setBlend', (d) => { const old = setBlend(d, 2, 'add'); return (c) => setBlend(c, 2, old) }],
   ['setMask', (d) => { const old = setMask(d, 2, 'person'); return (c) => setMask(c, 2, old) }],
+  ['setClip', (d) => { const old = setClip(d, 2, 'inside'); return (c) => setClip(c, 2, old) }],
   ['addFx at', (d) => { addFx(d, 1, { ref: 'x' }, 1); return (c) => removeFx(c, 1, 1) }],
   ['removeFx', (d) => { const n = removeFx(d, 1, 0); return (c) => addFx(c, 1, n, 0) }],
   ['moveFx', (d) => { moveFx(d, 1, 0, 2); return (c) => moveFx(c, 1, 2, 0) }],
