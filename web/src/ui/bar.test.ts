@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
-import { audioSummary, inputLabel } from './bar'
+import { AUTOPILOT } from '../director'
+import { audioSummary, autoChip, autoTitle, inputLabel } from './bar'
 
 // The top bar's chips (Overlay.tsx, user 2026-11-21 «покрасивее, поудобнее»): the text each one reads.
 test('audioSummary: analyser · genre · sensitivity, as the audio chip reads them', () => {
@@ -22,4 +23,17 @@ test("inputLabel: the device's label, the file's name, else the call to pick one
   expect(inputLabel({ source: { kind: 'device', id: 'gone' }, devices })).toBe('Audio input') // its label not listed (yet)
   expect(inputLabel({ source: { kind: 'file', name: 'track.flac' }, devices })).toBe('track.flac')
   expect(inputLabel({ source: null, devices })).toBe('Choose input')
+})
+
+test('autoChip and autoTitle: the ⟳ chip reads the shot length (hold while held), its title the countdown', () => {
+  const secs = { ...AUTOPILOT, mode: 'seconds', seconds: 90 } as const
+  const off = { ...AUTOPILOT, mode: 'off' } as const
+  expect([autoChip(AUTOPILOT, false), autoChip(secs, false), autoChip(off, false), autoChip(secs, true)]).toEqual(['128', '90s', 'off', 'hold'])
+  const s = { hold: false, due: 37, confident: true, armedSet: null }
+  expect(autoTitle(AUTOPILOT, s)).toBe('Autopilot: the next scene every 128 bars · next cut in 37 bars')
+  expect(autoTitle(AUTOPILOT, { ...s, due: 1, confident: false })).toBe('Autopilot: the next scene every 128 bars · next cut in ≈ 1 bar') // timed at 174 BPM
+  expect(autoTitle(secs, { ...s, due: 42, confident: false })).toBe('Autopilot: the next scene every 90 s · next cut in 42 s') // the clock's: no ≈
+  expect(autoTitle(off, { ...s, due: Infinity })).toBe('Autopilot off: no timed cut, ← → and drops still switch')
+  expect(autoTitle(AUTOPILOT, { ...s, hold: true, due: Infinity })).toBe('Autopilot: the next scene every 128 bars · held (Space)')
+  expect(autoTitle(secs, { ...s, armedSet: 0, due: Infinity })).toBe('Autopilot: the next scene every 90 s · the armed set plays its own bars')
 })

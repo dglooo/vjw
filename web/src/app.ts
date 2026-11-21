@@ -65,7 +65,7 @@ setTransition(transition)
 // in the list (slot).
 let playLive = cam.live // the camera state the director's playlist was made for
 const playlist = () => library.playlist((playLive = cam.live))
-const director = createDirector(playlist(), { confidentTheta: CONFIDENT, slot: (id) => library.slot(id, playLive) })
+const director = createDirector(playlist(), { confidentTheta: CONFIDENT, slot: (id) => library.slot(id, playLive), auto: () => store.getSnapshot().autopilot })
 library.onChange(() => director.setPlaylist(playlist()))
 // The set list (setlist.ts, user 2026-11-20): the armed set's cues play in place of the playlist (director.arm), each
 // fading in with its own transition, preset and switches (frame()); ←/→ step through them, a time-code cue starts at its
@@ -603,6 +603,7 @@ function frame(now: number) {
       clip: meter.clip, // the input meter's CLIP light and hint (latched 1.5 s, so 4×/s never misses one)
       clipHint: meter.hint,
       cue: c && set ? readout(set.indexOf(c.of), set.length, c.left, c.sure) : '',
+      due: director.due(), // the ⟳ chip's countdown (ui/Autopilot.tsx)
     })
     if (DEBUG) {
       const o = offsets.slice().sort((a, b) => a - b)

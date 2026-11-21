@@ -23,6 +23,7 @@ const PATHS = {
   pause: 'M4.5 3.5h2.5v9H4.5zM9 3.5h2.5v9H9z',
   check: 'M3 8.5l3 3 7-7',
   folder: 'M2 4h4.2l1.5 1.5H14v7.5H2z',
+  cycle: 'M13.5 8a5.5 5.5 0 1 1-5.5-5.5M6.4.9 8 2.5 6.4 4.1', // the autopilot: three quarters of a turn, clockwise
 }
 
 /** An icon, decorative (aria-hidden): its button carries the name. */

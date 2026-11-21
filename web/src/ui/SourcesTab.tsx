@@ -89,8 +89,8 @@ const GENRE_HINT = 'The analyser profile per genre (the Sources tab preset): its
 const SENS_HINT = 'Kick and snare detector sensitivity for the genre profile: low = fewer hits (thresholds × 1.15), mid = the profile as tuned, high = more hits (× 0.87), more false ones too. A hit\'s light stays flash-gated.'
 const ANALYSERS = [['ours', 'ours'], ['donor', 'vs2'], ['vs3', 'vs3'], ['off', 'off']] as const
 
-/** One setting as a row of one-click buttons, the current one pressed. */
-function Seg<V extends string>({ label, hint, value, options, set }: { label: string; hint: string; value: V; options: readonly (readonly [V, string])[]; set: (v: V) => void }) {
+/** One setting as a row of one-click buttons, the current one pressed (none: a value no option has). */
+export function Seg<V extends string>({ label, hint, value, options, set }: { label: string; hint: string; value: V; options: readonly (readonly [V, string])[]; set: (v: V) => void }) {
   return (
     <div className="seg" role="group" aria-label={label} title={hint}>
       <span>{label}</span>
