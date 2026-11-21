@@ -677,7 +677,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Above the design's Cost table rev 2 (1.93 MP: 3-tap .28–.37, melt .47–.65, anamorphic .93–1.40). G5's P line for warp + glitch (≤ .76 ms at 1.93 MP, ≤ 2.0 ms at 5.09 MP) leaves the warp about .13 ms at 1.93 MP; at 5.09 MP glitch alone extrapolates to ≈ 1.66 ms.
   - In the app (`app.mjs`, :5176, Kanine from 52 s; the served `host.ts` rewritten by the harness to add `lens` and `lensStyle` to `LOOK_KEYS`, no product change): vs3 Ink at lens 1 in each of the 7 styles: 1 lens draw per frame, luma finite, 0 steps > .1, GL error 0 (`app.log`); lens 0: 0 lens draws. Billed gpuMs, governor held at scale 1 (its `frame()` a no-op; minScale 1, governed 0, late 0 in every block), 4 ABCD / DCBA blocks of 6 s (`app.pin.log`): Ink drifts 19–25 ms over the run; p95 deltas over lens 0, median of the blocks: ribs +.67, melt +.52, anamorphic +.03 ms, block spread −2.0 … +1.3 ms. The in-app number cannot resolve the lens; the pass time above is the figure.
 
-### S5.2 [ ] `lens` and `lensStyle` inputs
+### S5.2 [x] `lens` and `lensStyle` inputs
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the lens reaches the panel.
 - **Lane, box, deps:** A · 45 min · S5.1.
