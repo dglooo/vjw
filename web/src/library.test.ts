@@ -2,7 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { SOURCE_IDS, type Binding } from './bind'
 import { parseScene, type LayerDoc, type NodeDoc, type SceneDoc } from './doc'
 import { docs, MUSIC_TIME, newShader, toyCode } from './edit'
-import { byName, chainOffForLegacy, createLibrary, GROUPS, type Db, type Disk } from './library'
+import { byName, chainOffForLegacy, createLibrary, GROUPS, OPENER, type Db, type Disk } from './library'
 import { MILK_SCENES } from './milkdrop/presets'
 import { BUILTIN } from './scenes/builtin'
 import { chainState, frame, type LookValues } from './vs3/chain'
@@ -15,11 +15,13 @@ const B: Binding = { source: 'bass', amount: 1, attack: 0, release: 0.15, min: 0
 const scene = (id: string, over: Partial<SceneDoc> = {}): SceneDoc => ({
   v: 1, id, name: id, star: false, layers: [{ gen: { ref: 'native/tunnel' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }], ...over,
 })
-const STARRED = BUILTIN.filter((d) => d.star).sort(byName).map((d) => d.id) // the list's order
+/** The playlist's order of `ids` in the list's order (user 2026-11-21): the opener first. */
+const opened = (ids: string[]) => (ids.includes(OPENER) ? [OPENER, ...ids.filter((id) => id !== OPENER)] : ids)
+const STARRED = opened(BUILTIN.filter((d) => d.star).sort(byName).map((d) => d.id)) // the playlist's order
 const file = (x: unknown) => new File([typeof x === 'string' ? x : JSON.stringify(x)], 'f.json')
 type Lib = ReturnType<typeof createLibrary>
-/** `ids` in the list's order. */
-const inOrder = (lib: Lib, ids: string[]) => ids.map((id) => lib.get(id)!).sort(byName).map((d) => d.id)
+/** `ids` in the playlist's order: the list's (by name), the opener first. */
+const inOrder = (lib: Lib, ids: string[]) => opened(ids.map((id) => lib.get(id)!).sort(byName).map((d) => d.id))
 
 /** What the browser keeps across a reload (IndexedDB rows, localStorage) and the downloads; `open()` is a page load.
  *  `marks`: the dev server's web/scene-marks.json (`text` undefined: none yet). `baked`: a build's defaults. */
@@ -309,8 +311,8 @@ test('the list and the playlist (user 2026-11-19): one order by name; All plays 
   const list = lib.listed('all').map((d) => d.id)
   expect(list.length).toBe(BUILTIN.length + 2)
   expect(lib.listed('all')).toEqual([...lib.listed('all')].sort(byName))
-  // All: the list less the unstarred (a built-in starred off stays listed), top to bottom.
-  const rotation = list.filter((id) => lib.get(id)!.star)
+  // All: the list less the unstarred (a built-in starred off stays listed), top to bottom, the opener first.
+  const rotation = opened(list.filter((id) => lib.get(id)!.star))
   expect(lib.playlist()).toEqual(rotation)
   expect(rotation).not.toContain('builtin:demo-fluid')
   expect(list).toContain('builtin:demo-fluid')
@@ -536,6 +538,37 @@ test('set lists (setlist.ts): stored over a reload, mirrored into the marks file
   const baked = await loaded(browser(undefined, { sets: [{ name: 'B', cues: [{ scene: 'builtin:tunnel', bars: 8 }, { scene: 'builtin:tunnel', bars: -1 }] }] }))
   expect(baked.sets()).toEqual([{ name: 'B', cues: [{ scene: 'builtin:tunnel', bars: 8 }] }]) // a build's defaults, the bad cue left out
   expect(warn).toHaveBeenCalledWith('set list: set "B", cue 2: bars -1: a whole number ≥ 1 or "hold" (left out)')
+})
+
+test('the opener (user 2026-11-21): the playlist starts on it, then by name; out of the rotation, the order by name', async () => {
+  const lib = await loaded()
+  const p = lib.playlist()
+  expect(p[0]).toBe(OPENER)
+  expect(lib.get(OPENER)!.name).toBe('Martin - disco mix')
+  const rest = p.slice(1).map((id) => lib.get(id)!)
+  expect(rest.map((d) => d.id)).not.toContain(OPENER)
+  expect(rest).toEqual([...rest].sort(byName)) // → from the opener: the list from the top
+  expect(lib.listed().filter((d) => d.name.startsWith('_'))).toEqual([]) // the «_» names lost it: none sorts ahead
+  expect(lib.slot(OPENER)).toBe(0)
+  lib.setStar(OPENER, false)
+  expect(lib.playlist()).toEqual(p.slice(1)) // absent: today's order
+})
+
+test('deleted built-ins (user 2026-11-21): a cue on one, or a stored user scene on a deleted file, is left out at load with its reason', async () => {
+  const gone = 'builtin:milk-flexi-martin-geiss-painterly-rogue-wave-strike-color-emboss-mix' // the user's Set 1 cued it 3×
+  const cues = [{ scene: gone, bars: 16 }, { scene: 'builtin:tunnel', bars: 8 }, { scene: 'u-copy', bars: 4 }, { scene: 'u-ok', bars: 2 }]
+  const b = browser({ text: JSON.stringify({ stars: {}, sets: [{ name: 'Set 1', cues }] }) })
+  b.rows.set('u-copy', scene('u-copy', { layers: [{ gen: { ref: 'own/fractal' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5 }] })) // a Save as of Fractal
+  b.rows.set('u-ok', scene('u-ok'))
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+  const lib = await loaded(b)
+  for (const id of [gone, ...['fractal', 'liquid-chrome', 'sdf-shapes', 'spiral-mesh', 'tunnel-mesh', 'wave-landscape', 'worley-cells'].map((s) => `builtin:${s}`)]) expect(lib.get(id), id).toBeUndefined()
+  expect(lib.get('u-copy')).toBeUndefined()
+  expect(error).toHaveBeenCalledWith('library: a stored scene skipped: u-copy "u-copy": own/fractal was deleted with the trash scenes')
+  expect(lib.sets()).toEqual([{ name: 'Set 1', cues: [cues[1], cues[3]] }])
+  expect(warn).toHaveBeenCalledWith(`set list: set "Set 1", cue 1: scene ${gone}: not in the library (left out)`)
+  expect(warn).toHaveBeenCalledWith('set list: set "Set 1", cue 3: scene u-copy: not in the library (left out)')
 })
 
 test("setStar stars the panel's unsaved copy along, so a later save keeps it", async () => {

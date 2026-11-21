@@ -6,7 +6,7 @@
 // depth renderbuffer + the depth-edge smooth; mode M: MSAA + a blit resolve), additive sparks / glints / core glow, and
 // the Rave Lasers post shape (a 1/4 threshold, a 1/8 blur H + V, one composite: the max-channel tone map + dither).
 // Fallback (lead ruling): `W` winds from `build` + a time-since-last-drop floor; the whip launches on the `drop` rise.
-// Own code, credit VeeJay Wizard. The studio follows the env() structure of own/liquid-chrome.fs (ours); BLUR is isobars'.
+// Own code, credit VeeJay Wizard. The studio follows the env() structure of own/liquid-chrome.fs (ours, deleted 2026-11-21); BLUR is isobars'.
 import { bindFramebufferInfo, createFramebufferInfo, resizeFramebufferInfo, setUniforms, type AttachmentOptions, type FramebufferInfo } from 'twgl.js'
 import { fullscreenProgram, program, renderTarget } from '../gl/engine'
 import type { NativeDef } from '../gl/scene'

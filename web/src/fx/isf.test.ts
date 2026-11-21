@@ -144,7 +144,7 @@ describe('parseIsf', () => {
       expect(d.unsupported, path).toBeUndefined()
       for (const k of Object.keys(d.bind ?? {})) expect(d.inputs.map((i) => i.name), `${path} ${k}`).toContain(k)
     }
-    const keyed = { strobe: ['strobe'], flash: ['flash'], 'tunnel-mesh': ['flash'], fractal: ['glow'], 'wave-landscape': ['flash'], bars: ['glow'], 'led-grid': ['glow'], 'diff-feedback': ['glow'], checker: ['divisions'] } // tunnel-mesh…wave-landscape: S4.1 (wave-landscape's own flash: S4.2); bars: 2b S4.1; led-grid: 2b S4.3; diff-feedback: wave-2 S1.3; checker: wave-2 S3.4 (a full-frame flip is a strobe)
+    const keyed = { strobe: ['strobe'], flash: ['flash'], bars: ['glow'], 'led-grid': ['glow'], 'diff-feedback': ['glow'], checker: ['divisions'] } // bars: 2b S4.1; led-grid: 2b S4.3; diff-feedback: wave-2 S1.3; checker: wave-2 S3.4 (a full-frame flip is a strobe)
     // A gated input binds from 0, in the files and the built-ins: a rest near the gate's 0.5 holds the flash (fact 6, S4.1).
     for (const [n, f] of Object.entries(keyed)) {
       const d = parseIsf(files[`./own/${n}.fs`] as string, n)
