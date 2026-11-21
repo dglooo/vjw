@@ -703,7 +703,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - In the app (`app.mjs`, :5176, private Vite cache, no HMR; Kanine from 52 s; vs3 Ink at 1728 × 1118 = 1.93 MP; analyser ours): the inputs read `lens float 0..1 default 0 · lensStyle long 7 default 0`. Each of the 7 styles at lens 1 for 5 s: 1 lens draw per frame, 0 luma steps > .10, 0 flash pairs, 0 non-finite, GL error 0 (`app.log`; Ink is dark here, luma mean .023–.057). Duck glitch → anamorphic: glitch holds 30 frames while the amount falls to 0.000, then anamorphic, back at 1.000 30 frames later (`app2.log`). A switch every 250 ms for 5 s (19 flips), glitch ↔ anamorphic and pixels ↔ glitch: 0 steps, 0 pairs, GL error 0. Pixels glides, max |Δ luma|: pixels → glitch .009, lens 1 → 0 .017, 0 → 1 .005; the A/B without the blend (`app4.noblend.log`) .011 / .019 / .021. On this dark scene the cut moves the frame mean by < .02 and its per-pixel change is under the scene's own motion, so the app does not resolve it; Z7 does.
   - GPU frame time, governor pinned at scale 1 (minScale 1, governed 0, late 0 in all 8 blocks), 4 ABBA blocks of 6 s (`app345.log`): billed gpuMs p95, glitch at lens 1 − lens 0, per block +.65 +.80 −3.25 +1.42 ms, median **+.80 ms** (p50 median +.35). Ink drifts 17.8 → 21.3 ms p50 over the run, more than the lens; the pass time above (glitch .61 ms) is the figure.
 
-### S6.1 [ ] Grain and hue drift
+### S6.1 [x] Grain and hue drift
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the finish's film grain; the palette's slow hue rotation with the input `hueDrift` (R3).
 - **Lane, box, deps:** A · 60 min · S5.2.
