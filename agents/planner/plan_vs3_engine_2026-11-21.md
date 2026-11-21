@@ -548,7 +548,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates. Browser: pick the preset in W on vs3 Morphogen 2.0; the look glides in over 1.8 s; the glow follows within about 2 s.
 - **Lead gate G3p:** H2 P-hot-1 (rules a, b); W on this preset against its thumb. Then the user's check (§ CP2 demo), after S3b.2 if 3b is built.
 
-### S4.1 [ ] C8: a legacy user copy keeps its fx; the chain is off for it
+### S4.1 [x] C8: a legacy user copy keeps its fx; the chain is off for it
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** a user copy of a vs3 scene saved before this epic must not run its mirror or feedback fx and the chain together.
 - **Lane, box, deps:** B · 45 min · S1.1 (test C8e reads `frame()`). Merge before S3.2, or right after it.
