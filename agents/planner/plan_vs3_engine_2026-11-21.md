@@ -565,7 +565,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates. Report whether `parseScene` keeps value keys that are not inputs yet: it tells the lead whether this step may merge before S3.2.
 - **Lead gate:** none.
 
-### S3b.1 [ ] (only if gate W fails at G3) The exposure servo: the law and its passes
+### S3b.1 [x] (only if gate W fails at G3) The exposure servo: the law and its passes
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** a GPU-only pull-down of the exposure per vs3 layer, with N2, N3 and N4 folded. It lifts the spec's non-goal "adaptive exposure" for vs3 layers only (the lead's accepted call).
 - **Lane, box, deps:** A · 60 min · S3.2 and a failed W row.
