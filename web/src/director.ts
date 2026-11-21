@@ -179,7 +179,9 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
         const secs = timed ? a.seconds : n * barS
         if (sure) {
           // On the first frame past the bar line (the n-th; timed, the first once the seconds are up), already faded by
-          // the part of the bar that has passed.
+          // the part of the bar that has passed. ponytail: timed on frame times, so seconds that are a whole number of
+          // bars (120 s at 174 BPM: 87) land on that bar line or the next by the frames' phase; time the bar line itself
+          // (now − (bar − line) × 240 / bpm) if a bar's drift ever shows.
           if (line > Math.floor(last.bar) && (timed ? now - switchedAt >= secs : line - switchedBar >= n)) begin(away(1), (bar - line) / o.barsTransition, now, line)
         } else if (now - switchedAt >= secs) {
           const at = Math.max(switchedAt + secs, last.now) // on time; when overdue (after a lock), from now
