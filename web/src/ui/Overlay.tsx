@@ -9,6 +9,7 @@ import { badge } from '../quality'
 import { showText } from '../scenes/text'
 import { clock, store, type UiSnapshot } from '../store'
 import { Analysis } from './Analysis'
+import { AutoChip } from './Autopilot'
 import { audioSummary, inputLabel, press } from './bar'
 import { Bpm } from './Bpm'
 import { AllowClips, ClipsFolder } from './Clips'
@@ -291,6 +292,7 @@ export function Overlay() {
           </button>
           <PresetChip browse={s.browse} />
           <i className="sep" />
+          <AutoChip />
           <button className="icon" aria-pressed={s.hold} aria-label="Hold the scene" title="Hold this scene: the autopilot waits · Space" onClick={() => press('Space')}>
             <Icon name="lock" />
           </button>

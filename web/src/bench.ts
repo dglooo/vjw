@@ -447,6 +447,7 @@ async function milk() {
   // When a fade starts (sceneName, app.ts:337) and is over, the next K2-passing preset loads on the back one, which then
   // comes to the front (prepare-ahead, app.ts:321).
   director.setPlaylist(BUILTIN.filter((d) => d.star).map((d) => d.id))
+  store.patch({ autopilot: { ...store.getSnapshot().autopilot, mode: 'seconds', seconds: 30 } }) // the autopilot's 30 s in silence (before 2026-11-21), not stored
   director.setHold(false)
   const pool = loaded.filter(({ row }) => row.k2)
   const show = pool.length ? pool : loaded // no K2 pass: K2 failed already, the run still measures

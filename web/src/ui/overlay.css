@@ -208,7 +208,7 @@
   color: var(--alarm);
 }
 
-/* 2 Scene: ‹ name ›, the preset and its star, the hold */
+/* 2 Scene: ‹ name ›, the preset and its star, the autopilot's length (⟳) and the hold */
 .bar .deck .name {
   max-width: 26ch;
   padding: 0 4px;
@@ -454,6 +454,12 @@
 .pop .bpm .ico {
   width: 13px;
   height: 13px;
+}
+/* The ⟳ chip's popover (Autopilot.tsx): the typed seconds */
+.pop-auto input {
+  width: 9ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* The "+ layer" picker (Panel.tsx LayerPick), in the panel and the editor's builder: the categories, the search, then a

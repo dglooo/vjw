@@ -1,4 +1,5 @@
 import type { Drum } from './audio/drums'
+import { AUTOPILOT, type Autopilot } from './director'
 import type { Genre, PresetId } from './audio/presets'
 import type { SceneId } from './doc'
 import type { QualityMode } from './quality'
@@ -50,6 +51,8 @@ export interface UiSnapshot {
   cue: string // its cue on stage as the bar reads it (setlist.ts readout), 4×/s; '' unarmed
   browse: boolean // the preset browser (ui/Presets.tsx): key W or the bar picker's Browse; Esc, W or a pick closes it
   analysisView: boolean // the analysis screen (ui/Analysis.tsx): key Y or the bar's Analysis on the Calibration scene; Esc or Y closes it
+  autopilot: Autopilot // the playlist's shot length (director.ts), read by app.ts's director every frame; the bar's ⟳ chip sets it (ui/Autopilot.tsx: vjw.autopilot)
+  due: number // the director's due(), 4×/s: the bars or seconds to its next timed switch; Infinity: none
 }
 
 let snap: UiSnapshot = {
@@ -58,6 +61,7 @@ let snap: UiSnapshot = {
   panel: false, editRev: 0, edited: '', sceneGenre: null, gpuMs: null, nodeErrors: [], style: { detected: null, confidence: 0 },
   editor: false, shader: false, cameras: [], camera: null, camLive: false, camVideo: true, camError: null, camFail: null,
   clip: false, clipHint: false, muted: [], text: true, armedSet: null, cue: '', browse: false, analysisView: false,
+  autopilot: AUTOPILOT, due: Infinity,
 }
 const subs = new Set<() => void>()
 

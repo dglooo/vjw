@@ -1,9 +1,31 @@
 // The autopilot (design S3), pure: while the (c) phase is confident it switches on bar lines, otherwise on time.
 // `now` is seconds. `update` returns the same Shot object every frame. An armed set (setlist.ts) plays its cues in
 // place of the playlist, each for its own bars; ←/→ step through them, a timeline click jumps on the next bar line.
+// The playlist's shot length is the user's (Autopilot, the top bar's ⟳ chip).
 import type { Sync } from './audio/sync'
 import type { SceneId } from './doc'
 import type { Cue } from './setlist'
+
+/** The playlist's shot length (user 2026-11-21: «очень быстро щёлкается … два раза по 64 такта»): `bars` on the grid
+ *  (while unsure, timed at cueBpm), `seconds` on the clock (while confident, on the next bar line), `off`: no timed
+ *  switch (←/→, a cut, a drop still switch). Both lengths stay stored, whichever the mode. */
+export interface Autopilot { mode: 'bars' | 'seconds' | 'off'; bars: number; seconds: number }
+export const AUTO_BARS = [8, 16, 32, 64, 128]
+export const AUTO_SECONDS = [30, 60, 90, 120, 180] // the quick picks; any of SECONDS_RANGE in steps of 5 is typed
+export const SECONDS_RANGE = [10, 600] as const
+export const AUTOPILOT: Autopilot = { mode: 'bars', bars: 128, seconds: 180 } // 128 bars: two 64s, ≈ 2:57 at 174 BPM
+
+/** A stored or typed setting, repaired (the trust boundary): an unknown mode or a bar count off AUTO_BARS takes the
+ *  default's; seconds are rounded to a step of 5 inside SECONDS_RANGE (not a number: the default's). */
+export function parseAutopilot(x: unknown): Autopilot {
+  const o = typeof x === 'object' && x !== null ? (x as Record<string, unknown>) : {}
+  const s = o.seconds
+  return {
+    mode: o.mode === 'bars' || o.mode === 'seconds' || o.mode === 'off' ? o.mode : AUTOPILOT.mode,
+    bars: AUTO_BARS.includes(o.bars as number) ? (o.bars as number) : AUTOPILOT.bars,
+    seconds: typeof s === 'number' && Number.isFinite(s) ? Math.min(SECONDS_RANGE[1], Math.max(SECONDS_RANGE[0], Math.round(s / 5) * 5)) : AUTOPILOT.seconds,
+  }
+}
 
 export interface Shot { from: SceneId; to: SceneId | null; mix: number }
 export interface Director {
@@ -24,22 +46,25 @@ export interface Director {
   /** The switches so far (←/→, a cue, a jump, the autopilot; not a cut): each a fade, or none to the scene on stage.
    *  A new count is a new cue (app.ts: its preset and switches). */
   switches(): number
+  /** The playlist's next timed switch as of the last update, whole: the bars left (bars: the grid's while confident,
+   *  else at cueBpm) or the seconds left (seconds: on the clock, then the bar line while confident). Infinity: none
+   *  (off, a hold, an armed set: cue() counts its cue). */
+  due(): number
 }
 export interface DirectorOpts {
-  barsPerShot: number // confident: switch this many bars after the last switch, on a bar line …
+  auto: () => Autopilot // the playlist's shot length, read every update; confident, on a bar line, …
   barsTransition: number // … fading over this many bars (←/→ too)
   confidentTheta: number // knob (Q4 default ⚠️): confident = sync.confidence ≥ θ …
   confidentBars: number // … held for this many bars
-  fallbackSeconds: number // otherwise: switch this many seconds after the last switch …
-  fallbackTransition: number // … fading over this many seconds (←/→ too)
+  fallbackTransition: number // otherwise on time, fading over this many seconds (←/→ too)
   /** A scene cut to off the playlist holds this slot (its place in the list, library.slot), so one step on lands on
    *  playlist[slot]; undefined, or no `slot`: the slot it cut from. */
   slot?: (id: SceneId) => number | undefined
-  cueBpm: number // knob: an armed set's cue, while unsure, lasts its bars at this tempo (the user's DnB), not fallbackSeconds
+  cueBpm: number // knob: while unsure, a bar lasts 4 beats at this tempo (the user's DnB): an armed set's cue, a bars shot
 }
 
 const DEFAULTS: DirectorOpts = {
-  barsPerShot: 16, barsTransition: 1, confidentTheta: 0.6, confidentBars: 2, fallbackSeconds: 30, fallbackTransition: 2, cueBpm: 174,
+  auto: () => AUTOPILOT, barsTransition: 1, confidentTheta: 0.6, confidentBars: 2, fallbackTransition: 2, cueBpm: 174,
 }
 
 export function createDirector(playlist: readonly SceneId[], opts?: Partial<DirectorOpts>): Director {
@@ -60,7 +85,7 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
   let jumpTo: Cue | null = null // jump(): the cue to fade to on the next bar line …
   let jumpNow = false // … or at the next update
   let switches = 0 // begin() calls
-  const barS = 240 / o.cueBpm // s: an armed set's bar while unsure (4 beats of 60 / bpm s)
+  const barS = 240 / o.cueBpm // s: a bar while unsure (4 beats of 60 / bpm s): an armed set's cue, a bars shot
 
   /** The playlist index `by` steps from the current scene. If it left the playlist, the scene that followed it now
    *  holds its slot `cur`, so one step on lands there. */
@@ -85,11 +110,16 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
   }
 
   /** The shot's length in bars: the cue's (a hold never ends; nor does the cue before a time-code one, which its track
-   *  time starts), else barsPerShot. */
+   *  time starts), else the playlist's (Infinity: off, or seconds, which update times itself). */
   function length() {
     const b = cues?.[cur].bars
-    return b === undefined ? o.barsPerShot : b === 'hold' || cues![(cur + 1) % cues!.length].time !== undefined ? Infinity : b
+    const a = o.auto()
+    return b === undefined ? (a.mode === 'bars' ? a.bars : Infinity) : b === 'hold' || cues![(cur + 1) % cues!.length].time !== undefined ? Infinity : b
   }
+  /** The bars played since the switch, fractional: the grid's while sure, else at cueBpm from its time. */
+  const played = () => (!last ? 0 : sure ? last.bar - switchedBar : (last.now - switchedAt) / barS)
+  /** The bars left of a shot `n` bars long, whole (the bar under way counts while sure). */
+  const left = (n: number, at = played()) => Math.max(0, sure ? n - Math.floor(at) : Math.ceil(n - at))
 
   /** The playlist `ids`. The shot (a fade too) plays on. A dropped current scene keeps its slot, clamped: the next switch
    *  continues there. ponytail: by index, so a scene off the playlist that a change before it shifts lands one off; ask
@@ -143,11 +173,14 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
           }
         }
       } else if (!shot.to && !hold) {
+        const a = o.auto()
+        const timed = !cues && a.mode === 'seconds' // the playlist on the clock
         const n = length()
-        const secs = cues ? (n * 240) / o.cueBpm : o.fallbackSeconds // a bar: 4 beats of 60 / bpm s
+        const secs = timed ? a.seconds : n * barS
         if (sure) {
-          // On the first frame past the bar line, already faded by the part of the bar that has passed.
-          if (line > Math.floor(last.bar) && line - switchedBar >= n) begin(away(1), (bar - line) / o.barsTransition, now, line)
+          // On the first frame past the bar line (the n-th; timed, the first once the seconds are up), already faded by
+          // the part of the bar that has passed.
+          if (line > Math.floor(last.bar) && (timed ? now - switchedAt >= secs : line - switchedBar >= n)) begin(away(1), (bar - line) / o.barsTransition, now, line)
         } else if (now - switchedAt >= secs) {
           const at = Math.max(switchedAt + secs, last.now) // on time; when overdue (after a lock), from now
           begin(away(1), (now - at) / o.fallbackTransition, at, line)
@@ -210,12 +243,16 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
     },
     cue() {
       if (!cues) return null
-      const n = length()
-      const at = !last ? 0 : sure ? last.bar - switchedBar : (last.now - switchedAt) / barS
-      return { index: cur, of: cues[cur], left: Math.max(0, sure ? n - Math.floor(at) : Math.ceil(n - at)), at, sure, jump: jumpTo }
+      const at = played()
+      return { index: cur, of: cues[cur], left: left(length(), at), at, sure, jump: jumpTo }
     },
     switches() {
       return switches
+    },
+    due() {
+      const a = o.auto()
+      if (cues || hold) return Infinity
+      return a.mode === 'seconds' ? Math.max(0, Math.ceil(a.seconds - (last ? last.now - switchedAt : 0))) : left(length())
     },
   }
 }
