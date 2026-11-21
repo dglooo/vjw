@@ -427,7 +427,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates; D1–D11 stay green. No browser check (no product path yet).
 - **Lead gate:** none.
 
-### S2.1 [ ] `look.json` from the donor text
+### S2.1 [x] `look.json` from the donor text
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** one generated source for the look's defaults, ranges and per-scene rows. No behaviour change.
 - **Lane, box, deps:** B · 60 min · none.
