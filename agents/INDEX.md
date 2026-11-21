@@ -107,3 +107,4 @@
 - `agents/audio-dsp/dsp_genre_melodic_2026-11-21.md` — genre profiles (psy/DnB/techno/house: one 4/4 knob set) + melodic layer (tonal, pitch, voice) measured on stem truth; coder plan G1–G2, M1–M2, D1
 - `agents/system-designer/design_vs3_engine_2026-11-21.md` — vs3 look system (macros, post chain, palettes, full presets): variants A host-only (rec.) / B engine stage / C hybrid, step plan
 - `agents/architecture-skeptic/skeptic_vs3_engine_2026-11-21.md` — vs3 engine design challenge: BLOCKED 3 HIGH (flash amplification, one-frame light jumps, washout), fixes that unblock A
+- `agents/planner/plan_vs3_engine_2026-11-21.md` — vs3 engine plan: 19 steps / 4 CPs (limiter, warp, macros, lens, grain, hue drift, full presets, MIDI *), gates H2/W/P
