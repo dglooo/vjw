@@ -672,7 +672,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates. Browser: W on vs3 Mandala: two presets glide whole looks.
 - **Lead gate G7:** H2 P-hot and L-stress (rules a, b). W on the 5 brightest presets by name.
 
-### S7.2 [ ] MIDI `'*'`: a look knob follows the scene on stage (C7)
+### S7.2 [x] MIDI `'*'`: a look knob follows the scene on stage (C7)
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** one learned CC drives a look input of whatever vs3 scene is on stage (R1).
 - **Lane, box, deps:** B · 60 min · S3.2.
