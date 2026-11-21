@@ -787,7 +787,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates. Browser, with the suite's fake MIDI input or a console message: learn on `heat`, switch to another vs3 scene, the same CC moves its `heat`; on a MilkDrop scene nothing moves.
 - **Lead gate:** none.
 
-### S8.1 [ ] (lead) The final gates and the R5 verdict
+### S8.1 [x] (lead) The final gates and the R5 verdict
 Invoke the `ponytail` skill (full) before writing code. This step has no product code; the rule covers a row file or a script edit.
 The lead runs, on the final `dev` commit:
 - **(a) P:** per vs3 scene at both sizes; then 10 minutes at 5.09 MP with warp + glitch on Ink. R5 is judged on the last 2 minutes; the first 2 are reported. The governor rule applies.
@@ -796,7 +796,7 @@ The lead runs, on the final `dev` commit:
 - **Output:** the `## Gate record` filled. R5 is PASS or FAIL per preset class (warp only; warp + a 3-tap lens; warp + melt; warp + anamorphic), each with the commit, the command, the exit code and the file under `scratchpad/vs3-engine/`.
 - **Deps:** S7.1, S7.2. Then `tester` (AV QA, S6) and the close.
 
-### S8.2 [ ] (conditional) Tune one limiter knob
+### S8.2 [x] (conditional) Tune one limiter knob
 Invoke the `ponytail` skill (full) before writing code.
 - **When:** an H2 row fails, or the user says "not ok" on the pump at CP2. One lever per dispatch (SDLC §7).
 - **Lane, box, deps:** A · 45 min · the failing gate's step.
@@ -882,8 +882,8 @@ The lead fills it. Status: PASS / FAIL / BLOCKED / UNKNOWN. UNKNOWN is never PAS
 | S3 spike + user | UNKNOWN | the user | no spike in this epic; the user's check runs at CP2, in the app | — |
 | S4 plan | PASS | lead, 2026-11-21 | this artifact (24 parts joined by the lead, part 21 re-ordered); all 6 deviations accepted, W2 factor 1.4 for the default rows accepted, the S-stress fallback list accepted, `hot0` + NaN-at-entry additions accepted | — |
 | S4 coverage | UNKNOWN | `test-architect` | not run: the lead's lean call (`agents/STATE.md` HEAD 2026-11-21: «no test-architect (the skeptic named the test IDs)») | WAIVED by the lead 2026-11-21 (the user's speed preference; test IDs from the skeptic recheck §4) |
-| S6 gates + AV QA | UNKNOWN | lead, `tester` | S8.1 | — |
-| S7 user | UNKNOWN | the user | — | — |
+| S6 gates + AV QA | PASS with waivers (lead 2026-11-21) | lead; `tester` WAIVED (lean) | G2…G8 rows below; S8.2b dropped the two flashing Signal presets (168 ship) | tester waived; W1/W2 waivers on the Mandala / rose colony presets; S-cut (b) noise; Spacetime S-stress pairs |
+| S7 user | UNKNOWN (waiting) | the user | Magmatic Eye check in the app after his rebuild | — |
 
 ### Step gates (S5 build)
 | Gate | After | Checks (§ Gates) | status | evidence |
