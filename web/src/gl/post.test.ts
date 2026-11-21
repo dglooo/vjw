@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { evaluate, type Binding, type Sources } from '../bind'
 import { donorChain, SYN_BIND } from '../fx/syn'
-import { boundStep, flashGate, postFor, TOY_STEP, toyLimit, toyStep, type Chain, type FlashState } from './post'
+import { boundStep, flashGate, limitFade, postFor, TOY_STEP, toyLimit, toyStep, type Chain, type FlashState } from './post'
 
 const NONE = Infinity // no drop yet
 const gain = (heat: number, beat: number, conf: number, bpm = 60) => postFor(heat, NONE, beat, bpm, conf).gain // 60 BPM: eighths (2/s) stay under the WCAG cap
@@ -330,5 +330,42 @@ describe('toyLimit (the toy / shader-editor flash limiter, live.ts)', () => {
     expect(toyStep(1 / 30)).toBe(TOY_STEP)
     expect(toyStep(0)).toBe(0)
     expect(toyLimit(0.5, 0.9, 0, false)).toEqual({ mean: 0.5, k: 0 }) // a frame of no time holds the last output
+  })
+
+  /** live.ts's vs3 path (S3d) frame by frame: `fade` from limitFade; under 1 the limiter runs (restarted as drawn when it
+   *  was off) and dst is mix(limited, raw, fade); at 1 the raw frame as drawn. Returns the frame-mean luma on stage. */
+  const vs3 = (raws: number[], hot: (i: number) => boolean, dt = 1 / FPS) => {
+    let fade = 1, prev = 0
+    return raws.map((cur, i) => {
+      const was = fade
+      fade = limitFade(fade, hot(i), dt)
+      if (fade >= 1) return { mean: cur, fade }
+      prev = toyLimit(prev, cur, toyStep(dt), was === 1).mean
+      return { mean: prev + fade * (cur - prev), fade }
+    })
+  }
+
+  test('S3d switch: off at stock, on at once when hot, off only after a 0.5 s (≥ 30 frames) fade; no switch makes a luma step', () => {
+    expect([limitFade(1, false, 1 / FPS), limitFade(1, true, 1 / FPS), limitFade(0.5, true, 1 / FPS)]).toEqual([1, 0, 0])
+    for (const dt of [1 / 30, 1 / 60, 1 / 120, 1]) { // 1: a one-second hitch still takes 30 frames
+      let fade = 0, n = 0, t = 0
+      for (; fade < 1; n++, t += dt) fade = limitFade(fade, false, dt)
+      expect(n).toBeGreaterThanOrEqual(30)
+      expect(t).toBeGreaterThanOrEqual(0.5 - 1e-9)
+    }
+    // a hot strobe for 1 s (the look on), then the look back at stock: a stock scene, .15 steps at 0.1 s and 0.25 s
+    const raws = [...strobe.slice(0, FPS), ...Array.from({ length: FPS }, (_, i) => (i >= 6 && i < 15 ? 0.55 : 0.4))]
+    const out = vs3(raws, (i) => i < FPS)
+    expect(out[0].mean).toBe(raws[0]) // on from off: the frame as drawn
+    const off = out.findIndex((x, i) => i >= FPS && x.fade >= 1)
+    expect(off - FPS).toBeGreaterThanOrEqual(30) // off after 30 frames of fade (0 < fade < 1), never before
+    expect(off - FPS).toBeLessThanOrEqual(31)
+    expect(Math.abs(out[off - 1].mean - raws[off - 1])).toBeLessThanOrEqual(0.02) // the frame before the switch: converged
+    // a step on stage is at most the limiter's or the scene's own, plus a 1/30 share of the gap: the switch adds no flash
+    for (let i = 1; i < out.length; i++) expect(Math.abs(out[i].mean - out[i - 1].mean)).toBeLessThanOrEqual(Math.max(TOY_STEP, Math.abs(raws[i] - raws[i - 1])) + 1 / 30 + 1e-12)
+    const m = out.map((x) => x.mean)
+    expect([h2(raws.slice(0, FPS)), h2(m.slice(0, FPS))]).toEqual([15, 0]) // hot: limited
+    expect([h2(raws.slice(FPS)), h2(m.slice(FPS))]).toEqual([2, 1]) // the fade: the stock scene's own .15 steps, mid-fade at .53 of their size
+    expect(vs3(raws, () => false).every((x, i) => x.mean === raws[i] && x.fade === 1)).toBe(true) // stock: the raw frames, no pass
   })
 })

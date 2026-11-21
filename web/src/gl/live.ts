@@ -27,7 +27,7 @@ import { FRAME_SDF, frameUniforms } from '../scenes/frame'
 import { store } from '../store'
 import { edits } from '../undo'
 import { audioTex, copy, draw, fullscreenProgram, gl, program, programAsync, renderTarget, temps, type Target } from './engine'
-import { boundStep, toyStep, type Chain, type FlashState } from './post'
+import { boundStep, limitFade, toyStep, type Chain, type FlashState } from './post'
 import { straight, type Native, type NativeDef } from './scene'
 
 export { docs, type NodePath } from '../edit'
@@ -142,8 +142,10 @@ const free = (t: Target) => {
 // writes this frame's [mean, k]; MIX writes mix(the last output `hist`, raw, k) into the toy's target, which is then
 // copied into `hist`. `t`: the last frame it ran, so a toy back on stage after a gap starts as drawn, not from a stale
 // frame. ISF effects and the other natives are not touched: their light is gated at their ⚡ inputs. native/video is:
-// a user's clip brings its own light (backlog 8).
-interface Limiter { raw: Target; hist: Target; state: Target[]; t: number }
+// a user's clip brings its own light (backlog 8). A vs3 native is while its look is above its stock light (S3d, Native
+// hot()): `fade` (post.ts limitFade) 0 limits it, 1 is off (it draws straight into dst), in between FADE shows the limited
+// frame (kept in hist for the next frame) mixed toward the frame as drawn.
+interface Limiter { raw: Target; hist: Target; state: Target[]; t: number; fade: number }
 const GAP = 0.25 // knob: s without a frame after which the limiter starts again from the toy as drawn
 const LIMIT = fullscreenProgram(`#version 300 es
 precision highp float;
@@ -171,9 +173,20 @@ void main() {
   o = texelFetch(uRaw, p, 0);
   if (k < 1.0) o = mix(texelFetch(uHist, p, 0), o, k); // k is one value per frame: the usual frame skips the history read
 }`)
-const limiter = (): Limiter => ({ raw: renderTarget(false, false, { min: gl.LINEAR_MIPMAP_LINEAR }), hist: renderTarget(false, true), state: [renderTarget(true), renderTarget(true)], t: -Infinity })
-/** The limited toy into `dst`, from what it drew into `m.raw` (fitted to dst) this frame; `dt`, `time`: real s. */
-function limit(m: Limiter, dst: Target, dt: number, time: number, first: boolean) {
+const FADE = fullscreenProgram(`#version 300 es
+precision highp float;
+uniform sampler2D uRaw;
+uniform sampler2D uHist;
+uniform float uFade;
+out vec4 o;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  o = mix(texelFetch(uHist, p, 0), texelFetch(uRaw, p, 0), uFade);
+}`)
+const limiter = (fade = 0): Limiter => ({ raw: renderTarget(false, false, { min: gl.LINEAR_MIPMAP_LINEAR }), hist: renderTarget(false, true), state: [renderTarget(true), renderTarget(true)], t: -Infinity, fade })
+/** The limited toy into `dst`, from what it drew into `m.raw` (fitted to dst) this frame; `dt`, `time`: real s; `fade`:
+ *  the share of the frame as drawn in dst (a vs3 look turning off, S3d). */
+function limit(m: Limiter, dst: Target, dt: number, time: number, first: boolean, fade = 0) {
   first ||= time - m.t > GAP
   m.t = time
   mips(m.raw)
@@ -186,6 +199,9 @@ function limit(m: Limiter, dst: Target, dt: number, time: number, first: boolean
   bindFramebufferInfo(gl, m.hist)
   copy({ uSrc: dst.attachments[0], uRes: [dst.width, dst.height] })
   m.state.reverse()
+  if (fade <= 0) return
+  bindFramebufferInfo(gl, dst)
+  FADE({ uRaw: m.raw.attachments[0], uHist: m.hist.attachments[0], uFade: fade })
 }
 
 // The layer composite (design E2): the shader pre-scales the source, fixed-function blending does the rest.
@@ -291,8 +307,12 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
     if (!def) return fail(`unknown ref ${n.ref}`)
     const u: Record<string, unknown> = { ...defaults(def), ...n.values }
     const events = def.inputs.filter((x) => x.type === 'event').map((x) => x.name)
-    // native/video: a user's clip carries its own light (a filmed strobe), so it runs under the toy limiter too
-    if ('create' in def) return { def, native: (def as NativeDef).create(gl, own?.size), u, events, passes: [], w: 0, h: 0, frames: 0, images: null, lim: def.id === 'native/video' && !own ? limiter() : undefined }
+    if ('create' in def) {
+      // native/video: a user's clip carries its own light (a filmed strobe), so it runs under the toy limiter too; a vs3
+      // look (hot()) only while it is above its stock light, off (fade 1) until then (S3d)
+      const native = (def as NativeDef).create(gl, own?.size)
+      return { def, native, u, events, passes: [], w: 0, h: 0, frames: 0, images: null, lim: own ? undefined : native.hot ? limiter(1) : def.id === 'native/video' ? limiter() : undefined }
+    }
     const { vs, fs, passes, inputs, textures = {} } = def as ShaderDef
     const info = program(vs, fs) // null when it fails to compile; twgl logged why
     if (!info) return fail(`${n.ref}: ${toy ? toyLog(fs, toy.prefixLines) : 'shader failed to compile'}`)
@@ -398,7 +418,10 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
   function run(n: Node, l: Layer, f: FrameInput, dt: number, src: WebGLTexture | null, dst: Target, s: Sources, w: number) {
     let out = dst
     if (n.native) {
-      if (n.lim) (out = n.lim.raw).fit(dst.width, dst.height) // a limited native (native/video): limit() finishes it into dst
+      const was = n.lim?.fade
+      if (n.lim && n.native.hot) n.lim.fade = limitFade(n.lim.fade, n.native.hot(n.u as Record<string, Value>), f.dt) // a vs3 look (S3d)
+      const lim = n.lim && n.lim.fade < 1 ? n.lim : undefined // none: straight into dst (a vs3 look at its stock light)
+      if (lim) (out = lim.raw).fit(dst.width, dst.height) // a limited native (native/video, a hot vs3 look): limit() finishes it into dst
       bindFramebufferInfo(gl, out)
       const fl = Object.assign(l.f, f) // no allocation: the layer's own copy, on its clock and at its size
       fl.time = l.t
@@ -406,7 +429,7 @@ function create(id: SceneId, own?: { doc: SceneDoc; size: readonly [number, numb
       fl.width = dst.width
       fl.height = dst.height
       n.native.draw(fl, n.u as Record<string, Value>, src, s, l.blend) // a native filter reads src; null for a generator
-      if (n.lim) limit(n.lim, (out = dst), f.dt, f.time, false) // its first frame: limit()'s gap rule (t starts at -∞)
+      if (lim) limit(lim, (out = dst), f.dt, f.time, was === 1, lim.fade) // on from off: as drawn; a first frame: limit()'s gap rule (t starts at -∞)
     } else {
       if (n.w !== dst.width || n.h !== dst.height) resize(n, dst.width, dst.height)
       n.u.TIME = n.u.iTime = l.t // ISF's names and a toy's

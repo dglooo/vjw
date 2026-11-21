@@ -96,6 +96,15 @@ export function toyLimit(prev: number, cur: number, step: number, first: boolean
   return { mean: prev + k * d, k }
 }
 
+const LIMIT_FADE = 0.5 // knob: s, a vs3 look's limiter fades out over this once the look is back at its stock light
+/** S3d, a vs3 look's switch (live.ts; vs3/chain.ts hotLook): the share of the frame as drawn over the limited frame, per
+ *  frame. 1 = off: no limiter pass. Hot: 0 at once (from off, live.ts restarts the limiter from the frame as drawn, so
+ *  nothing jumps). Not hot: toward 1 by dt / LIMIT_FADE, dt at most 1/60, so it turns off after ≥ 30 frames and ≥ 0.5 s of
+ *  fade, never on a frame still held down by the limiter.
+ *  ponytail: a bound heat or react crossing its line on each kick switches on each kick (after a full fade, a kick's first
+ *  frame passes as drawn); hold after the last hot frame if that shows. */
+export const limitFade = (fade: number, hot: boolean, dt: number) => (hot ? 0 : Math.min(1, fade + Math.min(dt, 1 / 60) / LIMIT_FADE))
+
 // knob: s, a native's ⚡ hit's rise time constant as drawn: a frame takes 1 - e^(-dt/HOT_RISE) of the step (34 % at
 // 60 fps), so an allowed hit's full light step (particles: ≈ +.11 frame-mean luma at 65 536 points) never makes a luma
 // step > .10 in one frame (I-FL1)

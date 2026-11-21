@@ -4,8 +4,9 @@
 import { expect, test, vi } from 'vitest'
 import { createBloom } from '../gl/bloom'
 import { heatStep } from '../gl/post'
-import { chainState, clock, createChain, drastic, expose, frame, KNOBS, PROBE, reactTo, SERVO, UPDATE, warmChain, WARP, type ChainFrame, type ChainState, type Knobs, type Light, type LookValues, type SceneFacts, type Servo } from './chain'
+import { chainState, clock, createChain, drastic, expose, frame, hotLook, KNOBS, PROBE, reactTo, SERVO, UPDATE, warmChain, WARP, type ChainFrame, type ChainState, type Knobs, type Light, type LookValues, type SceneFacts, type Servo } from './chain'
 import type { Signal } from './host'
+import LOOK from './look.json'
 
 /** engine.ts takes the page's canvas + WebGL at import, so a recording fake stands for it. A target: a framebuffer, its
  *  texture, its size; a fit() that changes the size stands for the engine's texImage2D (a persistent target gets a new
@@ -239,6 +240,23 @@ test('KC2 at or below stock: brightness 1.4 and 1.36 leave the kick and onKick; 
     expect([cf.kickGain, s.kick, s.onKick]).toEqual([1, cf.kick, 0.9])
     expect(run(b)).toEqual(run(b, { ...KNOBS, KICK_COMP: 0 }))
   }
+})
+
+// S3d (lead lever after S3c): the toy limiter on a vs3 layer only while its look is above the stock light
+test('HL1 hotLook: every scene at its look.json defaults is stock; each line (uGain × 1.02, bloomMul × 1.05 of the row, heat .55, react .7) is hot just over it, not on it; a filter never by its brightness', () => {
+  for (const [name, row] of Object.entries(LOOK.scenes)) {
+    const d: LookValues = { ...LOOK.base, ...row }
+    expect([name, hotLook(d, { ...F, bloomRow: d.bloomMul, gainBase: LOOK.base.brightness }, d.brightness)]).toEqual([name, false])
+  }
+  const row = { ...F, bloomRow: 2.5 } // mandala's bloomMul
+  const at = (v: Partial<LookValues>, gain = 1.4, f = row) => hotLook({ ...V, bloomMul: 2.5, ...v }, f, gain)
+  expect(at({})).toBe(false)
+  expect([at({}, 1.4 * 1.02), at({}, 1.4 * 1.02 + 1e-9), at({}, 2.4)]).toEqual([false, true, true])
+  expect([at({ bloomMul: 2.5 * 1.05 }), at({ bloomMul: 2.5 * 1.05 + 1e-9 }), at({ bloomMul: 3 })]).toEqual([false, true, true])
+  expect([at({ heat: 0.55 }), at({ heat: 0.55 + 1e-9 }), at({ heat: 0.98 })]).toEqual([false, true, true])
+  expect([at({ react: 0.7 }), at({ react: 0.7 + 1e-9 }), at({ react: 1 })]).toEqual([false, true, true])
+  expect([at({ brightness: 2.4 }), at({ heat: 0, react: 0, bloomMul: 0 }, 1.36)]).toEqual([false, false]) // the limited uGain counts, not the knob; below stock is stock
+  expect([at({}, 2.4, { ...row, filter: true }), at({ heat: 1 }, 2.4, { ...row, filter: true })]).toEqual([false, true])
 })
 
 // S1.2: the light limiter (plan § The light limiter, final text). dtl = 1/60 unless said.

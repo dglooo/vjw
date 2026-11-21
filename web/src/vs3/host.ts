@@ -31,7 +31,7 @@ import type { NativeDef } from '../gl/scene'
 import { ease, MORPH_S } from '../presets'
 import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
-import { chainState, clock, createChain, frame, PROBE, reactTo, warmChain, type LookValues, type SceneFacts } from './chain'
+import { chainState, clock, createChain, frame, hotLook, PROBE, reactTo, warmChain, type LookValues, type SceneFacts } from './chain'
 import LOOK from './look.json'
 import PARAMS from './params.json'
 
@@ -223,6 +223,9 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
   const bloom = createBloom(gl, 8, 0.3) // the donor's threshold (luma .3); 8 levels reach its widest mip's ≈ 350 px
   const chain = createChain(gl, ...size)
   return {
+    /** S3d, before draw(): this frame's look values (as draw() puts them) against the uGain as last drawn (×1.0234 a frame
+     *  at most). */
+    hot: (v: Readonly<Record<string, Value>>) => hotLook(putLook(values, v), facts, st.light?.gain ?? values.brightness),
     draw(f: { width: number; height: number; dt: number; time: number }, vals: Readonly<Record<string, Value>>, src: Readonly<Sources>, input: WebGLTexture | null) {
       const hit = vals.hit as number, mid = (vals.mid as number | undefined) ?? 0
       put(P, ps, vals)
@@ -323,6 +326,7 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
       ready(gl).then(([L, m]) => start(gl, L, m.default(), look, ps, d, name, size ?? shotSize())).then((r) => (gone ? r.dispose() : (run = r)), (e: unknown) => console.error(`native/vs3-${name}: the load failed`, e))
       return {
         hidden: () => !run,
+        hot: (v) => !!run?.hot(v), // gl/live.ts runs the layer under the toy limiter while true (S3d)
         draw(f, v, input, s) {
           if (run) run.draw(f, v, s ?? {}, input ?? null)
           else if (input) copy({ uSrc: input, uRes: [f.width, f.height] }) // a filter passes its picture through until it runs
