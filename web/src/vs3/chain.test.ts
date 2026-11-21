@@ -210,6 +210,37 @@ test('D11 reactTo: at react 1 the levels stay (clamped at 1), at 2 they double (
   expect(two).toMatchObject({ kick: 0.7, sub: 0.6, mids: 1, highs: 0.4, air: 0.2, energy: 1, onKick: 0.9, onMid: 0.6, onHigh: 0.4 })
 })
 
+// S3c (G3b lever 1): the scene's own kick light, compensated for brightness above stock
+/** One frame and reactTo at hit 1, onKick .9: what the scene reads. */
+const read = (v: Partial<LookValues>, f: Partial<SceneFacts> = {}, K = KNOBS, st = chainState(), sig: Signal = { ...S, onKick: 0.9 }, hit = 1) => {
+  const cf = frame({ ...V, ...v }, { ...F, ...f }, sig, hit, st, MID, DT, DT, 0, 1, K)
+  reactTo(sig, cf)
+  return { s: sig, cf }
+}
+
+test('KC1 kick light: at brightness 2.4 the scene reads its kick and onKick × 1.4 / 2.4, on the limited uGain; KICK_COMP 0 and a filter leave them', () => {
+  const { s, cf } = read({ brightness: 2.4 }) // a new layer: uGain takes 2.4 at once
+  expect(cf.finish.uGain).toBe(2.4)
+  expect(s.kick).toBeCloseTo((cf.kick * 1.4) / 2.4, 15)
+  expect(s.onKick).toBeCloseTo((0.9 * 1.4) / 2.4, 15)
+  const st = chainState()
+  read({}, {}, KNOBS, st)
+  expect(read({ brightness: 2.4 }, {}, KNOBS, st).s.onKick).toBeCloseTo(0.9 / X, 12) // a slider jump: uGain × X, the factor ÷ X
+  for (const off of [read({ brightness: 2.4 }, { filter: true }), read({ brightness: 2.4 }, {}, { ...KNOBS, KICK_COMP: 0 })]) expect([off.s.kick, off.s.onKick]).toEqual([off.cf.kick, 0.9])
+})
+
+test('KC2 at or below stock: brightness 1.4 and 1.36 leave the kick and onKick; a 600-frame track is bit-identical with KICK_COMP 0', () => {
+  const run = (brightness: number, K = KNOBS, st = chainState()) => SWELL.map(({ s, hit }) => {
+    const r = read({ brightness }, {}, K, st, { ...s, onKick: hit }, hit)
+    return [...nums(r.cf), r.cf.kickGain, r.s.kick, r.s.onKick, r.s.energy]
+  })
+  for (const b of [1.4, 1.36]) {
+    const { s, cf } = read({ brightness: b })
+    expect([cf.kickGain, s.kick, s.onKick]).toEqual([1, cf.kick, 0.9])
+    expect(run(b)).toEqual(run(b, { ...KNOBS, KICK_COMP: 0 }))
+  }
+})
+
 // S1.2: the light limiter (plan § The light limiter, final text). dtl = 1/60 unless said.
 /** The stock look over a track: the strength must be the stock scene's 9 k0², its levels clamped at 1 (N6). */
 const stockRun = (sig: typeof SWELL) => {

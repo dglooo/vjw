@@ -17,8 +17,9 @@ import type { Signal } from './host'
 /** knob: the light limiter's (design Amendment 1, tuned on gate H2). LIGHT_X: uGain and the glow follow by at most ×/÷ 4
  *  per s; KNOB_S, VIG_S: s for react, lens and the persist fall, and for vignette, to cross their range; DYN: the share of
  *  the stock glow's own move a setting may add; GLOW_SEED: the level a zeroed glow grows back from; DT_MAX: the cap of
- *  dtl; REACT_MAX: the react gain's ceiling. */
-export const KNOBS = { LIGHT_X: 4, KNOB_S: 0.5, VIG_S: 1, DYN: 1, GLOW_SEED: 1, DT_MAX: 1 / 60, REACT_MAX: 2 }
+ *  dtl; REACT_MAX: the react gain's ceiling. KICK_COMP (S3c): the scene's own kick light (its kick and onKick) ×
+ *  min(1, (stock gain / uGain) ** KICK_COMP): 1 lands it at the stock luma steps at any brightness above stock, 0 is off. */
+export const KNOBS = { LIGHT_X: 4, KNOB_S: 0.5, VIG_S: 1, DYN: 1, GLOW_SEED: 1, DT_MAX: 1 / 60, REACT_MAX: 2, KICK_COMP: 1 }
 export type Knobs = typeof KNOBS
 /** heat and chaos (engine.js:150-151): .25× at 0, 1× at .5, 4× at 1. */
 export const drastic = (p: number) => 4 ** ((p - 0.5) * 2)
@@ -60,6 +61,7 @@ export interface ChainFrame {
   lens: Uniforms | null // null until S5.1
   finish: { uAber: number; uVig: number; uGain: number; uGrain: number }
   kick: number; react: number // `hot`; the limited react gain
+  kickGain: number // reactTo's factor on the scene's kick and onKick (KNOBS.KICK_COMP); 1 at or below stock and for a filter
   servo: Servo | null // the exposure servo's UPDATE uniforms; null: a filter, which has none
 }
 /** UPDATE's uniforms, on ln e: uK = dtl / τ, uX = ln(LIGHT_X ** dtl), the most e moves by in a frame, uLo = ln of e's
@@ -212,7 +214,7 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
   return {
     mirror, feedback, warp, bloom: strength >= 1e-3 ? strength : 0, lens: null, // under 1e-3 the bloom pass skips
     finish: { uAber: v.aber * (0.22 + hot), uVig: vig, uGain: gain, uGrain: sc.grain }, // uAber: host.ts:243
-    kick: hot, react,
+    kick: hot, react, kickGain: Math.min(1, (G0 / G) ** K.KICK_COMP), // the scene's own kick light × uGain stays at the stock's
     // the servo's target scales with the drawn brightness, as the original's with its slider (main.js:2576)
     servo: sc.filter ? null : { uTarget: (SERVO.TARGET * gain) / sc.gainBase, uK: snap ? 1 : dtl / SERVO.TAU, uX: snap ? 1 : Math.log(x), uLo: sc.faithful ? 0 : Math.log(SERVO.LO) },
   }
@@ -229,9 +231,13 @@ export function clock(now: number, seen: number, engineFrame: number, drawnFrame
 
 const LEVELS = ['sub', 'mids', 'highs', 'air', 'energy'] as const // analyzer.js:466-471, besides the kick
 /** Writes the reacted signal for the scene: s.kick = cf.kick; the levels the donor scales, times cf.react, each at most 1.
- *  The impulses (onKick, onMid, onHigh) stay: their light passes the flash gate. */
+ *  The impulses (onKick, onMid, onHigh) are not reacted: their light passes the flash gate. The kick and onKick ×
+ *  cf.kickGain (S3c): the finish multiplies the scene's own kick light by uGain, so above stock brightness it would step
+ *  past the stock's.
+ *  ponytail: a scene's kick motion and its onKick > .55 accents shrink with it; per-scene light-only reads if that shows. */
 export function reactTo(s: Signal, cf: ChainFrame): void {
-  s.kick = cf.kick
+  s.kick = cf.kick * cf.kickGain
+  s.onKick *= cf.kickGain
   for (const k of LEVELS) s[k] = reacted(s[k], cf.react)
 }
 

@@ -255,7 +255,7 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
       facts.wet = sc.fxWet?.() ?? 1
       facts.faithful = !!sc.faithful?.() // its mode as put() wrote it: no servo (N3), no resting glow
       const cf = frame(values, facts, s, hit, st, pal[2].toArray(mid3), f.dt, dtl, f.time, f.width / f.height) // pal[2]: SLOTS' mid
-      reactTo(s, cf) // the kick as drawn (I-FL1: the limiter's slew) and the levels × react; onKick stays on the raw rise
+      reactTo(s, cf) // the kick as drawn (I-FL1: the limiter's slew) and the levels × react; onKick on the raw rise; both × kickGain
       prev = hit
       prevMid = mid
       if (v) s.specHi.set(v.specHi)
