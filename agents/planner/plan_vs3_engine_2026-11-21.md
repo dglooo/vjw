@@ -755,6 +755,17 @@ Invoke the `ponytail` skill (full) before writing code.
   - `M2` is deleted; `M1` stays.
 - **Done-check:** gates. Browser: W on vs3 Mandala: two presets glide whole looks.
 - **Lead gate G7:** H2 P-hot and L-stress (rules a, b). W on the 5 brightest presets by name.
+- **Built:** (S7.1 coder, 2026-11-21) `LOOK_NOW` gone. `map()` writes each `post.*` / `macros.*` key of `look.base` onto the input of that name; `lensStyle` → its index in `lensStyles`. A key the entry lacks is not written (only ★ Orange Rose lacks `tiles`, `twist`, `slice`). Dropped and counted: `post.quality` 172, `post.decay` 78; the table has no `layer*` key. The twin rule's `cur` = the scene rows' defaults + the native's look defaults (base under its FX_DEFAULTS row, as `defaults(def)` in `presetOf`) + the preset. 3 presets return: ★ ink — tripped, ★ limitless · smear — oh fawkkkk, ★ wisp — purple portal. Total 167 → 170 (169 theirs + ★ hall); `gone` = the 3 main-stage presets (LED wall) + ★ shader — Treasure. Their 3 thumbs are the donor's jpgs, copied by the script (no render). Tests: M1 stays, M2 deleted, M4 + M5 in host.test.ts.
+- **Changed during implementation:** (S7.1 coder, 2026-11-21)
+  - M3 = the existing factory test in `src/presets.test.ts`, renamed `M3 preset keys: …`. It already checks every key of every preset: an input of its native (not ⚡), a float inside min..max, a long in `values`. A copy in host.test.ts would duplicate it. Its pins were updated (outside the step's files): counts ink 3, limitless 7, wisp 5; the limitless list gains ★ smear — oh fawkkkk; the melt preset's `toEqual` → `toMatchObject` (it now carries its look).
+  - ★ hall (ours) carries chorus's look at its defaults too, so a pick of it after a donor chorus preset brings the look back ("the rest at the scene's defaults").
+  - A `lensStyle` name not in `lensStyles` → 0, any name, as the donor (`LENS_STYLES[post.lensStyle] ?? 0`, main.js:15886). In the table only 'water': ★ signal · analyzer — Flow Orb (lens .38: drawn as glass ribs) and ★ mandala — mandolo (lens 0).
+  - The look.json block moved ahead of the presets in the script (the presets map onto its keys and its rows). `look.json` is byte-identical.
+  - `src/presets.ts`: its header comment only (it said the post chain and macros have no input here). No code change.
+- **Coder check:** (S7.1 coder; evidence in the worktree's `scratchpad/vs3-engine/s71/`: `check.mjs`, `check.json`, `defaults.png`, `mandolo.png`, `alien-lab.png`)
+  - Mutation: the script writing every post key → M4 fails (caught).
+  - In the app (:5176, private Vite cache, no HMR; Kanine from 52 s; vs3 Mandala held; W, then a tile click). Defaults → ★ mandolo: heat .5 → .39, brightness 1.4 → 2.4, spin, hueDrift, trails each 99 frames in between, at the target from 1.80 s; mirror 9 → 0 at .917 s, no value between. → ★ alien lab: heat .39 → .65, brightness 2.4 → 2.02, lens 0 → .49, spin, hueDrift glide, at the target from 1.817 s; lensStyle 0 → 1 at .917 s. The picker names each. Luma steps > .10: 1 and 0 (max 1 per s). Page errors 0. The two stills match the donor thumbs (the moss mandala; the red star with glass-fan glints).
+  - Finding for S8.1 (R5): 145 of the 170 presets are hot by `hotLook` (chain.ts:271; mostly brightness > 1.428), so S3d's toy luma limiter (+1.04 ms while hot, S3d) runs after most preset picks.
 
 ### S7.2 [x] MIDI `'*'`: a look knob follows the scene on stage (C7)
 Invoke the `ponytail` skill (full) before writing code.

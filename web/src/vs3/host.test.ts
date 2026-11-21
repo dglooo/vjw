@@ -3,7 +3,7 @@
 import { expect, test, vi } from 'vitest'
 import { defaults } from '../doc'
 import type { Input } from '../fx/types'
-import { factory, factoryRefs } from '../presets'
+import { between, ease, factory, factoryRefs, glideTo } from '../presets'
 import { BUILTIN } from '../scenes/builtin'
 import { chainState, frame, PROBE, type LookValues } from './chain'
 import { FINISH, grainOf, PALETTES, paramInputs, put, putLook, screen, signal, specHi, turnHue, VS3, type Signal } from './host'
@@ -200,10 +200,21 @@ test('M1 hot preset: ★ magma — Magmatic Eye on vs3 morphogen2 carries its po
   expect(v.brightness).toBe(2.4) // and its post
 })
 
-test('M2 only one: no other factory preset holds a look key (S7.1 deletes this test)', () => {
-  const keys = Object.keys(look.ranges)
-  expect(factoryRefs.flatMap((r) => factory(r).filter((p) => Object.keys(p.values).some((k) => keys.includes(k))).map((p) => `${r} ${p.name}`)))
-    .toEqual(['native/vs3-morphogen2 ★ magma — Magmatic Eye'])
+test('M4 dropped keys: no factory preset holds decay, quality or a layer key (the post keys with no input)', () => {
+  const drop = (k: string) => k === 'decay' || k === 'quality' || k.startsWith('layer')
+  expect(factoryRefs.flatMap((r) => factory(r).flatMap((p) => Object.keys(p.values).filter(drop).map((k) => `${r} ${p.name}: ${k}`)))).toEqual([])
+})
+
+test('M5 morph (R4): a pick on vs3 Mandala glides heat (the whole look but its two selects) and switches lensStyle and mirror at the midpoint', () => {
+  const d = VS3.find((x) => x.id === 'native/vs3-mandala')!, cur = defaults(d), to = factory(d.id).find((p) => p.name === '★ alien lab')!.values
+  const eased = new Set(d.inputs.filter((i) => i.type === 'float' || i.type === 'color' || i.type === 'point2D').map((i) => i.name)) // as gl/live.ts glide() picks them
+  expect(Object.keys(look.base).filter((k) => !eased.has(k))).toEqual(['mirror', 'lensStyle'])
+  expect([cur.heat, cur.lensStyle, cur.mirror, to.heat, to.lensStyle, to.mirror]).toEqual([0.5, 0, 9, 0.65, 1, 0]) // the scene's defaults → ★ alien lab
+  const g = glideTo(cur, to, eased)
+  expect(between(g, 0.25).heat).toBeCloseTo(0.5 + (0.65 - 0.5) * ease(0.25), 12)
+  expect(between(g, 0.49)).toMatchObject({ lensStyle: 0, mirror: 9 })
+  expect(between(g, 0.5)).toMatchObject({ lensStyle: 1, mirror: 0 })
+  expect(between(g, 1)).toEqual(to)
 })
 
 test('V4 built-ins: no vs3 built-in doc carries isf/Mirror, isf/Kaleidoscope or own/feedback-zoom; its only fx is a vs3 filter (Limitless)', () => {

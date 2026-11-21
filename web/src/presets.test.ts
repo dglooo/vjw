@@ -8,14 +8,14 @@ import FACTORY from './vs3/presets.json'
 const fsId = 'node:fs' // the app tsconfig has no node types (serpent.test.ts T-F2d)
 vi.mock('./gl/engine', () => ({ fullscreenProgram: () => () => {}, gl: {} })) // takes the page's canvas + WebGL at import
 
-test('the factory presets of every vs3 scene (scripts/vs3-presets.mjs); each names only inputs of its native, within their range; its thumb is there', async () => {
+test('M3 preset keys: the factory presets of every vs3 scene (scripts/vs3-presets.mjs); each names only inputs of its native, a float within its range, a long a valid index; its thumb is there', async () => {
   const { existsSync } = (await import(/* @vite-ignore */ fsId)) as { existsSync(p: string): boolean }
   const n = (s: string) => factory(`native/vs3-${s}`).length
   expect(Object.fromEntries(factoryRefs.map((r) => [r.slice(11), n(r.slice(11))]))).toEqual({
-    ink: 2, relic: 3, signal: 7, citadel: 3, mandala: 3, synapse: 3, fluid: 4, morphogen: 3, gate: 3, sand: 3, idol: 3, oracle: 3, anemone: 4, forge: 3, ingot: 4, spacetime: 4,
-    pelt: 4, wisp: 4, grove: 4, descent: 5, visage: 6, chorus: 5, limitless3d: 6, vesica: 7, locus: 10, crystal: 8, pearl: 7, lasers: 12, tendril: 13, spiral: 5,
-    limitless: 6, morphogen2: 10,
-  }) // 166 of the table's 173 + ★ hall; the generator lists the 7 it dropped and why
+    ink: 3, relic: 3, signal: 7, citadel: 3, mandala: 3, synapse: 3, fluid: 4, morphogen: 3, gate: 3, sand: 3, idol: 3, oracle: 3, anemone: 4, forge: 3, ingot: 4, spacetime: 4,
+    pelt: 4, wisp: 5, grove: 4, descent: 5, visage: 6, chorus: 5, limitless3d: 6, vesica: 7, locus: 10, crystal: 8, pearl: 7, lasers: 12, tendril: 13, spiral: 5,
+    limitless: 7, morphogen2: 10,
+  }) // 169 of the table's 173 + ★ hall; the generator lists the 4 it dropped and why
   for (const [ref, ps] of Object.entries(FACTORY)) {
     const def = VS3.find((d) => d.id === ref)!
     expect(new Set(ps.map((p) => p.name)).size, ref).toBe(ps.length)
@@ -44,9 +44,9 @@ test('the factory presets of every vs3 scene (scripts/vs3-presets.mjs); each nam
   expect(P).toMatchObject({ mode: 'tide', body: -0.47, push: -0.56, hue: -0.01, invert: false })
   // limitless: its custom palette (colours from the clip it was tuned on) is none of ours, the palette stays as it is
   expect(factory('native/vs3-limitless').map((p) => [p.name, 'palette' in p.values])).toEqual([
-    ['★ melt — coo coo', false], ['★ smear — oh fawk', false], ['★ droste — ay yo?', false], ['★ smear — tokyomelt', false], ['★ smear — watertrip', false], ['★ breathe — forestlayers', false],
+    ['★ melt — coo coo', false], ['★ smear — oh fawk', false], ['★ smear — oh fawkkkk', false], ['★ droste — ay yo?', false], ['★ smear — tokyomelt', false], ['★ smear — watertrip', false], ['★ breathe — forestlayers', false],
   ])
-  expect(factory('native/vs3-limitless')[0].values).toEqual({ mode: 8, speed: 0.39, complexity: 0.84, fill: 0.51, contrast: 0.5 }) // melt
+  expect(factory('native/vs3-limitless')[0].values).toMatchObject({ mode: 8, speed: 0.39, complexity: 0.84, fill: 0.51, contrast: 0.5, lens: 0.93, twist: 0.85 }) // melt, its look too
 })
 
 test('presetOf: the preset the values match; one edit makes it custom, the edit undone brings the name back', () => {

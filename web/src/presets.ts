@@ -2,8 +2,8 @@
 // node (a native or a shader, by its ref), applied onto the edited scene's node in one undo step (gl/live.ts
 // panel.setValues). Never a scene nor a library entry. The factory's ship per ref: vs3/presets.json, written once by
 // scripts/vs3-presets.mjs from the friends' factory list (every vs3 scene's, 2026-11-21; their post chain and macros
-// have no input here), each with its thumb in public/vs3/thumbs/presets/. The user's are kept beside the marks
-// (library.ts), as are the ☆ favourites of both (ui/Presets.tsx, the browser).
+// on the look inputs, plan_vs3_engine S7.1), each with its thumb in public/vs3/thumbs/presets/. The user's are kept
+// beside the marks (library.ts), as are the ☆ favourites of both (ui/Presets.tsx, the browser).
 import type { EffectDef, Value } from './fx/types'
 import FACTORY from './vs3/presets.json'
 
