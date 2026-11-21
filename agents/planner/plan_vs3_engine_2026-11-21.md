@@ -360,7 +360,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates. On current `dev`, `h2.mjs` on Ink, Synapse and Mandala gives `flash3.mjs`'s step counts within ± 1 per 15 s. One run of `w.mjs` and of `p.mjs`; paste 3 output lines of each.
 - **Lead gate (baselines, on `dev` before S2.2 merges):** H2 S-all twice → `h2.S-all.pre.json`; W's 3 default rows twice → `w.defaults.pre.json`; the luma of Ink, Synapse, Mandala twice; P on Ink at both sizes: is the run valid (`minScale` 1, `governed` 0)? That answers gap G14 early.
 
-### S1.1 [ ] `chain.ts`, pure part 1: the types and the donor wiring
+### S1.1 [x] `chain.ts`, pure part 1: the types and the donor wiring
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** `frame()` for motion and the warp, with every light value passed through unlimited. The limiter is S1.2. No GL.
 - **Lane, box, deps:** A · 75 min · none.
