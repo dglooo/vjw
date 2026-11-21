@@ -453,7 +453,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates; `git diff --stat`. If K1 or K2 fails on the donor's own numbers: stop and report. S2.2's "picture unchanged" depends on them.
 - **Lead gate:** none.
 
-### S2.2 [ ] The first four light knobs, through the limiter
+### S2.2 [x] The first four light knobs, through the limiter
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** `bloomMul`, `aber`, `vignette`, `brightness` are inputs of every vs3 native, drawn from `frame()`'s limited values. At the defaults the picture does not change.
 - **Lane, box, deps:** A · 75 min · S1.2, S2.1.
