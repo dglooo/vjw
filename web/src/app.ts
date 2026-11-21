@@ -23,7 +23,7 @@ import { createDirector } from './director'
 import type { SceneId } from './doc'
 import { docs } from './edit'
 import { tiles } from './editor/tiles'
-import type { FrameInput } from './frame'
+import { heardAt, type FrameInput } from './frame'
 import { catalog, transitions } from './fx/catalog'
 import { gpuMs, render, scenes, setAudio, setDonorSpectrum, setOutput, setTransition, stage } from './gl/engine'
 import { builds, flashOnsets, live, panel, prepare, warm } from './gl/live'
@@ -133,10 +133,10 @@ function watchDpr() {
 }
 watchDpr()
 
-/** Audio-clock time of what the room hears now: a file through our speakers (audioNow); line-in live at capture, so the
- *  context's time plus the capture path's latency. Never the output's: a Bluetooth output misreports it, and it reads 0
- *  for the first ≈ 0.3 s (dsp_linein_2026-11-16 fix 4). */
-const heard = (t = audioNow()) => (store.getSnapshot().source?.kind === 'file' ? t : ctx.currentTime + inputLatency())
+/** Audio-clock time of what the room hears now (frame.ts heardAt): a file through our speakers (audioNow); line-in live at
+ *  capture, so the context's time plus the capture path's latency. Never the output's: a Bluetooth output misreports it,
+ *  and it reads 0 for the first ≈ 0.3 s (dsp_linein_2026-11-16 fix 4). */
+const heard = () => heardAt(store.getSnapshot().source?.kind === 'file', audioNow(), ctx.currentTime, inputLatency())
 
 let holdBefore = false // the hold when the panel or the editor opened (never both: the editor closes the panel)
 /** The panel holds the autopilot while open, so the edited scene stays; closing restores the hold from before (E6). */
@@ -415,7 +415,7 @@ function frame(now: number) {
   quietFor = frameRms <= SILENT_RMS ? quietFor + f.dt : 0
   const paused = quietFor >= PAUSE
   f.energy = energy.update(magDb, 1 / f.dt, paused) // first frame: dt 0 → fps ∞ → averages hold
-  f.audioNow = audioNow()
+  f.audioNow = heard() // the onsets' clock: a line-in onset's age runs from its capture, not from the output's lag
   f.onsets = drain(onsetQueue)
   f.lastOnset = f.onsets.at(-1) ?? f.lastOnset
   let kickThisFrame = false
@@ -472,7 +472,7 @@ function frame(now: number) {
     }
   }
   features.fill(src, f.dt, st, PRESETS[active])
-  const t = heard(f.audioNow)
+  const t = f.audioNow
   const { beat: b0, bpm: bpm0 } = f.sync // last frame's grid, before this frame's onsets correct it
   // paused: silent ODF, so the tempo's start settle (tempo.ts) arms on a line-in's noise floor too (its ODF is level-free)
   for (const b of odfQueue.splice(0)) tempo.pushOdf(paused ? b.values.fill(0) : b.values, b.t0, b.hop)
