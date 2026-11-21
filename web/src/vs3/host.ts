@@ -5,31 +5,32 @@
 // Lazy like native/model: three (the shared renderer, three/host.ts three()), the donor libs and the scene module load
 // on the first create(); hidden() until the scene's programs compiled. Per frame, in three/host.ts's guard: PAL ← the
 // scene's palette, s ← our sources (signal()), update + render into the layer's HalfFloat RT, with setRenderTarget(null)
-// and getDrawingBufferSize() meaning that RT (screen()). Then on our passes: the scene's own `bloom` field through our
-// gl/bloom.ts (the natives' internal bloom; strength as the donor engine.js:193, × the look's bloomMul) and the donor
-// finish (FinishShader: aberration, the look's brightness and its soft tone map, vignette) into the bound FB. The look
-// inputs (vs3/look.json) reach both through vs3/chain.ts frame()'s light limiter. Colour: a donor
-// ShaderMaterial writes display values (no colorspace chunk; PAL holds three's linear-converted hex, as in the donor),
-// so the finish is the only grade: no ACES, no sRGB (unlike native/model). The rest of the donor post chain is the
-// built-in's fx (scenes/builtin.ts VS3). Light on a hit only through ⚡ `hit` (flashGate ≤ 3/s, I-FL1): it is the
-// donor `kick` (drawn with the natives' rise slew, gl/post.ts heatStep: synapse's kick swell made 19 one-frame luma
-// steps > .10 in 15 s without it, 0 with it), its rise the donor `onKick`, the bloom's kick term and the finish's kick
-// aberration. A scene that reads onMid / onHigh gets a second ⚡ `mid` (look.mid): its rise is both. Analyser 'vs3': the
-// levels and specHi come from the vs3 core (audio/vs3.ts vs3Live), and gl/engine.ts's hear() binds ⚡ hit / mid to its
-// kick and onMid, so its light passes the same gate. The scene's panel rows (its `params`, `modes`) are the native's
+// and getDrawingBufferSize() meaning that RT (screen()). Then on our passes, vs3/chain.ts's chain: the warp (the donor
+// mirror and feedback, the scene's fxHint / fxWet), the scene's own `bloom` field through our gl/bloom.ts (the natives'
+// internal bloom; strength as the donor engine.js:193, × the look's bloomMul), then the donor finish (FinishShader:
+// aberration, the look's brightness and its soft tone map, vignette) into the bound FB. The look inputs (vs3/look.json:
+// the macros, the warp's knobs, the light) reach all of it through frame()'s light limiter; the built-ins carry no fx.
+// Colour: a donor ShaderMaterial writes display values (no colorspace chunk; PAL holds three's linear-converted hex, as
+// in the donor), so the finish is the only grade: no ACES, no sRGB (unlike native/model). Light on a hit only through
+// ⚡ `hit` (flashGate ≤ 3/s, I-FL1): it is the donor `kick` (drawn with the natives' rise slew, gl/post.ts heatStep:
+// synapse's kick swell made 19 one-frame luma steps > .10 in 15 s without it, 0 with it), its rise the donor `onKick`,
+// the bloom's kick term, the feedback's kick zoom and the finish's kick aberration. A scene that reads onMid / onHigh
+// gets a second ⚡ `mid` (look.mid): its rise is both. Analyser 'vs3': the levels and specHi come from the vs3 core
+// (audio/vs3.ts vs3Live), and gl/engine.ts's hear() binds ⚡ hit / mid to its kick and onMid, so its light passes the
+// same gate. The scene's panel rows (its `params`, `modes`) are the native's
 // inputs after the ⚡ ones, declared from vs3/params.json (host.test.ts writes it from the copied scenes) and written
 // back into the scene's params each frame (put()).
 import { vs3Live, type Vs3Out } from '../audio/vs3'
 import type { Sources } from '../bind'
 import type { Input, Value } from '../fx/types'
 import { createBloom } from '../gl/bloom'
-import { copy, engineFrame, fullscreenProgram, stage, gl as stageGl } from '../gl/engine'
+import { copy, engineFrame, fullscreenProgram, shotSize, stage, gl as stageGl } from '../gl/engine'
 import { glState, PASS_LIST, restore } from '../gl/glstate'
 import type { NativeDef } from '../gl/scene'
 import { ease, MORPH_S } from '../presets'
 import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
-import { chainState, clock, frame, reactTo, type LookValues, type SceneFacts } from './chain'
+import { chainState, clock, createChain, frame, reactTo, warmChain, type LookValues, type SceneFacts } from './chain'
 import LOOK from './look.json'
 import PARAMS from './params.json'
 
@@ -140,8 +141,9 @@ type Lib = Awaited<ReturnType<typeof open>>
 /** The donor scene's panel fields (research §1): flat 0..1 sliders, labels per mode ('*': any), their order, the modes.
  *  `panelRows` (ours, morphogen 2.0): the scene's own panel's sliders, from its stripped buildPanel. */
 interface Rows { params?: Record<string, unknown>; paramLabels?: Record<string, Record<string, string | null>>; paramOrder?: string[]; modes?: string[]; models?(): string[]; panelRows?: [key: string, min: number, max: number, label: string, group?: string][] }
-/** The donor scene as the host reads it (research §1). */
-interface Scene extends Rows { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null } }
+/** The donor scene as the host reads it (research §1). `fxHint`: signal sets it per mode, main stage's `steady`; `fxWet`:
+ *  limitless's tune dry / wet (engine.js:152-153). */
+interface Scene extends Rows { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null }; fxHint?: SceneFacts['hint']; fxWet?(): number }
 
 // The donor panel's slider order for a scene without paramOrder (original renderer/main.js:7523, addSceneRows).
 const ORDER = ['speed', 'shape', 'complexity', 'density', 'fill', 'tilt', 'open', 'morph', 'edge', 'contrast', 'growth', 'movement', 'curl', 'relief', 'pattern', 'form', 'rig', 'room', 'color', 'phase', 'formation', 'screen', 'colors', 'wall', 'chase', 'strips']
@@ -176,10 +178,12 @@ export function put(P: Record<string, unknown>, ps: readonly Input[], v: Readonl
  *  frame, shown as the original shows a dropped clip (its faithful path, main.js:2397): no grade, no resting bloom.
  *  `pointer`: the scene reads the stage's pointer (feed()); opt-in per native, the rest keep the dead stub. */
 export interface Look { palette: string; mid?: true; filter?: true; pointer?: true }
-/** The look inputs shipped so far (plan_vs3_engine S2.2), group `look`, after the scene's rows; the rest of look.json's
- *  keys draw at their defaults. bloomMul and brightness are never bound (design F3): light on the music only through ⚡. */
-const LOOK_KEYS = ['bloomMul', 'aber', 'vignette', 'brightness'] as const
+/** The look inputs shipped so far (plan_vs3_engine S2.2, S3.2), group `look`, after the scene's rows; the rest of
+ *  look.json's keys draw at their defaults. bloomMul and brightness are never bound (design F3): light on the music only
+ *  through ⚡. `mirror`: a select of the fold's segment count (the glide switches it at its midpoint, the fold fades). */
+const LOOK_KEYS = ['bloomMul', 'aber', 'vignette', 'brightness', 'mirror', 'tiles', 'twist', 'slice', 'spin', 'persist', 'zoom', 'trails', 'chaos', 'heat', 'react'] as const
 const UNBOUND: readonly string[] = ['bloomMul', 'brightness']
+const FOLDS = Array.from({ length: LOOK.ranges.mirror[1] + 1 }, (_, i) => i) // 0..12
 const ROWS = LOOK.scenes as Record<string, Partial<LookValues> | undefined>
 /** The node's look values into `out`, each frame. A non-finite one (a bound source gone bad) keeps the last value: the
  *  light limiter would hold a NaN until a reset. */
@@ -191,8 +195,9 @@ export function putLook(out: LookValues, v: Readonly<Record<string, Value>>) {
  *  the `palette` select of every vs3 native, its default the look's. Static, as the panel reads it before the load. */
 export const PALETTES = ['nocturne', 'ember', 'glacial', 'orchid', 'moss', 'sodium', 'pearl', 'cobalt', 'reef', 'vapor', 'oxide', 'aurora', 'velvet', 'acid', 'neon', 'mirage', 'canyon', 'adobe', 'sage', 'umber', 'prism', 'carnival', 'candy', 'tropic']
 
-/** One scene's frame loop on its own RT; resolves once its programs compiled (rule 5: no compile on a visible frame). */
-async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, ps: readonly Input[], d: LookValues, name: string) {
+/** One scene's frame loop on its own RT; resolves once its programs and the warp compiled (rule 5: no compile on a
+ *  visible frame), with the chain's targets at `size`, the draw size (C12: no visible frame allocates them). */
+async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, ps: readonly Input[], d: LookValues, name: string, size: readonly [number, number]) {
   const { R, guard, texture } = L
   const colors = (i: number) => L.PRESETS[i].colors.map((c) => new L.Color(c))
   // the five shown and a crossfade's two ends; palIx -1: nothing drawn yet, so the first palette lands at once
@@ -208,9 +213,10 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
     bloom: sc.bloom, filter: !!look.filter, bloomRow: d.bloomMul, gainBase: LOOK.base.brightness, vigRange: LOOK.ranges.vignette[1] - LOOK.ranges.vignette[0],
     lateTrails: (LOOK.lateTrails as Record<string, number | undefined>)[name] ?? 0, wet: 1, grain: 0, hint: null,
   }
-  await guard('compileAsync', () => (R.setRenderTarget(rt), R.compileAsync(sc.scene, sc.camera)))
+  await Promise.all([guard('compileAsync', () => (R.setRenderTarget(rt), R.compileAsync(sc.scene, sc.camera))), warmChain()])
   finish ??= fullscreenProgram(FINISH)
   const bloom = createBloom(gl, 8, 0.3) // the donor's threshold (luma .3); 8 levels reach its widest mip's ≈ 350 px
+  const chain = createChain(gl, ...size)
   return {
     draw(f: { width: number; height: number; dt: number; time: number }, vals: Readonly<Record<string, Value>>, src: Readonly<Sources>, input: WebGLTexture | null) {
       const hit = vals.hit as number, mid = (vals.mid as number | undefined) ?? 0
@@ -240,6 +246,8 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
       if (sc.source) sc.source.sourceTexture = input // a filter's picture: the previous layer
       const v = vs3Live.s // analyser 'vs3': the core's levels and spectrum
       signal(src, hit, prev, s, mid, prevMid, v)
+      facts.hint = sc.fxHint ?? null // as the last update() left them: frame() runs before update(), whose signal it reacts
+      facts.wet = sc.fxWet?.() ?? 1
       const cf = frame(values, facts, s, hit, st, pal[2].toArray(mid3), f.dt, dtl, f.time, f.width / f.height) // pal[2]: SLOTS' mid
       reactTo(s, cf) // the kick as drawn (I-FL1: the limiter's slew) and the levels × react; onKick stays on the raw rise
       prev = hit
@@ -258,10 +266,10 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
         })
       }, L.RENDER_LIST) // restores the engine's target and viewport
       const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null, keep = glState(gl, PASS_LIST) // GPU3D I-GL2
-      // cf.bloom: the donor's glow 9 k², limited (three r170 UnrealBloomPass: its composite is k × Σ factors (3 at radius
-      // .4) × blur, alpha 3k too, and the additive blend is SRC_ALPHA, ONE on a half-float target, so the colour lands × 3k
-      // unclamped); 0 skips the pass
-      const lit = cf.bloom > 0 ? bloom.apply(texture(rt), f.width, f.height, cf.bloom) : texture(rt) // binds its own targets
+      // the warp (cf.mirror, cf.feedback), then the bloom at cf.bloom: the donor's glow 9 k², limited (three r170
+      // UnrealBloomPass: its composite is k × Σ factors (3 at radius .4) × blur, alpha 3k too, and the additive blend is
+      // SRC_ALPHA, ONE on a half-float target, so the colour lands × 3k unclamped); a pass that is off is skipped
+      const lit = chain.apply(texture(rt), f.width, f.height, cf, bloom) // binds its own targets
       gl.bindFramebuffer(gl.FRAMEBUFFER, out)
       gl.viewport(0, 0, f.width, f.height)
       finish!({ uSrc: lit, uRes: [f.width, f.height], ...cf.finish, uFaithful: look.filter ? 1 : 0 }) // uGrain: no uniform until S6.1
@@ -274,6 +282,7 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
         sc.scene.traverse((o) => (o.geometry?.dispose(), o.material?.dispose()))
       })
       bloom.dispose()
+      chain.dispose()
     },
   }
 }
@@ -291,15 +300,18 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
     // strobe the whole picture) and crossfaded here (`fade`); the rows: plain sliders, never auto-bound; then the look
     inputs: [
       ...flash.map((n): Input => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), { name: 'palette', type: 'long', values: PALETTES.map((_, i) => i), labels: PALETTES, default: PALETTES.indexOf(look.palette), bindable: false, fade: true }, ...ps,
-      ...LOOK_KEYS.map((k): Input => ({ name: k, type: 'float', group: 'look', default: d[k], min: LOOK.ranges[k][0], max: LOOK.ranges[k][1], ...(UNBOUND.includes(k) && { bindable: false as const }) })),
+      ...LOOK_KEYS.map((k): Input => k === 'mirror'
+        ? { name: k, type: 'long', group: 'look', values: FOLDS, labels: FOLDS.map(String), default: d[k] }
+        : { name: k, type: 'float', group: 'look', default: d[k], min: LOOK.ranges[k][0], max: LOOK.ranges[k][1], ...(UNBOUND.includes(k) && { bindable: false as const }) }),
     ],
     flash,
     load,
-    warm: () => ready(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden
-    create(gl) {
+    warm: () => Promise.all([ready(stageGl), warmChain()]).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden
+    create(gl, size) {
       if (look.pointer) feed()
       let run: Awaited<ReturnType<typeof start>> | null = null, gone = false
-      ready(gl).then(([L, m]) => start(gl, L, m.default(), look, ps, d, name)).then((r) => (gone ? r.dispose() : (run = r)), (e: unknown) => console.error(`native/vs3-${name}: the load failed`, e))
+      // the tile's size, else the stage's (C12); a layer at res ≠ 1 re-fits on its first draw, as three's RT and the bloom
+      ready(gl).then(([L, m]) => start(gl, L, m.default(), look, ps, d, name, size ?? shotSize())).then((r) => (gone ? r.dispose() : (run = r)), (e: unknown) => console.error(`native/vs3-${name}: the load failed`, e))
       return {
         hidden: () => !run,
         draw(f, v, input, s) {

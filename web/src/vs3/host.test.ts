@@ -1,14 +1,24 @@
 // vs3/host.ts's logic: the donor `s` from our sources, the screen redirect, the scenes' panel rows as inputs and back.
-// No GL: the engine is mocked.
+// No GL: the engine and three's renderer are mocked.
 import { expect, test, vi } from 'vitest'
 import { defaults } from '../doc'
 import type { Input } from '../fx/types'
-import type { LookValues } from './chain'
+import { BUILTIN } from '../scenes/builtin'
+import { chainState, frame, type LookValues } from './chain'
 import { FINISH, PALETTES, paramInputs, put, putLook, screen, signal, specHi, VS3, type Signal } from './host'
 import look from './look.json'
 
 const fsId = 'node:fs' // the app tsconfig has no node types (serpent.test.ts T-F2d)
-vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, gl: {} })) // takes the page's canvas + WebGL at import
+const T = vi.hoisted(() => ({ fits: [] as (readonly number[])[] })) // C12c: every engine target's fit() size
+vi.mock('../gl/engine', () => ({ // it takes the page's canvas + WebGL at import
+  fullscreenProgram: () => () => {}, gl: {}, shotSize: () => [640, 360], programAsync: async () => {},
+  renderTarget: () => ({ framebuffer: {}, attachments: [{}], fit: (w: number, h: number) => void T.fits.push([w, h]) }),
+}))
+vi.mock('../three/host', () => ({ // C12c: start() without three's renderer
+  three: () => ({ R: { setRenderTarget() {}, compileAsync: async () => {} }, guard: (_: string, f: () => unknown) => f(), texture: () => null }),
+  fit: () => ({ dispose() {} }), RENDER_LIST: [],
+}))
+const canvas = { getContext: () => new Proxy({}, { get: () => () => ({ addColorStop() {}, data: new Uint8ClampedArray(4) }) }) } // the scenes' sprite canvases (gradients, image data)
 
 test('signal: levels from the donor-mode bands, kick = hit, onKick on its rise × kickAccent, onMid = onHigh on the rise of mid', () => {
   const src = { syn_BassLevel: 0.6, syn_MidLevel: 0.5, syn_MidHighLevel: 0.4, syn_HighLevel: 0.3, syn_Level: 0.7, kickAccent: 0.8 }
@@ -96,13 +106,35 @@ test('put: the values into the params, mode back to its name, a mode index out o
   expect(P).toEqual({ mode: 'cross', fill: 0.1, own: 1 })
 })
 
-test("V1 look inputs: every vs3 native ends with bloomMul, aber, vignette, brightness in group look, base + its row as defaults (K1), look.json's ranges; bloomMul and brightness never bound", () => {
-  const ranges = look.ranges as Record<string, number[]>, rows = look.scenes as Record<string, object | undefined>
+test("V3 look inputs: every vs3 native ends with the 15 shipped look keys in group look, base + its row as defaults (K1), look.json's ranges; mirror a long 0..12; the 4 macros bindable floats 0..1 at .5 (R1); bloomMul and brightness never bound", () => {
+  const ranges = look.ranges as Record<string, number[]>, rows = look.scenes as Record<string, object | undefined>, folds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  const keys = ['bloomMul', 'aber', 'vignette', 'brightness', 'mirror', 'tiles', 'twist', 'slice', 'spin', 'persist', 'zoom', 'trails', 'chaos', 'heat', 'react']
   for (const d of VS3) {
     const want: Record<string, number> = { ...look.base, ...rows[d.id.slice(11)] }
-    expect(d.inputs.slice(-4), d.id).toEqual(['bloomMul', 'aber', 'vignette', 'brightness'].map((k) => ({
-      name: k, type: 'float', group: 'look', default: want[k], min: ranges[k][0], max: ranges[k][1], ...(k === 'bloomMul' || k === 'brightness' ? { bindable: false } : {}),
-    })))
+    expect(d.inputs.filter((i) => i.group === 'look'), d.id).toHaveLength(15)
+    expect(d.inputs.slice(-15), d.id).toEqual(keys.map((k) => k === 'mirror'
+      ? { name: k, type: 'long', group: 'look', values: folds, labels: folds.map(String), default: want[k] }
+      : { name: k, type: 'float', group: 'look', default: want[k], min: ranges[k][0], max: ranges[k][1], ...(k === 'bloomMul' || k === 'brightness' ? { bindable: false } : {}) }))
+    for (const k of ['react', 'chaos', 'trails', 'heat']) expect(d.inputs.find((i) => i.name === k), `${d.id} ${k}`).toEqual({ name: k, type: 'float', group: 'look', default: 0.5, min: 0, max: 1 }) // no bindable: false
+  }
+})
+
+test('V4 built-ins: no vs3 built-in doc carries isf/Mirror, isf/Kaleidoscope or own/feedback-zoom; its only fx is a vs3 filter (Limitless)', () => {
+  const docs = BUILTIN.filter((d) => d.id.startsWith('builtin:vs3-')), legacy = ['isf/Mirror', 'isf/Kaleidoscope', 'own/feedback-zoom']
+  expect(docs).toHaveLength(VS3.length)
+  for (const d of docs) for (const l of d.layers) {
+    expect([l.gen, ...l.fx].filter((n) => legacy.includes(n.ref)), d.id).toEqual([])
+    expect(l.fx.filter((n) => !n.ref.startsWith('native/vs3-')), d.id).toEqual([])
+  }
+})
+
+test('V5 rows without trails: at the defaults of crystal, pearl, spiral and descent frame() gives feedback false (ink, the control: true)', () => {
+  const s: Signal = { onKick: 0, kick: 0, onMid: 0, onHigh: 0, sub: 0.3, mids: 0.4, highs: 0.2, air: 0.1, energy: 0.5, specHi: new Float32Array(192) }
+  const late = look.lateTrails as Record<string, number | undefined>
+  for (const [name, on] of [['crystal', false], ['pearl', false], ['spiral', false], ['descent', false], ['ink', true]] as const) {
+    const v = putLook({ ...look.base } as LookValues, defaults(VS3.find((d) => d.id === `native/vs3-${name}`)!)) // its look inputs at their defaults
+    const facts = { hint: null, wet: 1, grain: 0, lateTrails: late[name] ?? 0, filter: false, bloomRow: v.bloomMul, gainBase: look.base.brightness, vigRange: 0.8 }
+    expect(frame(v, facts, s, 0, chainState(), [0.5, 0.5, 0.5], 1 / 60, 1 / 60, 0, 16 / 9).feedback, name).toBe(on)
   }
 })
 
@@ -120,7 +152,6 @@ test('putLook: the look values in; a non-finite one (a bound source gone bad) ke
 })
 
 test('params.json = every registered scene\'s rows (regenerate: npx vitest run -u); untouched inputs leave its params as they were', async () => {
-  const canvas = { getContext: () => new Proxy({}, { get: () => () => ({ addColorStop() {}, data: new Uint8ClampedArray(4) }) }) } // the scenes' sprite canvases (gradients, image data)
   vi.stubGlobal('document', { createElement: () => canvas })
   const rows: Record<string, Input[]> = {}
   for (const d of VS3) {
@@ -133,6 +164,19 @@ test('params.json = every registered scene\'s rows (regenerate: npx vitest run -
   expect(Object.values(rows).flat().length).toBeGreaterThan(200)
   const json = `{\n${Object.entries(rows).map(([k, v]) => `${JSON.stringify(k)}: [${v.map((i) => `\n  ${JSON.stringify(i)}`).join(',')}\n]`).join(',\n')}\n}\n`
   await expect(json).toMatchFileSnapshot('./params.json')
+})
+
+test("C12c size: create(gl, size) hands the tile's size to the chain's three targets at create; without a size it hands shotSize()", async () => {
+  vi.stubGlobal('document', { createElement: () => canvas })
+  const gl = { deleteFramebuffer() {}, deleteTexture() {} } as unknown as WebGL2RenderingContext // dispose()'s calls
+  for (const [size, want] of [[[300, 200], [300, 200]], [undefined, [640, 360]]] as const) {
+    T.fits.length = 0
+    const n = VS3[0].create(gl, size)
+    await vi.waitFor(() => expect(n.hidden!()).toBe(false), { timeout: 10_000 }) // start() resolved
+    expect(T.fits, String(size)).toEqual([want, want, want]) // hist[0], hist[1], lensRT (the bloom fits on its first apply)
+    n.dispose!()
+  }
+  vi.unstubAllGlobals()
 })
 
 test('loadScan (limitless 3d): one fetch and decode per scan, every pick its own Group, mesh, geometry and material', async () => {
