@@ -6,8 +6,9 @@
 // on the first create(); hidden() until the scene's programs compiled. Per frame, in three/host.ts's guard: PAL ← the
 // scene's palette, s ← our sources (signal()), update + render into the layer's HalfFloat RT, with setRenderTarget(null)
 // and getDrawingBufferSize() meaning that RT (screen()). Then on our passes: the scene's own `bloom` field through our
-// gl/bloom.ts (the natives' internal bloom; strength as the donor engine.js:193, × FX_DEFAULTS bloomMul) and the donor
-// finish (FinishShader: aberration, BRIGHTNESS 1.4 and its soft tone map, vignette) into the bound FB. Colour: a donor
+// gl/bloom.ts (the natives' internal bloom; strength as the donor engine.js:193, × the look's bloomMul) and the donor
+// finish (FinishShader: aberration, the look's brightness and its soft tone map, vignette) into the bound FB. The look
+// inputs (vs3/look.json) reach both through vs3/chain.ts frame()'s light limiter. Colour: a donor
 // ShaderMaterial writes display values (no colorspace chunk; PAL holds three's linear-converted hex, as in the donor),
 // so the finish is the only grade: no ACES, no sRGB (unlike native/model). The rest of the donor post chain is the
 // built-in's fx (scenes/builtin.ts VS3). Light on a hit only through ⚡ `hit` (flashGate ≤ 3/s, I-FL1): it is the
@@ -22,13 +23,14 @@ import { vs3Live, type Vs3Out } from '../audio/vs3'
 import type { Sources } from '../bind'
 import type { Input, Value } from '../fx/types'
 import { createBloom } from '../gl/bloom'
-import { copy, fullscreenProgram, stage, gl as stageGl } from '../gl/engine'
+import { copy, engineFrame, fullscreenProgram, stage, gl as stageGl } from '../gl/engine'
 import { glState, PASS_LIST, restore } from '../gl/glstate'
-import { heatStep } from '../gl/post'
 import type { NativeDef } from '../gl/scene'
 import { ease, MORPH_S } from '../presets'
 import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
+import { chainState, clock, frame, reactTo, type LookValues, type SceneFacts } from './chain'
+import LOOK from './look.json'
 import PARAMS from './params.json'
 
 /** The donor `s` fields the ported scenes read (research §1). Add a field when a ported scene reads it (guide § Signal). */
@@ -88,15 +90,15 @@ export function screen<T>(R: Screen, rt: { width: number; height: number }, made
   }
 }
 
-const FINISH = `#version 300 es
+export const FINISH = `#version 300 es
 precision highp float;
 uniform sampler2D uSrc;
 uniform vec2 uRes;
-uniform float uAber, uVig, uFaithful;
+uniform float uAber, uVig, uFaithful, uGain;
 out vec4 outColor;
 void main() { // donor engine/post-shaders.js FinishShader, the grain and the watermark left out
   vec2 uv = gl_FragCoord.xy / uRes, d = uv - 0.5, off = d * uAber * 0.003;
-  vec3 raw = vec3(texture(uSrc, uv + off).r, texture(uSrc, uv).g, texture(uSrc, uv - off).b), col = raw * 1.4; // BRIGHTNESS 1.4
+  vec3 raw = vec3(texture(uSrc, uv + off).r, texture(uSrc, uv).g, texture(uSrc, uv - off).b), col = raw * uGain; // BRIGHTNESS: the look's brightness, limited
   col /= 1.0 + dot(col, vec3(0.2126, 0.7152, 0.0722)) * 0.9; // the soft tone map: no palette whites out
   col = mix(col, max(raw, 0.0), uFaithful); // a filter's picture skips the grade (original main.js:2130, uGainF 1)
   outColor = vec4(col * (1.0 - uVig * dot(d, d) * 2.4), 1.0);
@@ -169,26 +171,43 @@ export function put(P: Record<string, unknown>, ps: readonly Input[], v: Readonl
   for (const i of ps) P[i.name] = i.type === 'long' ? (i.labels![v[i.name] as number] ?? P[i.name]) : v[i.name]
 }
 
-/** FX_DEFAULTS' bloomMul and finish keys (original renderer/main.js:167+), SCENE_PALETTE (main.js:7780; else nocturne).
+/** SCENE_PALETTE (original renderer/main.js:7780; else nocturne); the FX_DEFAULTS rows (main.js:167+) are look.json's.
  *  `filter` (limitless): a filter native; the scene's `source` (a three ExternalTexture) gets the previous layer each
  *  frame, shown as the original shows a dropped clip (its faithful path, main.js:2397): no grade, no resting bloom.
  *  `pointer`: the scene reads the stage's pointer (feed()); opt-in per native, the rest keep the dead stub. */
-export interface Look { palette: string; bloomMul: number; aber: number; vignette: number; mid?: true; filter?: true; pointer?: true }
+export interface Look { palette: string; mid?: true; filter?: true; pointer?: true }
+/** The look inputs shipped so far (plan_vs3_engine S2.2), group `look`, after the scene's rows; the rest of look.json's
+ *  keys draw at their defaults. bloomMul and brightness are never bound (design F3): light on the music only through ⚡. */
+const LOOK_KEYS = ['bloomMul', 'aber', 'vignette', 'brightness'] as const
+const UNBOUND: readonly string[] = ['bloomMul', 'brightness']
+const ROWS = LOOK.scenes as Record<string, Partial<LookValues> | undefined>
+/** The node's look values into `out`, each frame. A non-finite one (a bound source gone bad) keeps the last value: the
+ *  light limiter would hold a NaN until a reset. */
+export function putLook(out: LookValues, v: Readonly<Record<string, Value>>) {
+  for (const k of LOOK_KEYS) if (Number.isFinite(v[k])) out[k] = v[k] as number
+  return out
+}
 /** The donor palettes by index, as kit/lib/palette.js PRESETS (append-only there; host.test.ts checks the two agree):
  *  the `palette` select of every vs3 native, its default the look's. Static, as the panel reads it before the load. */
 export const PALETTES = ['nocturne', 'ember', 'glacial', 'orchid', 'moss', 'sodium', 'pearl', 'cobalt', 'reef', 'vapor', 'oxide', 'aurora', 'velvet', 'acid', 'neon', 'mirage', 'canyon', 'adobe', 'sage', 'umber', 'prism', 'carnival', 'candy', 'tropic']
 
 /** One scene's frame loop on its own RT; resolves once its programs compiled (rule 5: no compile on a visible frame). */
-async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, ps: readonly Input[]) {
+async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, ps: readonly Input[], d: LookValues, name: string) {
   const { R, guard, texture } = L
   const colors = (i: number) => L.PRESETS[i].colors.map((c) => new L.Color(c))
   // the five shown and a crossfade's two ends; palIx -1: nothing drawn yet, so the first palette lands at once
   const pal = colors(PALETTES.indexOf(look.palette)), from = colors(0), to = colors(0)
-  let palIx = -1, palK = 1, seen = -Infinity
+  let palIx = -1, palK = 1, seen = -Infinity, drawn = -Infinity
   const made = new Set<{ dispose(): void }>()
   const s = { specHi: new Float32Array(192) } as Signal
   const P = sc.params ?? {}
-  let rt = L.fit(null, 16, 16, 1), prev = 0, prevMid = 0, hot = 0, w = 0, h = 0
+  let rt = L.fit(null, 16, 16, 1), prev = 0, prevMid = 0, w = 0, h = 0
+  // the chain (vs3/chain.ts): its state, the look's values (look.json's defaults under the node's), the scene's facts
+  const st = chainState(), values = { ...d }, mid3 = [0, 0, 0]
+  const facts: SceneFacts = {
+    bloom: sc.bloom, filter: !!look.filter, bloomRow: d.bloomMul, gainBase: LOOK.base.brightness, vigRange: LOOK.ranges.vignette[1] - LOOK.ranges.vignette[0],
+    lateTrails: (LOOK.lateTrails as Record<string, number | undefined>)[name] ?? 0, wet: 1, grain: 0, hint: null,
+  }
   await guard('compileAsync', () => (R.setRenderTarget(rt), R.compileAsync(sc.scene, sc.camera)))
   finish ??= fullscreenProgram(FINISH)
   const bloom = createBloom(gl, 8, 0.3) // the donor's threshold (luma .3); 8 levels reach its widest mip's ≈ 350 px
@@ -196,7 +215,11 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
     draw(f: { width: number; height: number; dt: number; time: number }, vals: Readonly<Record<string, Value>>, src: Readonly<Sources>, input: WebGLTexture | null) {
       const hit = vals.hit as number, mid = (vals.mid as number | undefined) ?? 0
       put(P, ps, vals)
+      putLook(values, vals)
       const pi = vals.palette as number, now = performance.now()
+      const { dtl, reset } = clock(now, seen, engineFrame(), drawn) // the light's real seconds; not drawn last frame: snap (N2)
+      drawn = engineFrame()
+      if (reset) st.reset = true
       if (pi !== palIx && L.PRESETS[pi]) {
         // the select (a preset) switched it: a crossfade from the colours on screen over the preset glide's time (the
         // donor's PaletteEngine), at once on the first draw or back on stage. ponytail: on the layer's clock, so a
@@ -217,7 +240,8 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
       if (sc.source) sc.source.sourceTexture = input // a filter's picture: the previous layer
       const v = vs3Live.s // analyser 'vs3': the core's levels and spectrum
       signal(src, hit, prev, s, mid, prevMid, v)
-      s.kick = hot = heatStep(hot, hit, f.dt) // the kick as drawn (I-FL1); onKick stays on the raw rise
+      const cf = frame(values, facts, s, hit, st, pal[2].toArray(mid3), f.dt, dtl, f.time, f.width / f.height) // pal[2]: SLOTS' mid
+      reactTo(s, cf) // the kick as drawn (I-FL1: the limiter's slew) and the levels × react; onKick stays on the raw rise
       prev = hit
       prevMid = mid
       if (v) s.specHi.set(v.specHi)
@@ -234,13 +258,13 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
         })
       }, L.RENDER_LIST) // restores the engine's target and viewport
       const out = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null, keep = glState(gl, PASS_LIST) // GPU3D I-GL2
-      const b = sc.bloom, k = b ? ((look.filter ? 0 : b.strength) + s.energy * b.gain + hot * (b.kick ?? 0.35)) * look.bloomMul : 0 // a filter: no resting glow (main.js:15700)
-      // The donor's glow is 9 k² (three r170 UnrealBloomPass: its composite is k × Σ factors (3 at radius .4) × blur, alpha
-      // 3k too, and the additive blend is SRC_ALPHA, ONE on a half-float target, so the colour lands × 3k unclamped)
-      const lit = k > 0 ? bloom.apply(texture(rt), f.width, f.height, 9 * k * k) : texture(rt) // binds its own targets
+      // cf.bloom: the donor's glow 9 k², limited (three r170 UnrealBloomPass: its composite is k × Σ factors (3 at radius
+      // .4) × blur, alpha 3k too, and the additive blend is SRC_ALPHA, ONE on a half-float target, so the colour lands × 3k
+      // unclamped); 0 skips the pass
+      const lit = cf.bloom > 0 ? bloom.apply(texture(rt), f.width, f.height, cf.bloom) : texture(rt) // binds its own targets
       gl.bindFramebuffer(gl.FRAMEBUFFER, out)
       gl.viewport(0, 0, f.width, f.height)
-      finish!({ uSrc: lit, uRes: [f.width, f.height], uAber: look.aber * (0.22 + hot), uVig: look.vignette, uFaithful: look.filter ? 1 : 0 })
+      finish!({ uSrc: lit, uRes: [f.width, f.height], ...cf.finish, uFaithful: look.filter ? 1 : 0 }) // uGrain: no uniform until S6.1
       restore(gl, keep)
     },
     dispose() {
@@ -255,23 +279,27 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
 }
 
 /** The native of one copied scene: `load` imports its file (host.test.ts reads every scene's rows through it), `look`
- *  its engine keys (FX_DEFAULTS, SCENE_PALETTE). */
+ *  its SCENE_PALETTE and flags; its FX_DEFAULTS row is look.json's. */
 export function vs3(name: string, load: () => Promise<{ default: () => Scene }>, look: Look): NativeDef & { load: typeof load } {
   const ready = (gl: WebGL2RenderingContext) => Promise.all([(libs ??= open(gl)), load()])
   const flash = look.mid ? ['hit', 'mid'] : ['hit']
   const ps = (PARAMS as Record<string, Input[] | undefined>)[name] ?? [] // its panel rows, static: bindings and the panel read them before the lazy load
+  const d: LookValues = { ...LOOK.base, ...ROWS[name] } // its look's defaults: the donor's base under the scene's FX_DEFAULTS row
   return {
     id: `native/vs3-${name}`, name: `vs3 ${name}`, kind: look.filter ? 'filter' : 'generator', credit: "vs3: the friends' three.js engine, used with permission; three.js r187 (MIT)",
     // ⚡ the donor kick (+ onMid / onHigh): all a hit lights through; the palette, never bound (a swap per beat would
-    // strobe the whole picture) and crossfaded here (`fade`); the rows: plain sliders, never auto-bound
-    inputs: [...flash.map((n): Input => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), { name: 'palette', type: 'long', values: PALETTES.map((_, i) => i), labels: PALETTES, default: PALETTES.indexOf(look.palette), bindable: false, fade: true }, ...ps],
+    // strobe the whole picture) and crossfaded here (`fade`); the rows: plain sliders, never auto-bound; then the look
+    inputs: [
+      ...flash.map((n): Input => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), { name: 'palette', type: 'long', values: PALETTES.map((_, i) => i), labels: PALETTES, default: PALETTES.indexOf(look.palette), bindable: false, fade: true }, ...ps,
+      ...LOOK_KEYS.map((k): Input => ({ name: k, type: 'float', group: 'look', default: d[k], min: LOOK.ranges[k][0], max: LOOK.ranges[k][1], ...(UNBOUND.includes(k) && { bindable: false as const }) })),
+    ],
     flash,
     load,
     warm: () => ready(stageGl).then(() => {}, () => {}), // Start waits for it; a failed load leaves the layer hidden
     create(gl) {
       if (look.pointer) feed()
       let run: Awaited<ReturnType<typeof start>> | null = null, gone = false
-      ready(gl).then(([L, m]) => start(gl, L, m.default(), look, ps)).then((r) => (gone ? r.dispose() : (run = r)), (e: unknown) => console.error(`native/vs3-${name}: the load failed`, e))
+      ready(gl).then(([L, m]) => start(gl, L, m.default(), look, ps, d, name)).then((r) => (gone ? r.dispose() : (run = r)), (e: unknown) => console.error(`native/vs3-${name}: the load failed`, e))
       return {
         hidden: () => !run,
         draw(f, v, input, s) {
@@ -287,49 +315,47 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
   }
 }
 
-// The ported scenes (guide § Register): one line each. Looks from the original main.js FX_DEFAULTS rows 168, 178, 213;
-// 169 (mandala), 268 (tendril), 179 (citadel), 228 (descent),
-// 191 (oracle), 187 (idol), 208 (spacetime), 200 (ingot), 204 (gate), 171 (synapse),
-// 194 (anemone); from batch 3 on: the scene's row, or the donor's BASE_POST 1, 1, .34 when it has none.
+// The ported scenes (guide § Register): one line each. Their looks (the original main.js FX_DEFAULTS row, or the
+// donor's BASE_POST when a scene has none) are vs3/look.json's, written by scripts/vs3-presets.mjs.
 export const VS3: readonly ReturnType<typeof vs3>[] = [
-  vs3('ink', () => import('./kit/scenes/ink.js'), { palette: 'nocturne', bloomMul: 1.85, aber: 4, vignette: 0 }),
-  vs3('relic', () => import('./kit/scenes/relic.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.4, vignette: 0.5 }),
-  vs3('morphogen', () => import('./kit/scenes/morphogen.js'), { palette: 'pearl', bloomMul: 1, aber: 1, vignette: 0.25 }),
-  vs3('mandala', () => import('./kit/scenes/kaleido.js'), { palette: 'nocturne', bloomMul: 2.5, aber: 1.6, vignette: 0.8 }),
-  vs3('tendril', () => import('./kit/scenes/tendril.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 0.8, vignette: 0.35 }),
-  vs3('citadel', () => import('./kit/scenes/citadel.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.4, vignette: 0.45 }),
-  vs3('descent', () => import('./kit/scenes/descent.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 0.5, vignette: 0.3 }),
-  vs3('oracle', () => import('./kit/scenes/oracle.js'), { palette: 'nocturne', bloomMul: 1.4, aber: 1.4, vignette: 0.55 }),
-  vs3('idol', () => import('./kit/scenes/idol.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 1.6, vignette: 0.5 }),
-  vs3('spacetime', () => import('./kit/scenes/spacetime.js'), { palette: 'nocturne', bloomMul: 1.6, aber: 2.2, vignette: 0.4 }),
-  vs3('ingot', () => import('./kit/scenes/ingot.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.45 }),
-  vs3('gate', () => import('./kit/scenes/gate.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.55 }),
-  vs3('synapse', () => import('./kit/scenes/synapse.js'), { palette: 'nocturne', bloomMul: 1.7, aber: 1.5, vignette: 0.3, mid: true }),
-  vs3('anemone', () => import('./kit/scenes/anemone.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 2.4, vignette: 0.45 }), // no `mid`: its onHigh is a sparkle, not worth the kicks the snare takes from the flash budget
-  vs3('aurora', () => import('./kit/scenes/aurora.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
-  vs3('blob', () => import('./kit/scenes/blob.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
-  vs3('echo', () => import('./kit/scenes/echo.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34, mid: true }),
-  vs3('flow', () => import('./kit/scenes/flow.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
-  vs3('fract', () => import('./kit/scenes/fract.js'), { palette: 'nocturne', bloomMul: 1, aber: 1, vignette: 0.34 }),
-  vs3('signal', () => import('./kit/scenes/signal.js'), { palette: 'nocturne', bloomMul: 0.9, aber: 0.6, vignette: 0.12 }),
-  vs3('sand', () => import('./kit/scenes/sand.js'), { palette: 'nocturne', bloomMul: 1.5, aber: 1.2, vignette: 0.35 }),
-  vs3('chorus', () => import('./kit/scenes/chorus.js'), { palette: 'sodium', bloomMul: 1.2, aber: 1.2, vignette: 0.5 }), // its thumb's amber: the factory preset ★ chorus — choir (main.js:9826)
-  vs3('chorus-hall', () => import('./kit/scenes/chorus.js'), { palette: 'sodium', bloomMul: 1.2, aber: 1.2, vignette: 0.5, pointer: true }), // chorus with the stage pointer (user 2026-11-20: an additional scene, chorus untouched)
-  vs3('visage', () => import('./kit/scenes/visage.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 1.4, vignette: 0.5, pointer: true }), // its eyes follow the cursor (eyeFollow, user 2026-11-21)
-  vs3('limitless3d', () => import('./kit/scenes/limitless3d.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.35 }),
-  vs3('lasers', () => import('./kit/scenes/lasers.js'), { palette: 'vapor', bloomMul: 1, aber: 0, vignette: 0.2 }),
+  vs3('ink', () => import('./kit/scenes/ink.js'), { palette: 'nocturne' }),
+  vs3('relic', () => import('./kit/scenes/relic.js'), { palette: 'nocturne' }),
+  vs3('morphogen', () => import('./kit/scenes/morphogen.js'), { palette: 'pearl' }),
+  vs3('mandala', () => import('./kit/scenes/kaleido.js'), { palette: 'nocturne' }),
+  vs3('tendril', () => import('./kit/scenes/tendril.js'), { palette: 'nocturne' }),
+  vs3('citadel', () => import('./kit/scenes/citadel.js'), { palette: 'nocturne' }),
+  vs3('descent', () => import('./kit/scenes/descent.js'), { palette: 'nocturne' }),
+  vs3('oracle', () => import('./kit/scenes/oracle.js'), { palette: 'nocturne' }),
+  vs3('idol', () => import('./kit/scenes/idol.js'), { palette: 'nocturne' }),
+  vs3('spacetime', () => import('./kit/scenes/spacetime.js'), { palette: 'nocturne' }),
+  vs3('ingot', () => import('./kit/scenes/ingot.js'), { palette: 'nocturne' }),
+  vs3('gate', () => import('./kit/scenes/gate.js'), { palette: 'nocturne' }),
+  vs3('synapse', () => import('./kit/scenes/synapse.js'), { palette: 'nocturne', mid: true }),
+  vs3('anemone', () => import('./kit/scenes/anemone.js'), { palette: 'nocturne' }), // no `mid`: its onHigh is a sparkle, not worth the kicks the snare takes from the flash budget
+  vs3('aurora', () => import('./kit/scenes/aurora.js'), { palette: 'nocturne' }),
+  vs3('blob', () => import('./kit/scenes/blob.js'), { palette: 'nocturne' }),
+  vs3('echo', () => import('./kit/scenes/echo.js'), { palette: 'nocturne', mid: true }),
+  vs3('flow', () => import('./kit/scenes/flow.js'), { palette: 'nocturne' }),
+  vs3('fract', () => import('./kit/scenes/fract.js'), { palette: 'nocturne' }),
+  vs3('signal', () => import('./kit/scenes/signal.js'), { palette: 'nocturne' }),
+  vs3('sand', () => import('./kit/scenes/sand.js'), { palette: 'nocturne' }),
+  vs3('chorus', () => import('./kit/scenes/chorus.js'), { palette: 'sodium' }), // its thumb's amber: the factory preset ★ chorus — choir (main.js:9826)
+  vs3('chorus-hall', () => import('./kit/scenes/chorus.js'), { palette: 'sodium', pointer: true }), // chorus with the stage pointer (user 2026-11-20: an additional scene, chorus untouched)
+  vs3('visage', () => import('./kit/scenes/visage.js'), { palette: 'nocturne', pointer: true }), // its eyes follow the cursor (eyeFollow, user 2026-11-21)
+  vs3('limitless3d', () => import('./kit/scenes/limitless3d.js'), { palette: 'nocturne' }),
+  vs3('lasers', () => import('./kit/scenes/lasers.js'), { palette: 'vapor' }),
   // Batch 2a (2026-11-19). Rows 254 (crystal), 255 (pearl), 270 (spiral): lib/recursive-flight.js.
-  vs3('crystal', () => import('./kit/scenes/crystal.js'), { palette: 'nocturne', bloomMul: 0.8, aber: 0, vignette: 0.2 }),
-  vs3('pearl', () => import('./kit/scenes/pearl.js'), { palette: 'nocturne', bloomMul: 0.8, aber: 0, vignette: 0.2 }),
-  vs3('spiral', () => import('./kit/scenes/spiral.js'), { palette: 'nocturne', bloomMul: 0.8, aber: 0, vignette: 0.2 }),
-  vs3('fluid', () => import('./kit/scenes/fluid.js'), { palette: 'nocturne', bloomMul: 1.3, aber: 1.4, vignette: 0.3 }),
-  vs3('forge', () => import('./kit/scenes/forge.js'), { palette: 'nocturne', bloomMul: 0.9, aber: 0.8, vignette: 0.4 }),
-  vs3('pelt', () => import('./kit/scenes/pelt.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 1.2, vignette: 0.5 }),
-  vs3('wisp', () => import('./kit/scenes/wisp.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.6, vignette: 0.28 }),
-  vs3('morphogen2', () => import('./kit/scenes/morphogen2.js'), { palette: 'glacial', bloomMul: 1, aber: 0.8, vignette: 0.05 }),
-  vs3('locus', () => import('./kit/scenes/locus.js'), { palette: 'nocturne', bloomMul: 1.3, aber: 1.2, vignette: 0.4 }),
-  vs3('vesica', () => import('./kit/scenes/vesica.js'), { palette: 'nocturne', bloomMul: 1.2, aber: 0.6, vignette: 0.35 }),
-  vs3('grove', () => import('./kit/scenes/grove.js'), { palette: 'nocturne', bloomMul: 1.15, aber: 1.2, vignette: 0.4 }), // row 226
+  vs3('crystal', () => import('./kit/scenes/crystal.js'), { palette: 'nocturne' }),
+  vs3('pearl', () => import('./kit/scenes/pearl.js'), { palette: 'nocturne' }),
+  vs3('spiral', () => import('./kit/scenes/spiral.js'), { palette: 'nocturne' }),
+  vs3('fluid', () => import('./kit/scenes/fluid.js'), { palette: 'nocturne' }),
+  vs3('forge', () => import('./kit/scenes/forge.js'), { palette: 'nocturne' }),
+  vs3('pelt', () => import('./kit/scenes/pelt.js'), { palette: 'nocturne' }),
+  vs3('wisp', () => import('./kit/scenes/wisp.js'), { palette: 'nocturne' }),
+  vs3('morphogen2', () => import('./kit/scenes/morphogen2.js'), { palette: 'glacial' }),
+  vs3('locus', () => import('./kit/scenes/locus.js'), { palette: 'nocturne' }),
+  vs3('vesica', () => import('./kit/scenes/vesica.js'), { palette: 'nocturne' }),
+  vs3('grove', () => import('./kit/scenes/grove.js'), { palette: 'nocturne' }), // row 226
   // Row 170. A filter: the picture it bends is the layer under it (melt, the file's default mode; params are no inputs yet).
-  vs3('limitless', () => import('./kit/scenes/limitless.js'), { palette: 'nocturne', bloomMul: 1.1, aber: 2, vignette: 0.3, filter: true }),
+  vs3('limitless', () => import('./kit/scenes/limitless.js'), { palette: 'nocturne', filter: true }),
 ]

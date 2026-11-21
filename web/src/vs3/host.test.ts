@@ -3,7 +3,9 @@
 import { expect, test, vi } from 'vitest'
 import { defaults } from '../doc'
 import type { Input } from '../fx/types'
-import { PALETTES, paramInputs, put, screen, signal, specHi, VS3, type Signal } from './host'
+import type { LookValues } from './chain'
+import { FINISH, PALETTES, paramInputs, put, putLook, screen, signal, specHi, VS3, type Signal } from './host'
+import look from './look.json'
 
 const fsId = 'node:fs' // the app tsconfig has no node types (serpent.test.ts T-F2d)
 vi.mock('../gl/engine', () => ({ fullscreenProgram: () => () => {}, gl: {} })) // takes the page's canvas + WebGL at import
@@ -92,6 +94,29 @@ test('put: the values into the params, mode back to its name, a mode index out o
   expect(P).toEqual({ mode: 'cross', fill: 0.9, own: 1 }) // hit is not a row; the scene's other fields stay
   put(P, ps, { mode: 7, fill: 0.1 })
   expect(P).toEqual({ mode: 'cross', fill: 0.1, own: 1 })
+})
+
+test("V1 look inputs: every vs3 native ends with bloomMul, aber, vignette, brightness in group look, base + its row as defaults (K1), look.json's ranges; bloomMul and brightness never bound", () => {
+  const ranges = look.ranges as Record<string, number[]>, rows = look.scenes as Record<string, object | undefined>
+  for (const d of VS3) {
+    const want: Record<string, number> = { ...look.base, ...rows[d.id.slice(11)] }
+    expect(d.inputs.slice(-4), d.id).toEqual(['bloomMul', 'aber', 'vignette', 'brightness'].map((k) => ({
+      name: k, type: 'float', group: 'look', default: want[k], min: ranges[k][0], max: ranges[k][1], ...(k === 'bloomMul' || k === 'brightness' ? { bindable: false } : {}),
+    })))
+  }
+})
+
+test('V2 FINISH: the gain is the uniform uGain, no literal 1.4', () => {
+  expect(FINISH).toMatch(/uniform float [^;]*\buGain\b/)
+  expect(FINISH).toContain('raw * uGain')
+  expect(FINISH).not.toContain('1.4')
+})
+
+test('putLook: the look values in; a non-finite one (a bound source gone bad) keeps the last, so the limiter never latches a NaN', () => {
+  const out = { bloomMul: 1, aber: 1, vignette: 0.34, brightness: 1.4 } as LookValues
+  putLook(out, { bloomMul: 1.5, aber: 2, vignette: 0.5, brightness: 2, hit: 1 })
+  putLook(out, { bloomMul: 1.5, aber: NaN, vignette: Infinity, brightness: 2 })
+  expect(out).toEqual({ bloomMul: 1.5, aber: 2, vignette: 0.5, brightness: 2 })
 })
 
 test('params.json = every registered scene\'s rows (regenerate: npx vitest run -u); untouched inputs leave its params as they were', async () => {

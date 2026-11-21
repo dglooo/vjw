@@ -219,9 +219,14 @@ uniform vec4 uColor;
 out vec4 outColor;
 void main() { outColor = uColor; }`)
 
+let frames = 0
+/** render()'s calls so far: a native not drawn on the previous one is back on stage (vs3/chain.ts clock(), N2). */
+export const engineFrame = () => frames
+
 /** `styled` (Auto-style's overlay, design C5) is what built-ins read; null = every scene reads `src`. `post` then
  *  multiplies the stage by `gain` and mixes it toward white by `flash`; at rest it draws nothing. */
 export function render(shot: Shot, f: FrameInput, src: Sources, styled: Sources | null, post: Post) {
+  frames++
   poll()
   if (FLASH && f.onsets.length) {
     bindFramebufferInfo(gl, null)
