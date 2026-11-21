@@ -6,7 +6,7 @@ import type { Input } from '../fx/types'
 import { factory, factoryRefs } from '../presets'
 import { BUILTIN } from '../scenes/builtin'
 import { chainState, frame, PROBE, type LookValues } from './chain'
-import { FINISH, grainOf, PALETTES, paramInputs, put, putLook, screen, signal, specHi, VS3, type Signal } from './host'
+import { FINISH, grainOf, PALETTES, paramInputs, put, putLook, screen, signal, specHi, turnHue, VS3, type Signal } from './host'
 import look from './look.json'
 
 const fsId = 'node:fs' // the app tsconfig has no node types (serpent.test.ts T-F2d)
@@ -143,16 +143,36 @@ test("V7 all 18 (S6.1): every vs3 native ends with the 18 look inputs, look.json
   expect(putLook({ ...look.base } as LookValues, { hueDrift: 0.6 }).hueDrift).toBe(0.6)
 })
 
-test('U2 gamut (C10): each of the 24 palettes × 5 slots stays inside [0, 1] over a full turn in 36 steps of offsetHSL', async () => {
+/** A three Color as these tests read it (three is untyped here, three/three.d.ts). */
+type C3 = { r: number; g: number; b: number; copy(c: C3): C3; clone(): C3; offsetHSL(h: number, s: number, l: number): C3; getHSL(t: object): { h: number; s: number } }
+const Y = (c: C3) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+/** Every slot of the 24 palettes (linear, as PAL holds them) turned by turnHue in 36 steps of a turn, from the source
+ *  colour each time as the host turns pal[]: `f`'s complaints. */
+const turns = async (f: (src: C3, out: C3, h: number) => string | null) => {
   const { Color } = await import('three')
   const { PRESETS } = await import('./kit/lib/palette.js')
-  const out: string[] = []
-  for (const p of PRESETS as { name: string; colors: string[] }[]) for (const hex of p.colors) for (let k = 0; k < 36; k++) {
-    const c = new Color(hex).offsetHSL(k / 36, 0, 0) // from the source colour each time, as the host turns pal[]; linear, as PAL holds it
-    if (![c.r, c.g, c.b].every((x) => x >= 0 && x <= 1)) out.push(`${p.name} ${hex} ${k}`)
-  }
+  const bad: string[] = []
   expect(PRESETS).toHaveLength(24)
-  expect(out).toEqual([])
+  for (const p of PRESETS as { name: string; colors: string[] }[]) for (const hex of p.colors) for (let k = 0; k < 36; k++) {
+    const src: C3 = new Color(hex), why = f(src, turnHue(src, k / 36, new Color()) as C3, k / 36)
+    if (why) bad.push(`${p.name} ${hex} ${k}: ${why}`)
+  }
+  return bad
+}
+
+test('U2 gamut (C10): each of the 24 palettes × 5 slots stays inside [0, 1] over a full turn in 36 steps', async () => {
+  expect(await turns((_, c) => ([c.r, c.g, c.b].every((x) => x >= 0 && x <= 1) ? null : `${c.r} ${c.g} ${c.b}`))).toEqual([])
+})
+
+test("U4 luma steady (S6.1): over the turn each slot keeps its Rec.709 luma (±1e-9) and takes the donor's hue (offsetHSL's, ±1e-6) where it has one; h 0 is a plain copy", async () => {
+  expect(await turns((src, c, h) => {
+    if (Math.abs(Y(c) - Y(src)) > 1e-9) return `luma ${Y(src)} → ${Y(c)}`
+    const donor = src.clone().offsetHSL(h, 0, 0).getHSL({}), ours = c.getHSL({}), d = Math.abs(((((ours.h - donor.h) % 1) + 1.5) % 1) - 0.5)
+    return donor.s > 0.01 && ours.s > 0.01 && d > 1e-6 ? `hue ${donor.h} → ${ours.h}` : null
+  })).toEqual([])
+  const { Color } = await import('three')
+  const c: C3 = new Color('#7b3ff2'), out = turnHue(c, 0, new Color())
+  expect([out.r, out.g, out.b]).toEqual([c.r, c.g, c.b]) // no HSL round trip at 0
 })
 
 test('U3 grain fact: uGrain is 0 for lasers, morphogen2, the 3 recursive-flight scenes (crystal, pearl, spiral: their donor grain 0 too) and a filter (limitless); 1 else', async () => {

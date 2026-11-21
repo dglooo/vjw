@@ -10,7 +10,7 @@
 // internal bloom; strength as the donor engine.js:193, × the look's bloomMul), the lens (the look's lens and
 // lensStyle: the donor LensShader's 7 styles), then the donor finish (FinishShader:
 // aberration, the look's brightness × the exposure servo's e and its soft tone map, vignette, grain) into the bound FB; the
-// palette's 5 slots turned by the look's hueDrift (frame()'s st.hue) on the CPU, no pass; the servo
+// palette's 5 slots turned by the look's hueDrift (frame()'s st.hue) at their luma on the CPU, no pass (turnHue); the servo
 // (chain.ts servo()) reads the same finish drawn into its 64² probe first. The look inputs (vs3/look.json:
 // the macros, the warp's knobs, the light) reach all of it through frame()'s light limiter; the built-ins carry no fx.
 // Colour: a donor ShaderMaterial writes display values (no colorspace chunk; PAL holds three's linear-converted hex, as
@@ -203,6 +203,23 @@ const UNBOUND: readonly string[] = ['bloomMul', 'brightness']
 /** The finish's grain (S6.1; donor engine.js:243 `sc.grain ?? 1`, without its × wet): the scene's own `grain` (0 on
  *  main stage, morphogen 2.0 and the recursive-flight three: crystal, pearl, spiral), else 1; a filter's picture none. */
 export const grainOf = (sc: { grain?: number }, filter: boolean) => (filter ? 0 : (sc.grain ?? 1))
+type Rgb = { r: number; g: number; b: number; copy(c: Rgb): Rgb; offsetHSL(h: number, s: number, l: number): Rgb } // a three Color
+const luma = (c: Rgb) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+/** `c` into `out` (three Colors, linear as PAL holds them), turned `h` turns at c's luma (S6.1, design C10): the donor's
+ *  hue (offsetHSL = palette.js:182-185's setHSL), then scaled back to c's Rec.709 luma, and mixed toward that grey where
+ *  a channel would pass 1, so it stays in gamut; scaling and the grey keep the hue. Colour only: the donor's turn at
+ *  constant HSL lightness moves the luma with the hue (vs3 Ink at hueDrift 1: frame-mean luma .054 → .218 and 9 steps
+ *  > .10 in 15 s, 0 at hueDrift 0). h 0: a plain copy, as the donor skips it (palette.js:181). */
+export function turnHue<T extends Rgb>(c: Rgb, h: number, out: T): T {
+  out.copy(c)
+  if (!h) return out
+  const y = luma(c), t = luma(out.offsetHSL(h, 0, 0)), s = t > 0 ? y / t : 0
+  const m = Math.max(out.r, out.g, out.b) * s, k = m > 1 ? (1 - y) / (m - y) : 1, at = (x: number) => Math.min(1, y + (x * s - y) * k) // min: the float error past 1
+  out.r = at(out.r)
+  out.g = at(out.g)
+  out.b = at(out.b)
+  return out
+}
 const SELECTS: Partial<Record<string, string[]>> = { mirror: Array.from({ length: LOOK.ranges.mirror[1] + 1 }, (_, i) => String(i)), lensStyle: LOOK.lensStyles }
 const ROWS = LOOK.scenes as Record<string, Partial<LookValues> | undefined>
 /** The node's look values into `out`, each frame. A non-finite one (a bound source gone bad) keeps the last value: the
@@ -229,9 +246,8 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
   let rt = L.fit(null, 16, 16, 1), prev = 0, prevMid = 0, w = 0, h = 0
   // the chain (vs3/chain.ts): its state, the look's values (look.json's defaults under the node's), the scene's facts
   const st = chainState(), values = { ...d }, mid3 = [0, 0, 0], tint = new L.Color()
-  /** `c` into `out`, turned by the hue drift (S6.1, design C10): pal[] stays unrotated, so nothing accumulates, and three
-   *  keeps the turn in gamut. At 0 a plain copy, as the donor skips it (palette.js:181). */
-  const turn = (c: typeof tint, out: typeof tint) => (st.hue ? out.copy(c).offsetHSL(st.hue, 0, 0) : out.copy(c))
+  /** `c` into `out`, turned by the hue drift (turnHue): pal[] stays unrotated, so nothing accumulates. */
+  const turn = <T extends Rgb>(c: Rgb, out: T) => turnHue(c, st.hue, out)
   const facts: SceneFacts = {
     bloom: sc.bloom, filter: !!look.filter, bloomRow: d.bloomMul, gainBase: LOOK.base.brightness, vigRange: LOOK.ranges.vignette[1] - LOOK.ranges.vignette[0],
     lateTrails: (LOOK.lateTrails as Record<string, number | undefined>)[name] ?? 0, wet: 1, grain: grainOf(sc, !!look.filter), hint: null,
