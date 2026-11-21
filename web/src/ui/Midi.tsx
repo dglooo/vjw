@@ -1,19 +1,28 @@
 import { useEffect, useSyncExternalStore } from 'react'
+import { catalog } from '../fx/catalog'
 import { live, panel } from '../gl/live'
 import { library } from '../library'
 import { createMidi, KEYS, paramId, type Control, type Target } from '../midi'
 import { store } from '../store'
 import { Icon, Pop } from './Pop'
 
+/** The layers of the scene on stage; none before Start. */
+function stage() {
+  const id = store.getSnapshot().edited
+  return id ? live(id).doc.layers : []
+}
+
 /** The app's MIDI (midi.ts). The mappings live in library.ts (vjw.midi, the dev mirror, the build's bake). A knob sets
  *  its input on the scene on stage through the panel, as the slider does, and moves the slider if one is shown; a pad
- *  presses its hotkey (app.ts), so it does what the key does, on the editor screens too. */
+ *  presses its hotkey (app.ts), so it does what the key does, on the editor screens too. A look knob (a vs3 native's
+ *  group 'look') is learnt as '*': it follows the vs3 scene on stage (midi.ts). */
 const midi = createMidi(
   { load: library.midi, save: library.setMidi },
   {
     scene: () => store.getSnapshot().edited,
+    layers: stage,
     param(t, v) {
-      const l = live(t.scene).doc.layers[t.layer]
+      const l = stage()[t.layer] // the scene on stage: t's own, or its first vs3 native's layer for '*'
       if (!l || (typeof t.node === 'number' && !l.fx[t.node])) return // its node went (a structural edit): the knob waits
       panel.setValue({ layer: t.layer, node: t.node }, t.input, v)
       const el = document.querySelector<HTMLInputElement>(`[data-midi="${CSS.escape(paramId(t))}"]`)
@@ -32,10 +41,13 @@ addEventListener(
     if (!el) return
     e.preventDefault()
     e.stopPropagation()
-    const [layer, node, ...input] = el.dataset.midi!.split('/')
+    const [l, n, ...rest] = el.dataset.midi!.split('/')
     const { edited, sceneName } = store.getSnapshot()
-    const name = el.closest('.row')?.firstElementChild?.textContent ?? input.join('/')
-    midi.arm({ kind: 'param', scene: edited, layer: +layer, node: /^\d+$/.test(node) ? +node : (node as 'gen' | 'layer'), input: input.join('/'), lo: +el.min, hi: +el.max, label: `${name} · ${sceneName}` })
+    const layer = +l, node = /^\d+$/.test(n) ? +n : (n as 'gen' | 'layer'), input = rest.join('/')
+    const name = el.closest('.row')?.firstElementChild?.textContent ?? input
+    const ld = stage()[layer], ref = node === 'gen' ? ld?.gen.ref : node === 'layer' ? undefined : ld?.fx[node]?.ref
+    const look = !!ref && !!catalog.get(ref)?.inputs.some((x) => x.name === input && x.group === 'look') // C7: it follows the stage
+    midi.arm({ kind: 'param', scene: look ? '*' : edited, layer, node, input, lo: +el.min, hi: +el.max, label: `${name} · ${look ? 'any vs3 scene' : sceneName}` })
   },
   true,
 )

@@ -1,20 +1,25 @@
 import { describe, expect, test } from 'vitest'
 import { createMidi, mappingsOf, parse, scale, type Access, type Mapping, type ParamTarget } from './midi'
+import look from './vs3/look.json'
 
 const P: ParamTarget = { kind: 'param', scene: 's1', layer: 0, node: 'gen', input: 'zoom', lo: 0.5, hi: 2, label: 'zoom' }
 const CC21 = { kind: 'cc', ch: 1, num: 21 } as const
 const PAD36 = { kind: 'note', ch: 1, num: 36 } as const
 
-/** A memory store (JSON, as localStorage keeps it) and a fake app: the scene on stage, the params set, the keys pressed. */
+type Layers = { gen: { ref: string }; fx: { ref: string }[] }[]
+/** One layer: its gen, then its fx. */
+const layer = (gen: string, ...fx: string[]) => ({ gen: { ref: gen }, fx: fx.map((ref) => ({ ref })) })
+/** A memory store (JSON, as localStorage keeps it) and a fake app: the scene on stage and its layers, the params set
+ *  (with the layer / node each went to), the keys pressed. */
 function rig(stored: unknown = null) {
   const kept = { v: stored }
-  const calls = { param: [] as [string, number][], key: [] as string[] }
-  let scene = 's1'
+  const calls = { param: [] as [string, number][], at: [] as string[], key: [] as string[] }
+  let scene = 's1', layers: Layers = [layer('native/video')]
   const midi = createMidi(
     { load: () => kept.v, save: (m) => void (kept.v = JSON.parse(JSON.stringify(m))) },
-    { scene: () => scene, param: (t, v) => void calls.param.push([t.input, v]), key: (code) => void calls.key.push(code) },
+    { scene: () => scene, layers: () => layers, param: (t, v) => void (calls.param.push([t.input, v]), calls.at.push(`${t.layer}/${t.node}`)), key: (code) => void calls.key.push(code) },
   )
-  return { midi, kept, calls, stage: (s: string) => void (scene = s) }
+  return { midi, kept, calls, stage: (s: string, ...l: Layers) => void ((scene = s), (layers = l.length ? l : layers)) }
 }
 
 type FakeInput = { name: string; state: string; onmidimessage: ((e: MIDIMessageEvent) => void) | null }
@@ -154,4 +159,95 @@ test('storage: the mappings come back after a reload; a corrupt entry is left ou
   ]
   expect(mappingsOf([...junk, ...again])).toEqual(again)
   for (const x of [null, 'x', {}, 5]) expect(mappingsOf(x)).toEqual([])
+})
+
+describe("C7 '*': a look knob follows the vs3 scene on stage", () => {
+  const STAR: ParamTarget = { kind: 'param', scene: '*', layer: 0, node: 'gen', input: 'zoom', lo: 0.9, hi: 1.3, label: 'zoom · any vs3 scene' }
+
+  test('C7a the stage node is native/video: a * CC for zoom does not reach app.param', async () => {
+    const { midi, calls, kept } = rig([{ ctl: CC21, target: STAR }])
+    const { a, send } = access('x')
+    await midi.start(async () => a)
+    send(0, 0xb0, 21, 127)
+    send(0, 0xb0, 21, 0)
+    expect(calls.param).toEqual([])
+    expect(kept.v).toEqual([{ ctl: CC21, target: STAR }]) // the drop saves nothing
+  })
+
+  test('C7b on native/vs3-ink it does, with the scaled value, and on the next vs3 scene, wherever it was learnt; off vs3: nothing', async () => {
+    const { midi, calls, stage } = rig([{ ctl: CC21, target: STAR }, { ctl: { ...CC21, num: 22 }, target: { ...STAR, input: 'heat', lo: 0, hi: 1, layer: 1, node: 2 } }])
+    const { a, send } = access('x')
+    await midi.start(async () => a)
+    stage('builtin:vs3-ink', layer('native/vs3-ink'))
+    send(0, 0xb0, 21, 127)
+    stage('builtin:vs3-mandala', layer('native/vs3-mandala')) // another vs3 scene: the same knob drives its zoom
+    send(0, 0xb0, 21, 0)
+    send(0, 0xb0, 22, 127) // learnt at layer 1 / fx 2: its stored place is not used
+    stage('builtin:milk-x', layer('milk/x')) // a MilkDrop scene
+    send(0, 0xb0, 21, 64)
+    stage('mine', layer('native/video', 'isf/Mirror'), layer('own/x')) // no vs3 native in any layer
+    send(0, 0xb0, 22, 64)
+    expect(calls.param).toEqual([['zoom', 1.3], ['zoom', 0.9], ['heat', 1]])
+    expect(calls.at).toEqual(['0/gen', '0/gen', '0/gen'])
+  })
+
+  test('C7c a stored * target for a scene row is left out by mappingsOf; one per look key is kept, a learnt one reloads', async () => {
+    const keys = Object.keys(look.base)
+    expect(keys).toHaveLength(18)
+    const ok = keys.map((input, num): Mapping => ({ ctl: { ...CC21, num }, target: { ...STAR, input } }))
+    const rows = ['speed', 'complexity', 'opacity', 'hit', 'palette', 'toString'].map((input): Mapping => ({ ctl: CC21, target: { ...STAR, input } }))
+    expect(mappingsOf([...rows, ...ok])).toEqual(ok)
+    const { midi, kept } = rig()
+    const { a, send } = access('x')
+    await midi.start(async () => a)
+    midi.setLearn(true)
+    midi.arm({ ...STAR, input: 'heat' })
+    send(0, 0xb0, 21, 5)
+    expect(rig(kept.v).midi.get().maps).toEqual([{ ctl: CC21, target: { ...STAR, input: 'heat' } }])
+  })
+
+  test('C7d a mapping with a scene id behaves as before: its own scene only, whatever the node', async () => {
+    const { midi, calls, stage } = rig([{ ctl: CC21, target: { ...P, input: 'heat' } }])
+    const { a, send } = access('x')
+    await midi.start(async () => a)
+    send(0, 0xb0, 21, 127) // s1 on stage, its node native/video
+    stage('s2', layer('native/vs3-ink')) // a vs3 native in another scene: the knob does not follow
+    send(0, 0xb0, 21, 0)
+    expect(calls.param).toEqual([['heat', 2]])
+    expect(calls.at).toEqual(['0/gen'])
+  })
+
+  test("C7e a knob learnt on Ink drives Limitless's fx node, and back; the first vs3 node: layer by layer, gen before fx; learnt again it moves", async () => {
+    const { midi, calls, stage } = rig()
+    const { a, send } = access('x')
+    await midi.start(async () => a)
+    midi.setLearn(true)
+    midi.arm({ ...STAR, input: 'heat', lo: 0, hi: 1 }) // on Ink: layer 0, gen
+    send(0, 0xb0, 21, 0)
+    stage('builtin:vs3-limitless', layer('native/tunnel', 'native/vs3-limitless'))
+    send(0, 0xb0, 21, 127)
+    midi.arm({ ...STAR, input: 'heat', lo: 0, hi: 1, node: 0 }) // on Limitless: its fx 0; CC 22 takes heat over
+    send(0, 0xb0, 22, 0)
+    send(0, 0xb0, 21, 64) // CC 21 lost it
+    stage('builtin:vs3-ink', layer('native/vs3-ink'))
+    send(0, 0xb0, 22, 127)
+    stage('mine', layer('native/video', 'isf/Mirror', 'native/vs3-ink'), layer('native/vs3-mandala'))
+    send(0, 0xb0, 22, 0)
+    stage('mine2', layer('native/video'), layer('native/vs3-mandala', 'native/vs3-limitless'))
+    send(0, 0xb0, 22, 127)
+    expect(midi.get().maps).toEqual([{ ctl: { ...CC21, num: 22 }, target: { ...STAR, input: 'heat', lo: 0, hi: 1, node: 0 } }])
+    expect(calls.param).toEqual([['heat', 1], ['heat', 1], ['heat', 0], ['heat', 1]])
+    expect(calls.at).toEqual(['0/0', '0/gen', '0/1', '1/gen'])
+  })
+
+  test('C7f mirror receives an integer: rounded, clamped to its range', async () => {
+    const M = { ...STAR, input: 'mirror', lo: 0, hi: 12 }
+    const { midi, calls, stage } = rig([{ ctl: CC21, target: M }, { ctl: { ...CC21, num: 22 }, target: { ...M, lo: -5, hi: 40 } }]) // CC 22: a hand-edited range
+    const { a, send } = access('x')
+    await midi.start(async () => a)
+    stage('builtin:vs3-mandala', layer('native/vs3-mandala'))
+    for (const v of [0, 64, 70, 127]) send(0, 0xb0, 21, v) // 0, 6.05, 6.61, 12
+    for (const v of [0, 20, 127]) send(0, 0xb0, 22, v) // -5, 2.09, 40
+    expect(calls.param).toEqual([0, 6, 7, 12, 0, 2, 12].map((v) => ['mirror', v]))
+  })
 })
