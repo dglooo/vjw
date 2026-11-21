@@ -8,7 +8,8 @@
 // and getDrawingBufferSize() meaning that RT (screen()). Then on our passes, vs3/chain.ts's chain: the warp (the donor
 // mirror and feedback, the scene's fxHint / fxWet), the scene's own `bloom` field through our gl/bloom.ts (the natives'
 // internal bloom; strength as the donor engine.js:193, × the look's bloomMul), then the donor finish (FinishShader:
-// aberration, the look's brightness and its soft tone map, vignette) into the bound FB. The look inputs (vs3/look.json:
+// aberration, the look's brightness × the exposure servo's e and its soft tone map, vignette) into the bound FB; the servo
+// (chain.ts servo()) reads the same finish drawn into its 64² probe first. The look inputs (vs3/look.json:
 // the macros, the warp's knobs, the light) reach all of it through frame()'s light limiter; the built-ins carry no fx.
 // Colour: a donor ShaderMaterial writes display values (no colorspace chunk; PAL holds three's linear-converted hex, as
 // in the donor), so the finish is the only grade: no ACES, no sRGB (unlike native/model). Light on a hit only through
@@ -30,7 +31,7 @@ import type { NativeDef } from '../gl/scene'
 import { ease, MORPH_S } from '../presets'
 import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
-import { chainState, clock, createChain, frame, reactTo, warmChain, type LookValues, type SceneFacts } from './chain'
+import { chainState, clock, createChain, frame, PROBE, reactTo, warmChain, type LookValues, type SceneFacts } from './chain'
 import LOOK from './look.json'
 import PARAMS from './params.json'
 
@@ -91,18 +92,22 @@ export function screen<T>(R: Screen, rt: { width: number; height: number }, made
   }
 }
 
+/** uExp: the exposure servo's 1 × 1 ln e (vs3/chain.ts servo()). uProbe 1: the servo's probe draw (64², chain.ts PROBE)
+ *  writes the luma on screen and step(.85, luma), not the colour. */
 export const FINISH = `#version 300 es
 precision highp float;
-uniform sampler2D uSrc;
+uniform sampler2D uSrc, uExp;
 uniform vec2 uRes;
-uniform float uAber, uVig, uFaithful, uGain;
+uniform float uAber, uVig, uFaithful, uGain, uProbe;
 out vec4 outColor;
 void main() { // donor engine/post-shaders.js FinishShader, the grain and the watermark left out
   vec2 uv = gl_FragCoord.xy / uRes, d = uv - 0.5, off = d * uAber * 0.003;
-  vec3 raw = vec3(texture(uSrc, uv + off).r, texture(uSrc, uv).g, texture(uSrc, uv - off).b), col = raw * uGain; // BRIGHTNESS: the look's brightness, limited
+  vec3 raw = vec3(texture(uSrc, uv + off).r, texture(uSrc, uv).g, texture(uSrc, uv - off).b), col = raw * uGain * exp(texelFetch(uExp, ivec2(0), 0).r); // BRIGHTNESS: the look's brightness, limited, × the servo's e
   col /= 1.0 + dot(col, vec3(0.2126, 0.7152, 0.0722)) * 0.9; // the soft tone map: no palette whites out
   col = mix(col, max(raw, 0.0), uFaithful); // a filter's picture skips the grade (original main.js:2130, uGainF 1)
-  outColor = vec4(col * (1.0 - uVig * dot(d, d) * 2.4), 1.0);
+  col *= 1.0 - uVig * dot(d, d) * 2.4;
+  float l = any(isnan(col)) || any(isinf(col)) ? 0.0 : dot(clamp(col, 0.0, 1.0), vec3(0.2126, 0.7152, 0.0722)); // N4: a NaN or Inf pixel reads black
+  outColor = uProbe > 0.5 ? vec4(l, step(0.85, l), 0.0, 1.0) : vec4(col, 1.0);
 }`
 let finish: ReturnType<typeof fullscreenProgram> | undefined
 const SLOTS = ['bg', 'shadow', 'mid', 'accent', 'glow'] as const
@@ -142,8 +147,8 @@ type Lib = Awaited<ReturnType<typeof open>>
  *  `panelRows` (ours, morphogen 2.0): the scene's own panel's sliders, from its stripped buildPanel. */
 interface Rows { params?: Record<string, unknown>; paramLabels?: Record<string, Record<string, string | null>>; paramOrder?: string[]; modes?: string[]; models?(): string[]; panelRows?: [key: string, min: number, max: number, label: string, group?: string][] }
 /** The donor scene as the host reads it (research §1). `fxHint`: signal sets it per mode, main stage's `steady`; `fxWet`:
- *  limitless's tune dry / wet (engine.js:152-153). */
-interface Scene extends Rows { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null }; fxHint?: SceneFacts['hint']; fxWet?(): number }
+ *  limitless's tune dry / wet (engine.js:152-153); `faithful`: morphogen 2.0's fixed maps (original main.js:2398-2405). */
+interface Scene extends Rows { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null }; fxHint?: SceneFacts['hint']; fxWet?(): number; faithful?(): boolean }
 
 // The donor panel's slider order for a scene without paramOrder (original renderer/main.js:7523, addSceneRows).
 const ORDER = ['speed', 'shape', 'complexity', 'density', 'fill', 'tilt', 'open', 'morph', 'edge', 'contrast', 'growth', 'movement', 'curl', 'relief', 'pattern', 'form', 'rig', 'room', 'color', 'phase', 'formation', 'screen', 'colors', 'wall', 'chase', 'strips']
@@ -248,6 +253,7 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
       signal(src, hit, prev, s, mid, prevMid, v)
       facts.hint = sc.fxHint ?? null // as the last update() left them: frame() runs before update(), whose signal it reacts
       facts.wet = sc.fxWet?.() ?? 1
+      facts.faithful = !!sc.faithful?.() // its mode as put() wrote it: no servo (N3), no resting glow
       const cf = frame(values, facts, s, hit, st, pal[2].toArray(mid3), f.dt, dtl, f.time, f.width / f.height) // pal[2]: SLOTS' mid
       reactTo(s, cf) // the kick as drawn (I-FL1: the limiter's slew) and the levels × react; onKick stays on the raw rise
       prev = hit
@@ -270,9 +276,12 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
       // UnrealBloomPass: its composite is k × Σ factors (3 at radius .4) × blur, alpha 3k too, and the additive blend is
       // SRC_ALPHA, ONE on a half-float target, so the colour lands × 3k unclamped); a pass that is off is skipped
       const lit = chain.apply(texture(rt), f.width, f.height, cf, bloom) // binds its own targets
+      const fin = { uSrc: lit, ...cf.finish, uFaithful: look.filter ? 1 : 0 } // uGrain: no uniform until S6.1
+      // the exposure servo (S3b.2): this frame finished into the probe at the e on screen, then UPDATE; its e lands now
+      const uExp = chain.servo(cf.servo, (e) => finish!({ ...fin, uRes: [PROBE, PROBE], uProbe: 1, uExp: e })) // leaves its 1 × 1 target bound
       gl.bindFramebuffer(gl.FRAMEBUFFER, out)
       gl.viewport(0, 0, f.width, f.height)
-      finish!({ uSrc: lit, uRes: [f.width, f.height], ...cf.finish, uFaithful: look.filter ? 1 : 0 }) // uGrain: no uniform until S6.1
+      finish!({ ...fin, uRes: [f.width, f.height], uProbe: 0, uExp })
       restore(gl, keep)
     },
     dispose() {

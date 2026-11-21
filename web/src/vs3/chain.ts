@@ -35,7 +35,7 @@ export interface SceneFacts {
   hint?: { mirror?: number; persist?: number; steady?: boolean } | null // signal only
   wet: number; grain: number; lateTrails: number; filter: boolean // wet: fxWet(), limitless only, else 1; lateTrails: LATE_TRAILS, else 0
   bloomRow: number; gainBase: number; vigRange: number // the row's bloomMul, base.brightness, the width of vignette's range
-  faithful?: boolean // the scene's faithful() (morphogen 2.0's fixed maps author their final colours): no servo, e 1 (N3)
+  faithful?: boolean // the scene's faithful() (morphogen 2.0's fixed maps author their final colours): no servo, e 1 (N3); no resting glow
 }
 /** The limiter's last drawn values. */
 export interface Light { glow: number; stock: number; gain: number; vig: number; lens: number; persist: number; react: number }
@@ -179,7 +179,7 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
   const b = sc.bloom, G = sc.filter ? 1 : gain, G0 = sc.filter ? 1 : sc.gainBase // a filter's finish skips the grade
   let target = 0, stock = 0
   if (b) {
-    const rest = sc.filter ? 0 : b.strength, kick = b.kick ?? 0.35 // host.ts:237; a filter: no resting glow
+    const rest = sc.filter || sc.faithful ? 0 : b.strength, kick = b.kick ?? 0.35 // a filter or a faithful() frame: no resting glow (original main.js:15700)
     const k = (rest + reacted(en, react) * b.gain + hot * kick) * v.bloomMul * drastic(v.heat)
     const k0 = (rest + en * b.gain + hot0 * kick) * sc.bloomRow // the stock scene: heat .5, react .5, the row's look
     target = G * 9 * k * k // the donor's glow, 9 k² (host.ts:238-240), times the gain ahead of the tone map
