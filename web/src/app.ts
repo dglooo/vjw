@@ -455,7 +455,7 @@ function frame(now: number) {
   // lives in arrange.ts), cuts = the previous frame's `song`'s.
   let high = 0
   for (let i = highStart; i < BAND_COUNT; i++) high += eb[i]
-  arrangeOut = arrangement.update({ low: PRESETS[song].low === 'sub' ? features.raw.sub : features.raw.sub + features.raw.reese, high, total: frameRms, kick: kickThisFrame, beat: f.sync.confidence >= 0.3 ? f.sync.beat : null, cuts: cutsOn(PRESETS[song], f.sync.bpm, f.sync.confidence), now: f.time })
+  arrangeOut = arrangement.update({ low: PRESETS[song].low === 'sub' ? features.raw.sub : features.raw.sub + features.raw.reese, high, total: frameRms, kick: kickThisFrame, beat: f.sync.confidence >= 0.3 ? f.sync.beat : null, cuts: cutsOn(PRESETS[song], tempo.free()), now: f.time })
   const freeze = (lvl.bass < SILENCE && lvl.mid < SILENCE && lvl.treb < SILENCE) || arrangeOut.sparse
   styleOut = style.update(styleIn({ kick8, hat8, bpm: f.sync.bpm, confidence: f.sync.confidence, wobble: features.raw.wobbleDepth, bass: total > 0 ? (features.raw.sub + features.raw.reese) / total : 0, families: { dnb: fdn, dubstep: fdu, techno: fte }, freeze }), now / 1000)
   // A manual pick (incl. the ?preset= dev hook) locks the classifier; else the on-stage scene's genre (the store's, as

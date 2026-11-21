@@ -27,12 +27,13 @@ const inside = (bpm: number, [lo, hi]: Band) => bpm >= lo && bpm <= hi
 export const snapOctave = (bpm: number, band: Band): 'double' | 'halve' | 'none' =>
   inside(bpm, band) ? 'none' : inside(2 * bpm, band) ? 'double' : inside(bpm / 2, band) ? 'halve' : 'none'
 
-/** The arrangement's `cuts` (arrange.ts): the preset's, or on while a sure grid (confidence ≥ 0.3, styleIn's gate)
- *  runs at DnB's band floor (160 BPM) or faster, so a cuts-off pick on DnB keeps the 2–3 s pre-drop cuts its drops come
- *  through (Psytrance on 6 DnB tracks: 5/17 → 6/17 drops). Not from 150: fx_psy150's grid reads 150.00–150.18, and on
- *  those tracks > 150 adds 2 false drops for no hit. ⚠️ Techno's and House's bands lock DnB at 116 BPM (⅔), so under those
- *  picks this never fires (scratchpad/drops). */
-export const cutsOn = (p: Preset, bpm: number, confidence: number) => p.cuts !== false || (confidence >= 0.3 && bpm >= PRESETS.dnb.bpm![0])
+/** The arrangement's `cuts` (arrange.ts): the preset's, or on while the band-free tempo read (tempo.ts free(): Techno's
+ *  and House's bands lock DnB at its ⅔ lag, 116 BPM) is sure (confidence ≥ 0.3, styleIn's gate) at DnB's band floor
+ *  (160 BPM) or faster, so a cuts-off pick on DnB keeps the 2–3 s pre-drop cuts its drops come through: Techno / House
+ *  picks on 6 DnB tracks 6/17 → 12/17 drops (false 10 → 9), Psytrance 5/17 → 11/17 (10 → 11); at ≥ 0.5 Techno keeps
+ *  8/17. Not from 150: fx_psy150 reads 150.00–150.18. ⚠️ fx_house's free read finds its 4/3 lag (165) at .30 in its
+ *  break, so a 4/4 fill there would arm (scratchpad/drops). */
+export const cutsOn = (p: Preset, free: { bpm: number; confidence: number } | null) => p.cuts !== false || (!!free && free.confidence >= 0.3 && free.bpm >= PRESETS.dnb.bpm![0])
 
 // The 4/4 family (dsp_genre_melodic §4): one knob set for psytrance, techno and house; only the tempo tells them apart, and
 // their real ranges overlap, so the classifier keeps one 4/4 class (techno) and Psytrance / House are hand picks. kick

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { createAnalysis } from './analysis'
-import { PRESETS, type Band } from './presets'
+import { cutsOn, PRESETS, type Band } from './presets'
 import { mix, pattern, SR, type Genre, type Stem } from './synth'
 import { createTempoSource, type TempoSource } from './tempo'
 
@@ -251,6 +251,20 @@ describe('setRange and families (design C3)', () => {
     expect(src.families(W, 87)).toEqual([1, 0, 0]) // the ½ octave
     expect(src.families(W, 140)).toEqual([0, 1, 1]) // the ±10% windows overlap, as the ACF's do
     expect(src.families(W, 128)).toEqual([0, 1, 1])
+  })
+
+  // cuts_fast_tempo (lead 2026-11-21): the Techno range locks a DnB two-step at its ⅔ lag, so only a read with no range
+  // sees 174 and keeps a cuts-off pick's pre-drop cuts on.
+  test('free(): DnB 174 under the Techno range reads 116 as before, free() reads it as a fresh source does, so cuts are on', () => {
+    expect(createTempoSource().free()).toBeNull()
+    const src = ranged(techno)
+    const r = listen(src, 'dnb', 174)
+    expect(r).toEqual({ bpm: 116.12091795367063, anchor: 9.793589991063449, confidence: 1 }) // the banded read, captured before free()
+    expect(src.free()).toEqual(listen(createTempoSource(), 'dnb', 174)) // 174.014, confidence 1
+    expect([cutsOn(PRESETS.techno, r), cutsOn(PRESETS.techno, src.free())]).toEqual([false, true])
+    const plain = createTempoSource()
+    listen(plain, 'techno', 128)
+    expect(plain.free()).toBe(plain.read()) // no range: the one reading
   })
 })
 

@@ -127,7 +127,7 @@ function inputs(x: Float32Array, genre: PresetId, bpm: number) {
       let high = 0
       for (let j = lo; j <= hi; j++) high += Math.hypot(spec[2 * j], spec[2 * j + 1]) / (hi - lo + 1)
       const low = PRESETS[genre].low === 'sub' ? f.raw.sub : f.raw.sub + f.raw.reese // as app.ts
-      out.push({ low, high, total: rms(x.subarray(e - SR / FPS_APP, e)), kick, beat: ((now - T0) * bpm) / 60, cuts: cutsOn(PRESETS[genre], bpm, 1), now }) // as app.ts: the beat is a sure grid at `bpm`
+      out.push({ low, high, total: rms(x.subarray(e - SR / FPS_APP, e)), kick, beat: ((now - T0) * bpm) / 60, cuts: cutsOn(PRESETS[genre], { bpm, confidence: 1 }), now }) // as app.ts: a sure band-free read at `bpm`
     }
     return out
   }
