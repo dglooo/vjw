@@ -3,11 +3,13 @@
 // Vitest covers it without a browser (like gl/post.ts). The GL half (S3.1, at the end): createChain's targets and passes.
 // S3b.1: the exposure servo (design Amendment 2 with the skeptic's N2-N4): expose()'s law, frame()'s `servo`, UPDATE.
 // S5.1: the lens (design S3 "lens", S4, F1 and F4 rev 2, C11): frame()'s `lens`, LENS, its pass in apply().
+// S6.1: the hue drift (design S3 "hue drift", C10): frame()'s `st.hue`; the host turns the palette by it.
 // vs3: the friends' three.js engine, used with permission (2026-11-19). Rewritten as text into TypeScript from
 // donor/vs3/visual_kit/src/: engine/engine.js:150-222 (its header: "engine.js — three.js render engine, faithful to the
 // original composer"; the macros, the mirror and feedback uniforms, :188 the tint, :199-222 the lens's), engine/post-shaders.js:162-198
 // ("post-shaders.js — the original post pipeline, extracted verbatim (masked)"; stepTiles, stepSym and, at :155-160, their
-// constants) and core/analyzer.js:464-473 ("analyzer.js — audio -> visual signal pipeline"; what react scales).
+// constants), core/analyzer.js:464-473 ("analyzer.js — audio -> visual signal pipeline"; what react scales) and
+// App.jsx:92 ("App.jsx — demo wiring (three.js engine, 33 scenes, full post chain)"; the hue drift's rate).
 import { bindFramebufferInfo, type ProgramInfo } from 'twgl.js'
 import { VS } from '../fx/glsl'
 import type { createBloom } from '../gl/bloom'
@@ -169,6 +171,7 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
   // the mirror (engine.js:155-171)
   const to = stepSym(st.sym, hint.mirror ?? v.mirror, dt), from = st.sym.from, mix = smooth01(st.sym.w)
   st.angle += v.spin * dt * 0.12 * (0.5 + mids)
+  st.hue = (((st.hue + v.hueDrift * dt * 0.035) % 1) + 1) % 1 // the palette's hue drift in turns, in [0, 1) (App.jsx:92); colour only, no light
   const tiles = stepTiles(st.tiles, v.tiles, dt)
   const mirror = to >= 0.5 || (mix < 1 && from >= 0.5) || tiles > 1.0001 || Math.abs(v.twist) > 0.001 || v.slice > 0.001
   // the feedback (engine.js:173-188): trails 0 = no feedback, .5 = the scene's, 1 = the most
