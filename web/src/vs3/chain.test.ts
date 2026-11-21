@@ -628,9 +628,28 @@ test('E6 reset snaps; stale does not (N2): st.reset takes the whole step at once
 })
 
 test('E7 sources (N4): UPDATE reads the probe top level and keeps the old e for a non-finite value', () => {
-  expect(UPDATE).toContain(`texelFetch(uProbe, ivec2(0), ${Math.log2(PROBE)})`)
-  expect(UPDATE).toContain('max(m, 0.01)')
-  expect(UPDATE).toContain('if (isnan(m) || isnan(n) || isinf(n)) n = l;')
+  expect(UPDATE).toContain(`texelFetch(uProbe, ivec2(0), ${Math.log2(PROBE)}).rg`)
+  expect(UPDATE).toContain('float d = log(uTarget / max(m.r, 0.01)), err = m.g > 0.3 ? min(d, (0.3 - m.g) * 2.2) : d;') // expose()'s line
+  expect(UPDATE).toContain('if (isnan(m.r) || isnan(m.g) || isnan(n) || isinf(n)) n = l;')
+})
+
+// S3c (G3b lever 2): the original's washout regime (main.js:2579-2580) in the law
+test('E11 washout: a saturated frame (share .6) pulls e down by uK × −.66 per frame where the mean law holds it (mean under the target), down to the floor; a harder mean pull wins; faithful stays 1', () => {
+  const u = servoU({ brightness: 2.4 }) // target .326
+  expect(expose(1, 0.3, u)).toBe(1) // today's law: no lift (N3)
+  expect(expose(1, 0.3, u, 0.6)).toBeCloseTo(Math.exp(u.uK * -0.66), 12)
+  expect(expose(1, 0.3, u, 0.31)).toBeCloseTo(Math.exp(u.uK * -0.022), 12) // just over the line
+  let e = 1
+  for (let i = 0; i < 600; i++) e = expose(e, 0.3, u, 0.6) // 10 s held
+  expect(e).toBeCloseTo(0.6, 12)
+  expect(expose(1, 0.619, u, 0.319)).toBe(expose(1, 0.619, u)) // ★ rose colony at G3b 15 s: ln(.326 / .619) −.64 beats −.042
+  expect(expose(1, 0.9, servoU({}, { faithful: true }), 0.9)).toBe(1)
+})
+
+test("E12 share ≤ .30 leaves today's law; E13 a NaN share (N4) keeps e", () => {
+  const u = servoU()
+  for (const mean of [0.005, 0.19, 0.5, 1, NaN]) for (const share of [0, 0.1, 0.3]) expect(expose(0.8, mean, u, share)).toBe(expose(0.8, mean, u))
+  for (const mean of [0.1, 0.5]) expect(expose(0.8, mean, u, NaN)).toBe(0.8)
 })
 
 // Skeptic planner note 4: the probe point-samples 4 096 of up to 5.09 M pixels. Sharp line art (2 px rings, 48 spokes
