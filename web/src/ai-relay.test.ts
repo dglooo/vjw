@@ -53,12 +53,14 @@ async function editor(how: 'query' | 'header' = 'query') {
   return { status: r.status, type: r.headers.get('content-type'), asks, named, ended }
 }
 
-test('the token: required at start (24+ chars), then on every call; ?token= only on the event stream', async () => {
+test('the token: required at start (24+ chars), then on every call but the guide; ?token= only on the event stream', async () => {
   expect(() => relay({ token: 'too-short' })).toThrow(/24 or more/)
   expect(() => relay({})).toThrow(/VJW_AI_TOKEN/)
   await start()
   for (const token of ['', 'x', `${TOKEN}x`, TOKEN.slice(0, -1)]) expect((await call('state', { token })).status).toBe(401)
   expect((await call('shader', { token: 'nope', body: { code: CODE } })).status).toBe(401)
+  expect((await call('export', { token: '', body: { name: 'Rings' } })).status).toBe(401)
+  expect(await (await call('guide', { token: '' })).text()).toContain('# AI shader guide') // public: it holds no secret
   expect((await call('result', { token: '', body: { id: 1 } })).status).toBe(401)
   expect((await fetch(`${base}state?token=${TOKEN}`)).status).toBe(401)
   expect((await fetch(`${base}events?token=wrong-${TOKEN}`)).status).toBe(401)
@@ -97,6 +99,24 @@ test('no editor: an answer at once; a push reaches the editor and its answer goe
   await call('result', { body: { id: e.id, ok: true, file: 'Neon tunnel.glsl' } })
   expect(await ex).toMatchObject({ ok: true, file: 'Neon tunnel.glsl' })
   expect(await st).toMatchObject({ ok: true, code: CODE })
+})
+
+test('a push with "still": false or ?still=0 answers without the png (a ChatGPT Action); by default the png stays', async () => {
+  await start()
+  const ed = await editor()
+  const png = 'data:image/png;base64,iVBORw0KGgo='
+  const cases: [string, object, boolean][] = [
+    ['shader', { code: CODE }, true],
+    ['shader', { code: CODE, still: false }, false],
+    ['shader?still=0', { code: CODE }, false],
+  ]
+  for (const [i, [path, body, kept]] of cases.entries()) {
+    const push = call(path, { body }).then((r) => r.json())
+    await vi.waitFor(() => expect(ed.asks).toHaveLength(i + 1))
+    const id = ed.asks[i].id
+    await call('result', { body: { id, ok: true, status: 'Playing', png } })
+    expect(await push).toEqual({ id, ok: true, status: 'Playing', ...(kept && { png }) })
+  }
 })
 
 test('one editor at a time: a new one replaces the old, which hears so and closes', async () => {

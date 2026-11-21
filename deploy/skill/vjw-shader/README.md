@@ -1,0 +1,5 @@
+# vjw-shader: Claude Code writes shaders into VeeJay Wizard's G editor
+1. Copy this folder into `~/.claude/skills/` (you then have `~/.claude/skills/vjw-shader/SKILL.md`). It needs Node ≥ 18.
+2. Add the site owner's token to `~/.claude/settings.json`: `"env": { "VJW_URL": "https://shanghai-cn-k8s.mooo.com/vjw001", "VJW_AI_TOKEN": "<token>" }` (or `export` both before you start `claude`).
+3. Open the site → Start → G → Remote AI → paste the token → Connect (the dot turns green).
+4. Ask Claude Code: «напиши шейдер для VeeJay Wizard: неоновые кольца под бас». More: https://shanghai-cn-k8s.mooo.com/vjw001/ai/chatgpt.md

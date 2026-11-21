@@ -5,6 +5,7 @@
 > ИИ присылает код, видит ошибки и кадр сцены, по вашей просьбе переделывает и экспортирует файл в `web/user-shaders/`.
 > Свой шейдер вы сохраняете кнопкой Export (файл `.glsl`) и загружаете обратно через Import или перетаскиванием.
 > На опубликованном сайте: Start, G, вставьте токен сервера в Remote AI один раз и нажмите Connect (`deploy/README.md`).
+> Подключить ChatGPT или другой ИИ: https://shanghai-cn-k8s.mooo.com/vjw001/ai/chatgpt.md
 
 ## 1. Connect
 
@@ -36,10 +37,11 @@ node scripts/ai-shader.mjs list
 
 **Remote: the published site** (`deploy/ai-relay.mjs` behind the user's nginx; set-up in `deploy/README.md` § Remote AI)
 
-- The same calls at `https://<host>/vjw001/__ai/…`. Every call needs `authorization: Bearer <token>`; without it, 401.
+- The same calls at `https://<host>/vjw001/__ai/…`. Every call but `GET /__ai/guide` needs `authorization: Bearer <token>`; without it, 401.
 - The user opens the site, presses **Start**, then **G**, pastes the token into **Remote AI** once and presses **Connect** (the dot turns green). From then on G connects by itself whenever it opens in that browser. One editor at a time: a newer tab takes over.
 - The CLI: `VJW_URL=https://<host>/vjw001 VJW_AI_TOKEN=<token> node scripts/ai-shader.mjs push my.glsl` (the same commands).
 - Differences from dev: the still comes back as base64 (`png`); the CLI saves it into `scratchpad/ai/stills/` and prints its path. `export` downloads `<name>.glsl` in the user's browser (Chrome may ask once to allow downloads); nothing is stored on the server and `--overwrite` does nothing. No `list`, no `file`. An answer waits at most 20 s.
+- `"still": false` in the push body (or `?still=0`) answers without `png`: for a client that cannot take an image (a ChatGPT Action, https://shanghai-cn-k8s.mooo.com/vjw001/ai/chatgpt.md). Then ask the user what they see.
 
 ## 2. What exists: the shader contract
 
@@ -112,7 +114,7 @@ The header block (the first lines up to the blank line) is written by `export` a
 ## 6. Checklist before export
 
 1. It compiles: `push` answers `"ok": true`, `"status": "Playing"`.
-2. You looked at the still: it is not black, not flat white, not a single colour.
+2. You looked at the still (with `"still": false`, the user did): it is not black, not flat white, not a single colour.
 3. No brightness, background or full-frame colour on the sound; no strobe.
 4. It stays smooth: no raymarch over ~100 steps; the user sees no stutter.
 5. A comment line names what it is and its credit (`Credit: own work`, or the author and licence of what you adapted).
