@@ -76,11 +76,25 @@ export const GROUPS = {
 export type Group = 'all' | keyof typeof GROUPS
 const GROUP = 'vjw.group'
 
-/** A user scene, checked as an import is, so whatever is stored loads back. A built-in's id is not a user scene's. */
+const LEGACY_FX = new Set(['isf/Mirror', 'isf/Kaleidoscope', 'own/feedback-zoom'])
+/** C8 (plan_vs3_engine S4.1): a vs3 copy saved before the post chain approximated the chain's fold and feedback with
+ *  these layer fx. They stay; `trails: 0, mirror: 0` on the vs3 generator turn the chain's feedback and fold off, so the
+ *  two never run together. Per layer: a `native/vs3-` generator, one of the fx, neither knob in its values. In place.
+ *  ponytail: a doc saved after the chain that adds one of the fx to a vs3 layer with both knobs untouched reads as legacy
+ *  at its next save or load; one knob edit restores it. Upgrade path: a `v: 2` stamp at the next SceneDoc format change. */
+export function chainOffForLegacy(d: SceneDoc) {
+  for (const { gen, fx } of d.layers)
+    if (gen.ref.startsWith('native/vs3-') && fx.some((n) => LEGACY_FX.has(n.ref)) && gen.values?.trails === undefined && gen.values?.mirror === undefined)
+      gen.values = { ...gen.values, trails: 0, mirror: 0 }
+  return d
+}
+
+/** A user scene, checked as an import is, so whatever is stored loads back; a legacy vs3 copy comes chain-off. A
+ *  built-in's id is not a user scene's. */
 function own(x: unknown) {
   const d = parseScene(x)
   if (isBuiltin(d.id)) throw new Error(`id: ${d.id} is a built-in, save it as a new scene`)
-  return d
+  return chainOffForLegacy(d)
 }
 
 /** `baked`: the build's defaults, web/scene-marks.json's marks and stars (vite.config.ts __VJW_MARKS__, user 2026-11-20):
