@@ -456,3 +456,445 @@ The user's gate (creative): the stills A/B of the built-ins after step 3, since 
 
 ## Recommendation
 **Variant A.** It is the only variant that adds no concept. The look knobs are inputs of the node that presets, the glide, bindings, undo and the panel already address, so R1, R4 and R6 follow from R2's inputs; MIDI needs one wildcard. The chain runs where the HDR picture and the scene's own facts are (host.ts:236-244), so the donor order is exact, and text or camera layers stay clean. The transitions and analysis-off need no code. B pays for its global stage with 16-bit shots for every scene, a new flash gate, and a look snap during our bar-long transitions. C reproduces the donor's cross-scene persistence exactly, but at about twice the size and with two homes for one look. A does not block C: `chain.ts` takes plain values, so a later store can feed the same keys. A's cost is the per-scene look: a knob set on one scene does not follow to the next until the carry step is asked for.
+
+## Skeptic response (system-designer, 2026-11-21; joined by the lead from 12 parts, headings demoted one level)
+### TL;DR
+- All 12 findings are accepted; none is rebutted. Variant A stands with amendments. No variant changes.
+- C1, C2 and C6 close with one light limiter in `frame()`: real time, both directions, after every writer. It limits `uGain`, the glow, `uVig`, the lens amount, the react gain and the fall of persist. At stock values it returns its targets, so today's picture does not change.
+- Worst case per 60 fps frame: `uGain` or the glow's follow ≤ .0064 frame-mean luma; vignette ≤ .013 × its range; lens ≤ 1/30 of its whole effect. A hot preset's kick adds the stock scene's glow step, not ×14.
+- C3 gets a washout gate in step 3 and a GPU-only exposure servo as step 3b (τ 2.5 s, range .6–1.35). I expect the gate to fail and 3b to ship.
+- Plan: the limiter lands before the first light knob (old steps 1 and 2 swap). H2 runs in steps 3, 5 and 7. GPU cost is judged at 5.09 MP and also measured at 1.93 MP.
+
+### Freshness
+- 2026-11-21, system-designer (Fable 5.2), response round. Source commit `af2cbfb` (branch `dev`).
+- Inputs: `agents/architecture-skeptic/skeptic_vs3_engine_2026-11-21.md` lines 1-105 (TL;DR, §1 C1–C12, §2, §3). `agents/system-designer/design_vs3_engine_2026-11-21.md` lines 1-46, 112-265, 418-458. `agents/STATE.md` HEAD.
+- Code: `web/src/vs3/host.ts:172-260`, `web/src/gl/post.ts:80-105`, `web/src/midi.ts:1-80`.
+- Read outside the brief's ranges, with the reason:
+  - the design's S1–S6 (lines 47-111) and Research gaps (407-417): the row keys for C8, the per-megapixel rates for the cost table, the next gap number;
+  - `host.ts:86-107` (the `FINISH` shader): the gain, tone-map and vignette formulas behind the limiter's luma arithmetic.
+- Not read: `director.ts`, `library.ts`, `ui/Midi.tsx`, `gl/live.ts`, the donor. Facts about them come from the skeptic's citations and are cited as such.
+- No product code and no existing artifact was changed. A section marked `rev 2` replaces the design section it names.
+- This run has no append tool. The response is 12 files: `.response.md`, then `.response2.md` to `.response12.md`. Join them in number order. Under `## Skeptic response`, demote every heading one level.
+
+### Lead's pre-picks, folded in
+| Pick | Where it lands |
+|---|---|
+| Variant A | every section below |
+| Per-scene macros; persistence across scenes later | C9 |
+| `decay` dropped | the script keeps dropping and counting it; gap G3 closes |
+| Custom palette from an image: out | old step 9 leaves the plan |
+| C8: `trails 0` / `mirror 0` written at load | C8, step 4 |
+| C7: `'*'` MIDI targets only on vs3 natives | C7, step 7 |
+| Fix 1: one real-time light limiter | Amendment 1 |
+| Fix 2: H2 in steps 3, 5, 7 with a stress row | Gates |
+| Fix 3: step-3 washout check, servo as a contingency | Amendment 2 |
+
+### Three designer's additions (beyond the skeptic's text)
+1. The limiter also covers the react gain, the fall of persist and a lens style change. They are the same class as C2: one frame, whole-frame light, set by a click, an undo or a MIDI CC.
+2. The limiter must merge before the first light knob. Otherwise one merge ships C2.
+3. Gate W also runs on the pre-step build, because vs3 scenes already read ≈ 2 × their thumbs today (`hardening.md:80`, as the skeptic cites it).
+
+### Findings: verdict and amendment
+| ID | Sev | Verdict | Amendment (details in the section named) |
+|---|---|---|---|
+| C1 | HIGH | accepted | The light limiter caps the glow's per-frame move at the stock scene's own move plus a follow of ×4 per second. `HEAT_RISE` and `HEAT_CAP` are deleted. H2 runs in steps 3, 5, 7. See Amendment 1, Gates. |
+| C2 | HIGH | accepted | The limiter sits after every writer (undo, slider click, MIDI, glide, binding). `uGain` moves ≤ ×4 per second. Vignette, lens amount and react gain cross their range in ≥ 0.5 s. See Amendment 1. |
+| C3 | HIGH | accepted | Washout gate W in step 3: share of pixels > .85 ≤ .30 and mean ≤ 1.4 × the thumb's, at 5, 15 and 30 s. A failing row makes step 3b ship: a GPU-only exposure servo, τ 2.5 s, range .6–1.35. See Amendment 2. |
+| C4 | MED | accepted | R5 is judged at 5.09 MP (this MacBook Air, fullscreen, 60-adaptive). The harness column is 1.93 MP. See C4, Cost table rev 2, Gates. |
+| C5 | MED | accepted | New step 0: a cue to the scene on stage starts no fade. See C5. |
+| C6 | MED | accepted | Every light slew reads `dtl`: real seconds, capped at 1/60. Motion keeps the layer's dt. See Amendment 1. |
+| C7 | MED | accepted (lead's pick) | A `'*'` target resolves only on a `native/vs3-*` node, and only for a look key. See C7. |
+| C8 | MED | changed (lead's pick) | `stripLegacyVs3Fx` leaves. A legacy user copy keeps its fx and gets `trails: 0, mirror: 0` at load. See C8. |
+| C9 | MED | accepted as a recorded trade-off (lead's pick) | Per-scene macros stay. The `Live.set` carry is deleted from the design. The later path is one stored global of 4 numbers. See C9. |
+| C10 | LOW | accepted | NaN/Inf guard ported verbatim; `uTint` ≤ 1; hue drift by `Color.offsetHSL`. See C10. |
+| C11 | LOW | accepted | Each pass owns its draw target: the warp writes the history, the lens writes its own target. See C11. |
+| C12 | LOW | accepted | The chain programs compile in vs3 `warm()`. `start()` awaits them and allocates the chain's 3 targets. See C12. |
+
+### Amendment 1: the light limiter (C1, C2, C6)
+Rev 2 of S7 F2, S7 "Ceilings" and Contracts (A).
+
+#### Terms
+- **`dtl`**: real seconds since this layer's last draw, from `performance.now()` (host.ts:199, :210), capped at 1/60 s. A longer frame gets one 60 fps frame's allowance. That is the toy limiter's rule (post.ts:85-87).
+- **stock**: the same scene at heat .5, react .5, its row's `bloomMul` and the base brightness (`look.base.brightness`; the literal 1.4 at host.ts:99). It is today's picture.
+- **strength**: the number the host gives `bloom.apply`, 9k² (host.ts:237-240).
+- **glow**: `uGain × strength`. It multiplies the bloom picture ahead of the tone map (host.ts:99-100). For a filter, glow = strength, because a filter's finish skips the grade (host.ts:101).
+- **react gain**: react × 2 (design S1). It is 1 at stock.
+- **rest**: `b.strength`, or 0 for a filter. **kick**: `b.kick ?? 0.35` (host.ts:237).
+
+#### Why the glow needs its own rule
+- The glow's light is additive ahead of the tone map: a pixel reads `uGain × (scene + strength × bloom picture)`.
+- Heat, bloomMul and brightness multiply the strength. A kick's increment then grows by the same factor, squared for heat (9k²).
+- A plain rate limit in strength units cannot be right for 38 scenes: their strengths differ by more than 3× (bloomMul 1 against 1.85).
+- So the rule takes its allowance from the stock scene itself: the stock glow is computed beside the real one, every frame, from the same signal.
+
+#### The rule (pure, inside `frame()`, once per draw)
+```
+x    = LIGHT_X ** dtl                       // 1.0234 at 60 fps
+a    = dtl / KNOB_S                         // 1/30 of a range at 60 fps
+
+hot     = heatStep(hot, hit, dtl)           // post.ts:105, now on real time
+react   moves toward v.react * 2      by at most a * REACT_MAX
+gain    = clamp(v.brightness, gain / x, gain * x)
+vig     moves toward v.vignette       by at most a * range(vignette)
+lens    moves toward v.lens * sc.wet  by at most a       // toward 0 while v.lensStyle is not the drawn style
+persist rises freely; falls by at most a                 // the value after `trails` and LATE_TRAILS
+
+k      = (rest + reacted(s.energy, react) * b.gain + reacted(hot, react) * kick) * v.bloomMul * drastic(v.heat)
+k0     = (rest + s.energy * b.gain + hot * kick) * sc.bloomRow        // the stock scene, raw signal
+target = gain * 9 * k * k
+stock  = sc.gainBase * 9 * k0 * k0
+r      = stockPrev > 0 ? min(1, glow / stockPrev) : 1
+dyn    = DYN * (stock - stockPrev) * r                                 // the stock scene's own move this frame
+foll   = (x - 1) * max(glow, GLOW_SEED)
+glow   = clamp(target, glow + min(dyn, 0) - foll, glow + max(dyn, 0) + foll)
+strength = glow / gain                      // under 1e-3: 0, so the bloom pass skips
+```
+- `reacted(level, gain) = min(1, level * gain)`.
+- For a filter, `gain` and `sc.gainBase` are 1 in the `target`, `stock` and `strength` lines.
+- The drawn lens style changes only while the limited lens amount is ≤ .01. A style change therefore ducks the amount to 0, swaps the style, and returns. The design's risk "lens style cut at the glide's midpoint" closes.
+- First frame, or a gap over 250 ms (S5 `Fresh`): every limited value takes its target.
+- S4's skip tests read the limited values, so a pass finishes its ramp before it skips.
+
+In words: the glow may move by what the stock scene's glow moved in this frame, plus a follow of at most ×4 per second. Under the stock level it moves in proportion (`r`), so a dim preset keeps its small kick exactly.
+
+#### Knobs (constants in `chain.ts`, tuned on H2)
+| Knob | Start | Meaning |
+|---|---|---|
+| `LIGHT_X` | 4 | `uGain` and the glow follow their targets by at most ×4 or ÷4 per second |
+| `KNOB_S` | 0.5 s | least time for vignette, lens amount, react gain and the fall of persist to cross their range |
+| `DYN` | 1 | share of the stock glow's own move that any setting may add per frame |
+| `GLOW_SEED` | 1 | glow level from which a zeroed glow grows back (a stock resting glow is ≈ 3 at k = .5) |
+| `DT_MAX` | 1/60 s | cap of `dtl` |
+| `REACT_MAX` | 2 | ceiling of the react gain (the donor's) |
+
+#### Caps
+- The input ranges stay the absolute caps: heat ≤ 1, so `drastic` ≤ 4; brightness ≤ its range top (2.4 is the presets' highest); lens ≤ 1.
+- Reacted kick and energy clamp at 1 (the donor: 1.2 and 1.1, `analyzer.js:466-472`).
+- `HEAT_RISE` and `HEAT_CAP` are deleted. The skeptic is right that the cap capped nothing. The glow rule bounds a bound `heat` as it bounds a clicked one.
+- No cap on the glow's level is added. The level is C3's subject (gate W, step 3b). The limiter bounds moves.
+
+#### Times a user feels (60 fps)
+| Action | Without the limiter | With it |
+|---|---|---|
+| undo of brightness 2.4 → 1.36 | 1 frame | 0.41 s |
+| undo of heat .98 → .5 (glow ÷ 14.3) | 1 frame | 1.9 s |
+| heat .5 → 1 by hand in 0.5 s (glow × 16) | follows the hand | 2.0 s |
+| slider click, lens 0 → 1 | 1 frame | 0.5 s |
+| a zeroed glow back to a stock level of 3, at rest | 1 frame | ≈ 1.5 s |
+| vignette, lens or react turned by hand over ≥ 0.5 s; the 1.8 s glide of brightness | as drawn | as drawn: the limiter does not engage |
+
+#### Contracts (A), rev 2: changed lines only
+```ts
+// vs3/chain.ts
+export const LIGHT_X = 4, KNOB_S = 0.5, DYN = 1, GLOW_SEED = 1, DT_MAX = 1 / 60, REACT_MAX = 2 // knobs, tuned on H2
+/** The limiter's last drawn values. */
+export interface Light { glow: number; stock: number; gain: number; vig: number; lens: number; persist: number; react: number }
+export interface SceneFacts { /* as before, plus */ bloomRow: number; gainBase: number } // look.json: the row's bloomMul, base.brightness
+export interface ChainState { /* `heat` leaves; plus */ hot: number; style: number; light: Light | null } // light null: the next frame takes its targets
+export interface ChainFrame { /* as before, plus */ kick: number; react: number } // `hot` on dtl; the limited react gain
+export const reacted = (level: number, gain: number) => Math.min(1, level * gain)
+/** `s`: the raw Signal. `dt`: the layer's clock, for motion. `dtl`: real seconds, at most DT_MAX, for `hot` and the limiter. */
+export function frame(v: LookValues, sc: SceneFacts, s: Signal, hit: number, st: ChainState, palMid: readonly number[], dt: number, dtl: number, t: number, aspect: number): ChainFrame
+```
+Host `draw` (host.ts:196-245):
+- `dtl = min((now − seen) / 1000, DT_MAX)`, read before `seen = now` (host.ts:199, :210). A gap over `GAP_MS` sets `st.light = null`.
+- `frame()` runs before `sc.update` (host.ts:231). The host then writes `s.kick = reacted(cf.kick, cf.react)`, `s.energy = reacted(s.energy, cf.react)` and the other levels that `analyzer.js:464-473` scales.
+- `cf.bloom` (the strength), `finish.uGain`, `finish.uVig`, the lens amount and the warp's persist are the limited values. The lens and the aberration read the reacted kick.
+- `onKick` stays the raw rise of the gated hit (host.ts:45, :220). Re-seats keep the flash gate's ≤ 3 per second.
+- `hot` moves from the host's closure (host.ts:191, :220) into `ChainState`, so the pure function owns every light slew and Vitest covers C6 without a browser.
+
+#### What the limiter guarantees
+The finish curve on luma is out = x / (1 + .9x) (host.ts:100). So x·f′(x) ≤ 1/3.6: a pixel moves by at most Δln(x) / 3.6. This is the skeptic's bound in C2. At 60 fps:
+
+| Leg | Per frame | Worst frame-mean luma step | Per second |
+|---|---|---|---|
+| `uGain` | × or ÷ 1.0234 | .0064 | .385 |
+| glow, follow part | × or ÷ 1.0234 | .0064; a filter .023 (its finish is linear, host.ts:101) | .385; a filter 1.39 |
+| glow, seed ramp (glow under `GLOW_SEED`) | + .023 | .023 × the bloom picture's mean | |
+| glow, stock part | the stock's own move × `DYN` | the stock scene's own step (next section) | |
+| vignette | range / 30 | .4 × Δvig, so .013 × range (host.ts:102: the mean of 2.4·d² over the frame is .4) | .8 × range |
+| lens amount | 1 / 30 | 1/30 of the lens's whole effect | |
+| react gain | 2 / 30 | 1/30 of react's whole effect on the scene's own light | |
+| persist, fall | 1 / 30 | ≤ 12 % of the trail field (.97 → 0 takes 29 frames) | |
+
+Sum of the content-free legs when one undo moves everything at once, vignette range 1, lens effect .5 luma: .0064 + .013 + .017 = .036 per frame. H2's step is .10.
+
+#### Why those bounds hold
+- **Stock part.** In one frame the glow adds at most the linear light the stock scene adds. Under the stock level it adds at most the stock's relative step. Where the picture is at least as bright as the stock's, the concave curve gives every pixel a step no larger than the stock scene's. Brightness is inside the rule, because `glow` carries `uGain`.
+- **Transparent at stock.** With stock values `target` equals `stock`, and the allowance always contains the stock's own move. The rule returns its target on every frame. The defaults' picture does not change.
+- **Dim settings pass exactly.** Let C = (gain / gainBase) × (bloomMul × drastic(heat) / bloomRow)². When C ≤ 1 and react ≤ .5, the target's relative step is at most the stock's, and `r` grants exactly that. Example: at brightness 1.92 every heat ≤ .44 passes. 106 of 173 presets have heat < .5 (skeptic §2).
+- **No flash rate from a knob.** Under .385 luma per second, at most 1.9 opposite swings of .10 fit into one second. Undo spam or a MIDI fader cannot make 3 flashes per second through `uGain` or the glow's follow.
+- **The 1.8 s glide.** Brightness peaks at an ln-rate of .5 per second, under ln 4 = 1.39: untouched. A glide of heat from .5 to 1 peaks at 2.4 per second: its glow arrives ≈ 0.4 s after the glide ends.
+- **Slow frames.** `dtl` is capped, so a 30 fps frame or a 100 ms frame gets a 60 fps frame's allowance. `hot` gains the same cap: its first-frame share stays 34 % (today 57 % at 30 fps).
+- **Layer speed (C6).** A layer at speed 3 changes nothing: no light slew reads the layer's dt.
+- **Side effect.** A raw-audio binding of `lens` (`hardening.md:83`) is now slewed to a full range in ≥ 0.5 s.
+
+Outside the limiter: the scene's own light under a doubled react or under a higher static gain. The curve bound still holds per pixel, but the frame can come closer to it. Rows S-stress and L-stress measure it. Levers, in order: `REACT_MAX` down, then step 3b.
+
+#### Cost to the look (for the stills gate)
+- At heat ≥ .75 the glow level rises as the donor's does (×4 to ×16), but a kick adds the stock scene's glow step. The pump is smaller against the level. 11 of 173 presets are in that range (`g1b.txt`).
+- `DYN` is the lever: raise it while H2 holds.
+- A fast throw of heat or bloomMul settles in up to 2 s (`LIGHT_X`).
+
+#### S7 Safety rules, rev 2 (changed rules only)
+- **F1** (added) The lens, the warp's zoom push and the aberration read the reacted kick: `hot` on `dtl`, times the limited react gain, clamped at 1.
+- **F2** (replaced) The light limiter. Every scalar that sets the frame's light passes it after every writer: the glow, `uGain`, `uVig`, the lens amount, the react gain, the fall of persist.
+- **F3** `brightness` and `bloomMul` stay `bindable: false` for audio. Reacted kick and energy clamp at 1.
+- **F4** (added) A lens style change ducks the lens amount to 0 first.
+- **F5** (added) A vs3 filter over a limited toy: the filter's glow is under the limiter (the skeptic's caveat in §2).
+- **F6** (added) Analysis off: the stock glow is constant, so only the follow acts. Knob jumps stay slewed.
+- **Ceilings** (replaced) Light slews run on `dtl`. Motion stays on the layer's clock: zoom, spin, `stepSym`, `stepTiles`, the palette fade.
+
+#### Last resort, not planned
+If H2 still fails with every lever used: the toy limiter's GPU pattern on the vs3 layer. It measured ≈ +1.5 ms p50 on toys (STATE, `ai-live-shader`), so it would break R5. It needs the lead's decision.
+
+### Amendment 2: washout gate and exposure servo (C3)
+Rev 2 of Roadmap check (A) "Adaptive exposure" and of Risks (A) 1.
+
+#### Gate W (step 3, lead-run, browser)
+- Rows: the defaults of vs3 Ink, Synapse and Mandala, plus the 5 value sets with the highest persist × bloomMul × brightness among the 173 presets. They are set as values; presets load by name only from step 7.
+- Run: 30 s of Kanine per row. At 5, 15 and 30 s the harness logs the frame-mean luma, the share of pixels > .85, and the mean of the scene's thumb. (.85 on the output is x > 3.6 ahead of the tone map, host.ts:100.)
+- **W1**: share ≤ .30 at all three times. It is the donor's own washout line (`O/main.js:2580`).
+- **W2**: mean ≤ 1.4 × the thumb's mean at all three times.
+- The 3 default rows also run on the pre-step build. That separates the chain's effect from today's level.
+- Verdict: a row failing W1 or W2 makes step 3b ship before step 5 and before the stills go to the user. With every row passing, the gate record says "3b not needed".
+- Designer's expectation: W2 fails. The thumbs come from the original, which ran the servo. Our scenes already sit at ≈ 2 × their thumbs. The presets' brightness (median 1.92) is a servo target in the original, not a gain (skeptic C3). Plan the slot for 3b.
+
+#### Step 3b: the exposure servo (GPU-only, per vs3 layer; a filter has none)
+| Item | Value | Source |
+|---|---|---|
+| Place | a factor `e` on the gain in `FINISH`: `raw × uGain × e` (host.ts:99) | skeptic C3 |
+| Time constant | τ = 2.5 s, on `dtl` | `O/main.js:2361-2375` |
+| Range | `e` in .6–1.35 | `O/main.js:2588` |
+| Target | frame-mean luma .19 × brightness / 1.4 | `O/main.js:2576` |
+| Law | `e ← clamp(e × (target / max(mean, .01)) ^ (dtl / τ), .6, 1.35)` | ours: a first-order lag in log gain |
+| Rate cap | `e` moves by at most × `LIGHT_X ** dtl` per frame | binds only when mean > 32 × target |
+
+Passes, in this order on every frame:
+1. **Probe.** The `FINISH` program draws into a 64×64 target with a `uProbe` switch and the current `e`. It writes the output luma and `step(.85, luma)`. `generateMipmap` makes the top level hold the mean and the share.
+2. **Update.** A 1×1 half-float pair holds `e`. One fragment applies the law. On a `Fresh` frame it takes the clamped `target / mean` at once, so a scene never starts with a drift.
+3. **Finish.** The full-size `FINISH` samples the 1×1 texture.
+
+Properties:
+- No readback, no CPU stall, no dependence on the stage size: about 4 100 fragments per frame.
+- No flash path. The servo's steepest move is ln(target / mean) / τ. At a 10× error that is ×1.015 per frame: .004 luma by the curve bound.
+- State is per layer, like the chain's. Analysis off: it keeps running; it reads the picture, not the audio.
+- With the servo on, `uGain` stays the limited brightness. Inside the range .6–1.35 the mean settles on the target whatever the static gain is.
+- ⚠️ Assumption, needs confirmation: a 64×64 linear-filtered sample is accurate enough for a τ 2.5 s servo. Test: against a full readback mean on 3 stills, within ±.02.
+- Gap G10: the original's exact wiring is not in my inputs: how `brightness` and the servo gain combine in its last pass, and what the share > .30 clause does (`O/main.js:2552-2588`). The coder of 3b reads those lines as text. The values in the table stay.
+
+Acceptance of 3b: gate W passes on every row; H2 row S-all does not rise; the probe test passes.
+
+Not in 3b: FXAA and a servo on non-vs3 scenes. The spec's non-goal "adaptive exposure" is lifted only for this step, and only if gate W fails. That lift is the lead's call under the accepted fix 3.
+
+### Amendments 3: C4 to C12
+
+#### C4: where R5 is judged (rev 2 of S6's first paragraph and of gap G2)
+- Judging point: this host, a MacBook Air 15" M4, fullscreen at UI 3008×1692 in 60-adaptive = **5.09 MP**.
+- The harness renders 1728×1118 = **1.93 MP**. The design's 7.7 MP column was 60-full of the old stage. It is no judging point.
+- A harness delta scales by pixel count: × 2.64 for this host. R5's 2.0 ms at 5.09 MP is **0.76 ms at the harness**.
+- Steps 3 and 5 measure both sizes (Gates, P). Gap G11: the show output's size and mode, the second judging point the skeptic names.
+
+#### C5: a cue to the scene on stage (new step 0)
+- Root cause (skeptic: `director.ts:70-78`, `gl/live.ts:644-651`): `begin` starts a fade to the scene already on stage, and the one cached Live then draws twice per frame.
+- Fix: in `director.begin`, a target equal to the scene on stage starts no fade; `shot.to` stays null. The preset glide is the transition (`app.ts:568-575`).
+- One guard in the shared function covers every caller: set-list cues, ← / →, the autopilot.
+- Not chosen: drawing once in `render()`. It keeps a fade that mixes a picture with itself.
+- Test: `createDirector` over cues [A, A]: after the bar line `shot.to === null`. Over [A, B] the fade still starts.
+- The bug predates this epic and is independent of it, so the step merges first.
+
+#### C7: MIDI `'*'` (rev 2 of Acceptance (A) R1)
+```ts
+// midi.ts
+export interface ParamTarget { /* as before, but */ scene: SceneId | '*' }
+// createMidi's `app` gains one reader:
+ref(layer: number, node: ParamTarget['node']): string | null // the ref of that node in the scene on stage
+```
+- Learn arms `'*'` only for an input of `group: 'look'`.
+- A `'*'` CC reaches `app.param` only when `app.ref(layer, node)` starts with `native/vs3-`. Otherwise the message is dropped: no write, no dirty flag, no undo step.
+- Trust boundary (`mappingsOf`, midi.ts:46-55): a stored `'*'` target is valid only when its `input` is one of the 18 look keys.
+- Tests: with a fake app whose stage node is `native/video`, a `'*'` CC for `zoom` does not reach `app.param`; on `native/vs3-ink` it does; a stored `'*'` target for a scene row is left out.
+
+#### C8: legacy user copies (rev 2 of Files (A) "library load", Risks (A) 4, old step 4)
+- `stripLegacyVs3Fx` leaves the design. New: `chainOffForLegacy(doc)`, called where user docs load (`library.ts:205-212`, `own()`, per the skeptic).
+- Rule, per layer. Condition: the gen's ref starts with `native/vs3-`; its fx hold `isf/Mirror`, `isf/Kaleidoscope` or `own/feedback-zoom`; its values carry neither `trails` nor `mirror`. Action: write `trails: 0, mirror: 0` into the gen's values. The fx stay.
+- Why these two keys: a row sets mirror and persist (design S1, S2). `trails: 0` switches the feedback off on every scene (S4). `mirror: 0` switches the fold off. Tiles, twist and slice are not row keys (S1). ⚠️ Assumption, needs confirmation: `look.base` leaves those three off; the last test below proves it.
+- Idempotent: after the write both keys exist. The rule never fires on that doc again, and a later edit of either knob sticks.
+- `ponytail:` ceiling: a doc saved after this epic that adds one of the three fx to a vs3 layer, with both knobs at their defaults, is read as legacy at its next load. One knob edit restores it. Upgrade path: a `v: 2` stamp when the SceneDoc format next changes.
+- Tests: a copy with an edited feedback-zoom keeps its fx and gets both zeros; a copy with `trails: 0.4` is untouched; a second run changes nothing; a non-vs3 doc is untouched; for a migrated copy `frame()` returns `mirror: false, feedback: false`.
+
+#### C9: per-scene macros (rev 2 of "How FX_DEFAULTS merge (A)", last bullet)
+- The lead's pick stands: the macros and the other look keys are per scene in this epic.
+- Deleted from the design: the `Live.set` carry. It writes live uniforms only (`live.ts:556-567`), while the panel and `presetOf` read the doc (skeptic C9).
+- Recorded later path, not built: one stored global of 4 numbers (react, chaos, trails, heat) that the host reads in place of the node's values. It is Variant C's store cut down to the macros.
+- The step-3 stills note tells the user the trade-off in one line: a macro set on one scene does not follow to the next.
+- The jump the skeptic describes after a scene switch (a MIDI fader far from the new scene's value) is slewed by the limiter.
+
+#### C10: warp guards (rev 2 of S3 "warp" and "hue drift")
+- The warp ports the donor's NaN/Inf drop verbatim (`K/lib/fx.js:172-174`), with its comment and the credit header. GLSL ES 3.00 has `isnan` and `isinf`.
+- `frame()` clamps the tint per channel: `min(1, .88 + .12 × palMid)` (`K/engine/engine.js:188`). With persist ≤ .975 the history then always decays.
+- Hue drift: the host writes each palette slot as `L.PAL[slot].copy(c).offsetHSL(hue, 0, 0)` at host.ts:228. The source colours `pal[]` stay unrotated, so nothing accumulates, and three keeps the result in gamut.
+- Tests: the warp source contains `isnan` and `isinf`; `frame()` returns every `uTint` channel ≤ 1 for `palMid` = [1.3, 1, 1]; each of the 24 palettes × 5 slots stays in [0, 1] over a full turn in 36 steps.
+
+#### C11: who writes which target (rev 2 of S6's memory bullet)
+- The chain owns three half-float targets: `hist[0]`, `hist[1]` and `lensRT`.
+- The warp always writes `hist[w]`. It reads the scene target and, with feedback on, `hist[1 − w]`. Without feedback the history is marked stale (S4).
+- The lens always writes `lensRT`. It reads the bloom's output, or `hist[w]`, or the scene target.
+- The bloom writes its own targets (`bloom.ts:51-52`). The finish writes the layer's framebuffer.
+- So no pass can sample its own draw target, with the bloom skipped or not.
+- Test (the skeptic's): `createChain.apply` on a recording fake GL over all 16 on/off combinations of mirror, feedback, bloom and lens. In no draw is a sampled texture the bound draw target's.
+
+#### C12: no compile and no big allocation on a visible frame (rev 2 of S5)
+- vs3 `warm()` compiles the warp and the lens programs with `programAsync`, and 3b's update program if 3b ships. ⚠️ Assumption, needs confirmation: `programAsync` is our existing helper; the skeptic names it.
+- `start()` awaits them beside `compileAsync` (host.ts:192). It allocates `hist[0]`, `hist[1]` and `lensRT` at the layer's size. Nothing is allocated on first use.
+- S5's lifecycle loses `Idle`: a chain is created with its targets and starts `Fresh`. It returns to `Fresh` after a gap over 250 ms, or when persist comes back from 0.
+- Memory is then fixed per vs3 layer: 24 B/px (Cost table). That is inside the total the skeptic checked (≈ 47 B/px per layer, §2).
+- A resize (the governor's step) re-fits the targets on that frame, as three's target and the bloom's do today (host.ts:226).
+- Tests: the governor's drops counter on the first vs3 cue of a fresh session, chain on against chain off: no extra dropped frame. On a recording GL, a glide that turns the warp on makes no `texStorage2D` and no `texImage2D` call after `start()`.
+
+### Cost table, rev 2 (replaces S6's table)
+These are estimates until steps 3 and 5 measure. The rates per megapixel come from S6's 1080p column (2.07 MP). The anchor is unchanged: one donor remark, ≈ 0.12 ms per MP for a plain copy (`engine.js:166-167`).
+
+| Pass | ms per MP | 1.93 MP (harness) | 5.09 MP (this host, fullscreen) |
+|---|---|---|---|
+| warp (mirror + feedback in one pass) | .12–.19 | .23–.37 | .61–.98 |
+| lens, 3 taps: ribs, fan, glitch, pixels, fly eye | .15–.19 | .28–.37 | .74–.98 |
+| lens, melt | .24–.34 | .47–.65 | 1.23–1.72 |
+| lens, anamorphic (27 taps) | .48–.72 | .93–1.40 | 2.46–3.69 |
+| bloom, finish | paid today | paid today | paid today |
+| light limiter | CPU, ≈ 40 float operations | 0 | 0 |
+| servo (step 3b): 64×64 probe, 1×1 update | fixed size | < .02 | < .02 |
+
+| Preset class | Presets of 173 | 1.93 MP | 5.09 MP | R5 (≤ +2 ms) at 5.09 MP |
+|---|---|---|---|---|
+| **warp only** (lens 0; every row's default) | 151 | **.23–.37** | **.61–.98** | holds with room |
+| **warp + 3-tap lens** (glitch 10, ribs 5, fan 4, water 1 as ribs, fly eye 1) | 21 | **.51–.75** | **1.35–1.96** | at the line |
+| warp + melt | 1 | .70–1.03 | 1.85–2.70 | exceeds by estimate |
+| warp + anamorphic (a user's pick only) | 0 | 1.17–1.77 | 3.07–4.67 | exceeds |
+
+- Where a built-in runs `own/feedback-zoom` or `isf/Mirror` today the net is lower: those 8-bit fx passes leave when the warp comes.
+- C5's fix removes a whole second scene draw per frame during a same-scene fade.
+- The host is fanless (`backlog.md:34`). The figures are before throttling. Step 8 runs 10 minutes and judges R5 on the last 2.
+- The governor lowers the internal size under load, as today. Melt and anamorphic rely on it at 5.09 MP.
+
+| Memory per vs3 layer | B/px | 1.93 MP | 5.09 MP |
+|---|---|---|---|
+| history pair `hist[0..1]`, RGBA16F | 16 | 31 MB | 81 MB |
+| `lensRT`, RGBA16F | 8 | 15 MB | 41 MB |
+| chain total, always allocated (C12) | 24 | 46 MB | 122 MB |
+| layer total with three's target and the bloom (skeptic §2) | ≈ 47 | 91 MB | 240 MB |
+| two layers during a fade | ≈ 94 | 182 MB | 480 MB |
+
+- The servo adds a 64×64 target and a 1×1 pair: under 0.1 MB.
+- 60-full on this host's display would be 20.4 MP and ≈ 1.9 GB in a fade (skeptic §2). It is not a supported judging point.
+
+### Step plan, rev 2 (Variant A)
+- Each step merges alone into `dev`. An input ships in the step that wires it.
+- The limiter ships before the first light knob, so old steps 1 and 2 swap.
+- Gates H2, W and P are defined in the next section. Properties L1–L6 follow the table.
+- Old step 9 (custom palette) is out. Tests are Vitest unless marked.
+
+| # | Step | Tests | Acceptance |
+|---|---|---|---|
+| 0 | C5: `director.begin` starts no fade to the scene on stage. | cues [A, A] and [A, B] | `shot.to === null` for [A, A]; [A, B] fades |
+| 1 | `chain.ts`, pure part: `drastic`, `stepSym`, `stepTiles`, `reacted`, `frame()` with the light limiter. No GL. | the donor formulas of old step 2 (persist with and without `LATE_TRAILS`, zoom, the mirror skip, re-seats only on `onKick`, ≤ 3 seeds per s for a 10 Hz hit); L1–L6; `uTint` ≤ 1 | L1–L6 hold |
+| 2 | `look.json` from the donor text. Inputs `bloomMul`, `aber`, `vignette`, `brightness`, wired through `frame()`'s limited values. `dtl` in the host; `hot` moves into the chain state. `Look`'s 3 numbers leave host.ts. | every native's defaults = base overlaid with its row = today's inline numbers (host.ts:295-300) | lead: the 15 s frame-mean luma of 3 scenes at defaults is within ±.01 of the pre-step build's |
+| 3 | Warp pass in the host with its inputs (mirror, tiles, twist, slice, spin, persist, zoom) and the macros `trails`, `chaos`, `heat`, `react`. C10 guards, C11 targets, C12 warm and allocation. The legacy fx leave `builtin.ts`. | no warp draw at mirror 0 and persist 0; `Fresh` after a gap; the C10, C11 and C12 tests | H2 rows S-all, S-stress, S-jump, S-cut pass. Gate W is run and decides 3b. P: warp only ≤ 2.0 ms at 5.09 MP and ≤ 0.76 ms at 1.93 MP. Then the stills A/B go to the user. |
+| 3b | Exposure servo. Built only if gate W fails on a row. | the law as a pure function; the probe mean within ±.02 of a readback on 3 stills | gate W passes on every row; S-all does not rise |
+| 4 | C8: `chainOffForLegacy` where user docs load. On `dev` before any push to master. | C8's five tests | all green |
+| 5 | Lens pass, 7 styles, inputs `lens`, `lensStyle`; the limited lens amount with the style duck; `lensRT`. | the C11 test with the lens on; skip at lens ≤ .01; a style change swaps only at amount ≤ .01 | H2 rows L-styles, L-stress, L-jump pass. P: warp + glitch ≤ 2.0 ms at 5.09 MP; the other styles are reported. |
+| 6 | Grain in `FINISH`. Hue drift by `offsetHSL`, input `hueDrift`. | the hue phase rate; the C10 gamut test | a still with grain 0 equals step 5's |
+| 7 | Script: `post.*` and `macros.*` into `presets.json`; 'water' maps to style 0. MIDI `'*'` (C7). | every factory preset's keys are inputs of its native and inside their ranges; C7's three tests | H2 row P-hot passes; gate W passes on the 5 brightest presets by name |
+| 8 | Lead: (a) P per scene at both sizes, plus the 10-minute run; (b) H2 over all 173 presets. The coder tunes `LIGHT_X`, `KNOB_S`, `DYN`. | runner evidence | R5 PASS or FAIL per preset class, with the commit, the command and the exit code |
+
+Order notes:
+- Steps 0 and 1 have no dependency on each other. They can run as two lanes.
+- Step 3 is the user's creative gate. Steps 5 to 7 wait for "ok" on the stills; step 4 does not.
+- Step 3b, if built, comes before the stills go out, so the user judges the picture that will ship.
+
+#### Limiter properties (step 1; `dtl` = 1/60 unless said)
+- **L1** Stock values, a 600-frame synthetic signal: the strength equals 9k0² within 1e-6 relative on every frame.
+- **L2** Dim values (heat .2, react .3, brightness = base, bloomMul = row): the strength equals 9k² within 1e-6 relative.
+- **L3** Hot values (heat 1, react 1, brightness 2.4): on every frame the glow's move is inside `dyn` ± `foll`.
+- **L4** C2's case, brightness 2.4 → 1.36 and heat .98 → .36 between two frames: `uGain` ≥ 2.345 after the frame (2.4 / 1.0234); the glow falls by ≤ 2.34 % plus the stock's own move; vignette, lens and react gain move by ≤ 1/30 of their range.
+- **L5** C6's case, hit 0 → 1: `kick` after one frame is .34 with the layer's dt at 3/60, and .34 when the real frame took 100 ms.
+- **L6** `light: null`: every limited value equals its target on that frame.
+
+### Gates (lead-run; evidence = commit, command, exit code, path under `scratchpad/vs3-engine/`)
+
+#### H2: flash harness
+- Metric: frame-mean luma steps > .10 between frames, counted per second. It is the run behind tag `vs3-look-analyser`.
+- Track: Kanine from 52 s, 15 s per row.
+- Pass, every row: (a) no second holds more than 3 steps; (b) the row's total is not above its baseline's. A baseline is the larger of two runs.
+
+| Row | Step | What runs | Baseline |
+|---|---|---|---|
+| S-all | 3, 3b | every vs3 built-in at its defaults | the same scene on the pre-step build |
+| S-stress | 3 | heat 1, react 1, brightness 2.4 on the 8 scenes of the `vs3-look-analyser` run plus Ink, Synapse, Mandala; once more with bloomMul at its range top | the same scene at defaults |
+| S-jump | 3 | two value sets swapped every 250 ms (4 jumps per s): heat .98 / .36, brightness 2.4 / 1.36, bloomMul and vignette at range top / bottom; 3 scenes | the same scene held at the brighter set |
+| S-cut | 3 | trails .97 ↔ 0 every 250 ms on Ink, Synapse, Mandala | the same scene held at .97 |
+| L-styles | 5 | each of the 7 lens styles at lens 1 on 3 bright scenes | the same scene at lens 0 |
+| L-stress | 5 | the brief's stress row: heat 1, react 1, brightness 2.4, lens 1; anamorphic, then pixels | the same scene at defaults |
+| L-jump | 5 | lens 0 ↔ 1 and glitch ↔ anamorphic every 250 ms | the same scene held at lens 1 |
+| P-hot | 7 | by name: the 11 presets with heat ≥ .75 and the 19 with react ≥ .9 (`g1b.txt`); plus L-stress | the same scene at defaults |
+| all | 8b | all 173 presets | rule (a) only |
+
+- A failing row blocks the step's merge.
+- Levers, one per rerun (SDLC §7): `DYN` down, `LIGHT_X` down, `KNOB_S` up, `REACT_MAX` down. For S-all: step 3b.
+
+#### W: washout
+Amendment 2. It runs in steps 3 and 3b, and in step 7 on the 5 brightest presets by name.
+
+#### P: GPU cost
+- Method: billed-p95 A/B, chain on against chain off, from `gpuMs` (engine.ts:171-172).
+- Sizes: the harness viewport 1728×1117 @2 (1.93 MP) and 3008×1692 @2 on this host (5.09 MP), both in 60-adaptive.
+- ⚠️ Assumption, needs confirmation: the headless harness runs the second viewport on this host's GPU. If it does not, the 5.09 MP figure is the 1.93 MP delta × 2.64, plus one fullscreen run by the user.
+- Step 3: warp only, 2 minutes per size. Pass: delta ≤ 2.0 ms at 5.09 MP and ≤ 0.76 ms at 1.93 MP.
+- Step 5: warp + glitch lens, the same pass lines. Every other style is reported.
+- Step 8: 10 minutes at 5.09 MP with warp + glitch. R5 is judged on the last 2 minutes; the first 2 are reported beside them.
+
+### Files (A), rev 2: changed rows
+| File | Change |
+|---|---|
+| `vs3/chain.ts` + test | plus the light limiter inside `frame()`, the three owned targets (C11), programs made in `warm()` (C12) |
+| `vs3/host.ts` | plus `dtl`, `frame()` before `sc.update`, `hot` in the chain state, chain targets in `start()`; in 3b the probe and the 1×1 state |
+| `director.ts` + test | step 0 (C5) |
+| `midi.ts`, `ui/Midi.tsx` + test | `'*'` with the vs3 check; the app's `ref` reader (C7) |
+| `library.ts` + test | `chainOffForLegacy` in place of `stripLegacyVs3Fx` (C8) |
+
+Still no change: `gl/engine.ts`, `gl/live.ts`, `gl/post.ts`, `doc.ts`, `presets.ts`. Effort: M, about 10 files, plus step 3b if gate W fails.
+
+### Risks ranked, rev 2 (Variant A)
+| # | Risk | Level | Mitigation |
+|---|---|---|---|
+| 1 | The built-ins change look when the chain replaces the legacy fx | HIGH (creative) | stills A/B per scene on real tracks; the user's gate after step 3 |
+| 2 | Washout: trails under the bloom; brightness as a static gain | HIGH until gate W passes | gate W in step 3; step 3b |
+| 3 | Flash at knob extremes | MED (was HIGH) | the light limiter; H2 in steps 3, 5, 7, 8b |
+| 4 | The scene's own light under react × 2 or a high static gain is outside the limiter | MED | rows S-stress, L-stress; `REACT_MAX`; step 3b |
+| 5 | Hot presets pump less than the donor's (`DYN` 1) | MED (creative) | shown at the stills gate; raise `DYN` while H2 holds |
+| 6 | Warp + lens sits at the 2 ms line at 5.09 MP; the host throttles | MED | gate P at both sizes; the 10-minute run; the governor |
+| 7 | The cost anchor is one donor remark | MED | gate P measures in steps 3 and 5 |
+| 8 | A fast throw of heat or bloomMul settles in up to 2 s | LOW | `LIGHT_X` |
+| 9 | C8's rule misreads a new doc with a hand-added legacy fx | LOW | one knob edit restores it; `v: 2` later |
+
+Unchanged from the design: GL state inside the guarded window; `react` without onset thresholds; grain and the REC bitrate. Closed: the lens style cut (the duck); `decay` (dropped).
+
+### Research gaps (added)
+- **G10** The original's exposure wiring (`O/main.js:2552-2588`): how `brightness` and the servo gain combine, and what the share > .30 clause does. Only step 3b needs it.
+- **G11** The show output's size and mode: the second R5 judging point (C4).
+- **G12** The ranges of `vignette`, `lens` and `brightness` in `look.ranges`. The limiter's legs scale by them; the luma figures above take vignette ≤ 1.
+- **G13** The names of the 8 scenes in the `vs3-look-analyser` H2 run (row S-stress).
+- Closed: G2 (skeptic: this host, 5.09 MP), G3 (lead: `decay` dropped), G5 (skeptic: `library.ts:205-212`).
+
+### Decision needed
+The lead's pre-picks are folded in. Four points are new:
+1. **Three extra limiter legs**: react gain, the fall of persist, the lens style duck. My pick: keep. Each is one or two lines in the same function.
+2. **Plan order**: the limiter (step 1) before the first light knob (step 2). My pick: yes.
+3. **Step 3b**: built only if gate W fails, as picked. It lifts the spec's non-goal "adaptive exposure" for vs3 layers. I expect the gate to fail.
+4. **`DYN` = 1**: hot presets keep the stock kick step. It is a look trade-off; the user sees it in the step-3 stills.
+
+The user's gate (creative) is unchanged: the stills A/B after step 3, with the per-scene macro note (C9) and, if 3b ships, with the servo on.
+
+### Recommendation, rev 2
+**Variant A, with this response's amendments.** The three HIGHs close inside A without a new concept. One pure limiter in `frame()` bounds every light scalar on real time and in both directions; it is exact at stock values, so today's picture stays. The washout gets a measured gate, and a servo that costs two passes on a 64×64 target. The gates sit where the light arrives: H2 in steps 3, 5 and 7, W in step 3, cost at 1.93 MP and at this host's 5.09 MP. B shares the chain, so C1–C3 and C10–C12 apply to it too, and it adds 16-bit shots and a second flash gate. C is the path only if the macros must follow across scenes; the lead picked per-scene macros, and A leaves C's 4-number store open. Effort stays M: about 10 files, one new module, no data-model change, and one more step if gate W fails.
+
