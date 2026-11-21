@@ -91,7 +91,7 @@ async function run() {
   // G2: on Tunnel, each burst's targets are allocated, cleared and freed inside one frame, as prepare-ahead will.
   director.setPlaylist(['builtin:tunnel'])
   director.setHold(true)
-  director.next() // a fade into itself when Tunnel is on already
+  director.next() // no fade when Tunnel is on already (director C5)
   await sleep(ITEM_MS)
   print(`G2 at ${size()}: ${BURSTS} bursts of ${BURST.length} targets, ${BURST_GAP_MS / 1000} s apart`)
   for (let i = 1; i <= BURSTS; i++) {

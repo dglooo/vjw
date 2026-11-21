@@ -378,7 +378,7 @@ let scale = 0 // the applied internal scale
 let tick = 0
 let badgeAt = -Infinity
 let lastBand: Band | null = null // the last tempo range applied (S3.2): a band change sets it, and only then snaps
-let fadingTo: string | null = null // the previous frame's shot.to: a new id starts a fade
+let switched = 0 // director.switches() as the previous frame left it: a new count is a switch (a fade, or none: C5)
 let trackAt = -1 // the previous frame's file time, s (no file: -1), for the time-code cues
 // ?debug (c) metrics (S5.4): each onset's distance to the grid before it corrects it, and time to confident.
 const offsets: number[] = [] // ms, the last 64 onsets within ±⅛ beat
@@ -511,8 +511,9 @@ function frame(now: number) {
   if (timed) director.jump(timed, true)
   trackAt = tt
   const shot = director.update(f.time, f.sync) // rAF's now is on the performance.now() clock
-  if (shot.to && shot.to !== fadingTo) {
-    const cue = director.cue()?.of // an armed set: the cue this fade begins
+  if (director.switches() !== switched) {
+    switched = director.switches()
+    const cue = director.cue()?.of // an armed set: the cue this switch begins, faded into or (its scene on stage) not
     const others = transitions.filter((id) => id !== transition) // empty with one transition: it stays
     if (cue?.transition && transitions.includes(cue.transition)) setTransition((transition = cue.transition))
     else if (others.length) setTransition((transition = others[Math.floor(Math.random() * others.length)]))
@@ -520,7 +521,6 @@ function frame(now: number) {
     if (cue?.text !== undefined) showText(cue.text) // its switches (setlist.ts), as X and A would; absent: as they are
     if (cue?.analysis !== undefined && cue.analysis === (settings.get().analyser === 'off')) settings.patch(toggleAnalysis(settings.get()))
   }
-  fadingTo = shot.to
   // Between fades: the next scene built, the others freed (E2). The editor holds, so no next scene (a ring costs 62 MB).
   if (!shot.to) prepare(store.getSnapshot().editor ? [shot.from] : [shot.from, director.peek()])
   // S4.3: Auto-style. The built-ins' bindings are remapped through the active preset's map with a 2 s crossfade;

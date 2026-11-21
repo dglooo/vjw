@@ -333,4 +333,43 @@ describe('an armed set (setlist.ts)', () => {
     expect(d.peek()).toBe('glitch')
     expect(fades(frames(d, 20.5 + 1 / 60, 40, sure))).toEqual([[34, 'particles', 'glitch']]) // barsPerShot 16 from bar 18
   })
+
+  // C5 (skeptic): a switch to the scene on stage starts no fade, which would draw its one cached Live twice a frame
+  const abb: Cue[] = [{ scene: 'spectrum', bars: 4 }, { scene: 'particles', bars: 4 }, { scene: 'particles', bars: 4 }]
+
+  test('C5a cues [A, A]: no fade at the bar line; cue 2 on stage, its bars counted from that bar line', () => {
+    const aa: Cue[] = [{ scene: 'spectrum', bars: 4 }, { scene: 'spectrum', bars: 2, preset: 'b' }]
+    const d = createDirector(playlist)
+    d.arm(aa)
+    const s = frames(d, 0, 5.95, sure)
+    expect(at(s, 4)).toMatchObject({ from: 'spectrum', to: null, mix: 0 })
+    expect(d.cue()).toMatchObject({ index: 1, of: aa[1], left: 1 }) // bar 5.95: its 2 bars from bar line 4
+    expect(d.switches()).toBe(2) // the arm's and bar 4's: app.ts puts cue 2's preset on all the same
+    s.push(...frames(d, 5.95 + 1 / 60, 6.5, sure))
+    expect(d.cue()).toMatchObject({ index: 0, of: aa[0] }) // bar line 6: the set wraps, again with no fade
+    expect(fades(s)).toEqual([[0, 'tunnel', 'spectrum']])
+  })
+
+  test('C5b cues [A, B]: the fade starts as today', () => {
+    const d = createDirector(playlist)
+    d.arm(abb.slice(0, 2))
+    expect(at(frames(d, 0, 4, sure), 4)).toMatchObject({ from: 'spectrum', to: 'particles', mix: 0 })
+  })
+
+  test('C5c mid-fade A → B, a cue back to A: it fades B → A', () => {
+    const d = createDirector(playlist)
+    d.arm(abb)
+    frames(d, 0, 4.5, sure) // spectrum → particles since bar line 4
+    d.prev()
+    expect({ ...d.update(4.55, sure(4.55)) }).toEqual({ from: 'particles', to: 'spectrum', mix: 0 })
+  })
+
+  test('C5d mid-fade A → B, a cue to B: B on stage at once, no fade', () => {
+    const d = createDirector(playlist)
+    d.arm(abb)
+    frames(d, 0, 4.5, sure)
+    d.next()
+    expect({ ...d.update(4.55, sure(4.55)) }).toEqual({ from: 'particles', to: null, mix: 0 })
+    expect(d.cue()).toMatchObject({ index: 2, of: abb[2] })
+  })
 })
