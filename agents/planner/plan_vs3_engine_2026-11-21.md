@@ -644,7 +644,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Ink at stock against G3b's S-all: 0 steps, (b) PASS; luma .058, inside .049–.069: PASS.
   - Frame time, billed gpuMs p95 at 1.93 MP, in ABC / CBA blocks of 8 s. Mandala stock: 13.92 ms. Mandala hot (limiter on): 14.98 ms, so the limiter adds 1.04 ms (blocks .94 / 1.04 / 1.09). Block 1 of both Mandala arms is void (the governor scale was below 1, minScale .79). Ink stock: 25.65 ms, governor at 1 (earlier Ink runs: 22.6–26.4 ms, so unchanged). S3c's Mandala hot without the limiter: 13.81 ms.
 
-### S5.1 [ ] The lens: uniform maths, shader, pass
+### S5.1 [x] The lens: uniform maths, shader, pass
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the 7 lens styles as one pass of the chain, with their per-frame maths. Not reachable from the panel until S5.2.
 - **Lane, box, deps:** A · 75 min · S3.2 (and S3b.2 if built); the user's "ok" at CP2.
