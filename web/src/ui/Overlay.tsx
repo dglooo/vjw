@@ -11,7 +11,7 @@ import { showText } from '../scenes/text'
 import { PresetSelect } from './Panel'
 import { Presets } from './Presets'
 import { SetMenu } from './SetList'
-import { AnalyserSelect } from './SourcesTab'
+import { AnalyserSelect, GenreSelect, SensitivitySelect } from './SourcesTab'
 import { clock, store, type UiSnapshot } from '../store'
 import './overlay.css'
 
@@ -166,7 +166,9 @@ export function Overlay() {
             input clipping — lower the mixer gain
           </span>
         ) : (
-          <span className="hint">{s.source?.kind === 'file' ? `▶ ${s.source.name}` : 'Drop an audio file anywhere'}</span>
+          <span className="hint" title={s.source?.kind === 'file' ? s.source.name : undefined}>
+            {s.source?.kind === 'file' ? `▶ ${s.source.name}` : 'Drop an audio file anywhere'}
+          </span>
         )}
         <select
           aria-label="Camera"
@@ -218,6 +220,8 @@ export function Overlay() {
         <span className="scene">{s.sceneName}</span>
         <PresetSelect />
         <AnalyserSelect />
+        <GenreSelect />
+        <SensitivitySelect />
         <Midi />
         <SetMenu />
         <button aria-pressed={s.text} title="Every text layer on / off · X" onClick={() => showText(!s.text)}>

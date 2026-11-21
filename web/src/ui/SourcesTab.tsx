@@ -72,10 +72,66 @@ export function AnalyserSelect() {
         settings.patch({ analyser: e.currentTarget.value as typeof a })
       }}
     >
-      <option value="ours">analyser: ours</option>
-      <option value="donor">analyser: vs2</option>
-      <option value="vs3">analyser: vs3</option>
-      <option value="off">analyser: off</option>
+      {/* no "analyser:" word: a select is as wide as its widest option, and the top bar is full (user 2026-11-21) */}
+      <option value="ours">ours</option>
+      <option value="donor">vs2</option>
+      <option value="vs3">vs3</option>
+      <option value="off">off</option>
+    </select>
+  )
+}
+
+/** The genre pick (`auto` or a preset id), from the top bar's select and this tab's: one write through pickToPatch, and
+ *  both show `pick ?? 'auto'`, so the two stay in step (SourcesTab.test.ts). */
+const pickGenre = (value: string) => settings.patch(pickToPatch('picker', value, settings.get(), store.getSnapshot().style.detected))
+
+const GENRE_HINT = 'The analyser profile per genre (the Sources tab preset): its tempo range and kick/snare knobs. auto follows the detected genre (dnb, dubstep or techno); psy and house are hand picks.'
+/** The genre profile in the top bar (user 2026-11-21), short labels; under Auto it names the detected genre. Hidden while
+ *  the analyser is off: no scene hears it then. */
+export function GenreSelect() {
+  const s = useSyncExternalStore(settings.onChange, settings.get)
+  const detected = useSyncExternalStore(store.subscribe, () => store.getSnapshot().style.detected)
+  if (s.analyser === 'off') return null
+  return (
+    <select
+      aria-label="Genre"
+      title={GENRE_HINT}
+      value={s.pick ?? 'auto'}
+      onChange={(e) => {
+        e.currentTarget.blur() // a focused select would eat hotkeys as type-ahead
+        pickGenre(e.currentTarget.value)
+      }}
+    >
+      <option value="auto">{s.auto && detected ? `genre: auto · ${detected}` : 'genre: auto'}</option>
+      {(Object.keys(PRESETS) as PresetId[]).map((id) => (
+        <option key={id} value={id}>
+          genre: {id}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+const SENS_HINT = 'Kick and snare detector sensitivity for the genre profile: low = fewer hits (thresholds × 1.15), mid = the profile as tuned, high = more hits (× 0.87), more false ones too. A hit\'s light stays flash-gated.'
+/** The detector sensitivity beside the genre pick (user 2026-11-21; settings.ts workletBands scales the active preset's
+ *  kick and snare thresholds). Hidden while the analyser is off, as the genre pick. */
+export function SensitivitySelect() {
+  const s = useSyncExternalStore(settings.onChange, settings.get)
+  if (s.analyser === 'off') return null
+  return (
+    <select
+      aria-label="Sensitivity"
+      title={SENS_HINT}
+      value={s.sensitivity ?? 'mid'}
+      onChange={(e) => {
+        e.currentTarget.blur() // a focused select would eat hotkeys as type-ahead
+        const v = e.currentTarget.value
+        settings.patch({ sensitivity: v === 'low' || v === 'high' ? v : undefined }) // mid = no field
+      }}
+    >
+      <option value="low">sens: low</option>
+      <option value="mid">sens: mid</option>
+      <option value="high">sens: high</option>
     </select>
   )
 }
@@ -114,7 +170,7 @@ export function SourcesTab() {
         <select
           aria-label="Preset"
           value={s.pick ?? 'auto'} // follow mode (Locked or not) shows "Auto"; a hand pick shows the pick
-          onChange={(e) => settings.patch(pickToPatch('picker', e.currentTarget.value, s, detected()))}
+          onChange={(e) => pickGenre(e.currentTarget.value)}
         >
           <option value="auto">Auto</option>
           {(Object.keys(PRESETS) as PresetId[]).map((id) => (

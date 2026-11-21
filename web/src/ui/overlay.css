@@ -10,7 +10,7 @@
   isolation: isolate; /* the gradient (::before, z-index −1) stays behind the items */
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px; /* 16 px left the controls alone wider than a 1440 px screen (user 2026-11-21) */
   padding: 12px 18px 28px;
   pointer-events: auto;
 }
@@ -92,6 +92,33 @@
 
 .hint {
   opacity: 0.55;
+}
+
+/* One line at any width (user 2026-11-21): no item in the top bar wraps, and none is pushed past the edge. The hints (the
+   track name) and the scene name take only the room left over (no base width), cut with an ellipsis. Still short of room,
+   the quality badge and the device, camera and preset selects give way, then the analyser, genre and sens selects; a
+   select stops at 10ch, still clickable. A flex-shrink factor weighs each item's width (30 against 1: the first group
+   goes nearly alone). The menus (details) keep wrapping inside; their summaries are nowrap already. */
+.bar > :not(details) {
+  white-space: nowrap;
+}
+.bar > :is(.hint, .scene, .quality) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bar > :is(.hint, .scene) {
+  flex: 1 1 0;
+  max-width: max-content;
+}
+.bar > :is(.quality, select) {
+  flex-shrink: 30;
+}
+.bar > select {
+  min-width: 10ch;
+}
+.bar > select:is([aria-label='Analyser'], [aria-label='Genre'], [aria-label='Sensitivity']) {
+  flex-shrink: 1;
 }
 
 .scene {
