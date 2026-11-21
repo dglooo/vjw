@@ -506,7 +506,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates. The app is unchanged (nothing imports `createChain`), so no browser check.
 - **Lead gate:** none.
 
-### S3.2 [ ] The warp and the macros in the host; the legacy fx leave the built-ins
+### S3.2 [x] The warp and the macros in the host; the legacy fx leave the built-ins
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the vs3 scenes get mirror and feedback from the chain, under the bloom and the tone map, with the 7 warp knobs and the 4 macros. The layer fx that approximated them leave.
 - **Lane, box, deps:** A · 75 min · S2.2, S3.1. S4.1 should be merged (see the note).
