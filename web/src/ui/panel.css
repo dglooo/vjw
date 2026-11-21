@@ -21,8 +21,9 @@
   pointer-events: auto;
   transition: opacity 0.5s ease;
 }
-/* Typing a name for Save as… keeps it: the field's keys stop at its form and never reach the window, so they don't wake the bar. */
-:root:has(.bar.hidden) .panel:not(:has(header input:focus)) {
+/* Typing a name for Save as… keeps it, and so does an open "+ layer" picker (its popover would stay, out of reach): their
+   keys stop there and never reach the window, so they don't wake the bar. */
+:root:has(.bar.hidden) .panel:not(:has(header input:focus, .pop:popover-open)) {
   opacity: 0;
   pointer-events: none;
 }
@@ -391,6 +392,7 @@
   width: 100%;
   margin-top: 8px;
   color: #d8d8d8a6;
+  text-align: left; /* "+ layer" (a button) as "+ effect" (a select) */
 }
 
 .pair {

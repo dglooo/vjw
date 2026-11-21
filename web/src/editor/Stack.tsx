@@ -3,7 +3,7 @@ import type { LayerDoc, SceneId } from '../doc'
 import { newLayer } from '../edit'
 import { live, panel } from '../gl/live'
 import { store } from '../store'
-import { Fx, FxOptions, GenOptions, LAYERS_MAX, LayerHead, LayerParams, Meters } from '../ui/Panel'
+import { Fx, FxOptions, LAYERS_MAX, LayerHead, LayerParams, LayerPick, Meters } from '../ui/Panel'
 import { adjustForSource, dragged, insertIndex, MIME } from './dnd'
 import { clampSel, muteMask, type Sel } from './layers'
 
@@ -180,20 +180,14 @@ export function Stack({ id, sel, select, tried, children }: { id: SceneId; sel: 
             )}
           </section>
         ))}
-        <select
+        <LayerPick
+          n={layers.length}
           className={`add${ins(`layer ${layers.length}`)}`}
-          value=""
-          disabled={layers.length >= LAYERS_MAX}
-          onChange={(e) => {
+          onPick={(ref) => {
             const i = layers.length // on top
-            if (panel.addLayer(e.target.value)) select({ layer: i, fx: null })
+            if (panel.addLayer(ref)) select({ layer: i, fx: null })
           }}
-        >
-          <option value="" disabled>
-            {layers.length >= LAYERS_MAX ? `${LAYERS_MAX} layers` : '+ layer'}
-          </option>
-          <GenOptions />
-        </select>
+        />
       </div>
     </aside>
   )

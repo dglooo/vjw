@@ -12,6 +12,8 @@ import { live, panel, type NodePath } from '../gl/live'
 import { library } from '../library'
 import { paramId } from '../midi'
 import { ClipRow } from './Clips'
+import { CATS, pickList, type Cat } from './pick'
+import { Pop } from './Pop'
 import { SourcesTab } from './SourcesTab'
 import { BUILTIN } from '../scenes/builtin'
 import { DJ, dj } from '../scenes/text'
@@ -27,7 +29,6 @@ const SHAPES: readonly Shape[] = ['sine', 'tri', 'saw', 'square', 'random']
 const TURN = /hue$|angle$|^rotation$|^phase$|^yaw$/i
 const PASTE = 'toy/' // the "+ layer" entry that opens the Shadertoy paste
 const byName = (k: Kind) => [...catalog.values()].filter((d) => d.kind === k).sort((a, b) => a.name.localeCompare(b.name))
-const GENERATORS = byName('generator')
 const FILTERS = (['feedback', 'geometry', 'liquid', 'retro', undefined] as const)
   .map((c) => [c ?? 'other', byName('filter').filter((d) => d.category === c)] as const)
   .filter(([, ds]) => ds.length)
@@ -459,13 +460,85 @@ export function FxOptions() {
   ))
 }
 
-/** The "+ layer" picker's entries: every generator. */
-export function GenOptions() {
-  return GENERATORS.map((d) => (
-    <option key={d.id} value={d.id}>
-      {d.name}
-    </option>
-  ))
+const PICK = 'pop-layer' // one at a time: the editor closes the panel
+/** The "+ layer" picker (user 2026-11-21: by category, not one list): a category, a search by name, then its generators
+ *  (a background's under its source, ui/pick.ts). A popover (Pop.tsx): an outside click or Esc closes it. Its keys stay
+ *  in it, as Paste's (no hotkeys while it is open): ↑/↓ walk the search and the list, Enter in the search adds the first
+ *  match. `onPick` gets the generator's ref, as the select's onChange did; `paste`: the Shadertoy paste (PASTE) after
+ *  the backgrounds. */
+export function LayerPick({ n, className = 'add', paste, onPick }: { n: number; className?: string; paste?: boolean; onPick: (ref: string) => void }) {
+  const [cat, setCat] = useState<Cat>('background')
+  const [text, setText] = useState('')
+  const search = useRef<HTMLInputElement>(null)
+  const items = pickList(catalog.values(), cat, text)
+  const pick = (ref: string) => {
+    document.getElementById(PICK)!.hidePopover()
+    onPick(ref)
+  }
+  const full = n >= LAYERS_MAX
+  return (
+    <Pop
+      id={PICK}
+      className={className}
+      disabled={full}
+      title="Add a layer: Background, Camera, Text, Frame or Video"
+      label={full ? `${LAYERS_MAX} layers` : '+ layer'}
+      onToggle={(e) => (e.newState === 'open' ? search.current!.focus() : setText(''))}
+    >
+      <div
+        className="pick"
+        onKeyDown={(e) => {
+          e.stopPropagation()
+          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+          e.preventDefault()
+          const walk = [search.current!, ...e.currentTarget.querySelectorAll<HTMLElement>('.opt')]
+          const i = walk.indexOf(document.activeElement as HTMLElement) + (e.key === 'ArrowDown' ? 1 : -1)
+          walk[Math.max(0, Math.min(walk.length - 1, i))].focus()
+        }}
+        onPointerUp={(e) => e.stopPropagation()} // the panel's blur-on-pointer-up would unfocus the search
+      >
+        <div className="seg" role="group" aria-label="Category">
+          {(Object.entries(CATS) as [Cat, string][]).map(([c, label]) => (
+            <button
+              key={c}
+              aria-pressed={c === cat}
+              onClick={() => {
+                setCat(c)
+                search.current!.focus()
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <input
+          ref={search}
+          type="search"
+          aria-label={`Search ${CATS[cat]}`}
+          placeholder="Search by name"
+          autoComplete="off"
+          spellCheck={false}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && items[0] && pick(items[0].id)}
+        />
+        <div className="list">
+          {items.flatMap((d, i) => [
+            cat === 'background' && d.group !== items[i - 1]?.group && <h3 key={d.group}>{d.group}</h3>,
+            <button key={d.id} className="opt" title={d.name} onClick={() => pick(d.id)}>
+              {d.name}
+            </button>,
+          ])}
+          {!items.length && <p className="hint">Nothing in {CATS[cat]} matches “{text.trim()}”.</p>}
+          {paste && cat === 'background' && (
+            <button className="opt" onClick={() => pick(PASTE)}>
+              Shadertoy (paste)…
+            </button>
+          )}
+        </div>
+      </div>
+    </Pop>
+  )
 }
 
 const GENRE = 'The analyser genre profile while this scene is on stage: its kick/snare knobs and bands (the tempo range and the drop detection follow the top bar). follow = none, the top bar\'s; a genre picked in the top bar wins. Saved with the scene.'
@@ -724,18 +797,7 @@ function Open({ id }: { id: SceneId }) {
             </select>
           </section>
         ))}
-        <select
-          className="add"
-          value=""
-          disabled={layers.length >= LAYERS_MAX}
-          onChange={(e) => (e.target.value === PASTE ? paste.current!.showModal() : panel.addLayer(e.target.value))}
-        >
-          <option value="" disabled>
-            {layers.length >= LAYERS_MAX ? `${LAYERS_MAX} layers` : '+ layer'}
-          </option>
-          <GenOptions />
-          <option value={PASTE}>Shadertoy (paste)…</option>
-        </select>
+        <LayerPick n={layers.length} paste onPick={(ref) => (ref === PASTE ? paste.current!.showModal() : panel.addLayer(ref))} />
       </div>
         </>
       )}
