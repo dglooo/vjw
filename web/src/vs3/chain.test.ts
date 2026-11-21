@@ -492,7 +492,7 @@ test('BS bloom skip (R2): at bloomMul 0 the glow follows down; cf.bloom is exact
 })
 
 // S5.1: the lens's uniforms (plan § S5.1; design S4, F1 and F4 rev 2; engine.js:199-222)
-const [RIBS, ANAMORPHIC, MELT, GLITCH] = [0, 2, 3, 4]
+const [RIBS, ANAMORPHIC, MELT, GLITCH, PIXELS] = [0, 2, 3, 4, 5]
 /** One lens frame at lens 1 in `style` with the signal's onKick and the gated hit; the re-seat state after it. */
 const lensAt = (st: ChainState, style: number, onKick: number, hit = 0, t = 1.5) => {
   const cf = frame({ ...V, lens: 1, lensStyle: style }, F, { ...S, onKick }, hit, st, MID, DT, DT, t, 16 / 9)
@@ -565,6 +565,45 @@ test('Z5 style swap (F4): the drawn style changes only at an amount ≤ .01: two
   expect(gap).toBe(29) // the duck: 1/30 of the range a frame
   expect(trace.slice(0, gap).every((l) => l!.uStyle === 1)).toBe(true)
   expect(trace.at(-1)).toMatchObject({ uStyle: GLITCH, uAmt: 1 })
+})
+
+test("Z6 lens kick light (S5.2): at brightness 2.4 uKick and a melt plume's weight are × cf.kickGain (1.4 / 2.4), so the lens's kick light × uGain lands at the stock's; at stock and on a filter they stay", () => {
+  const melt = (brightness: number, f: Partial<SceneFacts> = {}) => { // a new layer: uGain takes its brightness at once
+    const st = chainState(), cf = frame({ ...V, brightness, lens: 1, lensStyle: MELT }, { ...F, ...f }, { ...S, onKick: 0.8 }, 1, st, MID, DT, DT, 2.25, 16 / 9)
+    return { cf, kick: cf.lens!.uKick as number, plume: st.rips[3] }
+  }
+  const stock = melt(1.4), hot = melt(2.4)
+  expect(hot.cf.kickGain).toBeCloseTo(1.4 / 2.4, 15)
+  expect(hot.kick).toBeCloseTo(hot.cf.kick * hot.cf.kickGain, 15)
+  expect(hot.kick * hot.cf.finish.uGain).toBeCloseTo(stock.kick * stock.cf.finish.uGain, 12)
+  expect(hot.plume).toBeCloseTo((0.96 * 1.4) / 2.4, 6) // Float32 slots
+  for (const same of [stock, melt(2.4, { filter: true })]) expect([same.kick, same.plume]).toEqual([same.cf.kick, Math.fround(0.96)])
+})
+
+test("Z7 pixels glide (S5.2): pixels → glitch → pixels at lens 1, then lens 1 → 0, a held kick: on every flat grey field the modelled luma never steps by more than .10, and the donor's whole wall does; LENS mixes the wall with its input", () => {
+  const knee = +LENS.match(/float wall = smoothstep\(0\.0, ([\d.]+), uAmt \/ max\(uWet, 1e-3\)\);\s*if \(uStyle > 4\.5 && uStyle < 5\.5 && wall < 1\.0\) col = mix\(texture\(uSrc, vUv\)\.rgb, col, wall\);/)![1]
+  const st = chainState(), seq: ChainFrame['lens'][] = []
+  for (const [lens, lensStyle, n] of [[1, PIXELS, 60], [1, GLITCH, 70], [1, PIXELS, 70], [0, PIXELS, 40]])
+    for (let i = 0; i < n; i++) seq.push(frame({ ...V, lens, lensStyle }, F, S, 1, st, MID, DT, DT, i * DT, 16 / 9).lens)
+  // the frame mean of a flat grey field c through LENS (its snap and taps move nothing there) and FINISH's tone map at
+  // stock uGain (e 1, no vignette). Glitch: its scanlines' and dropouts' means. Pixels: posterize, the black grid's
+  // share (1 − .84²), the lamps; then the blend
+  const shown = (c: number, u: ChainFrame['lens'], k: number) => {
+    let x = c
+    if (u) {
+      const a = u.uAmt as number, w = Math.min(1, a / k)
+      if (u.uStyle === GLITCH) x = c * (1 - (0.08 + 0.22 * (u.uAux as number)) * a * 0.5) * (1 - 0.85 * a * 0.5 * a * 0.04)
+      else x = c + ((Math.floor(c * 6 + 0.5) / 6) * (1 - 0.2944 * Math.min(1, a * 2)) * (1 + 0.18 * (u.uKick as number)) - c) * w * w * (3 - 2 * w)
+    }
+    x *= 1.4
+    return x / (1 + 0.9 * x)
+  }
+  const worst = (k: number) => Math.max(...Array.from({ length: 1500 }, (_, j) => Math.max(...seq.slice(1).map((u, i) => Math.abs(shown(j / 1000, u, k) - shown(j / 1000, seq[i], k))))))
+  const share = seq.map((u) => (u?.uStyle === PIXELS ? Math.min(1, (u.uAmt as number) / knee) : 0)).map((w) => w * w * (3 - 2 * w)) // the wall's
+  expect([seq.filter((u) => !u).length, seq.at(-1)]).toEqual([13, null]) // skipped: a frame at each swap, then 11 from lens 0
+  expect(worst(knee)).toBeLessThanOrEqual(0.1)
+  expect(worst(1e-9)).toBeGreaterThan(0.1) // the knee at 0: the donor's whole wall at any amount over .01
+  expect(Math.max(...share.slice(1).map((w, i) => Math.abs(w - share[i])))).toBeLessThanOrEqual(0.15) // a glide: ≥ 7 frames in and out
 })
 
 // S3.1: createChain on the fake engine (plan § S3.1; design C10, C11, C12)

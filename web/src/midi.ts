@@ -89,14 +89,14 @@ export function createMidi(
     else if (t && t.scene === app.scene()) app.param(t, scale(m.val, t.lo, t.hi)) // ponytail: another scene's knob waits
   }
   /** A '*' CC (C7): onto the first vs3 native of the scene on stage, layer by layer, its gen, then its fx; none there:
-   *  dropped (no write, no undo step). mirror is a long (the fold count): a whole number in its range. */
+   *  dropped (no write, no undo step). mirror (the fold count) and lensStyle are longs: a whole number in the range. */
   function look(t: ParamTarget, val: number) {
     for (const [layer, l] of app.layers().entries()) {
       const node = l.gen.ref.startsWith('native/vs3-') ? 'gen' : l.fx.findIndex((n) => n.ref.startsWith('native/vs3-'))
       if (node === -1) continue
-      // ponytail: mirror is the only long look input (vs3/host.ts); a new one joins this test
-      const v = scale(val, t.lo, t.hi), [lo, hi] = LOOK.ranges.mirror
-      return app.param({ ...t, layer, node }, t.input === 'mirror' ? Math.min(hi, Math.max(lo, Math.round(v))) : v)
+      // ponytail: the long look inputs by name (vs3/host.ts SELECTS); a new one joins this test
+      const v = scale(val, t.lo, t.hi), r = t.input === 'mirror' || t.input === 'lensStyle' ? LOOK.ranges[t.input] : null
+      return app.param({ ...t, layer, node }, r ? Math.min(r[1], Math.max(r[0], Math.round(v))) : v)
     }
   }
   /** The connected inputs, listed and heard: on start and on every hot-plug. */

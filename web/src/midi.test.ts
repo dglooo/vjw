@@ -240,14 +240,19 @@ describe("C7 '*': a look knob follows the vs3 scene on stage", () => {
     expect(calls.at).toEqual(['0/0', '0/gen', '0/1', '1/gen'])
   })
 
-  test('C7f mirror receives an integer: rounded, clamped to its range', async () => {
+  test('C7f mirror and lensStyle receive an integer: rounded, clamped to their ranges', async () => {
     const M = { ...STAR, input: 'mirror', lo: 0, hi: 12 }
-    const { midi, calls, stage } = rig([{ ctl: CC21, target: M }, { ctl: { ...CC21, num: 22 }, target: { ...M, lo: -5, hi: 40 } }]) // CC 22: a hand-edited range
+    const { midi, calls, stage } = rig([
+      { ctl: CC21, target: M },
+      { ctl: { ...CC21, num: 22 }, target: { ...M, lo: -5, hi: 40 } }, // CC 22: a hand-edited range
+      { ctl: { ...CC21, num: 23 }, target: { ...M, input: 'lensStyle', lo: -2, hi: 9 } },
+    ])
     const { a, send } = access('x')
     await midi.start(async () => a)
     stage('builtin:vs3-mandala', layer('native/vs3-mandala'))
     for (const v of [0, 64, 70, 127]) send(0, 0xb0, 21, v) // 0, 6.05, 6.61, 12
     for (const v of [0, 20, 127]) send(0, 0xb0, 22, v) // -5, 2.09, 40
-    expect(calls.param).toEqual([0, 6, 7, 12, 0, 2, 12].map((v) => ['mirror', v]))
+    for (const v of [0, 64, 127]) send(0, 0xb0, 23, v) // -2, 3.54, 9
+    expect(calls.param).toEqual([...[0, 6, 7, 12, 0, 2, 12].map((v) => ['mirror', v]), ...[0, 4, 6].map((v) => ['lensStyle', v])])
   })
 })

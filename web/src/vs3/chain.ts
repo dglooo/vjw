@@ -183,6 +183,7 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
   const lens = toward(L?.lens, v.lensStyle === st.style ? v.lens * wet : 0, a) // S5.1 draws it
   if (lens <= 0.01) st.style = v.lensStyle // F4: a style change ducks the amount to 0, swaps, returns
   const b = sc.bloom, G = sc.filter ? 1 : gain, G0 = sc.filter ? 1 : sc.gainBase // a filter's finish skips the grade
+  const kickGain = Math.min(1, (G0 / G) ** K.KICK_COMP) // the kick light × uGain stays at the stock's: the scene's (reactTo) and the lens's
   let target = 0, stock = 0
   if (b) {
     const rest = sc.filter || sc.faithful ? 0 : b.strength, kick = b.kick ?? 0.35 // a filter or a faithful() frame: no resting glow (original main.js:15700)
@@ -211,7 +212,9 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
     uHist: st.stale ? 0 : 1,
   }
   // the lens (engine.js:199-222), the drawn style st.style at the limited amount (skips: engine.js:199). Its kick reads
-  // `hot` (F1); a re-seat only on onKick, the rise of the gated hit (flashGate: ≤ 3/s): structural, never a flash
+  // `hot` (F1); a re-seat only on onKick, the rise of the gated hit (flashGate: ≤ 3/s): structural, never a flash. The
+  // kick's light (uKick: the sheens, the anamorphic flares, the pixels lamps; a melt plume's weight) × kickGain (S5.2),
+  // as the scene's; the phase clicks keep their size
   let lensU: Uniforms | null = null
   if (lens > 0.01 && wet > 0.001) {
     const style = st.style, on = s.onKick > 0 ? s.onKick : 0
@@ -219,10 +222,10 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
     else if (style < 3 || style === 6) st.drift += dt * (0.02 + mids * 0.05) + on * 0.25 // ribs, fan, anamorphic, fly eye: a kick clicks the phase
     else if (style === 3 && on > 0) { // melt: a kick lights a rising heat plume in the next of 6 slots
       const r = Math.sin(t * 131.3) * 43758.5453
-      st.rips.set([((r - Math.floor(r)) * 2 - 1) * 0.4 * aspect, ((((r * 7.13) % 1) + 1) % 1 - 0.75) * 0.55, t, Math.min(1, on * 1.2)], (st.rip++ % 6) * 4)
+      st.rips.set([((r - Math.floor(r)) * 2 - 1) * 0.4 * aspect, ((((r * 7.13) % 1) + 1) % 1 - 0.75) * 0.55, t, Math.min(1, on * 1.2) * kickGain], (st.rip++ % 6) * 4)
     }
     // uSeed: the donor's slow auto-mutation, floor(t · 3) · .017, keeps the tears alive between kicks (engine.js:213)
-    lensU = { uAmt: lens, uStyle: style, uAspect: aspect, uKick: hot, uAux: reacted(s.highs, react), uDrift: st.drift, uTime: t, uSeed: st.seed + Math.floor(t * 3) * 0.017, uWet: wet, uRip: st.rips }
+    lensU = { uAmt: lens, uStyle: style, uAspect: aspect, uKick: hot * kickGain, uAux: reacted(s.highs, react), uDrift: st.drift, uTime: t, uSeed: st.seed + Math.floor(t * 3) * 0.017, uWet: wet, uRip: st.rips }
   }
   st.stale = !feedback
   st.reset = false
@@ -232,7 +235,7 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
   return {
     mirror, feedback, warp, bloom: strength >= 1e-3 ? strength : 0, lens: lensU, // under 1e-3 the bloom pass skips
     finish: { uAber: v.aber * (0.22 + hot), uVig: vig, uGain: gain, uGrain: sc.grain }, // uAber: host.ts:243
-    kick: hot, react, kickGain: Math.min(1, (G0 / G) ** K.KICK_COMP), // the scene's own kick light × uGain stays at the stock's
+    kick: hot, react, kickGain,
     // the servo's target scales with the drawn brightness, as the original's with its slider (main.js:2576)
     servo: sc.filter ? null : { uTarget: (SERVO.TARGET * gain) / sc.gainBase, uK: snap ? 1 : dtl / SERVO.TAU, uX: snap ? 1 : Math.log(x), uLo: sc.faithful ? 0 : Math.log(SERVO.LO) },
   }
@@ -392,12 +395,14 @@ void main() {
 // vs3: the friends' three.js engine, used with permission (2026-11-19). Ported as text into GLSL ES 3.00 from
 // donor/vs3/visual_kit/src/engine/post-shaders.js:303-459 (its header: "post-shaders.js — the original post pipeline,
 // extracted verbatim (masked)"; LensShader, "lines 2171-2347" of the original), the body verbatim but texture2D, vUv
-// and gl_FragColor. Its notes (:265-270): "The lens rack: one pass, interchangeable optical materials that refract the
-// whole composite. Sits after bloom so glow smears through the material like light through real glass. Shared traits:
+// and gl_FragColor, plus two lines of ours at the end (S5.2: pixels' blend with its input). Its notes (:265-270): "The
+// lens rack: one pass, interchangeable optical materials that refract the whole composite. Sits after bloom so glow
+// smears through the material like light through real glass. Shared traits:
 // slight per-channel refraction difference (prismatic edge dispersion), a specular sheen where the surface is steep,
 // and kicks causing a STRUCTURAL re-seat of the material — never a flash."
 /** The lens (design S3): 7 styles in one pass, uStyle = the index into look.json's lensStyles (LENS_STYLES,
- *  post-shaders.js:462). 3 taps (the dispersion); anamorphic adds 24 (its streaks), melt its noise and 6 plume slots. */
+ *  post-shaders.js:462). 3 taps (the dispersion); anamorphic adds 24 (its streaks), melt its noise and 6 plume slots,
+ *  pixels 1 under a whole wall (its input, for the blend). */
 export const LENS = `#version 300 es
 precision highp float;
 uniform sampler2D uSrc; // the bloom's output, else the warp's, else the scene
@@ -556,6 +561,11 @@ void main() {
   col *= shade;
   col += sheen * (col + 0.25);
   col += glow;
+  // ours (S5.2), not the donor's: the wall grows out of its input with the full lens amount, so the style duck and a
+  // lens fade glide it (the donor's mosaic is whole at any amount: a cut where the pass starts or skips). A uniform
+  // branch: a whole wall reads no 4th tap (its 3 snapped taps hit the cache: .25 ms against .62 at 1.93 MP)
+  float wall = smoothstep(0.0, 0.35, uAmt / max(uWet, 1e-3));
+  if (uStyle > 4.5 && uStyle < 5.5 && wall < 1.0) col = mix(texture(uSrc, vUv).rgb, col, wall);
   outColor = vec4(col, 1.0);
 }`
 

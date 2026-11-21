@@ -7,7 +7,8 @@
 // scene's palette, s ← our sources (signal()), update + render into the layer's HalfFloat RT, with setRenderTarget(null)
 // and getDrawingBufferSize() meaning that RT (screen()). Then on our passes, vs3/chain.ts's chain: the warp (the donor
 // mirror and feedback, the scene's fxHint / fxWet), the scene's own `bloom` field through our gl/bloom.ts (the natives'
-// internal bloom; strength as the donor engine.js:193, × the look's bloomMul), then the donor finish (FinishShader:
+// internal bloom; strength as the donor engine.js:193, × the look's bloomMul), the lens (the look's lens and
+// lensStyle: the donor LensShader's 7 styles), then the donor finish (FinishShader:
 // aberration, the look's brightness × the exposure servo's e and its soft tone map, vignette) into the bound FB; the servo
 // (chain.ts servo()) reads the same finish drawn into its 64² probe first. The look inputs (vs3/look.json:
 // the macros, the warp's knobs, the light) reach all of it through frame()'s light limiter; the built-ins carry no fx.
@@ -183,12 +184,14 @@ export function put(P: Record<string, unknown>, ps: readonly Input[], v: Readonl
  *  frame, shown as the original shows a dropped clip (its faithful path, main.js:2397): no grade, no resting bloom.
  *  `pointer`: the scene reads the stage's pointer (feed()); opt-in per native, the rest keep the dead stub. */
 export interface Look { palette: string; mid?: true; filter?: true; pointer?: true }
-/** The look inputs shipped so far (plan_vs3_engine S2.2, S3.2), group `look`, after the scene's rows; the rest of
+/** The look inputs shipped so far (plan_vs3_engine S2.2, S3.2, S5.2), group `look`, after the scene's rows; the rest of
  *  look.json's keys draw at their defaults. bloomMul and brightness are never bound (design F3): light on the music only
- *  through ⚡. `mirror`: a select of the fold's segment count (the glide switches it at its midpoint, the fold fades). */
-const LOOK_KEYS = ['bloomMul', 'aber', 'vignette', 'brightness', 'mirror', 'tiles', 'twist', 'slice', 'spin', 'persist', 'zoom', 'trails', 'chaos', 'heat', 'react'] as const
+ *  through ⚡. The selects (SELECTS: labels by value; a preset's glide switches them at its midpoint): `mirror`, the
+ *  fold's segment count (the fold fades); `lensStyle`, look.json's lensStyles = LENS's uStyle (frame() ducks the lens
+ *  amount to swap it). `lens`: the amount, slewed by the limiter (× a filter's wet there). */
+const LOOK_KEYS = ['bloomMul', 'aber', 'vignette', 'brightness', 'mirror', 'tiles', 'twist', 'slice', 'spin', 'persist', 'zoom', 'trails', 'chaos', 'heat', 'react', 'lens', 'lensStyle'] as const
 const UNBOUND: readonly string[] = ['bloomMul', 'brightness']
-const FOLDS = Array.from({ length: LOOK.ranges.mirror[1] + 1 }, (_, i) => i) // 0..12
+const SELECTS: Partial<Record<string, string[]>> = { mirror: Array.from({ length: LOOK.ranges.mirror[1] + 1 }, (_, i) => String(i)), lensStyle: LOOK.lensStyles }
 const ROWS = LOOK.scenes as Record<string, Partial<LookValues> | undefined>
 /** The node's look values into `out`, each frame. A non-finite one (a bound source gone bad) keeps the last value: the
  *  light limiter would hold a NaN until a reset. */
@@ -312,9 +315,12 @@ export function vs3(name: string, load: () => Promise<{ default: () => Scene }>,
     // strobe the whole picture) and crossfaded here (`fade`); the rows: plain sliders, never auto-bound; then the look
     inputs: [
       ...flash.map((n): Input => ({ name: n, type: 'float', min: 0, max: 1, default: 0 })), { name: 'palette', type: 'long', values: PALETTES.map((_, i) => i), labels: PALETTES, default: PALETTES.indexOf(look.palette), bindable: false, fade: true }, ...ps,
-      ...LOOK_KEYS.map((k): Input => k === 'mirror'
-        ? { name: k, type: 'long', group: 'look', values: FOLDS, labels: FOLDS.map(String), default: d[k] }
-        : { name: k, type: 'float', group: 'look', default: d[k], min: LOOK.ranges[k][0], max: LOOK.ranges[k][1], ...(UNBOUND.includes(k) && { bindable: false as const }) }),
+      ...LOOK_KEYS.map((k): Input => {
+        const labels = SELECTS[k]
+        return labels
+          ? { name: k, type: 'long', group: 'look', values: labels.map((_, i) => i), labels, default: d[k] }
+          : { name: k, type: 'float', group: 'look', default: d[k], min: LOOK.ranges[k][0], max: LOOK.ranges[k][1], ...(UNBOUND.includes(k) && { bindable: false as const }) }
+      }),
     ],
     flash,
     load,
