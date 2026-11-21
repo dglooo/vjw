@@ -6,8 +6,8 @@ import LOOK from './vs3/look.json'
 
 export interface Control { kind: 'cc' | 'note'; ch: number; num: number } // ch 1–16
 /** A layer input of `scene` (gl/live.ts panel.setValue's path); a CC 0–127 maps onto [lo, hi]. `'*'` (plan_vs3_engine
- *  S7.2, C7): a vs3 look input (vs3/look.json's keys), on whatever vs3 native is at `layer` / `node` of the scene on
- *  stage; any other node there is never written. */
+ *  S7.2, C7): a vs3 look input (vs3/look.json's keys) on the first vs3 native of the scene on stage, wherever that is;
+ *  `layer` / `node` only say where it was learnt. No other node is ever written. */
 export interface ParamTarget { kind: 'param'; scene: SceneId | '*'; layer: number; node: 'gen' | 'layer' | number; input: string; lo: number; hi: number; label: string }
 /** A pad presses this app.ts hotkey (e.code): one code path with the keyboard's. */
 export interface KeyTarget { kind: 'key'; code: string }
@@ -39,7 +39,7 @@ export function parse(d: ArrayLike<number>): (Control & { val: number }) | null 
 export const scale = (val: number, lo: number, hi: number) => lo + ((hi - lo) * val) / 127
 /** A layer input's place, as Panel.tsx tags its slider (data-midi). */
 export const paramId = (t: { layer: number; node: ParamTarget['node']; input: string }) => `${t.layer}/${t.node}/${t.input}`
-const targetId = (t: Target) => (t.kind === 'key' ? t.code : `${t.scene} ${paramId(t)}`)
+const targetId = (t: Target) => (t.kind === 'key' ? t.code : t.scene === '*' ? `* ${t.input}` : `${t.scene} ${paramId(t)}`)
 const same = (a: Control, b: Control) => a.kind === b.kind && a.ch === b.ch && a.num === b.num
 
 const rec = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
@@ -58,10 +58,10 @@ export const mappingsOf = (x: unknown): Mapping[] =>
   Array.isArray(x) ? x.filter((m): m is Mapping => rec(m) && control(m.ctl) && target(m.target) && ((m.target as Target).kind === 'param') === ((m.ctl as Control).kind === 'cc')) : []
 
 /** `store`: where the mappings live (library.ts: vjw.midi, mirrored and baked with the marks). `app`: the scene on
- *  stage, the ref of a node in it (null: none there), its input set, a hotkey pressed. */
+ *  stage and its layers (none before Start), its input set, a hotkey pressed. */
 export function createMidi(
   store: { load(): unknown; save(maps: Mapping[]): void },
-  app: { scene(): SceneId; ref(layer: number, node: ParamTarget['node']): string | null; param(t: ParamTarget, v: number): void; key(code: string): void },
+  app: { scene(): SceneId; layers(): readonly { gen: { ref: string }; fx: readonly { ref: string }[] }[]; param(t: ParamTarget, v: number): void; key(code: string): void },
 ) {
   let state: MidiState = { on: false, inputs: [], learn: false, armed: null, maps: mappingsOf(store.load()), error: null }
   let access: Access | null = null
@@ -85,8 +85,19 @@ export function createMidi(
     }
     const t = state.maps.find((x) => same(x.ctl, ctl))?.target
     if (t?.kind === 'key') app.key(t.code)
-    // ponytail: another scene's knob waits; a '*' one drives a vs3 native only (C7), else it drops: no write, no undo step
-    else if (t && (t.scene === '*' ? app.ref(t.layer, t.node)?.startsWith('native/vs3-') : t.scene === app.scene())) app.param(t, scale(m.val, t.lo, t.hi))
+    else if (t?.scene === '*') look(t, m.val)
+    else if (t && t.scene === app.scene()) app.param(t, scale(m.val, t.lo, t.hi)) // ponytail: another scene's knob waits
+  }
+  /** A '*' CC (C7): onto the first vs3 native of the scene on stage, layer by layer, its gen, then its fx; none there:
+   *  dropped (no write, no undo step). mirror is a long (the fold count): a whole number in its range. */
+  function look(t: ParamTarget, val: number) {
+    for (const [layer, l] of app.layers().entries()) {
+      const node = l.gen.ref.startsWith('native/vs3-') ? 'gen' : l.fx.findIndex((n) => n.ref.startsWith('native/vs3-'))
+      if (node === -1) continue
+      // ponytail: mirror is the only long look input (vs3/host.ts); a new one joins this test
+      const v = scale(val, t.lo, t.hi), [lo, hi] = LOOK.ranges.mirror
+      return app.param({ ...t, layer, node }, t.input === 'mirror' ? Math.min(hi, Math.max(lo, Math.round(v))) : v)
+    }
   }
   /** The connected inputs, listed and heard: on start and on every hot-plug. */
   function scan() {

@@ -2,15 +2,14 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { catalog } from '../fx/catalog'
 import { live, panel } from '../gl/live'
 import { library } from '../library'
-import { createMidi, KEYS, paramId, type Control, type ParamTarget, type Target } from '../midi'
+import { createMidi, KEYS, paramId, type Control, type Target } from '../midi'
 import { store } from '../store'
 import { Icon, Pop } from './Pop'
 
-/** The node at `layer` / `node` of the scene on stage; none before Start, for a layer's own row, or once it went. */
-function nodeAt(layer: number, node: ParamTarget['node']) {
+/** The layers of the scene on stage; none before Start. */
+function stage() {
   const id = store.getSnapshot().edited
-  const l = id ? live(id).doc.layers[layer] : undefined
-  return node === 'layer' ? undefined : node === 'gen' ? l?.gen : l?.fx[node]
+  return id ? live(id).doc.layers : []
 }
 
 /** The app's MIDI (midi.ts). The mappings live in library.ts (vjw.midi, the dev mirror, the build's bake). A knob sets
@@ -21,9 +20,9 @@ const midi = createMidi(
   { load: library.midi, save: library.setMidi },
   {
     scene: () => store.getSnapshot().edited,
-    ref: (layer, node) => nodeAt(layer, node)?.ref ?? null,
+    layers: stage,
     param(t, v) {
-      const l = live(store.getSnapshot().edited).doc.layers[t.layer] // the scene on stage: t's own, or a vs3 one for '*'
+      const l = stage()[t.layer] // the scene on stage: t's own, or its first vs3 native's layer for '*'
       if (!l || (typeof t.node === 'number' && !l.fx[t.node])) return // its node went (a structural edit): the knob waits
       panel.setValue({ layer: t.layer, node: t.node }, t.input, v)
       const el = document.querySelector<HTMLInputElement>(`[data-midi="${CSS.escape(paramId(t))}"]`)
@@ -46,7 +45,7 @@ addEventListener(
     const { edited, sceneName } = store.getSnapshot()
     const layer = +l, node = /^\d+$/.test(n) ? +n : (n as 'gen' | 'layer'), input = rest.join('/')
     const name = el.closest('.row')?.firstElementChild?.textContent ?? input
-    const ref = nodeAt(layer, node)?.ref
+    const ld = stage()[layer], ref = node === 'gen' ? ld?.gen.ref : node === 'layer' ? undefined : ld?.fx[node]?.ref
     const look = !!ref && !!catalog.get(ref)?.inputs.some((x) => x.name === input && x.group === 'look') // C7: it follows the stage
     midi.arm({ kind: 'param', scene: look ? '*' : edited, layer, node, input, lo: +el.min, hi: +el.max, label: `${name} · ${look ? 'any vs3 scene' : sceneName}` })
   },
