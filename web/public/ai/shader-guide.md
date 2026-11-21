@@ -5,7 +5,10 @@
 > ИИ присылает код, видит ошибки и кадр сцены, по вашей просьбе переделывает и экспортирует файл в `web/user-shaders/`.
 > Свой шейдер вы сохраняете кнопкой Export (файл `.glsl`) и загружаете обратно через Import или перетаскиванием.
 > На опубликованном сайте: Start, G, вставьте токен сервера в Remote AI один раз и нажмите Connect (`deploy/README.md`).
-> Подключить ChatGPT или другой ИИ: https://shanghai-cn-k8s.mooo.com/vjw001/ai/chatgpt.md
+> Каждый браузер сам получает свою комнату при первом Connect и помнит её: прочитайте код рядом с Connect и назовите
+> его своему ИИ (или `VJW_ROOM`). Так несколько человек работают одновременно, каждый ИИ в своём редакторе.
+> Подключить ChatGPT или другой ИИ: страница `ai/chatgpt.md` этого сайта (`<SITE_URL>/ai/chatgpt.md`; `<SITE_URL>` —
+> адрес сайта от его владельца, вида `https://<host>/vjw001`).
 
 ## 1. Connect
 
@@ -37,11 +40,14 @@ node scripts/ai-shader.mjs list
 
 **Remote: the published site** (`deploy/ai-relay.mjs` behind the user's nginx; set-up in `deploy/README.md` § Remote AI)
 
-- The same calls at `https://<host>/vjw001/__ai/…`. Every call but `GET /__ai/guide` needs `authorization: Bearer <token>`; without it, 401.
-- The user opens the site, presses **Start**, then **G**, pastes the token into **Remote AI** once and presses **Connect** (the dot turns green). From then on G connects by itself whenever it opens in that browser. One editor at a time: a newer tab takes over.
-- The CLI: `VJW_URL=https://<host>/vjw001 VJW_AI_TOKEN=<token> node scripts/ai-shader.mjs push my.glsl` (the same commands).
-- Differences from dev: the still comes back as base64 (`png`); the CLI saves it into `scratchpad/ai/stills/` and prints its path. `export` downloads `<name>.glsl` in the user's browser (Chrome may ask once to allow downloads); nothing is stored on the server and `--overwrite` does nothing. No `list`, no `file`. An answer waits at most 20 s.
-- `"still": false` in the push body (or `?still=0`) answers without `png`: for a client that cannot take an image (a ChatGPT Action, https://shanghai-cn-k8s.mooo.com/vjw001/ai/chatgpt.md). Then ask the user what they see.
+- The same calls at `<SITE_URL>/__ai/…` (`<SITE_URL>`: the site address from its owner, such as `https://<host>/vjw001`). Every call but `GET /__ai/guide` needs `authorization: Bearer <token>`; without it, 401.
+- The user opens the site, presses **Start**, then **G**, pastes the token into **Remote AI** once and presses **Connect** (the dot turns green). From then on G connects by itself whenever it opens in that browser.
+- **Rooms:** each browser gets its own room on its first Connect and keeps it; the user only reads the code off the G row (beside Connect, with a **Copy** button) and gives it to their AI. The code is 5 letters and digits (typing another, 1 to 16 of `a–z` and `0–9`, is optional). Every call names its room: the header `X-VJW-Room: <code>` or `?room=<code>`. No room = the room `main` (an older CLI). Each room holds one editor (a newer tab in the same room takes over), so several people live-code at once, each AI in its own editor. Rooms route calls; they lock nothing: the one token reaches every room.
+- **Ask for the room first.** Unless the user gave you the code (or `VJW_ROOM` is set), ask them in one line before the first call: «Открой сайт → Start → G → Remote AI: какой там код комнаты (рядом с Connect)?». Then send that code in every call.
+- No editor in the room: `{ "ok": false, "error": "no G editor open in room <code>: …" }`. A bad code answers 400. A relay with 32 rooms open refuses a 33rd editor.
+- The CLI: `VJW_URL=<SITE_URL> VJW_AI_TOKEN=<token> VJW_ROOM=<code> node scripts/ai-shader.mjs push my.glsl` (the same commands).
+- Differences from dev (the dev server has no rooms: it ignores the room): the still comes back as base64 (`png`); the CLI saves it into `scratchpad/ai/stills/` and prints its path. `export` downloads `<name>.glsl` in the user's browser (Chrome may ask once to allow downloads); nothing is stored on the server and `--overwrite` does nothing. No `list`, no `file`. An answer waits at most 20 s.
+- `"still": false` in the push body (or `?still=0`) answers without `png`: for a client that cannot take an image (a ChatGPT Action, `<SITE_URL>/ai/chatgpt.md`). Then ask the user what they see.
 
 ## 2. What exists: the shader contract
 

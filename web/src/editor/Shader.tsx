@@ -7,7 +7,9 @@
 // (shaderfile.ts: a header, then the code); Import, or a .glsl dropped on the panel, loads one back (user 2026-11-20).
 // In dev the open editor also answers the AI channel (vite.config.ts aiChannel, docs/ai-shader-guide.md), and Import
 // lists the AI's exports (web/user-shaders/). In a build its Remote AI row (user 2026-11-21) does the same through the
-// server's relay (deploy/ai-relay.mjs): off until the user pastes the relay's token once, then on whenever G opens.
+// server's relay (deploy/ai-relay.mjs): off until the user pastes the relay's token once, then on whenever G opens. Its
+// room code, made on this browser's first Connect and kept (user 2026-11-21), routes the AI's calls to this editor:
+// friends live-code side by side, one token for all. The user only reads it off; typing another is optional.
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
 import { director, setShader } from '../app'
 import type { SceneId } from '../doc'
@@ -16,7 +18,7 @@ import { toyErrors } from '../fx/glsl'
 import { fitStage, stage } from '../gl/engine'
 import { live, panel } from '../gl/live'
 import { download, library } from '../library'
-import { answerAsk, readShader, safeName, writeShader } from '../shaderfile'
+import { aiSettings, answerAsk, newRoom, readShader, roomCode, safeName, writeShader } from '../shaderfile'
 import { store } from '../store'
 import { SceneHead, type Say } from '../ui/Panel'
 import './editor.css'
@@ -34,15 +36,16 @@ const REST_MS = 700 // knob: typing compiles once the keys rest this long (the f
 /** A comment's `Credit: …` in the code: the node's credit (an example's names its authors and licence). */
 const creditOf = (code: string) => /^\s*\/\/.*?Credit: (.+)$/m.exec(code)?.[1].trim()
 type Errs = { line: number; msg: string }[]
-const AI_KEY = 'vjw.ai' // the remote AI's token, pasted once: this browser's only (never in the build); G connects whenever it opens
+const AI_KEY = 'vjw.ai' // the remote AI's `{ token, room }` (shaderfile.ts aiSettings): this browser's only (never in the build); G connects whenever it opens
 type Link = 'wait' | 'on' | 'refused' | 'replaced'
 const LINK: Record<Link | 'off', string> = {
   off: 'off (paste the token from the server once, then Connect)',
   wait: 'connecting…',
   on: 'connected: the AI can push code into this editor',
-  refused: 'refused: a wrong token, or no relay on the server',
-  replaced: 'another tab took the connection',
+  refused: 'refused: a wrong token, a full relay, or no relay on the server',
+  replaced: 'another tab in this room took the connection',
 }
+const BAD_ROOM = 'a room code is 1 to 16 letters a–z or digits'
 const STILL_MS = 1500 // knob: the AI channel's still, this long after a good compile (the picture has moved by then)
 const STILL_W = 640 // px: its width at most
 /** The stage as a PNG data URL ≤ STILL_W wide, drawn in the next frame just after the app's draw: the stage keeps no
@@ -81,9 +84,15 @@ function Open({ id }: { id: SceneId }) {
   const last = useRef<Errs>([]) // the last compile's errors (the AI channel's state)
   const file = useRef<HTMLInputElement>(null)
   const drafted = useRef(false)
-  const [remote, setRemote] = useState(() => ({ token: import.meta.env.DEV ? '' : (localStorage.getItem(AI_KEY) ?? ''), on: true })) // a new object: Connect again reconnects
+  const [remote, setRemote] = useState(() => {
+    if (import.meta.env.DEV) return { token: '', room: '', on: true }
+    const s = aiSettings(localStorage.getItem(AI_KEY))
+    if (s.token) localStorage.setItem(AI_KEY, JSON.stringify(s)) // G connects now: a room made for a token from before rooms stays
+    return { ...s, on: true }
+  }) // a new object: Connect again reconnects
   const [link, setLink] = useState<Link>('wait')
   const tokenField = useRef<HTMLInputElement>(null)
+  const roomField = useRef<HTMLInputElement>(null)
   useLayoutEffect(() => fitStage(cell.current!), [])
   // The opening text through the ref, not defaultValue: React writes a textarea's defaultValue (its text child) after
   // every input event, and that DOM write split the field's undo into single characters and broke its redo (Chrome).
@@ -167,7 +176,7 @@ function Open({ id }: { id: SceneId }) {
   useEffect(() => {
     if (!remote.on || !remote.token) return
     const at = `${import.meta.env.BASE_URL}__ai/`
-    const es = new EventSource(`${at}events?token=${encodeURIComponent(remote.token)}`) // an EventSource sends no header
+    const es = new EventSource(`${at}events?token=${encodeURIComponent(remote.token)}&room=${remote.room}`) // an EventSource sends no header
     const post = (r: object) => fetch(`${at}result`, { method: 'POST', headers: { authorization: `Bearer ${remote.token}`, 'content-type': 'application/json' }, body: JSON.stringify(r) })
     const stop = (l: 'refused' | 'replaced') => (setLink(l), setNote({ text: `Remote AI: ${LINK[l]}`, err: true }))
     es.onopen = () => (setLink('on'), setNote({ text: 'Remote AI connected', err: false })) // over a refusal's note, which stays
@@ -176,12 +185,25 @@ function Open({ id }: { id: SceneId }) {
     es.onmessage = (e: MessageEvent<string>) => void answer(JSON.parse(e.data)).then(post).catch(() => {}) // a lost answer: the relay's wait ends the call
     return () => es.close()
   }, [remote])
+  /** The room field's code, folded as the relay reads it; undefined (and a note) when it is not one. */
+  const roomOf = () => roomCode(roomField.current!.value) ?? void setNote({ text: `Remote AI: ${BAD_ROOM}`, err: true })
   const connect = () => {
     const token = tokenField.current!.value.trim()
     if (!token) return
-    localStorage.setItem(AI_KEY, token)
+    const room = roomField.current!.value.trim() ? roomOf() : newRoom() // the first Connect makes this browser's room
+    if (!room) return
+    localStorage.setItem(AI_KEY, JSON.stringify({ token, room }))
+    roomField.current!.value = room
     setLink('wait')
-    setRemote({ token, on: true })
+    setRemote({ token, room, on: true })
+  }
+  const copyRoom = () => {
+    const room = roomOf()
+    if (room)
+      navigator.clipboard.writeText(room).then(
+        () => setNote({ text: `Room code ${room} copied: give it to your AI as VJW_ROOM`, err: false }),
+        (e: unknown) => setNote({ text: `Copy: ${String(e)}`, err: true }),
+      )
   }
   const disconnect = () => setRemote({ ...remote, on: false }) // this opening only: the token stays, the next G connects
   const shown = remote.on && remote.token ? link : 'off'
@@ -280,6 +302,24 @@ function Open({ id }: { id: SceneId }) {
             <i className={`led ${shown}`} role="img" aria-label={`Remote AI: ${LINK[shown]}`} />
             <span>Remote AI</span>
             <input ref={tokenField} type="password" aria-label="Remote AI token" placeholder="token" autoComplete="off" spellCheck={false} defaultValue={remote.token} hidden={linked} />
+            <span>room</span>
+            <input
+              ref={roomField}
+              className="room"
+              aria-label="Remote AI room code"
+              title="This browser's room code (made on the first Connect): read it to your AI, or give it as VJW_ROOM"
+              placeholder="auto"
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={16}
+              defaultValue={remote.room}
+              readOnly={linked}
+            />
+            {remote.room && (
+              <button title="Copy the room code" onClick={copyRoom}>
+                Copy
+              </button>
+            )}
             <button onClick={linked ? disconnect : connect}>{linked ? 'Disconnect' : 'Connect'}</button>
           </header>
         )}
