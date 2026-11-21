@@ -589,7 +589,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - New test IDs: `E5a` (the probe grid on sharp synthetic line art at 1.93 and 5.09 MP, ±.02, CPU) and `E9` (`servo()` on the fake: probe, then mipmaps, then UPDATE; the pair swaps; a filter runs nothing). The plan's `E5` (real stills) stays in S3b.2. `host.test.ts` C12c now lists the probe's fit.
   - API for S3b.2: `chain.servo(cf.servo, (e) => finish!({ ..., uRes: [PROBE, PROBE], uProbe: 1, uExp: e }))` after `apply()`. It returns the texture for the full-size FINISH's `uExp`. It leaves the 1 × 1 viewport bound.
 
-### S3b.2 [ ] (only if gate W fails at G3) The exposure servo in the host
+### S3b.2 [x] (only if gate W fails at G3) The exposure servo in the host
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** probe → update → finish on every vs3 generator layer.
 - **Lane, box, deps:** A · 75 min · S3b.1.
