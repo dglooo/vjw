@@ -9,7 +9,10 @@
 import { heatStep } from '../gl/post'
 import type { Signal } from './host'
 
-/** knob: the light limiter's (design Amendment 1, tuned on gate H2); read by frame() and clock() from S1.2 on. */
+/** knob: the light limiter's (design Amendment 1, tuned on gate H2). LIGHT_X: uGain and the glow follow by at most ×/÷ 4
+ *  per s; KNOB_S, VIG_S: s for react, lens and the persist fall, and for vignette, to cross their range; DYN: the share of
+ *  the stock glow's own move a setting may add; GLOW_SEED: the level a zeroed glow grows back from; DT_MAX: the cap of
+ *  dtl; REACT_MAX: the react gain's ceiling. */
 export const KNOBS = { LIGHT_X: 4, KNOB_S: 0.5, VIG_S: 1, DYN: 1, GLOW_SEED: 1, DT_MAX: 1 / 60, REACT_MAX: 2 }
 export type Knobs = typeof KNOBS
 /** heat and chaos (engine.js:150-151): .25× at 0, 1× at .5, 4× at 1. */
@@ -28,7 +31,7 @@ export interface SceneFacts {
   wet: number; grain: number; lateTrails: number; filter: boolean // wet: fxWet(), limitless only, else 1; lateTrails: LATE_TRAILS, else 0
   bloomRow: number; gainBase: number; vigRange: number // the row's bloomMul, base.brightness, the width of vignette's range
 }
-/** The limiter's last drawn values (S1.2). */
+/** The limiter's last drawn values. */
 export interface Light { glow: number; stock: number; gain: number; vig: number; lens: number; persist: number; react: number }
 /** Per-layer state as plain data, so frame() is pure. `reset`: snap this frame (frame() clears it); `stale`: the
  *  history holds no fed-back frame, so the next fed-back frame ignores it. */
@@ -57,6 +60,9 @@ const SYM_FADE = 0.5 // s: a fold change's crossfade
 const TILE_W = 9.5 // the tile glide's spring
 const TILE_VMAX = 2 // log-count per second: 1 to 6 in about a second
 const smooth01 = (x: number) => (x >= 1 ? 1 : x <= 0 ? 0 : x * x * (3 - 2 * x))
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+/** `cur` moved toward `to` by at most `step`; no `cur` (the light state is null): `to`. */
+const toward = (cur: number | undefined, to: number, step: number) => (cur === undefined ? to : cur + clamp(to - cur, -step, step))
 
 /** stepTiles (post-shaders.js:162-184): the exact critically damped step on the log of the tile count, frame-rate
  *  independent, with the zoom rate capped so a long jump (1 to 6) travels at an even speed instead of lunging at the start. */
@@ -116,11 +122,21 @@ function stepSym(f: ChainState['sym'], target: number, dt: number) {
 }
 
 /** One frame of the chain (engine.js:150-198). `s`: the raw Signal; `hit`: the gated ⚡ kick; `dt`: the layer's clock,
- *  for motion; `dtl`: real seconds, for the light. Light values pass unlimited until the limiter (S1.2). */
-export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: number, st: ChainState, palMid: readonly number[], dt: number, dtl: number, t: number, aspect: number): ChainFrame {
-  if (st.reset) st.sym.to = st.tiles.y = null // the fold fade and the tile glide snap: their first-call path
-  const hint = sc.hint ?? {}, wet = sc.wet, chaos = drastic(v.chaos), react = v.react * 2
-  const hot = (st.hot = heatStep(st.hot, hit, dtl)) // the kick as drawn, on real time (C6)
+ *  for motion; `dtl`: real seconds (clock()), for the light. Every scalar that sets the frame's light passes the light
+ *  limiter (plan § The light limiter, final text: design Amendment 1 with the skeptic's N1, N2, N4, N5, N6), and the
+ *  skips read the limited values, so a pass finishes its ramp before it skips. `K`: the limiter's knobs. */
+export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: number, st: ChainState, palMid: readonly number[], dt: number, dtl: number, t: number, aspect: number, K: Knobs = KNOBS): ChainFrame {
+  if (st.reset) {
+    st.sym.to = st.tiles.y = null // the fold fade and the tile glide snap: their first-call path
+    st.light = null // N2: every limited value takes its target on this frame
+    st.stale = true // and the history holds no fed-back frame
+  }
+  const L = st.light, x = K.LIGHT_X ** dtl, a = dtl / K.KNOB_S // ×1.0234 and 1/30 of a range at 60 fps
+  const en = s.energy >= 0 ? Math.min(1, s.energy) : 0, h = hit >= 0 ? Math.min(1, hit) : 0 // N6: clamped at 1; N4: NaN reads 0
+  const react = toward(L?.react, Math.min(v.react * 2, K.REACT_MAX), a * 2) // N1: REACT_MAX caps the target
+  const hot = heatStep(st.hot, reacted(h, react), dtl) // N1: react before the slew (the donor's order), on real time (C6)
+  const hot0 = heatStep(st.hot0, h, dtl) // the stock scene's kick (react gain 1)
+  const hint = sc.hint ?? {}, wet = sc.wet, chaos = drastic(v.chaos)
   const mids = reacted(s.mids, react), sub = reacted(s.sub, react) // the donor's engine reads the reacted signal
   // the mirror (engine.js:155-171)
   const to = stepSym(st.sym, hint.mirror ?? v.mirror, dt), from = st.sym.from, mix = smooth01(st.sym.w)
@@ -129,8 +145,32 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
   const mirror = to >= 0.5 || (mix < 1 && from >= 0.5) || tiles > 1.0001 || Math.abs(v.twist) > 0.001 || v.slice > 0.001
   // the feedback (engine.js:173-188): trails 0 = no feedback, .5 = the scene's, 1 = the most
   const p = hint.persist ?? v.persist
-  const persist = wet * Math.min(0.975, p > 0 ? p * Math.min(2, v.trails * 2) : sc.lateTrails * Math.max(0, v.trails * 2 - 1))
+  const pT = wet * Math.min(0.975, p > 0 ? p * Math.min(2, v.trails * 2) : sc.lateTrails * Math.max(0, v.trails * 2 - 1))
+  const persist = !L || pT >= L.persist ? pT : Math.max(pT, L.persist - a) // rises freely, falls slewed
   const feedback = persist > 0, steady = !!hint.steady
+  // the light (plan § The light limiter): uGain, vignette, the lens amount, then the glow against the stock scene's
+  const gain = L ? clamp(v.brightness, L.gain / x, L.gain * x) : v.brightness
+  const vig = toward(L?.vig, v.vignette, (dtl / K.VIG_S) * sc.vigRange) // N5: 1 s across the range
+  if (!L) st.style = v.lensStyle
+  const lens = toward(L?.lens, v.lensStyle === st.style ? v.lens * wet : 0, a) // S5.1 draws it
+  if (lens <= 0.01) st.style = v.lensStyle // F4: a style change ducks the amount to 0, swaps, returns
+  const b = sc.bloom, G = sc.filter ? 1 : gain, G0 = sc.filter ? 1 : sc.gainBase // a filter's finish skips the grade
+  let target = 0, stock = 0
+  if (b) {
+    const rest = sc.filter ? 0 : b.strength, kick = b.kick ?? 0.35 // host.ts:237; a filter: no resting glow
+    const k = (rest + reacted(en, react) * b.gain + hot * kick) * v.bloomMul * drastic(v.heat)
+    const k0 = (rest + en * b.gain + hot0 * kick) * sc.bloomRow // the stock scene: heat .5, react .5, the row's look
+    target = G * 9 * k * k // the donor's glow, 9 k² (host.ts:238-240), times the gain ahead of the tone map
+    stock = G0 * 9 * k0 * k0
+  }
+  let glow = target
+  if (L) {
+    const r = L.stock > 0 ? Math.min(1, L.glow / L.stock) : 1, dyn = K.DYN * (stock - L.stock) * r // the stock's own move
+    const foll = (x - 1) * Math.max(L.glow, K.GLOW_SEED)
+    glow = clamp(target, L.glow + Math.min(dyn, 0) - foll, L.glow + Math.max(dyn, 0) + foll)
+  }
+  if (!(glow >= 0)) glow = target >= 0 ? target : 0 // N4: a NaN never latches (flashGate's guard, gl/post.ts:51)
+  const strength = glow / G
   const warp: Uniforms = {
     uSegments: to, uSegFrom: from, uSegMix: mix, uAspect: aspect, uAngle: st.angle, uTiles: tiles, uTwist: v.twist, uSlice: v.slice, uWet: wet,
     uPersist: persist,
@@ -144,12 +184,23 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
   }
   st.stale = !feedback
   st.reset = false
-  const b = sc.bloom, k = b ? ((sc.filter ? 0 : b.strength) + s.energy * b.gain + hot * (b.kick ?? 0.35)) * v.bloomMul : 0 // host.ts:237
+  st.light = { glow, stock, gain, vig, lens, persist, react }
+  st.hot = hot
+  st.hot0 = hot0
   return {
-    mirror, feedback, warp, bloom: k > 0 ? 9 * k * k : 0, lens: null,
-    finish: { uAber: v.aber * (0.22 + hot), uVig: v.vignette, uGain: v.brightness, uGrain: sc.grain },
+    mirror, feedback, warp, bloom: strength >= 1e-3 ? strength : 0, lens: null, // under 1e-3 the bloom pass skips
+    finish: { uAber: v.aber * (0.22 + hot), uVig: vig, uGain: gain, uGrain: sc.grain }, // uAber: host.ts:243
     kick: hot, react,
   }
+}
+
+/** The host's prelude. `now`, `seen`: ms (performance.now(): this draw, the native's last). dtl: real seconds, at most
+ *  DT_MAX. reset: this native was not drawn on the previous engine frame (N2: a frame counter, not wall time, so a
+ *  late draw on stage keeps its light and history); a new native passes `drawnFrame` -Infinity.
+ *  ponytail: a library tile drawn every k-th stage frame resets on each draw, so its light takes its targets; fine for a
+ *  thumbnail. */
+export function clock(now: number, seen: number, engineFrame: number, drawnFrame: number): { dtl: number; reset: boolean } {
+  return { dtl: Math.min(Math.max(0, now - seen) / 1000, KNOBS.DT_MAX), reset: engineFrame - drawnFrame > 1 }
 }
 
 const LEVELS = ['sub', 'mids', 'highs', 'air', 'energy'] as const // analyzer.js:466-471, besides the kick
