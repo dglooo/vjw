@@ -72,10 +72,11 @@ export function AnalyserSelect() {
         settings.patch({ analyser: e.currentTarget.value as typeof a })
       }}
     >
-      <option value="ours">analyser: ours</option>
-      <option value="donor">analyser: vs2</option>
-      <option value="vs3">analyser: vs3</option>
-      <option value="off">analyser: off</option>
+      {/* no "analyser:" word: a select is as wide as its widest option, and the top bar is full (user 2026-11-21) */}
+      <option value="ours">ours</option>
+      <option value="donor">vs2</option>
+      <option value="vs3">vs3</option>
+      <option value="off">off</option>
     </select>
   )
 }

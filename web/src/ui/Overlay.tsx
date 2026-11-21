@@ -166,7 +166,9 @@ export function Overlay() {
             input clipping — lower the mixer gain
           </span>
         ) : (
-          <span className="hint">{s.source?.kind === 'file' ? `▶ ${s.source.name}` : 'Drop an audio file anywhere'}</span>
+          <span className="hint" title={s.source?.kind === 'file' ? s.source.name : undefined}>
+            {s.source?.kind === 'file' ? `▶ ${s.source.name}` : 'Drop an audio file anywhere'}
+          </span>
         )}
         <select
           aria-label="Camera"
