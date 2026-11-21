@@ -105,3 +105,4 @@
 - `agents/guides/guide_syn_res_085.md` — res .85 guide for the 59 donor (syn) built-ins: groups A/B/C, recipe, verification without frame time, 4 Sonnet batches (Fable 5.2, 2026-11-19)
 - `agents/audio-dsp/dsp_kickaccent_linein_2026-11-19.md` — kickAccent L window for line-in: pick (c) rise on the kick frame + height hold ≥ 16 ms (ACCENT_HOLD); line-in CV .42–.51 → .02–.03; H8 p95 17.4 ms; no DonorIn change; T9b (audio-dsp, 2026-11-19)
 - `agents/audio-dsp/dsp_genre_melodic_2026-11-21.md` — genre profiles (psy/DnB/techno/house: one 4/4 knob set) + melodic layer (tonal, pitch, voice) measured on stem truth; coder plan G1–G2, M1–M2, D1
+- `agents/system-designer/design_vs3_engine_2026-11-21.md` — vs3 look system (macros, post chain, palettes, full presets): variants A host-only (rec.) / B engine stage / C hybrid, step plan
