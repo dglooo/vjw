@@ -21,6 +21,9 @@ export interface Director {
    *  and the bars played, fractional; not `sure`, timed at cueBpm. `jump`: the cue a jump waits to play. Null: no set
    *  armed. */
   cue(): { index: number; of: Cue; left: number; at: number; sure: boolean; jump: Cue | null } | null
+  /** The switches so far (←/→, a cue, a jump, the autopilot; not a cut): each a fade, or none to the scene on stage.
+   *  A new count is a new cue (app.ts: its preset and switches). */
+  switches(): number
 }
 export interface DirectorOpts {
   barsPerShot: number // confident: switch this many bars after the last switch, on a bar line …
@@ -56,6 +59,7 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
   let stand = false // a cut scene stands in for the armed set's cue on stage: one step on is the next cue
   let jumpTo: Cue | null = null // jump(): the cue to fade to on the next bar line …
   let jumpNow = false // … or at the next update
+  let switches = 0 // begin() calls
   const barS = 240 / o.cueBpm // s: an armed set's bar while unsure (4 beats of 60 / bpm s)
 
   /** The playlist index `by` steps from the current scene. If it left the playlist, the scene that followed it now
@@ -66,15 +70,18 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
     return (((cur + by - (gone ? 1 : 0)) % n) + n) % n
   }
 
-  /** Fades to playlist[to]. Mid-fade, the incoming scene becomes current at once. */
+  /** Fades to playlist[to]. Mid-fade, the incoming scene becomes current at once. To the scene on stage then (a cue of
+   *  it, a one-scene playlist): no fade, its one cached Live would draw twice a frame (skeptic C5); the shot counts
+   *  afresh all the same. */
   function begin(to: number, mix: number, at: number, bar: number) {
     if (shot.to) shot.from = shot.to
     cur = to
     stand = false
-    shot.to = playlist[cur]
-    shot.mix = Math.min(1, mix)
+    shot.to = playlist[cur] === shot.from ? null : playlist[cur]
+    shot.mix = shot.to ? Math.min(1, mix) : 0
     switchedAt = at
     switchedBar = bar
+    switches++
   }
 
   /** The shot's length in bars: the cue's (a hold never ends; nor does the cue before a time-code one, which its track
@@ -206,6 +213,9 @@ export function createDirector(playlist: readonly SceneId[], opts?: Partial<Dire
       const n = length()
       const at = !last ? 0 : sure ? last.bar - switchedBar : (last.now - switchedAt) / barS
       return { index: cur, of: cues[cur], left: Math.max(0, sure ? n - Math.floor(at) : Math.ceil(n - at)), at, sure, jump: jumpTo }
+    },
+    switches() {
+      return switches
     },
   }
 }
