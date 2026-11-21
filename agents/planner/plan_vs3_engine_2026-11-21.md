@@ -739,7 +739,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Frame time: Ink billed gpuMs p95 16.1 ms (p50 14.4; governor at scale 1, 0 late; 6 s). In-app runs drift 12–23 ms and cannot resolve the grain: one hash per pixel in the existing FINISH pass. CPU: 6 colour turns per frame at a hue ≠ 0.
   - Not run: G6's luma check on Lasers (the lead's). Lasers is unchanged by construction: × uGrain 0 adds exactly 0.0, and at hueDrift 0 the slots are plain copies.
 
-### S7.1 [ ] Full presets: post and macros into `presets.json`
+### S7.1 [x] Full presets: post and macros into `presets.json`
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** every factory preset carries its look; the 1.8 s morph glides it (R4).
 - **Lane, box, deps:** A · 60 min · S6.1, S3.3; the user's "ok" at CP2.
