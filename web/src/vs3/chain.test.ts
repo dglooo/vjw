@@ -1,11 +1,11 @@
 // vs3/chain.ts (plan_vs3_engine S1.1, S1.2): the donor's per-frame wiring for the macros, the mirror and the feedback,
 // and the light limiter, with the state passed in. No GL. S3.1: createChain on a recording fake (below). S3b.1: the
-// exposure servo (at the end).
+// exposure servo (at the end). S5.1: the lens's uniforms (after the limiter) and its pass (in createChain's).
 import { expect, test, vi } from 'vitest'
 import { createBloom } from '../gl/bloom'
-import { heatStep } from '../gl/post'
-import { chainState, clock, createChain, drastic, expose, frame, hotLook, KNOBS, PROBE, reactTo, SERVO, UPDATE, warmChain, WARP, type ChainFrame, type ChainState, type Knobs, type Light, type LookValues, type SceneFacts, type Servo } from './chain'
-import type { Signal } from './host'
+import { flashGate, heatStep, type FlashState } from '../gl/post'
+import { chainState, clock, createChain, drastic, expose, frame, hotLook, KNOBS, LENS, PROBE, reactTo, SERVO, UPDATE, warmChain, WARP, type ChainFrame, type ChainState, type Knobs, type Light, type LookValues, type SceneFacts, type Servo } from './chain'
+import { signal, type Signal } from './host'
 import LOOK from './look.json'
 
 /** engine.ts takes the page's canvas + WebGL at import, so a recording fake stands for it. A target: a framebuffer, its
@@ -491,12 +491,89 @@ test('BS bloom skip (R2): at bloomMul 0 the glow follows down; cf.bloom is exact
   expect(trace.at(-1)![1]).toBe(0)
 })
 
+// S5.1: the lens's uniforms (plan § S5.1; design S4, F1 and F4 rev 2; engine.js:199-222)
+const [RIBS, ANAMORPHIC, MELT, GLITCH] = [0, 2, 3, 4]
+/** One lens frame at lens 1 in `style` with the signal's onKick and the gated hit; the re-seat state after it. */
+const lensAt = (st: ChainState, style: number, onKick: number, hit = 0, t = 1.5) => {
+  const cf = frame({ ...V, lens: 1, lensStyle: style }, F, { ...S, onKick }, hit, st, MID, DT, DT, t, 16 / 9)
+  return { cf, seed: st.seed, drift: st.drift, rip: st.rip, rips: [...st.rips] }
+}
+
+test("Z1 lens skip: the limited amount ≤ .01, or wet ≤ .001 → cf.lens null; uStyle is look.json lensStyles' index", () => {
+  expect(LOOK.lensStyles).toEqual(['glass ribs', 'glass fan', 'anamorphic', 'melt', 'glitch', 'pixels', 'fly eye']) // the shader's uStyle
+  expect([at({}).lens, at({ lens: 0.01 }).lens]).toEqual([null, null]) // every row's default: lens 0
+  expect(at({ lens: 0.011, lensStyle: 5 }).lens).toMatchObject({ uAmt: 0.011, uStyle: 5, uWet: 1, uAspect: 16 / 9 })
+  expect(at({ lens: 0.6, lensStyle: 2 }, chainState(), { wet: 0.5 }).lens).toMatchObject({ uAmt: 0.3, uWet: 0.5 }) // limitless: × its wet
+  const st = chainState()
+  at({ lens: 1 }, st)
+  const dry = at({ lens: 1 }, st, { wet: 0.001 })
+  expect(st.light!.lens).toBeGreaterThan(0.9) // the amount slews down...
+  expect(dry.lens).toBeNull() // ...but a dry layer skips at once (engine.js:199)
+})
+
+test('Z2 re-seat: a new seed only on onKick > 0 (glitch re-rolls, ribs click the phase, melt lights a plume); a rising kick alone re-seats nothing', () => {
+  const quiet = DT * (0.02 + 0.4 * 0.05) // the drift's own motion per frame: mids .4 reacted at gain 1
+  for (const style of [GLITCH, RIBS, MELT]) {
+    const st = chainState(), a = lensAt(st, style, 0)
+    const ramp = [0.3, 0.6, 0.9, 1].map((hit) => lensAt(st, style, 0, hit)) // the kick's envelope, no onset
+    for (const r of ramp) expect([r.seed, r.rip, r.rips]).toEqual([a.seed, a.rip, a.rips])
+    ramp.forEach((r, i) => expect(r.drift - (i ? ramp[i - 1].drift : a.drift)).toBeCloseTo(style === RIBS ? quiet : 0, 12))
+    const b = ramp.at(-1)!, k = lensAt(st, style, 0.8, 1, 2.25) // an onset at t 2.25
+    expect(k.seed - b.seed).toBe(style === GLITCH ? 1 : 0)
+    expect(k.drift - b.drift).toBeCloseTo(style === RIBS ? quiet + 0.25 * 0.8 : 0, 12)
+    expect(k.rip - b.rip).toBe(style === MELT ? 1 : 0)
+    if (style === MELT) expect(k.rips.slice(2, 4)).toEqual([2.25, Math.fround(0.96)]) // born now, at min(1, onKick × 1.2)
+    const c = lensAt(st, style, 0, 0.9)
+    expect([c.seed, c.rip]).toEqual([k.seed, k.rip])
+  }
+  expect(lensAt(chainState(), GLITCH, 0, 0, 2).cf.lens!.uSeed).toBeCloseTo(6 * 0.017, 12) // the donor's slow auto-mutation (engine.js:213)
+})
+
+test('Z3 seed budget: a 10 Hz hit through flashGate gives at most 3 re-seats in any second (glitch seeds, ribs clicks, melt plumes)', () => {
+  for (const style of [GLITCH, RIBS, MELT]) {
+    const st = chainState(), gate: FlashState = { prev: 0, blocked: false }, onsets: number[] = [], s = { ...S }, times: number[] = []
+    let prev = 0
+    for (let i = 0; i < 300; i++) { // 5 s at 60 fps: a hit every 100 ms, with its release
+      const t = i / 60, hit = flashGate(0.6 ** (i % 6), gate, onsets, t)
+      signal({}, hit, prev, s) // onKick: the rise of the gated hit (host.ts)
+      prev = hit
+      const was = [st.seed, st.drift, st.rip]
+      frame({ ...V, lens: 1, lensStyle: style }, F, s, hit, st, MID, DT, DT, t, 16 / 9)
+      if (st.seed !== was[0] || st.drift - was[1] > 0.1 || st.rip !== was[2]) times.push(t)
+    }
+    expect(times.length, `style ${style}`).toBeGreaterThanOrEqual(12) // the gate lets 3 a second through
+    for (const x of times) expect(times.filter((y) => y >= x - 1 && y <= x).length, `style ${style} at ${x}`).toBeLessThanOrEqual(3)
+  }
+})
+
+test('Z4 kick source (F1): the lens reads cf.kick, never the raw hit', () => {
+  for (const react of [0.5, 1]) {
+    const st = chainState()
+    at({ react, lens: 1, lensStyle: ANAMORPHIC }, st)
+    const cf = at({ react, lens: 1, lensStyle: ANAMORPHIC }, st, {}, 1)
+    expect(cf.lens!.uKick).toBe(cf.kick)
+    expect(cf.kick).toBeCloseTo(HOT1, 12) // the hit's first frame as drawn, not 1 (nor 2 × .34 at react 1: N1)
+  }
+})
+
+test('Z5 style swap (F4): the drawn style changes only at an amount ≤ .01: two drawn lens frames in a row share their style', () => {
+  const st = chainState()
+  at({ lens: 1, lensStyle: 1 }, st)
+  const trace = Array.from({ length: 70 }, () => at({ lens: 1, lensStyle: GLITCH }, st).lens)
+  for (let i = 1; i < trace.length; i++) if (trace[i - 1] && trace[i]) expect(trace[i]!.uStyle).toBe(trace[i - 1]!.uStyle)
+  const gap = trace.indexOf(null)
+  expect(gap).toBe(29) // the duck: 1/30 of the range a frame
+  expect(trace.slice(0, gap).every((l) => l!.uStyle === 1)).toBe(true)
+  expect(trace.at(-1)).toMatchObject({ uStyle: GLITCH, uAmt: 1 })
+})
+
 // S3.1: createChain on the fake engine (plan § S3.1; design C10, C11, C12)
 const SRC = { id: 'scene' } as WebGLTexture // the scene's target
 const W = 640, HT = 360
-/** A frame of the stock look with the three switches set; the lens stays off (S5.1). */
-const cfOf = (mirror: boolean, feedback: boolean, bloom: boolean): ChainFrame => ({ ...at({}), mirror, feedback, bloom: bloom ? 1 : 0 })
-const COMBOS = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => cfOf(!!(i & 1), !!(i & 2), !!(i & 4)))
+/** A frame of the stock look with the four switches set (the lens: melt's uniforms, its plumes' array too). */
+const LENS_ON = at({ lens: 1, lensStyle: 3 }).lens
+const cfOf = (mirror: boolean, feedback: boolean, bloom: boolean, lens = false): ChainFrame => ({ ...at({}), mirror, feedback, bloom: bloom ? 1 : 0, lens: lens ? LENS_ON : null })
+const COMBOS = Array.from({ length: 16 }, (_, i) => cfOf(!!(i & 1), !!(i & 2), !!(i & 4), !!(i & 8)))
 const samplers = (fs: string) => [...fs.matchAll(/uniform sampler2D ([^;]+);/g)].flatMap((m) => m[1].split(',').map((s) => s.trim()))
 /** The texture a draw wrote: its bound framebuffer's, one of the fake's targets. */
 const into = (d: (typeof E.draws)[number]) => {
@@ -511,7 +588,7 @@ test('C10a guard: the warp source contains isnan and isinf (the donor NaN / Inf 
   expect(WARP).toContain('if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);')
 })
 
-test('C11a own target: the 8 on/off combinations of mirror, feedback and bloom (lens off), each after each: no draw samples its draw target, every sampler is set, the warp reads the scene and what it wrote last, the bloom reads the warp', () => {
+test('C11a C11c own target: the 16 on/off combinations of mirror, feedback, bloom and lens, each after each: no draw samples its draw target, every sampler is set, the warp reads the scene and what it wrote last, the bloom reads the warp, the lens what ran before it', () => {
   const c = createChain(gl, W, HT), bloom = createBloom(gl, 8, 0.3)
   let last: unknown = null // the texture the last warp wrote
   for (const a of COMBOS) for (const b of COMBOS) for (const f of [a, b]) {
@@ -529,8 +606,12 @@ test('C11a own target: the 8 on/off combinations of mirror, feedback and bloom (
       last = into(d)
     }
     const fed = warps.length ? into(warps[0]) : SRC // what the bloom reads
-    if (f.bloom) expect([E.draws[warps.length].u.uSrc, E.draws.at(-1)!.u.uSrc]).toEqual([fed, fed]) // its first downsample, its combine
-    expect(E.draws.length).toBe(warps.length + (f.bloom ? 8 + 7 + 1 : 0)) // the bloom: 8 down, 7 up, the combine
+    const blooms = f.bloom ? E.draws.slice(warps.length, warps.length + 16) : [] // 8 down, 7 up, the combine
+    if (f.bloom) expect([blooms[0].u.uSrc, blooms[15].u.uSrc]).toEqual([fed, fed]) // its first downsample, its combine
+    const lenses = E.draws.filter((d) => d.fs === LENS)
+    expect(lenses.length).toBe(f.lens ? 1 : 0)
+    for (const d of lenses) expect(d.u).toMatchObject({ ...LENS_ON, uSrc: f.bloom ? into(blooms[15]) : fed, uRes: [W, HT] }) // the bloom's output, else the warp's, else the scene
+    expect(E.draws.length).toBe(warps.length + blooms.length + lenses.length)
     expect(out).toBe(E.draws.length ? into(E.draws.at(-1)!) : SRC) // the finish reads the last pass's output
   }
 })
@@ -546,18 +627,20 @@ test('C11b skip: mirror and feedback false: no warp draw, the bloom reads src; w
   expect(E.draws).toEqual([])
 })
 
-test('C12a no allocation after create: createChain allocates the three targets at w × h and the servo\'s three; after warmChain() an apply at w × h that turns the warp on, and a servo frame, allocate nothing and compile nothing', async () => {
+test('C12a C12d no allocation after create: createChain allocates the three targets at w × h and the servo\'s three; after warmChain() an apply at w × h that turns the warp on, one that turns the lens on, and a servo frame, allocate nothing and compile nothing', async () => {
   E.cache.clear() // nothing compiled yet
   const n = E.targets.length
   const c = createChain(gl, W, HT)
   expect(E.targets.slice(n).map((t) => [t.hdr, t.persistent, t.width, t.height])).toEqual([[true, true, W, HT], [true, true, W, HT], [true, false, W, HT], [true, false, PROBE, PROBE], [true, false, 1, 1], [true, false, 1, 1]])
   const bloom = createBloom(gl, 8, 0.3), compiled = E.compile
   await warmChain()
-  expect(E.compile).toBe(compiled + 2) // the warp and UPDATE, off the visible frames
+  expect(E.compile).toBe(compiled + 3) // the warp, UPDATE and the lens, off the visible frames
   const [alloc, compile] = [E.alloc, E.compile]
   c.apply(SRC, W, HT, cfOf(false, false, false), bloom)
   c.apply(SRC, W, HT, cfOf(true, true, false), bloom) // a glide turns the warp on
   expect(E.draws.at(-1)!.fs).toBe(WARP)
+  c.apply(SRC, W, HT, cfOf(true, true, false, true), bloom) // and the lens
+  expect(E.draws.at(-1)!.fs).toBe(LENS)
   c.servo(at({}).servo, () => {})
   expect(E.draws.at(-1)!.fs).toBe(UPDATE)
   expect([E.alloc - alloc, E.compile - compile]).toEqual([0, 0])
