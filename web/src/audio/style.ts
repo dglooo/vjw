@@ -9,7 +9,7 @@ export interface StyleIn {
   hatsPerBeat: number | null
   wobble: number // raw wobbleDepth
   bass: number // (raw sub + raw reese) / total
-  freeze: boolean // silence or a sparse section: breakdowns lack drums, so nothing is judged
+  freeze: boolean // silence, a sparse section (breakdowns lack drums) or a grid it can't count (styleIn): nothing is judged
 }
 export interface StyleOut { detected: Genre | null; scores: Record<Genre, number>; confidence: number }
 export interface StyleOpts { tau: number; margin: number; dwell: number; hold: number; floor: number; width: Record<Feature, number> }
@@ -20,10 +20,13 @@ export interface StyleOpts { tau: number; margin: number; dwell: number; hold: n
 const OPTS: StyleOpts = { tau: 4, margin: 0.15, dwell: 16, hold: 32, floor: 0.35, width: { kickPerBeat: 0.25, hatsPerBeat: 1.5, wobble: 0.25, bass: 0.2 } }
 
 /** S4.3: per-beat counts for the classifier, from the caller's 8 s hit windows. K and H are unknown while the grid is
- *  unsure (confidence < 0.3) or the bpm is not locked (bpm ≤ 0), so null (score() then skips them). */
+ *  unsure (confidence < 0.3) or the bpm is not locked (bpm ≤ 0), so null, and nothing is judged then (freeze): the
+ *  pattern is what tells a two-step from a 4/4 kick, and on tempo evidence alone a DnB section the grid can't count
+ *  reads 4/4 (1991 80–100 s: Techno, held in a set for 12 min, its 4/4 profile losing the cut drops: scratchpad/drops). */
 export const styleIn = (x: { kick8: number; hat8: number; bpm: number; confidence: number; wobble: number; bass: number; families: Record<Genre, number>; freeze: boolean }): StyleIn => {
-  const perBeat = (c: number) => (x.confidence >= 0.3 && x.bpm > 0 ? c / ((x.bpm / 60) * 8) : null) // c / beats in 8 s
-  return { families: x.families, kickPerBeat: perBeat(x.kick8), hatsPerBeat: perBeat(x.hat8), wobble: x.wobble, bass: x.bass, freeze: x.freeze }
+  const sure = x.confidence >= 0.3 && x.bpm > 0
+  const perBeat = (c: number) => (sure ? c / ((x.bpm / 60) * 8) : null) // c / beats in 8 s
+  return { families: x.families, kickPerBeat: perBeat(x.kick8), hatsPerBeat: perBeat(x.hat8), wobble: x.wobble, bass: x.bass, freeze: x.freeze || !sure }
 }
 
 /** S_g = T_g·(0.5 + 0.5·match_g): tempo is necessary, the pattern breaks overlaps. match = mean closeness of the known features. */

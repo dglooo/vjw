@@ -152,6 +152,17 @@ describe('freeze (silence, sparse sections)', () => {
     expect(m.log.map(([, g]) => g)).toEqual(['techno'])
   })
 
+  // 1991 80–100 s (scratchpad/drops): the grid lost, DnB's ACF evidence gone, the techno window's up: Auto took Techno
+  // at 95.6 s and, in a set, held it 12 min, its 4/4 profile (cuts off) losing DnB's cut drops (Bad Company 4/4 → 0/4)
+  test('a grid it cannot count judges nothing: a DnB pick holds through a section only the tempo evidence reads 4/4', () => {
+    const m = sim()
+    const dnb = jitter(() => feats(GROOVES.dnb[0]), 3)
+    m.to(60, dnb)
+    m.to(120, () => styleIn({ kick8: 16, hat8: 64, bpm: 174, confidence: 0, wobble: 0.1, bass: 0.4, families: { dnb: 0.1, dubstep: 0.3, techno: 0.7 }, freeze: false }))
+    m.to(200, dnb)
+    expect(m.log.map(([, g]) => g)).toEqual(['dnb'])
+  })
+
   test('frozen time counts for neither the dwell nor the min-hold', () => {
     const m = sim({ tau: 1e-6 })
     m.to(20, () => lever({ dnb: 1 })) // picked at 16.125
