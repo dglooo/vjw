@@ -345,7 +345,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates. Browser: a set with two cues of one scene and two presets. At the bar line the preset glides, no fade runs, the bar shows `cue 2 / 2`.
 - **Lead gate:** none.
 
-### S0.2 [ ] Gate harnesses and the pair counter
+### S0.2 [x] Gate harnesses and the pair counter
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** runners for gates H2, W and P (§ Gates) and N5's flash-pair counter.
 - **Lane, box, deps:** B · 75 min · none.
