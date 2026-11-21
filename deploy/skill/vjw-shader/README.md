@@ -3,3 +3,4 @@
 2. Add the site owner's token to `~/.claude/settings.json`: `"env": { "VJW_URL": "https://shanghai-cn-k8s.mooo.com/vjw001", "VJW_AI_TOKEN": "<token>" }` (or `export` both before you start `claude`).
 3. Open the site → Start → G → Remote AI → paste the token → Connect (the dot turns green).
 4. Ask Claude Code: «напиши шейдер для VeeJay Wizard: неоновые кольца под бас». More: https://shanghai-cn-k8s.mooo.com/vjw001/ai/chatgpt.md
+5. Codex, Gemini or any agent with a shell: the same `VJW_URL` / `VJW_AI_TOKEN`, then `node scripts/vjw.mjs guide | state | push <file.glsl> [name] | export <name>`; give it `SKILL.md` to read first.
