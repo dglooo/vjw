@@ -785,8 +785,8 @@ The lead fills it. Status: PASS / FAIL / BLOCKED / UNKNOWN. UNKNOWN is never PAS
 ### Step gates (S5 build)
 | Gate | After | Checks (§ Gates) | status | evidence |
 |---|---|---|---|---|
-| baselines | S0.2 | H2 S-all ×2; W defaults ×2; luma ×2; P validity at both sizes | UNKNOWN | |
-| G2 | S2.2 | luma ±.01 (`ours`), the `vs3` figure; H2 S-jump(2) at 250 ms and 125 ms | UNKNOWN | |
+| baselines | S0.2 | H2 S-all ×2; W defaults ×2; luma ×2; P validity at both sizes | PASS (lead, 3 runs, gate worktree d0e3ffd) | `scratchpad/vs3-engine/baseline.log`, `*.pre.json`; P A/A one-arm protocol noise ±2 ms → `p.mjs` BLOCKS (A/A at 1.93 MP: median delta .18, blocks −.45…+.67) |
+| G2 | S2.2 | luma ±.01 (`ours`), the `vs3` figure; H2 S-jump(2) at 250 ms and 125 ms | PASS (lead 2026-11-21, gate worktree 534257a) | `scratchpad/vs3-engine/g2.log`: luma 3/3 ×2, defaults (b) PASS ×2; S-jump2 (N5a worst case: 2.4 + vignette 0) (a)(b)(c) PASS vs its hold; vs3 figure (a) PASS. Finding: S-jump2.hold (Mandala held at brightness 2.4 + bloomMul top + vignette 0) fails (a) on its own — the scene's own kick light × uGain crosses .10; expect S-stress at G3 to need a lever (S8.2) |
 | G3 | S3.2 | H2 S-all, S-stress, S-jump, S-cut; W on 8 rows (decides 3b); P warp only at both sizes; C12-cue | UNKNOWN | |
 | G3b | S3b.2, if built | W all rows + `LOW=1`; H2 S-all no rise, + a breakdown → drop window; S-cut 1 s, S-jump; `servo.mjs` | UNKNOWN | |
 | G3p | S3.3 | H2 P-hot-1; W on the preset | UNKNOWN | |
