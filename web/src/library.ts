@@ -32,6 +32,9 @@ const SETS = 'vjw.sets' // the set lists (setlist.ts): kept, mirrored and baked 
 const PRESET_FAVS = 'vjw.presetFavs' // { [ref]: preset names }: the ☆ on a preset (ui/Presets.tsx), kept, mirrored and baked as the presets
 /** The list's order, so the playlist's (user 2026-11-19: ←/→ as the list stands): by name, then id. */
 export const byName = (a: SceneDoc, b: SceneDoc) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
+/** The show's first scene (user 2026-11-21: «первая сцена должна быть у нас Флекс, и погнали по алфавиту»): a playlist
+ *  it is in starts on it, the rest by name. */
+export const OPENER: SceneId = 'builtin:milk-adam-eatit-fx-2-martin-disco-mix-lodus-geiss-ludicrous-speed-flexi-aderrasi-n-hexcollie'
 /** The scene ids of a stored or filed mark; none from a corrupt value. */
 const ids = (x: unknown): ReadonlySet<string> => new Set(Array.isArray(x) ? x.filter((s) => typeof s === 'string') : [])
 const rec = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
@@ -77,6 +80,8 @@ export type Group = 'all' | keyof typeof GROUPS
 const GROUP = 'vjw.group'
 
 const LEGACY_FX = new Set(['isf/Mirror', 'isf/Kaleidoscope', 'own/feedback-zoom'])
+/** The refs deleted with the user's trash built-ins (2026-11-21): a stored user scene on one is left out at load. */
+const GONE = new Set(['own/fractal', 'own/liquid-chrome', 'own/sdf-shapes', 'own/tunnel-mesh', 'own/wave-landscape', 'isf/Worley Cells', 'milk/flexi-martin-geiss-painterly-rogue-wave-strike-color-emboss-mix'])
 /** C8 (plan_vs3_engine S4.1): a vs3 copy saved before the post chain approximated the chain's fold and feedback with
  *  these layer fx. They stay; `trails: 0, mirror: 0` on the vs3 node turn the chain's feedback and fold off, so the two
  *  never run together. Per layer holding one of the fx: each `native/vs3-` node, the generator or a filter (Limitless),
@@ -125,9 +130,10 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
   const keep = (m: Mark) => kv.setItem(MARKS[m], JSON.stringify([...marks[m]]))
   let presets = presetsOf(stored(PRESETS) ?? base.presets)
   let midi = stored(MIDI) ?? base.midi
-  /** The sets of a stored or filed value; a bad one or a bad cue is left out with a console warning. */
-  const setsOf = (x: unknown) => {
-    const { sets, dropped } = parseSets(x)
+  /** The sets of a stored or filed value; a bad one or a bad cue (`has`: on a scene it says no to) is left out with a
+   *  console warning. */
+  const setsOf = (x: unknown, has?: (id: SceneId) => unknown) => {
+    const { sets, dropped } = parseSets(x, has)
     for (const why of dropped) console.warn(`set list: ${why} (left out)`)
     return sets
   }
@@ -175,18 +181,19 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
    *  прокрутки»); the list still shows it. `camLive` false: a scene that needs the camera sits out (user 2026-11-16: it
    *  played as a duplicate). A manual pick (director.cut) still opens either. An empty view plays the group's All, an
    *  empty group every group's; nothing there: the built-ins starred by default, marked or not, as the director needs a
-   *  non-empty playlist (plan S2.1). */
+   *  non-empty playlist (plan S2.1). The OPENER, when in it, stands first (the show starts on it, → goes on by name). */
   function playlist(camLive = true): SceneId[] {
     const on = (d: SceneDoc) => camLive || !needsCamera(d)
     const rotation = (w: View, g: Group) =>
       listed(w, g)
         .filter((d) => on(d) && (w === 'rework' || !marks.rework.has(d.id)) && (w === 'all' ? g !== 'all' || d.star : w !== 'trash'))
         .map((d) => d.id)
+    const opened = (p: SceneId[]) => (p.includes(OPENER) ? [OPENER, ...p.filter((id) => id !== OPENER)] : p)
     for (const [w, g] of [[view, group], ['all', group], ['all', 'all']] as const) {
       const p = rotation(w, g)
-      if (p.length) return p
+      if (p.length) return opened(p)
     }
-    return [...BUILTIN].sort(byName).filter((d) => d.star && on(d)).map((d) => d.id)
+    return opened([...BUILTIN].sort(byName).filter((d) => d.star && on(d)).map((d) => d.id))
   }
 
   async function put(doc: SceneDoc) {
@@ -223,11 +230,14 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
       for (const x of await db.all()) {
         try {
           const d = own(x)
+          const gone = d.layers.flatMap((l) => [l.gen, ...l.fx]).find((n) => GONE.has(n.ref))
+          if (gone) throw new Error(`${d.id} "${d.name}": ${gone.ref} was deleted with the trash scenes`)
           user.set(d.id, d)
         } catch (e) {
           console.error(`library: a stored scene skipped: ${(e as Error).message}`)
         }
       }
+      sets = setsOf(sets, get) // a cue on a scene gone (a deleted built-in, a skipped one) is left out; the stored sets keep it
       notify()
     },
     /** A user scene, or a built-in with the user's star. */
@@ -325,7 +335,7 @@ export function createLibrary(db: Db, kv: Kv, download: (name: string, text: str
       const d = get(id)
       if (!d) return undefined
       const p = playlist(camLive)
-      const i = p.findIndex((x) => byName(get(x)!, d) >= 0)
+      const i = p.findIndex((x) => x === id || (x !== OPENER && byName(get(x)!, d) >= 0)) // the opener stands first, out of the name order
       return i < 0 ? p.length : i
     },
     /** Downloads every user scene as one `veejay-library-<local date>.json`. */

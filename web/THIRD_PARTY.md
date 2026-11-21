@@ -101,7 +101,6 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `isf/Solarize.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/Truchet Tile.fs` | pjkarlik | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/VHS Glitch.fs` | David Lublin, original by Staffan Widegarn Åhlvik | https://github.com/Vidvox/ISF-Files | MIT |
-| `isf/Worley Cells.fs` | VIDVOX | https://github.com/Vidvox/ISF-Files | MIT |
 | `isf/v002-CRT-Displacement.fs` | vade | https://github.com/Vidvox/ISF-Files | MIT |
 
 ### own (44)
@@ -123,7 +122,6 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `own/flash.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/flow-smear.fs` | VeeJay Wizard (own) + Optical Flow Generator (VIDVOX / v002 / Andrew Benson) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
 | `own/flythrough.fs` | VeeJay Wizard (own) | - | MIT (own) |
-| `own/fractal.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/gradient.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/hsv-blur.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/ink.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
@@ -131,7 +129,6 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `own/laser-grid.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/led-grid.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/light-tunnel.fs` | VeeJay Wizard (own) | - | MIT (own) |
-| `own/liquid-chrome.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/metaballs.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/mosaic.fs` | VeeJay Wizard (own) + Triangle Mosaic (VIDVOX) | https://github.com/Vidvox/ISF-Files | MIT (own), MIT (ISF-Files) |
 | `own/negative.fs` | VeeJay Wizard (own) | - | MIT (own) |
@@ -142,7 +139,6 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `own/rgb-contrast.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/rgba-blur.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/scanlines.fs` | VeeJay Wizard (own) | - | MIT (own) |
-| `own/sdf-shapes.fs` | VeeJay Wizard (own) + hg_sdf (Mercury) | https://mercury.sexy/hg_sdf/hg_sdf.glsl | MIT (own), MIT (hg_sdf, its MIT option) |
 | `own/sharpen.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/smoke.fs` | VeeJay Wizard (own) + webgl-noise srdnoise (Stefan Gustavson) | https://github.com/stegu/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/stars.fs` | VeeJay Wizard (own) + Stars2D and PolkaDot2D from Brian Sharpe's Wombat | https://github.com/BrianSharpe | MIT (own), Wombat permissive ("use the code however you wish, credit"; no licence file in the in-repo TD extract; personal use) |
@@ -150,8 +146,6 @@ The four tables come from `node scripts/shaders.mjs`, which reads each file's he
 | `own/superformula.fs` | VeeJay Wizard (own) | - | MIT (own) |
 | `own/td-feedback.fs` | VeeJay Wizard (own) + webgl-noise snoise (Ian McEwan, Ashima Arts) | https://github.com/ashima/webgl-noise | MIT (own), MIT (webgl-noise) |
 | `own/trails.fs` | VeeJay Wizard (own) | - | MIT (own) |
-| `own/tunnel-mesh.fs` | VeeJay Wizard (own) | - | MIT (own) |
-| `own/wave-landscape.fs` | VeeJay Wizard (own) | - | MIT (own) |
 
 ### transitions (13)
 
@@ -276,7 +270,7 @@ No `#include` machinery: each file carries its own copy, with the library's head
   - `srdnoise` with `rgrad2`, `permute` and `mod289` (`psrdnoise2D.glsl`, Stefan Gustavson) in `own/smoke.fs`.
   - `snoise(vec3, out vec3 gradient)` with `mod289`, `permute` and `taylorInvSqrt` (`noise3Dgrad.glsl`, Ian McEwan, Ashima Arts) in `src/scenes/points.ts`.
   - `snoise(vec3)` with `mod289`, `permute` and `taylorInvSqrt` (`noise3D.glsl`, Ian McEwan, Ashima Arts) in `own/td-feedback.fs`, changed to return a second channel.
-- hg_sdf (Mercury, version 2021-07-28), https://mercury.sexy/hg_sdf/hg_sdf.glsl. Dual-licensed `MIT OR CC-BY-NC-4.0`, used under MIT ("Copyright (c) 2011-2021 Mercury Demogroup"). In `own/sdf-shapes.fs`, adapted to GLSL ES 1.00 (float literals; `fDodecahedron` is `fGDF` unrolled). Also `vmax` and `fBox` in `syn/SkaiWalkerOG.glsl` (copied from the donor app's bundled `lib/hg_sdf.glsl`, read as text).
+- hg_sdf (Mercury, version 2021-07-28), https://mercury.sexy/hg_sdf/hg_sdf.glsl. Dual-licensed `MIT OR CC-BY-NC-4.0`, used under MIT ("Copyright (c) 2011-2021 Mercury Demogroup"). `vmax` and `fBox` in `syn/SkaiWalkerOG.glsl` (copied from the donor app's bundled `lib/hg_sdf.glsl`, read as text).
 - Wombat (Brian Sharpe), the GPU noise library, http://briansharpe.wordpress.com, https://github.com/BrianSharpe. The author's permissive header: "I'm not one for copyrights. Use the code however you wish. All I ask is that credit be given back to the blog or myself" (no licence file in the in-repo TD extract; personal use). In `own/stars.fs`: `Stars2D` and `PolkaDot2D` verbatim, with only the helpers they call (`FAST32_hash_2D_Cell`, `Falloff_Xsq_C1`/`Falloff_Xsq_C2`).
 - lygia (Patricio Gonzalez Vivo), https://github.com/patriciogonzalezvivo/lygia, Prosperity Public License 3.0.0 (non-commercial; ⚠️ check before release). `digits` (`lygia/draw/digits.glsl`) in `syn/SkaiWalkerOG.glsl`, copied from the donor app's bundled `lib/`, read as text.
 
@@ -286,7 +280,7 @@ Upstream work that a file names in a comment. The files state no license for it:
 - `isf/Truchet Tile.fs`: adapted from https://github.com/pjkarlik/TruchetTiles.
 - `isf/VHS Glitch.fs`: based on https://github.com/staffantan/unity-vhsglitch, converted by David Lublin / VIDVOX.
 - `isf/v002-CRT-Displacement.fs`: by vade; no upstream URL in the file.
-- `isf/Comet Tails.fs`: the effect is described at https://bavc.github.io/avaa/artifacts/image_lag.html. `isf/Worley Cells.fs`: the common "iq" sin-based hash.
+- `isf/Comet Tails.fs`: the effect is described at https://bavc.github.io/avaa/artifacts/image_lag.html.
 - `transitions/BurnThrough.glsl` and `transitions/PerlinDissolve.glsl`: value noise based on Morgan McGuire (`@morgan3d`), https://www.shadertoy.com/view/4dS3Wd. The files give it no license; Shadertoy's default is CC BY-NC-SA 3.0, which spec §6 allows.
 - `isf/ASCII Art.fs`: VIDVOX's port of Shadertoy `lssGDj`, https://www.shadertoy.com/view/lssGDj. No licence stated; CC BY-NC-SA 3.0 assumed (personal use; ⚠️ check before release); author per the Shadertoy page (neither the donor nor the VIDVOX repo names it).
 - `transitions/PerlinDissolve.glsl`: the `random` one-liner from http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/.
@@ -322,7 +316,6 @@ Upstream work that a file names in a comment. The files state no license for it:
 | `flexi-fishbrain-martin-witchery` | Flexi, fishbrain + Martin - witchery | Flexi, fishbrain + Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `flexi-martin-cascading-decay-swing` | Flexi + Martin - cascading decay swing | Flexi + Martin | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `flexi-martin-geiss-dedicated-to-the-sherwin-maxawow` | Flexi, martin + geiss - dedicated to the sherwin maxawow | Flexi, martin + geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
-| `flexi-martin-geiss-painterly-rogue-wave-strike-color-emboss-mix` | _Flexi, martin + geiss - painterly rogue wave strike (color emboss mix) | _Flexi, martin + geiss | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `flexi-mom-why-the-sky-looks-different-today` | flexi - mom, why the sky looks different today | flexi | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `flexi-psychenapping` | Flexi - psychenapping | Flexi | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |
 | `flexi-swing-out-on-the-spiral` | flexi - swing out on the spiral | flexi | content unknown (preset author); packaging MIT (butterchurn-presets, Jordan Berg) |

@@ -17,10 +17,11 @@ export const BARS = [1, 2, 4, 8, 16, 32, 64]
 const rec = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 const name = (x: unknown) => x === undefined || (typeof x === 'string' && x !== '')
 
-/** Why `x` is no cue; null: it is one. */
-function wrong(x: unknown) {
+/** Why `x` is no cue (`has`: whether its scene is there); null: it is one. */
+function wrong(x: unknown, has: (id: SceneId) => unknown) {
   if (!rec(x)) return 'not a cue'
   if (typeof x.scene !== 'string' || !x.scene) return 'no scene id'
+  if (!has(x.scene)) return `scene ${x.scene}: not in the library`
   if (x.bars !== 'hold' && !(Number.isInteger(x.bars) && (x.bars as number) >= 1)) return `bars ${JSON.stringify(x.bars)}: a whole number ≥ 1 or "hold"`
   if (!name(x.preset)) return 'preset: not a name'
   if (!name(x.transition)) return 'transition: not an id'
@@ -30,8 +31,9 @@ function wrong(x: unknown) {
 }
 
 /** The sets of a stored, filed or baked value (the trust boundary). A set with no name or no cue list is left out, and
- *  so is a bad cue, each with its reason in `dropped`. A cue keeps its own keys only. */
-export function parseSets(x: unknown): { sets: SetList[]; dropped: string[] } {
+ *  so is a bad cue (one on a scene `has` says no to too: library.ts load), each with its reason in `dropped`. A cue
+ *  keeps its own keys only. */
+export function parseSets(x: unknown, has: (id: SceneId) => unknown = () => true): { sets: SetList[]; dropped: string[] } {
   const dropped: string[] = []
   const sets = (Array.isArray(x) ? x : []).flatMap((s: unknown, i): SetList[] => {
     if (!rec(s) || typeof s.name !== 'string' || !s.name.trim()) {
@@ -43,7 +45,7 @@ export function parseSets(x: unknown): { sets: SetList[]; dropped: string[] } {
       return []
     }
     const cues = s.cues.flatMap((c: unknown, k): Cue[] => {
-      const why = wrong(c)
+      const why = wrong(c, has)
       if (why) {
         dropped.push(`set "${s.name}", cue ${k + 1}: ${why}`)
         return []

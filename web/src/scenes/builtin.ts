@@ -126,30 +126,6 @@ const OWN: readonly SceneDoc[] = [
     }],
   },
   {
-    v: 1, id: 'builtin:tunnel-mesh', name: 'Tunnel mesh', star: true,
-    layers: [{
-      gen: {
-        ref: 'own/tunnel-mesh',
-        bind: {
-          twist: { source: 'kick', amount: 1, attack: 0.03, release: 0.35, min: 0.01, max: 0.1 }, // the tube screws on a kick
-          flash: { source: 'snare', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }, // ⚡
-        },
-      },
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75,
-    }],
-  },
-  {
-    v: 1, id: 'builtin:worley-cells', name: 'Worley cells', star: true,
-    layers: [{
-      gen: {
-        ref: 'isf/Worley Cells',
-        values: { density: 7, speed: 0.8, colorMode: 1, cellColor1: [0.2, 0.9, 1, 1], cellColor2: [0.08, 0, 0.2, 1] },
-        bind: { borderWidth: { source: 'sub', amount: 1, attack: 0.02, release: 0.25, min: 0.03, max: 0.3 } },
-      },
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75,
-    }],
-  },
-  {
     v: 1, id: 'builtin:truchet', name: 'Truchet', star: true,
     layers: [{
       gen: {
@@ -158,46 +134,6 @@ const OWN: readonly SceneDoc[] = [
         bind: { tSize: { source: 'sub', amount: 1, attack: 0.02, release: 0.3, min: 0.06, max: 0.1 } }, // the maze breathes
       },
       fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75,
-    }],
-  },
-  // S4.2b: the raymarchers dropped over budget at res 1 in S4.2, back at a res that fits.
-  {
-    v: 1, id: 'builtin:fractal', name: 'Fractal', star: true,
-    layers: [{
-      gen: {
-        ref: 'own/fractal',
-        bind: {
-          fold: { source: 'reese', amount: 1, attack: 0.03, release: 0.3, min: 0.06, max: 0.32 }, // the sponge twists into crystal
-          glow: { source: 'kick', amount: 1, attack: 0, release: 0.25, min: 0, max: 2.5 }, // ⚡ from 0: at .4 the gate held it (S4.1)
-        },
-      },
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
-    }],
-  },
-  {
-    v: 1, id: 'builtin:wave-landscape', name: 'Wave landscape', star: true,
-    layers: [{
-      gen: {
-        ref: 'own/wave-landscape',
-        bind: {
-          height: { source: 'kick', amount: 1, attack: 0.03, release: 0.3, min: 0.5, max: 1.8 }, // the mountains lift on a kick
-          flash: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 }, // ⚡ on top of a steady glow (S4.2: a gated glow lost the grid)
-        },
-      },
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
-    }],
-  },
-  {
-    v: 1, id: 'builtin:sdf-shapes', name: 'SDF shapes', star: true,
-    layers: [{
-      gen: {
-        ref: 'own/sdf-shapes',
-        bind: {
-          morph: { source: 'kick', amount: 1, attack: 0.02, release: 0.3, min: 0, max: 1 }, // cube → dodecahedron on a kick
-          burst: { source: 'snare', amount: 1, attack: 0, release: 0.2, min: 0, max: 1 },
-        },
-      },
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.5,
     }],
   },
   {
@@ -242,20 +178,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     }],
   },
   // Feedback / kaleidoscope / mirrors (S4.1).
-  {
-    v: 1, id: 'builtin:spiral-mesh', name: 'Spiral mesh', star: true,
-    layers: [{
-      gen: {
-        ref: 'own/tunnel-mesh',
-        bind: {
-          twist: { source: 'reese', amount: 1, attack: 0.03, release: 0.35, min: 0.01, max: 0.1 },
-          flash: { source: 'snare', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }, // ⚡ (tunnel-mesh's key)
-        },
-      },
-      fx: [{ ref: 'own/feedback-zoom', bind: { zoom: { source: 'kick', amount: 1, attack: 0, release: 0.2, min: 0.01, max: 0.06 } } }], // the trails punch out on a hit
-      blend: 'normal', opacity: 1, speed: 1, res: 0.75,
-    }],
-  },
   {
     v: 1, id: 'builtin:slit-scan', name: 'Slit scan', star: true,
     layers: [{
@@ -316,13 +238,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   },
   // Liquids / metal (S4.3): procedural, plus feedback advection (smoke), no Navier–Stokes (design E8). The noise-heavy
   // generators run at res 0.5–0.75.
-  {
-    v: 1, id: 'builtin:liquid-chrome', name: 'Liquid chrome', star: true,
-    layers: [{
-      gen: { ref: 'own/liquid-chrome', bind: { burst: { source: 'kick', amount: 1, attack: 0, release: 0.35, min: 0, max: 1 } } }, // a drop on every kick
-      fx: [], blend: 'normal', opacity: 1, speed: 1, res: 0.75,
-    }],
-  },
   {
     v: 1, id: 'builtin:fluid', name: 'Fluid', star: true,
     layers: [{
