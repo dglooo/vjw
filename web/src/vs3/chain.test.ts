@@ -1,9 +1,53 @@
 // vs3/chain.ts (plan_vs3_engine S1.1, S1.2): the donor's per-frame wiring for the macros, the mirror and the feedback,
-// and the light limiter, with the state passed in. No GL.
-import { expect, test } from 'vitest'
+// and the light limiter, with the state passed in. No GL. S3.1: createChain on a recording fake (below).
+import { expect, test, vi } from 'vitest'
+import { createBloom } from '../gl/bloom'
 import { heatStep } from '../gl/post'
-import { chainState, clock, drastic, frame, KNOBS, reactTo, type ChainFrame, type ChainState, type Knobs, type Light, type LookValues, type SceneFacts } from './chain'
+import { chainState, clock, createChain, drastic, frame, KNOBS, reactTo, warmChain, WARP, type ChainFrame, type ChainState, type Knobs, type Light, type LookValues, type SceneFacts } from './chain'
 import type { Signal } from './host'
+
+/** engine.ts takes the page's canvas + WebGL at import, so a recording fake stands for it. A target: a framebuffer, its
+ *  texture, its size; a fit() that changes the size stands for the engine's texImage2D (a persistent target gets a new
+ *  texture, as the engine's resample does), a program() cache miss for its compileShader. The fake GL keeps the bound
+ *  framebuffer; each draw records it, the program's source and its uniforms. Every fake object has its own id, so
+ *  toEqual tells them apart. */
+const H = vi.hoisted(() => {
+  type T = { framebuffer: object; attachments: object[]; width: number; height: number; hdr: boolean; persistent: boolean; fit(w: number, h: number): void }
+  const E = { bound: null as object | null, draws: [] as { fb: object | null; fs: string; u: Record<string, unknown> }[], alloc: 0, compile: 0, targets: [] as T[], cache: new Set<string>(), n: 0 }
+  const id = () => ({ id: ++E.n })
+  const program = (vs: string, fs: string) => {
+    if (!E.cache.has(vs + '\0' + fs)) {
+      E.cache.add(vs + '\0' + fs)
+      E.compile++
+    }
+    return { fs }
+  }
+  const draw = (info: { fs: string }, u: Record<string, unknown>) => void E.draws.push({ fb: E.bound, fs: info.fs, u })
+  const renderTarget = (hdr = false, persistent = false) => {
+    const t: T = {
+      framebuffer: id(), attachments: [id()], width: 1, height: 1, hdr, persistent,
+      fit(w, h) {
+        if (t.width === w && t.height === h) return
+        E.alloc++
+        Object.assign(t, { width: w, height: h }, persistent && { framebuffer: id(), attachments: [id()] })
+      },
+    }
+    E.targets.push(t)
+    return t
+  }
+  const fullscreenProgram = (fs: string) => {
+    const info = program('', fs)
+    return (u: Record<string, unknown>) => draw(info, u)
+  }
+  const engine = { program, draw, renderTarget, fullscreenProgram, programAsync: async (vs: string, fs: string) => void program(vs, fs) }
+  const gl = {
+    BLEND: 0x0be2, ONE: 1, viewport() {}, enable() {}, disable() {}, blendFunc() {},
+    bindFramebuffer: (_: number, fb: object | null) => void (E.bound = fb),
+  } as unknown as WebGL2RenderingContext
+  return { E, engine, gl }
+})
+vi.mock('../gl/engine', () => H.engine)
+const { E, gl } = H
 
 const DT = 1 / 60
 // the stock look: the macros at .5 and the donor's BASE_POST (post-shaders.js:17-29)
@@ -393,4 +437,84 @@ test('BS bloom skip (R2): at bloomMul 0 the glow follows down; cf.bloom is exact
   expect(off).toBeGreaterThan(60) // it follows down, it does not cut
   for (const [b, strength] of trace) expect(b).toBe(strength < 1e-3 ? 0 : strength)
   expect(trace.at(-1)![1]).toBe(0)
+})
+
+// S3.1: createChain on the fake engine (plan § S3.1; design C10, C11, C12)
+const SRC = { id: 'scene' } as WebGLTexture // the scene's target
+const W = 640, HT = 360
+/** A frame of the stock look with the three switches set; the lens stays off (S5.1). */
+const cfOf = (mirror: boolean, feedback: boolean, bloom: boolean): ChainFrame => ({ ...at({}), mirror, feedback, bloom: bloom ? 1 : 0 })
+const COMBOS = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => cfOf(!!(i & 1), !!(i & 2), !!(i & 4)))
+const samplers = (fs: string) => [...fs.matchAll(/uniform sampler2D ([^;]+);/g)].flatMap((m) => m[1].split(',').map((s) => s.trim()))
+/** The texture a draw wrote: its bound framebuffer's, one of the fake's targets. */
+const into = (d: (typeof E.draws)[number]) => {
+  const t = E.targets.find((x) => x.framebuffer === d.fb)
+  expect(t, 'a draw into one of our targets').toBeDefined()
+  return t!.attachments[0]
+}
+
+test('C10a guard: the warp source contains isnan and isinf (the donor NaN / Inf drop, verbatim)', () => {
+  expect(WARP).toContain('isnan')
+  expect(WARP).toContain('isinf')
+  expect(WARP).toContain('if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);')
+})
+
+test('C11a own target: the 8 on/off combinations of mirror, feedback and bloom (lens off), each after each: no draw samples its draw target, every sampler is set, the warp reads the scene and what it wrote last, the bloom reads the warp', () => {
+  const c = createChain(gl, W, HT), bloom = createBloom(gl, 8, 0.3)
+  let last: unknown = null // the texture the last warp wrote
+  for (const a of COMBOS) for (const b of COMBOS) for (const f of [a, b]) {
+    E.draws.length = 0
+    const out = c.apply(SRC, W, HT, f, bloom)
+    for (const d of E.draws) for (const s of samplers(d.fs)) {
+      expect(d.u[s], s).toBeDefined() // an unset sampler keeps its unit's last texture: maybe this target
+      expect(d.u[s], s).not.toBe(into(d))
+    }
+    const warps = E.draws.filter((d) => d.fs === WARP)
+    expect(warps.length).toBe(f.mirror || f.feedback ? 1 : 0)
+    for (const d of warps) {
+      expect(d.u.uSrc).toBe(SRC)
+      if (last) expect(d.u.uPrev).toBe(last)
+      last = into(d)
+    }
+    const fed = warps.length ? into(warps[0]) : SRC // what the bloom reads
+    if (f.bloom) expect([E.draws[warps.length].u.uSrc, E.draws.at(-1)!.u.uSrc]).toEqual([fed, fed]) // its first downsample, its combine
+    expect(E.draws.length).toBe(warps.length + (f.bloom ? 8 + 7 + 1 : 0)) // the bloom: 8 down, 7 up, the combine
+    expect(out).toBe(E.draws.length ? into(E.draws.at(-1)!) : SRC) // the finish reads the last pass's output
+  }
+})
+
+test('C11b skip: mirror and feedback false: no warp draw, the bloom reads src; with the bloom off too: no draw, src back', () => {
+  const c = createChain(gl, W, HT), bloom = createBloom(gl, 8, 0.3)
+  E.draws.length = 0
+  c.apply(SRC, W, HT, cfOf(false, false, true), bloom)
+  expect(E.draws.some((d) => d.fs === WARP)).toBe(false)
+  expect([E.draws[0].u.uSrc, E.draws.at(-1)!.u.uSrc]).toEqual([SRC, SRC]) // its first downsample, its combine
+  E.draws.length = 0
+  expect(c.apply(SRC, W, HT, cfOf(false, false, false), bloom)).toBe(SRC)
+  expect(E.draws).toEqual([])
+})
+
+test('C12a no allocation after create: createChain allocates the three targets at w × h; after warmChain() an apply at w × h that turns the warp on allocates nothing and compiles nothing', async () => {
+  E.cache.clear() // nothing compiled yet
+  const n = E.targets.length
+  const c = createChain(gl, W, HT)
+  expect(E.targets.slice(n).map((t) => [t.hdr, t.persistent, t.width, t.height])).toEqual([[true, true, W, HT], [true, true, W, HT], [true, false, W, HT]])
+  const bloom = createBloom(gl, 8, 0.3), compiled = E.compile
+  await warmChain()
+  expect(E.compile).toBe(compiled + 1) // the warp, off the visible frames
+  const [alloc, compile] = [E.alloc, E.compile]
+  c.apply(SRC, W, HT, cfOf(false, false, false), bloom)
+  c.apply(SRC, W, HT, cfOf(true, true, false), bloom) // a glide turns the warp on
+  expect(E.draws.at(-1)!.fs).toBe(WARP)
+  expect([E.alloc - alloc, E.compile - compile]).toEqual([0, 0])
+})
+
+test('C12b re-fit: a size change re-fits the three targets once', () => {
+  const n = E.targets.length
+  const c = createChain(gl, W, HT), mine = E.targets.slice(n), bloom = createBloom(gl, 8, 0.3)
+  const alloc = E.alloc
+  c.apply(SRC, 320, 180, cfOf(true, true, false), bloom)
+  c.apply(SRC, 320, 180, cfOf(true, true, false), bloom)
+  expect(E.alloc - alloc).toBe(3)
+  expect(mine.map((t) => [t.width, t.height])).toEqual([[320, 180], [320, 180], [320, 180]])
 })
