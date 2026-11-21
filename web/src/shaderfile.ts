@@ -1,7 +1,8 @@
 // A shader as a file on the user's disk (user 2026-11-20): `<name>.glsl`, a header over the code (name, author, date,
 // the source scene), as the shader editor's Export downloads it and the dev AI channel (vite.config.ts) writes it into
-// web/user-shaders/; Import reads either back. Also the channel's request checks and the open editor's answer to an ask
-// (dev, and the remote relay). Pure and import-free: vite.config.ts runs it in Node, Shader.tsx in the page.
+// web/user-shaders/; Import reads either back. Also the channel's request checks, the open editor's answer to an ask
+// (dev, and the remote relay) and the Remote AI row's token and room. Pure and import-free: vite.config.ts runs it in
+// Node, Shader.tsx in the page.
 
 /** The channel's code limit: doc.ts CODE_MAX, a toy's (shaderfile.test.ts pins the two together). */
 export const SHADER_MAX = 65536
@@ -87,4 +88,26 @@ export async function answerAsk(m: unknown, ed: AskEditor): Promise<Reply> {
   } catch (e) {
     return { ok: false, error: String(e), id }
   }
+}
+
+/** A room code of the remote relay (deploy/ai-relay.mjs ROOM): 1 to 16 of a–z and 0–9, case folded; null if not one. */
+export const roomCode = (s: string) => {
+  const r = s.trim().toLowerCase()
+  return /^[a-z0-9]{1,16}$/.test(r) ? r : null
+}
+const ROOM_ABC = 'abcdefghjkmnpqrstuvwxyz23456789' // no 0 o 1 i l: a code read aloud or typed again stays the same
+/** A new room code: 5 of ROOM_ABC (31⁵ ≈ 29 M codes; the relay holds 32 rooms). `rand` ∈ [0, 1): the tests' seam. */
+export const newRoom = (rand = Math.random) => Array.from({ length: 5 }, () => ROOM_ABC[Math.floor(rand() * ROOM_ABC.length)]).join('')
+/** The Remote AI row's settings, localStorage `vjw.ai` (Shader.tsx): `{ token, room }` as JSON, or a bare token (before
+ *  rooms, 2026-11-21). A token without a valid room gets a new code (G connects with it at once; the caller stores it,
+ *  so it is made once); no token: no room yet, the first Connect makes it. */
+export function aiSettings(raw: string | null, rand = Math.random) {
+  let o: Record<string, unknown> | null = null
+  try {
+    o = fields(JSON.parse(raw ?? ''))
+  } catch {
+    // a bare token, or nothing stored yet
+  }
+  const token = o ? (typeof o.token === 'string' ? o.token : '') : (raw ?? '')
+  return { token, room: (typeof o?.room === 'string' && roomCode(o.room)) || (token ? newRoom(rand) : '') }
 }

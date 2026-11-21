@@ -1,8 +1,8 @@
-// The remote AI relay (deploy/ai-relay.mjs) on an ephemeral port: the token, the size caps, one editor at a time, and
-// each ask paired with its answer by id. Here, not beside the relay: the gate (npm test) runs src/ only.
+// The remote AI relay (deploy/ai-relay.mjs) on an ephemeral port: the token, the size caps, one editor a room, the rooms,
+// and each ask paired with its answer by id. Here, not beside the relay: the gate (npm test) runs src/ only.
 import { afterEach, expect, test, vi } from 'vitest'
 // @ts-expect-error -- a plain .mjs (the server copies one file), so no types: its exports are `any` here
-import { PUSH_MAX, relay, RESULT_MAX } from '../../deploy/ai-relay.mjs'
+import { PUSH_MAX, relay, RESULT_MAX, ROOMS_MAX } from '../../deploy/ai-relay.mjs'
 
 const TOKEN = 'test-token-0123456789abcdef'
 const CODE = 'void mainImage(out vec4 fragColor, in vec2 fragCoord) { fragColor = vec4(1.0); }'
@@ -21,17 +21,20 @@ afterEach(() => {
   server.close()
 })
 
-/** The CLI's call: JSON in (a string goes as it is), the token as a bearer header. */
-const call = (path: string, { token = TOKEN, body }: { token?: string; body?: unknown } = {}) =>
+/** The CLI's call: JSON in (a string goes as it is), the token as a bearer header, a room as X-VJW-Room. */
+const call = (path: string, { token = TOKEN, body, room }: { token?: string; body?: unknown; room?: string } = {}) =>
   fetch(base + path, {
-    headers: token ? { authorization: `Bearer ${token}` } : {},
+    headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), ...(room === undefined ? {} : { 'x-vjw-room': room }) },
     ...(body !== undefined && { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) }),
   })
 
-/** A G editor on the event stream (the token as EventSource sends it, in the query, or as a header): the asks and the
- *  named events as they come, and `ended` once the stream closes. */
-async function editor(how: 'query' | 'header' = 'query') {
-  const r = await fetch(`${base}events${how === 'query' ? `?token=${TOKEN}` : ''}`, { headers: how === 'header' ? { authorization: `Bearer ${TOKEN}` } : {} })
+/** A G editor on the event stream (the token and room as EventSource sends them, in the query, or as headers): the asks
+ *  and the named events as they come, `ended` once the stream closes, and `close` (its tab goes). */
+async function editor(how: 'query' | 'header' = 'query', room?: string) {
+  const ac = new AbortController()
+  const query = how === 'query' ? `?token=${TOKEN}${room ? `&room=${room}` : ''}` : ''
+  const headers = how === 'header' ? { authorization: `Bearer ${TOKEN}`, ...(room ? { 'x-vjw-room': room } : {}) } : {}
+  const r = await fetch(`${base}events${query}`, { headers, signal: ac.signal })
   const asks: { id: number; what: string; [k: string]: unknown }[] = []
   const named: string[] = []
   const read = r.body!.pipeThrough(new TextDecoderStream()).getReader()
@@ -50,7 +53,7 @@ async function editor(how: 'query' | 'header' = 'query') {
       }
     }
   })()
-  return { status: r.status, type: r.headers.get('content-type'), asks, named, ended }
+  return { status: r.status, type: r.headers.get('content-type'), asks, named, ended, close: () => ac.abort() }
 }
 
 test('the token: required at start (24+ chars), then on every call but the guide; ?token= only on the event stream', async () => {
@@ -76,7 +79,7 @@ test('the token: required at start (24+ chars), then on every call but the guide
 
 test('no editor: an answer at once; a push reaches the editor and its answer goes back by id', async () => {
   await start()
-  expect(await (await call('state')).json()).toMatchObject({ ok: false, error: expect.stringMatching(/^no G editor open/) })
+  expect(await (await call('state')).json()).toMatchObject({ ok: false, error: expect.stringMatching(/^no G editor open in room main: /) })
   const ed = await editor()
   const push = call('shader', { body: { code: CODE, name: 'Rings' } }).then((r) => r.json())
   await vi.waitFor(() => expect(ed.asks).toHaveLength(1))
@@ -119,7 +122,7 @@ test('a push with "still": false or ?still=0 answers without the png (a ChatGPT 
   }
 })
 
-test('one editor at a time: a new one replaces the old, which hears so and closes', async () => {
+test('one editor a room: a new one replaces the old, which hears so and closes', async () => {
   await start()
   const old = await editor()
   const now = await editor()
@@ -145,4 +148,38 @@ test('sizes: a push over PUSH_MAX and a result over RESULT_MAX are 413; not a JS
   expect((await call('result', { body: { id: 1, png: 'x'.repeat(RESULT_MAX) } })).status).toBe(413)
   expect((await call('result', { body: { id: 1, png: 'x'.repeat(RESULT_MAX - 100) } })).status).toBe(404) // in size; nothing waits
   expect((await call('result', { body: 'not json' })).status).toBe(400)
+})
+
+test('rooms: each AI reaches its own room only; no room = main; a newer tab replaces only its own room', async () => {
+  await start()
+  const eds = { main: await editor(), red: await editor('query', 'red'), blue: await editor('header', 'blue') } // main: no room, as before rooms
+  const answers = [call('state'), call('state', { room: 'RED' }), call('state?room=blue'), call('state', { room: 'main' })].map((p) => p.then((r) => r.json()))
+  await vi.waitFor(() => expect(Object.values(eds).map((e) => e.asks.length)).toEqual([2, 1, 1]))
+  for (const [scene, ed] of Object.entries(eds)) for (const a of ed.asks) await call('result', { body: { id: a.id, ok: true, scene } })
+  expect((await Promise.all(answers)).map((a) => a.scene)).toEqual(['main', 'red', 'blue', 'main']) // RED: case folded
+
+  const red2 = await editor('query', 'red')
+  await eds.red.ended
+  expect([eds.main.named, eds.red.named, eds.blue.named, red2.named]).toEqual([[], ['replaced'], [], []])
+  const st = call('shader', { room: 'red', body: { code: CODE } }).then((r) => r.json())
+  await vi.waitFor(() => expect(red2.asks).toHaveLength(1))
+  await call('result', { body: { id: red2.asks[0].id, ok: true, status: 'Playing' } })
+  expect(await st).toMatchObject({ ok: true, status: 'Playing' })
+  expect(Object.values(eds).map((e) => e.asks.length)).toEqual([2, 1, 1]) // the other rooms heard nothing
+  expect(await (await call('state', { room: 'green' })).json()).toMatchObject({ ok: false, error: expect.stringMatching(/^no G editor open in room green: /) })
+})
+
+test('room codes: a bad one is 400 after the token; at most ROOMS_MAX rooms; a closed tab frees its room', async () => {
+  await start()
+  for (const room of ['a%20b', '..%2Fx', 'a_b', 'x'.repeat(17), '%C3%BC']) expect((await call(`state?room=${room}`)).status, room).toBe(400)
+  expect((await call('state', { room: 'a-b' })).status).toBe(400)
+  expect((await call('state?room=a%20b', { token: 'nope' })).status).toBe(401) // the token first
+  expect((await fetch(`${base}events?token=${TOKEN}&room=a%0Ab`)).status).toBe(400)
+  const eds = []
+  for (let i = 0; i < ROOMS_MAX; i++) eds.push(await editor('query', `r${i}`))
+  expect(eds.every((e) => e.status === 200)).toBe(true)
+  expect((await fetch(`${base}events?token=${TOKEN}&room=extra`)).status).toBe(503)
+  expect((await editor('query', 'r0')).status).toBe(200) // a newer tab in an open room still joins it
+  eds[1].close()
+  await vi.waitFor(async () => expect((await editor('query', 'extra')).status).toBe(200))
 })

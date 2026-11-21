@@ -310,3 +310,12 @@
 .shader .remote .led.replaced {
   background: #ff6b6b;
 }
+/* Its room code, read out to an AI: 5 characters as made (no 0 o 1 i l), 16 at most. */
+.shader .remote input.room {
+  flex: none;
+  width: 9ch;
+  font: 600 15px/1.2 ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: #fff;
+}

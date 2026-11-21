@@ -60,14 +60,21 @@ One file, Node 20, no npm packages, nothing stored. Its only lock is a token you
 4. Upload a build that has the Remote AI row: `cd web && VJW_BASE=/vjw001/ npm run build`, then `web/dist/` as before.
 5. Check: `curl -s https://<host>/vjw001/__ai/state` answers `{"ok":false,"error":"a wrong or missing token: …"}`.
 6. Your token: `sudo cat /etc/vjw-ai.env`, the part after `=`. Open the site, press Start, then G, paste the token
-   into Remote AI and press Connect: the dot turns green. From then on G connects by itself in this browser. Send the
-   same token to the lead in the chat. Logs: `sudo docker logs -f vjw-ai`. A new token: rerun the `echo` line, then
+   into Remote AI and press Connect: the dot turns green. From then on G connects by itself in this browser. Your
+   browser got its own room on that first Connect and keeps it: read the code beside Connect (Copy copies it). Send the
+   same token and that room code to the lead in the chat (`VJW_ROOM`). Logs: `sudo docker logs -f vjw-ai`. A new token: rerun the `echo` line, then
    `sudo docker rm -f vjw-ai` and the `docker run` line again.
 7. Your friends' AIs, no repo needed: the build serves the guides as public pages, `https://<host>/vjw001/ai/chatgpt.md`
    (ChatGPT, Claude Code, other AIs; see `docs/ai-chatgpt.md`) and `…/vjw001/ai/shader-guide.md` (the rules), and
-   `GET /__ai/guide` answers without the token. Send them the site URL and the token. Claude Code: zip
+   `GET /__ai/guide` answers without the token. Send them the site URL and the token. Each friend's browser gets its
+   own room on its first Connect; they read the code beside Connect and give it to their AI (the skill asks for it), so
+   several people live-code at once, each AI in its own editor. Rooms route calls, they lock nothing: the one token
+   reaches every room, so give it only to people you trust. The relay holds 32 rooms at once. Claude Code: zip
    `deploy/skill/vjw-shader/` (its README.md says how to install it). If a browser downloads a guide instead of
    showing it, your nginx has no type for `.md`: beside the `/vjw001/` block add
    `location /vjw001/ai/ { default_type text/plain; charset utf-8; }` (copy its `root` line; an `alias` gets `ai/` added).
 8. A newer `ai-relay.mjs` or guide: step 1 again, then `sudo mv /tmp/ai-relay.mjs /tmp/ai-shader-guide.md /opt/vjw-ai/`
    and `sudo docker restart vjw-ai` (no Docker: stop the node process and start it again). The token stays.
+9. Rooms (2026-11-21): a relay from before rooms holds one editor for everyone. Redeploy it (step 8) and rebuild the
+   site (step 4), in either order: an old relay ignores the room, and an old CLI or skill without a room lands in the
+   room `main`. Then each person's G shows its room code beside Connect.

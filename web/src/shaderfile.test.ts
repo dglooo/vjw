@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { CODE_MAX } from './doc'
-import { answerAsk, checkExport, checkPush, localOrigin, readShader, safeName, SHADER_MAX, writeShader } from './shaderfile'
+import { aiSettings, answerAsk, checkExport, checkPush, localOrigin, newRoom, readShader, roomCode, safeName, SHADER_MAX, writeShader } from './shaderfile'
 
 const CODE = 'void mainImage(out vec4 fragColor, in vec2 fragCoord) {\n    fragColor = vec4(0.5);\n}\n'
 
@@ -104,5 +104,31 @@ describe('answerAsk: the open editor answers the dev server and the remote relay
     }
     expect(await answerAsk({ id: 8, what: 'state' }, { ...ed, state: boom })).toEqual({ id: 8, ok: false, error: 'Error: boom' })
     expect(await answerAsk({ id: 9, what: 'push', code: CODE }, { ...ed, push: async () => boom() })).toEqual({ id: 9, ok: false, error: 'Error: boom' })
+  })
+})
+
+describe('the Remote AI room (Shader.tsx, deploy/ai-relay.mjs)', () => {
+  test('roomCode: 1 to 16 of a–z 0–9, case folded and trimmed; anything else is null', () => {
+    expect(['main', ' Ab12 ', 'x7k2p', 'z'.repeat(16)].map(roomCode)).toEqual(['main', 'ab12', 'x7k2p', 'z'.repeat(16)])
+    for (const bad of ['', '  ', 'a b', 'a_b', 'a-b', '../x', 'ü', 'z'.repeat(17), 'a\nb']) expect(roomCode(bad), bad).toBeNull()
+  })
+
+  test('newRoom: 5 characters with no 0 o 1 i l, a valid code; rand picks them', () => {
+    expect(newRoom(() => 0)).toBe('aaaaa')
+    expect(newRoom(() => 0.9999)).toBe('99999')
+    const seen = new Set(Array.from({ length: 200 }, () => newRoom()))
+    expect(seen.size).toBeGreaterThan(190) // ≈ 29 M codes: two friends never draw one
+    for (const r of seen) expect([r, roomCode(r)]).toEqual([expect.stringMatching(/^[a-hjkmnp-z2-9]{5}$/), r])
+  })
+
+  test('aiSettings: { token, room } as stored; a token without a room (before rooms) gets one; no token, no room yet', () => {
+    const rand = () => 0.5 // 's' each (ROOM_ABC[15])
+    expect(aiSettings('{"token":"abc","room":"Red"}', rand)).toEqual({ token: 'abc', room: 'red' })
+    expect(aiSettings('0f3a9c', rand)).toEqual({ token: '0f3a9c', room: 'sssss' }) // the old vjw.ai: the token itself
+    expect(aiSettings('123456', rand)).toEqual({ token: '123456', room: 'sssss' }) // a digits-only token parses as a number
+    expect(aiSettings(null, rand)).toEqual({ token: '', room: '' }) // the first Connect makes it
+    expect(aiSettings('{"token":"","room":""}', rand)).toEqual({ token: '', room: '' })
+    expect(aiSettings('{"token":"abc","room":"a b"}', rand)).toEqual({ token: 'abc', room: 'sssss' })
+    expect(aiSettings('{"room":"blue","token":7}', rand)).toEqual({ token: '', room: 'blue' })
   })
 })
