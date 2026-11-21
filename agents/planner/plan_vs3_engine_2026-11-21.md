@@ -392,7 +392,7 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Done-check:** gates. Nothing imports `chain.ts` yet: the app is unchanged, so no browser check.
 - **Lead gate:** none.
 
-### S1.2 [ ] `chain.ts`, pure part 2: the light limiter
+### S1.2 [x] `chain.ts`, pure part 2: the light limiter
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** every scalar that sets the frame's light passes one limiter after every writer (C1, C2, C6), with N1, N2, N4, N5, N6 folded.
 - **Lane, box, deps:** A · 75 min · S1.1, S0.2 (`flashPairs`).
