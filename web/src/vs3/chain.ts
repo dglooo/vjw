@@ -2,9 +2,10 @@
 // § Variant A, S1, S3 "wiring", S4): per frame, which passes run and their uniforms, every piece of state passed in, so
 // Vitest covers it without a browser (like gl/post.ts). The GL half (S3.1, at the end): createChain's targets and passes.
 // S3b.1: the exposure servo (design Amendment 2 with the skeptic's N2-N4): expose()'s law, frame()'s `servo`, UPDATE.
+// S5.1: the lens (design S3 "lens", S4, F1 and F4 rev 2, C11): frame()'s `lens`, LENS, its pass in apply().
 // vs3: the friends' three.js engine, used with permission (2026-11-19). Rewritten as text into TypeScript from
-// donor/vs3/visual_kit/src/: engine/engine.js:150-198 (its header: "engine.js — three.js render engine, faithful to the
-// original composer"; the macros, the mirror and feedback uniforms, :188 the tint), engine/post-shaders.js:162-198
+// donor/vs3/visual_kit/src/: engine/engine.js:150-222 (its header: "engine.js — three.js render engine, faithful to the
+// original composer"; the macros, the mirror and feedback uniforms, :188 the tint, :199-222 the lens's), engine/post-shaders.js:162-198
 // ("post-shaders.js — the original post pipeline, extracted verbatim (masked)"; stepTiles, stepSym and, at :155-160, their
 // constants) and core/analyzer.js:464-473 ("analyzer.js — audio -> visual signal pipeline"; what react scales).
 import { bindFramebufferInfo, type ProgramInfo } from 'twgl.js'
@@ -58,7 +59,7 @@ type Uniforms = Record<string, number | readonly number[] | Float32Array>
 export interface ChainFrame {
   mirror: boolean; feedback: boolean; warp: Uniforms
   bloom: number // the limited strength; 0 = skip
-  lens: Uniforms | null // null until S5.1
+  lens: Uniforms | null // LENS's, for the drawn style; null = skip (the limited amount ≤ .01, or wet ≤ .001)
   finish: { uAber: number; uVig: number; uGain: number; uGrain: number }
   kick: number; react: number // `hot`; the limited react gain
   kickGain: number // reactTo's factor on the scene's kick and onKick (KNOBS.KICK_COMP); 1 at or below stock and for a filter
@@ -209,13 +210,27 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
     uTint: palMid.map((c) => Math.min(1, 0.88 + 0.12 * c)), // C10: ≤ 1 per channel, so the history always decays
     uHist: st.stale ? 0 : 1,
   }
+  // the lens (engine.js:199-222), the drawn style st.style at the limited amount (skips: engine.js:199). Its kick reads
+  // `hot` (F1); a re-seat only on onKick, the rise of the gated hit (flashGate: ≤ 3/s): structural, never a flash
+  let lensU: Uniforms | null = null
+  if (lens > 0.01 && wet > 0.001) {
+    const style = st.style, on = s.onKick > 0 ? s.onKick : 0
+    if (style === 4) st.seed += +(on > 0) // glitch: a kick re-rolls the tears
+    else if (style < 3 || style === 6) st.drift += dt * (0.02 + mids * 0.05) + on * 0.25 // ribs, fan, anamorphic, fly eye: a kick clicks the phase
+    else if (style === 3 && on > 0) { // melt: a kick lights a rising heat plume in the next of 6 slots
+      const r = Math.sin(t * 131.3) * 43758.5453
+      st.rips.set([((r - Math.floor(r)) * 2 - 1) * 0.4 * aspect, ((((r * 7.13) % 1) + 1) % 1 - 0.75) * 0.55, t, Math.min(1, on * 1.2)], (st.rip++ % 6) * 4)
+    }
+    // uSeed: the donor's slow auto-mutation, floor(t · 3) · .017, keeps the tears alive between kicks (engine.js:213)
+    lensU = { uAmt: lens, uStyle: style, uAspect: aspect, uKick: hot, uAux: reacted(s.highs, react), uDrift: st.drift, uTime: t, uSeed: st.seed + Math.floor(t * 3) * 0.017, uWet: wet, uRip: st.rips }
+  }
   st.stale = !feedback
   st.reset = false
   st.light = { glow, stock, gain, vig, lens, persist, react }
   st.hot = hot
   st.hot0 = hot0
   return {
-    mirror, feedback, warp, bloom: strength >= 1e-3 ? strength : 0, lens: null, // under 1e-3 the bloom pass skips
+    mirror, feedback, warp, bloom: strength >= 1e-3 ? strength : 0, lens: lensU, // under 1e-3 the bloom pass skips
     finish: { uAber: v.aber * (0.22 + hot), uVig: vig, uGain: gain, uGrain: sc.grain }, // uAber: host.ts:243
     kick: hot, react, kickGain: Math.min(1, (G0 / G) ** K.KICK_COMP), // the scene's own kick light × uGain stays at the stock's
     // the servo's target scales with the drawn brightness, as the original's with its slider (main.js:2576)
@@ -374,14 +389,184 @@ void main() {
   outColor = vec4(n, 0.0, 0.0, 1.0);
 }`
 
+// vs3: the friends' three.js engine, used with permission (2026-11-19). Ported as text into GLSL ES 3.00 from
+// donor/vs3/visual_kit/src/engine/post-shaders.js:303-459 (its header: "post-shaders.js — the original post pipeline,
+// extracted verbatim (masked)"; LensShader, "lines 2171-2347" of the original), the body verbatim but texture2D, vUv
+// and gl_FragColor. Its notes (:265-270): "The lens rack: one pass, interchangeable optical materials that refract the
+// whole composite. Sits after bloom so glow smears through the material like light through real glass. Shared traits:
+// slight per-channel refraction difference (prismatic edge dispersion), a specular sheen where the surface is steep,
+// and kicks causing a STRUCTURAL re-seat of the material — never a flash."
+/** The lens (design S3): 7 styles in one pass, uStyle = the index into look.json's lensStyles (LENS_STYLES,
+ *  post-shaders.js:462). 3 taps (the dispersion); anamorphic adds 24 (its streaks), melt its noise and 6 plume slots. */
+export const LENS = `#version 300 es
+precision highp float;
+uniform sampler2D uSrc; // the bloom's output, else the warp's, else the scene
+uniform vec2 uRes;
+uniform float uAmt, uStyle, uAspect, uKick, uAux, uDrift, uTime, uSeed, uWet;
+uniform vec4 uRip[6];
+out vec4 outColor;
+vec2 hash2(vec2 p) {
+  return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453);
+}
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(hash2(i).x, hash2(i + vec2(1.0, 0.0)).x, f.x),
+    mix(hash2(i + vec2(0.0, 1.0)).x, hash2(i + vec2(1.0, 1.0)).x, f.x), f.y);
+}
+void main() {
+  vec2 vUv = gl_FragCoord.xy / uRes;
+  vec2 off = vec2(0.0);
+  float shade = 1.0;
+  float sheen = 0.0;
+  vec3 glow = vec3(0.0);
+  if (uStyle < 1.5) {
+    float c;
+    vec2 dirAcross; // screen-space width vector of one flute
+    if (uStyle < 0.5) {
+      float ribs = 78.0;
+      c = vUv.x * ribs + uDrift;
+      dirAcross = vec2(1.0 / ribs, 0.0);
+    } else {
+      float ribs = 44.0; // flutes across the half-turn
+      vec2 d = vec2((vUv.x - 0.5) * uAspect, vUv.y + 0.06);
+      c = atan(d.x, d.y) / 3.14159265 * ribs + uDrift;
+      float r = max(length(d), 1e-3);
+      vec2 tang = normalize(vec2(d.y, -d.x));
+      dirAcross = tang * vec2(1.0 / uAspect, 1.0) * (3.14159265 / ribs) * r;
+    }
+    float f = fract(c) - 0.5;
+    // semicircular flute: surface slope drives refraction across it
+    float slope = f * inversesqrt(max(0.25 - f * f, 0.02));
+    float amt = uAmt * (0.55 + 0.25 * uKick);
+    off = dirAcross * slope * amt * 0.9;
+    shade = 1.0 - 0.35 * amt * smoothstep(0.15, 0.5, abs(f));
+    sheen = pow(max(0.0, 1.0 - abs(abs(f) - 0.32) * 9.0), 3.0) * amt * (0.10 + 0.18 * uKick);
+  } else if (uStyle < 2.5) {
+    // anamorphic: cinema glass. Horizontal squeeze that breathes
+    // (uDrift clicks a quarter-phase per kick = a focus rack), cubic
+    // edge smear, and streak flares gathered along x from the hot
+    // parts of the frame — the streaks carry the source pixel's own
+    // color, lightly cooled, so the palette stays in charge.
+    float breathe = 0.5 + 0.5 * sin(uDrift * 6.2831853);
+    float squeeze = uAmt * (0.06 + 0.16 * breathe + 0.08 * uKick);
+    float cx = vUv.x - 0.5;
+    off.x = cx * squeeze + cx * cx * cx * 0.5 * uAmt;
+    off.y = -(vUv.y - 0.5) * squeeze * 0.22;
+    shade = 1.0 - 0.22 * uAmt * smoothstep(0.28, 0.5, abs(cx));
+    float fl = uAmt * (0.5 + 0.6 * uKick);
+    vec3 st = vec3(0.0);
+    for (int i = 1; i <= 12; i++) {
+      float d = float(i) / 12.0;
+      float w = exp(-d * 5.0);
+      vec2 sp = vec2(d * 0.55, 0.0);
+      // fade taps that fall off-frame: clamped reads repeat the edge
+      // column and paint flat bands instead of streaks
+      float xr = vUv.x + sp.x, xl = vUv.x - sp.x;
+      float wr = w * smoothstep(0.0, 0.05, 1.0 - xr);
+      float wl = w * smoothstep(0.0, 0.05, xl);
+      st += max(texture(uSrc, clamp(vUv + sp, 0.0, 1.0)).rgb - 0.55, 0.0) * wr;
+      st += max(texture(uSrc, clamp(vUv - sp, 0.0, 1.0)).rgb - 0.55, 0.0) * wl;
+    }
+    glow = st * fl * 0.22 * vec3(0.8, 0.95, 1.15);
+  } else if (uStyle < 3.5) {
+    // melt: the pane liquefies. Columnar runnels (anisotropic
+    // scrolling noise) drag the image downward; kicks spawn rising
+    // heat plumes (uRip slots) that hard-liquefy their region.
+    vec2 q = vec2(vUv.x * uAspect * 6.0, vUv.y * 2.0 + uTime * 0.12);
+    float n = vnoise(q) * 0.65 + vnoise(q * 2.7 + 13.7) * 0.35;
+    vec2 p = vec2((vUv.x - 0.5) * uAspect, vUv.y - 0.5);
+    float plume = 0.0;
+    for (int i = 0; i < 6; i++) {
+      float age = uTime - uRip[i].z;
+      if (uRip[i].w > 0.001 && age > 0.0 && age < 3.0) {
+        vec2 d = p - uRip[i].xy;
+        d.y -= age * 0.22; // the hot zone rises as it fades
+        plume += exp(-dot(d, d) * 12.0) * exp(-age * 1.1) * uRip[i].w;
+      }
+    }
+    float drip = n * n * (0.4 + 0.6 * n); // sharpen: few strong runnels
+    float m = uAmt * (0.02 + drip * 0.16 + plume * 0.24);
+    off.y = m; // sample above → the image drags downward
+    off.x = (vnoise(q * 3.1 + 51.3) - 0.5) * m * 0.7;
+    shade = 1.0 - 0.28 * uAmt * smoothstep(0.55, 1.0, n + plume * 0.7);
+    sheen = (pow(max(0.0, n - 0.6), 2.0) * 4.0 + plume * 0.2) * uAmt;
+  } else if (uStyle < 4.5) {
+    // glitch: coarse slice tears re-rolled by uSeed + fine micro-tears
+    float bid = floor(vUv.y * 26.0);
+    vec2 h = hash2(vec2(bid, uSeed));
+    float on = step(1.0 - 0.5 * uAmt, h.x);
+    float shift = (h.y - 0.5) * 0.25 * uAmt * on * (0.4 + 0.6 * uKick);
+    vec2 h2 = hash2(vec2(floor(vUv.y * 160.0), uSeed * 1.31));
+    shift += (h2.x - 0.5) * 0.05 * uAmt * step(0.93 - 0.2 * uAux, h2.y);
+    off = vec2(shift, 0.0);
+    shade = 1.0 - (0.08 + 0.22 * uAux) * uAmt * (0.5 + 0.5 * sin(vUv.y * 1100.0));
+    vec2 hb = hash2(floor(vec2(vUv.x * 8.0, vUv.y * 5.0)) + vec2(uSeed * 0.7, uSeed * 1.13));
+    shade *= 1.0 - 0.85 * uAmt * on * step(0.96, hb.x); // block dropouts
+  } else if (uStyle < 5.5) {
+    // pixels: LED-wall mosaic, snapping sampling to cell centers.
+    // The cell grid is FIXED. Sizing it off the kick (it used to
+    // scale by 1.0 - 0.15 * uKick) moved every cell boundary on
+    // every hit, and uKick is the raw envelope with no accent gate,
+    // so at psytrance tempo the wall never settled and the whole
+    // effect read as jitter. Kicks light the panel now, which holds
+    // the geometry still and keeps the wall alive.
+    // Dry/wet keeps this grid (the full lens amount sets it; uAmt
+    // arrives scaled by wet) and pulls each cell's picture toward
+    // the cell center, so the wall grows out of the plain picture
+    // with nothing crawling. The gap and the posterize steps come
+    // in with it.
+    float n = mix(140.0, 30.0, uAmt / max(uWet, 1e-3));
+    vec2 g = vec2(n, n / uAspect);
+    vec2 center = (floor(vUv * g) + 0.5) / g;
+    off = (center - vUv) * uWet;
+    vec2 fp = fract(vUv * g);
+    float gap = step(0.08, fp.x) * step(fp.x, 0.92) * step(0.08, fp.y) * step(fp.y, 0.92);
+    shade = mix(1.0, gap, min(1.0, uAmt * 2.0)); // hard black grid
+    shade *= 1.0 + 0.18 * uKick * uWet;          // lamps brighten on the hit
+  } else {
+    // fly eye: hex lattice of convex lenslets, each refracting its
+    // neighborhood like a glass bead (radial cousin of the flute
+    // slope). LENS sweeps bead count 26 → 5 across; kicks click the
+    // lattice rotation one notch via uDrift.
+    float n = mix(26.0, 5.0, uAmt);
+    float ca = cos(uDrift), sa = sin(uDrift);
+    vec2 p = mat2(ca, -sa, sa, ca) * vec2((vUv.x - 0.5) * uAspect, vUv.y - 0.5) * n;
+    vec2 r = vec2(1.0, 1.7320508);
+    vec2 a = mod(p, r) - r * 0.5;
+    vec2 b = mod(p - r * 0.5, r) - r * 0.5;
+    vec2 g = dot(a, a) < dot(b, b) ? a : b;
+    float rr = length(g) * 1.55; // ~1 at the bead rim
+    float slope = inversesqrt(max(1.0 - rr * rr * 0.82, 0.06));
+    vec2 o = -g * slope * (0.5 + 0.2 * uKick) * uAmt / n;
+    off = mat2(ca, sa, -sa, ca) * o;
+    off.x /= uAspect;
+    shade = 1.0 - 0.45 * uAmt * smoothstep(0.72, 1.05, rr);
+    sheen = pow(max(0.0, 1.0 - length(g - vec2(0.16, 0.2)) * 3.2), 3.0) * uAmt * (0.10 + 0.22 * uKick);
+  }
+  vec3 col;
+  col.r = texture(uSrc, clamp(vUv + off * 0.92, 0.0, 1.0)).r;
+  col.g = texture(uSrc, clamp(vUv + off, 0.0, 1.0)).g;
+  col.b = texture(uSrc, clamp(vUv + off * 1.08, 0.0, 1.0)).b;
+  if (uStyle > 4.5 && uStyle < 5.5) { // posterize the wall
+    float lv = 6.0 / max(uWet, 1e-3);
+    col = floor(col * lv + 0.5) / lv;
+  }
+  col *= shade;
+  col += sheen * (col + 0.25);
+  col += glow;
+  outColor = vec4(col, 1.0);
+}`
+
 /** The chain's GL half (design C11, C12): three owned half-float targets, allocated here at the layer's size, so no
  *  visible frame allocates (a size change re-fits them on that frame, as three's target and the bloom's), and the
- *  servo's three at fixed sizes. The warp writes hist[k] from the scene and hist[1 − k], the bloom its own targets, so no
- *  pass samples its draw target. It binds only its own targets; the caller keeps the GL state (the host's guard).
+ *  servo's three at fixed sizes. The warp writes hist[k] from the scene and hist[1 − k], the bloom its own targets, the
+ *  lens lensRT from whichever ran last, so no pass samples its draw target. It binds only its own targets; the caller keeps the GL state (the host's guard).
  *  ponytail: without EXT_color_buffer_float the targets are RGBA8, which store ln e ≤ 0 as 0: the servo holds e at 1. */
 export function createChain(gl: WebGL2RenderingContext, w: number, h: number) {
   const hist = [renderTarget(true, true), renderTarget(true, true)] // persistent: the trails survive a governor step
-  const lensRT = renderTarget(true) // S5.1's lens writes it
+  const lensRT = renderTarget(true) // the lens's, only
   const all = [...hist, lensRT]
   for (const t of all) t.fit(w, h)
   // the servo's, at fixed sizes: the probe, mipmapped (its top level: the mean), and the 1 × 1 pair of ln e (born 1 × 1)
@@ -389,7 +574,7 @@ export function createChain(gl: WebGL2RenderingContext, w: number, h: number) {
   probe.fit(PROBE, PROBE)
   let k = 0 // the warp writes hist[k] and reads hist[1 − k]; then the two swap
   let j = 0 // UPDATE writes exp[j] and reads exp[1 − j], the e on screen; then the two swap
-  let warp: ProgramInfo | undefined, update: ProgramInfo | undefined
+  let warp: ProgramInfo | undefined, update: ProgramInfo | undefined, lens: ProgramInfo | undefined
   return {
     /** The chain over `src` (the scene, w × h); returns the texture the finish reads. */
     apply(src: WebGLTexture, w: number, h: number, f: ChainFrame, bloom: ReturnType<typeof createBloom>): WebGLTexture {
@@ -403,7 +588,12 @@ export function createChain(gl: WebGL2RenderingContext, w: number, h: number) {
         k = 1 - k
       }
       if (f.bloom > 0) tex = bloom.apply(tex, w, h, f.bloom) // into its own targets
-      return tex // the lens (S5.1): tex into lensRT
+      if (f.lens) { // the bloom's output, else hist's, else the scene, always into lensRT (C11)
+        bindFramebufferInfo(gl, lensRT)
+        draw((lens ??= program(VS, LENS)), { ...f.lens, uSrc: tex, uRes: [w, h] })
+        tex = lensRT.attachments[0]
+      }
+      return tex
     },
     /** The exposure servo, after apply() and before the finish (S3b.2): `drawProbe` draws the finished frame into the bound
      *  probe (FINISH with uProbe on and uExp = `e`, the ln e on screen now); its mipmaps make the mean; UPDATE writes the
@@ -430,6 +620,6 @@ export function createChain(gl: WebGL2RenderingContext, w: number, h: number) {
   }
 }
 
-/** The warp and the servo's update compiled off the main thread into the engine's cache, under apply()'s and servo()'s
- *  keys (fx/glsl.ts's VS is the engine's, glsl.test.ts): no compile on a visible frame (C12, host rule 5). */
-export const warmChain = () => Promise.all([programAsync(VS, WARP), programAsync(VS, UPDATE)])
+/** The warp, the lens and the servo's update compiled off the main thread into the engine's cache, under apply()'s and
+ *  servo()'s keys (fx/glsl.ts's VS is the engine's, glsl.test.ts): no compile on a visible frame (C12, host rule 5). */
+export const warmChain = () => Promise.all([programAsync(VS, WARP), programAsync(VS, UPDATE), programAsync(VS, LENS)])
