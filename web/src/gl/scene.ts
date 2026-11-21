@@ -6,7 +6,9 @@ import type { EffectDef, Value } from '../fx/types'
 // Frozen contract CP1 (effects): a native generator behind the same inputs/values contract as the shader effects.
 // CP2 (td-look, D3): `src` is the previous node's output, the texture an ISF filter reads as `inputImage`, so a native
 // can be a filter (`kind: 'filter'`, no inputImage input); a generator gets null. Natives that don't read it ignore it.
-export interface Native { draw(f: FrameInput, v: Readonly<Record<string, Value>>, src?: WebGLTexture | null, s?: Readonly<Sources>, blend?: Blend): void; dispose?(): void; hidden?(): boolean } // into the bound FB
+export interface Native { draw(f: FrameInput, v: Readonly<Record<string, Value>>, src?: WebGLTexture | null, s?: Readonly<Sources>, blend?: Blend): void; dispose?(): void; hidden?(): boolean; hot?(v: Readonly<Record<string, Value>>): boolean } // into the bound FB
+// hot?(v) (vs3 S3d): this frame's values (before draw) put its look above its stock light (vs3/chain.ts hotLook). Off a
+// tile, live.ts then runs it under the toy limiter, and fades the limiter out over 0.5 s after (post.ts limitFade).
 // s (milk-sync, 2026-11-16): the sources the scene's bindings read this frame; milk/* feeds its levels from them.
 // blend (GPU3D S1-T, lead ruling N3): the layer's; native/model writes straight alpha under normal, premultiplied else.
 // hidden?() (plan_camera S1.3, N-1): true = the compositor skips the layer as it skips a muted one (live.ts `ok`): it

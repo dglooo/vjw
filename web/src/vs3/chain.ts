@@ -244,6 +244,12 @@ export function reactTo(s: Signal, cf: ChainFrame): void {
   for (const k of LEVELS) s[k] = reacted(s[k], cf.react)
 }
 
+/** S3d: the look draws above the stock light, so gl/live.ts runs the layer under the toy limiter (gl/post.ts limitFade):
+ *  the limited uGain `gain` over the stock's × 1.02 (never on a filter: its finish skips the grade), bloomMul over the
+ *  scene's row × 1.05, heat over .55, react over .7. Every scene's defaults: false (no limiter pass, no cost). */
+export const hotLook = (v: Readonly<LookValues>, sc: Readonly<SceneFacts>, gain: number) =>
+  (!sc.filter && gain > sc.gainBase * 1.02) || v.bloomMul > sc.bloomRow * 1.05 || v.heat > 0.55 || v.react > 0.7
+
 // vs3: the friends' three.js engine, used with permission (2026-11-19). Ported as text into GLSL ES 3.00 from
 // donor/vs3/visual_kit/src/lib/fx.js (its header: "Core image-feedback machinery — the MilkDrop lineage. FeedbackPass:
 // blends the current frame over a warped copy of frame history (zoom / rotate / swirl / wobble), which is what produces
