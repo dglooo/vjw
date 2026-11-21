@@ -2,9 +2,10 @@
 // (web/vite.config.ts aiChannel, docs/ai-shader-guide.md) for the published site. The lead's CLI
 // (web/scripts/ai-shader.mjs) calls POST /__ai/shader, POST /__ai/export, GET /__ai/state and GET /__ai/guide; the G
 // editor open in the user's browser (web/src/editor/Shader.tsx, Remote AI) listens on GET /__ai/events (server-sent
-// events) and answers each ask on POST /__ai/result. Every call needs the token, `Authorization: Bearer <token>`; the
-// event stream may carry it as `?token=` instead (an EventSource sends no header). It stores nothing: a still goes back
-// to the CLI as a PNG data URL, an export downloads in the user's browser. Node ≥ 20, no npm packages, 127.0.0.1 only
+// events) and answers each ask on POST /__ai/result. Every call but the guide needs the token, `Authorization: Bearer
+// <token>`; the event stream may carry it as `?token=` instead (an EventSource sends no header). It stores nothing: a
+// still goes back to the CLI as a PNG data URL (none with `"still": false` or `?still=0`: a ChatGPT Action,
+// docs/ai-chatgpt.md), an export downloads in the user's browser. Node ≥ 20, no npm packages, 127.0.0.1 only
 // (nginx in front):
 //   VJW_AI_TOKEN=$(openssl rand -hex 24) PORT=7781 node ai-relay.mjs
 import { createHash, timingSafeEqual } from 'node:crypto'
@@ -71,6 +72,11 @@ export function relay({ token, wait = 20_000, log = console.log }) {
     const fail = (status, error) => send(status, { ok: false, error })
     const what = /\/__ai\/(\w+)$/.exec(url.pathname)?.[1] // nginx passes /__ai/… (or /<base>/__ai/…)
     const route = `${req.method} ${what}`
+    if (route === 'GET guide') {
+      // public (user 2026-11-21): the guide holds no secret; every other call needs the token
+      const text = await guide()
+      return text === null ? fail(404, 'no guide: copy docs/ai-shader-guide.md beside ai-relay.mjs') : send(200, text, 'text/markdown')
+    }
     const given = /^Bearer (.+)$/.exec(req.headers.authorization ?? '')?.[1] ?? (route === 'GET events' ? url.searchParams.get('token') : null) ?? ''
     if (!timingSafeEqual(sha(given), key)) return fail(401, 'a wrong or missing token: send Authorization: Bearer <token>')
     try {
@@ -88,12 +94,13 @@ export function relay({ token, wait = 20_000, log = console.log }) {
         end(a)
         return send(200, { ok: true })
       }
-      if (route === 'POST shader' || route === 'POST export') return send(200, await ask(what === 'shader' ? 'push' : 'export', await json(req, PUSH_MAX))) // the editor checks the fields (shaderfile.ts answerAsk)
-      if (route === 'GET state') return send(200, await ask('state'))
-      if (route === 'GET guide') {
-        const text = await guide()
-        return text === null ? fail(404, 'no guide: copy docs/ai-shader-guide.md beside ai-relay.mjs') : send(200, text, 'text/markdown')
+      if (route === 'POST shader' || route === 'POST export') {
+        const b = await json(req, PUSH_MAX)
+        const a = await ask(what === 'shader' ? 'push' : 'export', b) // the editor checks the fields (shaderfile.ts answerAsk)
+        if (b.still === false || url.searchParams.get('still') === '0') delete a.png // a ChatGPT Action (docs/ai-chatgpt.md): its answer stays under 100 000 chars, and it cannot see a still
+        return send(200, a)
       }
+      if (route === 'GET state') return send(200, await ask('state'))
       fail(404, `no ${req.method} ${url.pathname}: see GET /__ai/guide`)
     } catch (e) {
       if (!res.headersSent) fail(e.status ?? 500, e.message) // a second head would throw again: a crashed relay drops the editor

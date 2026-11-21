@@ -63,3 +63,11 @@ One file, Node 20, no npm packages, nothing stored. Its only lock is a token you
    into Remote AI and press Connect: the dot turns green. From then on G connects by itself in this browser. Send the
    same token to the lead in the chat. Logs: `sudo docker logs -f vjw-ai`. A new token: rerun the `echo` line, then
    `sudo docker rm -f vjw-ai` and the `docker run` line again.
+7. Your friends' AIs, no repo needed: the build serves the guides as public pages, `https://<host>/vjw001/ai/chatgpt.md`
+   (ChatGPT, Claude Code, other AIs; see `docs/ai-chatgpt.md`) and `…/vjw001/ai/shader-guide.md` (the rules), and
+   `GET /__ai/guide` answers without the token. Send them the site URL and the token. Claude Code: zip
+   `deploy/skill/vjw-shader/` (its README.md says how to install it). If a browser downloads a guide instead of
+   showing it, your nginx has no type for `.md`: beside the `/vjw001/` block add
+   `location /vjw001/ai/ { default_type text/plain; charset utf-8; }` (copy its `root` line; an `alias` gets `ai/` added).
+8. A newer `ai-relay.mjs` or guide: step 1 again, then `sudo mv /tmp/ai-relay.mjs /tmp/ai-shader-guide.md /opt/vjw-ai/`
+   and `sudo docker restart vjw-ai` (no Docker: stop the node process and start it again). The token stays.
