@@ -1,10 +1,13 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { SOURCE_IDS, type Binding } from './bind'
-import { parseScene, type LayerDoc, type SceneDoc } from './doc'
+import { parseScene, type LayerDoc, type NodeDoc, type SceneDoc } from './doc'
 import { docs, MUSIC_TIME, newShader, toyCode } from './edit'
-import { byName, createLibrary, GROUPS, type Db, type Disk } from './library'
+import { byName, chainOffForLegacy, createLibrary, GROUPS, type Db, type Disk } from './library'
 import { MILK_SCENES } from './milkdrop/presets'
 import { BUILTIN } from './scenes/builtin'
+import { chainState, frame, type LookValues } from './vs3/chain'
+import type { Signal } from './vs3/host'
+import look from './vs3/look.json'
 
 const B: Binding = { source: 'bass', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }
 const scene = (id: string, over: Partial<SceneDoc> = {}): SceneDoc => ({
@@ -593,4 +596,66 @@ test('the camera scenes (plan_camera S2.3): each parses; L0, the fallback, has n
     const sources = d.layers.flatMap((l) => [l.bind, l.gen.bind, ...l.fx.map((n) => n.bind)]).flatMap((b) => Object.values(b ?? {}).map((x) => x!.source))
     for (const s of sources) expect(SOURCE_IDS, id).toContain(s)
   }
+})
+
+// C8 (plan_vs3_engine S4.1): a vs3 user copy saved before the post chain keeps its layer fx; the chain is off for it.
+/** A user copy of vs3 Ink as saved before the chain: the built-in's mirror both ways and feedback (builtin.ts, 2026-11-21). */
+const legacy = (id: string, gen: NodeDoc = { ref: 'native/vs3-ink' }, fx: NodeDoc[] = [{ ref: 'isf/Mirror', values: { horizontal: true, vertical: true } }, { ref: 'own/feedback-zoom', values: { decay: 0.97, rotate: 0.001 } }]) =>
+  scene(id, { layers: [{ gen, fx, blend: 'normal', opacity: 1, speed: 1, res: 1 }] })
+const OFF = { trails: 0, mirror: 0 }
+
+test('C8a a legacy vs3 copy keeps its edited fx and gets trails 0, mirror 0; each of the three fx marks it', () => {
+  const d = legacy('u-a', { ref: 'native/vs3-ink', values: { speed: 0.7 } })
+  d.layers[0].fx[1].values = { decay: 0.8, rotate: 0 } // the user's edit of own/feedback-zoom
+  const fx = structuredClone(d.layers[0].fx)
+  const [l] = chainOffForLegacy(d).layers
+  expect(l.fx).toStrictEqual(fx)
+  expect(l.gen.values).toEqual({ speed: 0.7, ...OFF })
+  for (const ref of ['isf/Mirror', 'isf/Kaleidoscope', 'own/feedback-zoom']) expect(chainOffForLegacy(legacy('u-a', undefined, [{ ref }])).layers[0].gen.values, ref).toEqual(OFF)
+})
+
+test('C8b a copy that holds trails or mirror is untouched', () => {
+  for (const d of [legacy('u-b', { ref: 'native/vs3-ink', values: { trails: 0.4 } }), legacy('u-b', { ref: 'native/vs3-ink', values: { mirror: 3 } })])
+    expect(chainOffForLegacy(structuredClone(d))).toStrictEqual(d)
+})
+
+test('C8c a second run changes nothing', () => {
+  const once = chainOffForLegacy(legacy('u-c'))
+  expect(once.layers[0].gen.values).toEqual(OFF)
+  expect(chainOffForLegacy(structuredClone(once))).toStrictEqual(once)
+})
+
+test('C8d a non-vs3 doc with the fx, and a vs3 copy without them, are untouched', () => {
+  for (const d of [legacy('u-d', { ref: 'native/tunnel' }), legacy('u-d', undefined, [])]) expect(chainOffForLegacy(structuredClone(d))).toStrictEqual(d)
+})
+
+test('C8e a migrated copy of each vs3 scene: frame() draws no fold and no feedback', () => {
+  const rows = look.scenes as Record<string, Partial<LookValues> | undefined>, late = look.lateTrails as Record<string, number | undefined>
+  const s: Signal = { onKick: 0, kick: 0, onMid: 0, onHigh: 0, sub: 0.3, mids: 0.4, highs: 0.2, air: 0.1, energy: 0.5, specHi: new Float32Array(192) }
+  for (const name of [...Object.keys(rows), 'aurora']) { // aurora: no row, the base (the donor's BASE_POST)
+    const { gen } = chainOffForLegacy(legacy('u-e', { ref: `native/vs3-${name}` })).layers[0]
+    const v = { ...look.base, ...rows[name], ...gen.values } as LookValues // the native's defaults under the doc's values
+    const facts = { hint: null, wet: 1, grain: 0, lateTrails: late[name] ?? 0, filter: false, bloomRow: v.bloomMul, gainBase: look.base.brightness, vigRange: 0.8 }
+    const cf = frame(v, facts, s, 0, chainState(), [0.5, 0.5, 0.5], 1 / 60, 1 / 60, 0, 16 / 9)
+    expect([cf.mirror, cf.feedback], name).toEqual([false, false])
+  }
+})
+
+test('C8g a legacy vs3 Limitless copy (its vs3 node a filter) gets the zeros on that node and keeps its fx', () => {
+  const d = legacy('u-g', { ref: 'native/tunnel' }, [{ ref: 'native/vs3-limitless' }, { ref: 'own/feedback-zoom', values: { decay: 0.85, rotate: 0 } }]) // builtin:vs3-limitless's layer, 2026-11-21
+  const [l] = d.layers
+  expect(chainOffForLegacy(structuredClone(d)).layers[0]).toStrictEqual({ ...l, fx: [{ ref: 'native/vs3-limitless', values: OFF }, l.fx[1]] })
+})
+
+test('C8f put() (Save as, import) and load() both give the migrated copy; a knob the doc holds survives a reload', async () => {
+  const b = browser()
+  const lib = await loaded(b)
+  await lib.put(legacy('u-saved'))
+  expect(await lib.importFile(file(legacy('u-imported')))).toBeNull()
+  b.rows.set('u-stored', legacy('u-stored')) // a row saved before this epic
+  b.rows.set('u-knob', legacy('u-knob', { ref: 'native/vs3-ink', values: { trails: 0.4 } }))
+  const again = await loaded(b)
+  for (const d of [lib.get('u-saved'), lib.get('u-imported'), again.get('u-saved'), again.get('u-stored')]) expect(d!.layers[0].gen.values).toEqual(OFF)
+  expect((b.rows.get('u-saved') as SceneDoc).layers[0].gen.values).toEqual(OFF) // put() stores the migrated doc
+  expect(again.get('u-knob')!.layers[0].gen.values).toEqual({ trails: 0.4 }) // parseScene keeps a key that is no input yet
 })
