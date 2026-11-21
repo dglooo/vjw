@@ -114,6 +114,8 @@ export function renderTarget(hdr = false, persistent = false, tex: { min?: numbe
 
 export type Target = ReturnType<typeof renderTarget>
 const shots = [renderTarget(), renderTarget()] // A: shot.from, B: shot.to
+/** The shots' size, px: the stage's draw size (vs3/host.ts sizes a layer's chain by it at create: C12). */
+export const shotSize = () => [shots[0].width, shots[0].height] as const
 /** Ping-pong scratch for effect chains, at the shots' size. */
 export const temps = [renderTarget(), renderTarget()]
 
