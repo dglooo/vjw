@@ -8,7 +8,7 @@ const P = 60 / 128
 /** A TempoSource stub: `set` publishes a new reading object, which read() returns until the next `set`. */
 function stub() {
   let r: TempoReading | null = null
-  return { push() {}, pushOdf() {}, setRange() {}, seek() {}, families: () => [], read: () => r, set: (x: TempoReading) => void (r = { ...x }) }
+  return { push() {}, pushOdf() {}, setRange() {}, seek() {}, families: () => [], read: () => r, free: () => r, set: (x: TempoReading) => void (r = { ...x }) }
 }
 type Controller = ReturnType<typeof createSync>
 

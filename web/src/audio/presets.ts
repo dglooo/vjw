@@ -13,7 +13,7 @@ export interface Preset {
   map: Readonly<Record<string, string>> // built-in source -> new source while Auto-style is on
   proto?: { kickPerBeat: number; hatsPerBeat: number; wobble: number; bass: number } // classifier (genres only)
   knobs: Knobs // the worklet's drum knobs (drums.ts): floors, snare threshold, kick trigger and its follower
-  cuts?: false // a deep bass cut doesn't arm a drop (arrange.ts `cuts`, drop v2 (2)); missing = it does
+  cuts?: false // a deep bass cut doesn't arm a drop below DnB tempo (cutsOn → arrange.ts `cuts`, drop v2 (2)); missing = it does
   low?: 'sub' // the arrangement's `low` (app.ts) reads the sub band alone; missing = sub + reese
 }
 
@@ -26,6 +26,14 @@ const BANDS: Preset['bands'] = { kick: [40, 150], snare: [1000, 5000], hats: [70
 const inside = (bpm: number, [lo, hi]: Band) => bpm >= lo && bpm <= hi
 export const snapOctave = (bpm: number, band: Band): 'double' | 'halve' | 'none' =>
   inside(bpm, band) ? 'none' : inside(2 * bpm, band) ? 'double' : inside(bpm / 2, band) ? 'halve' : 'none'
+
+/** The arrangement's `cuts` (arrange.ts): the preset's, or on while the band-free tempo read (tempo.ts free(): Techno's
+ *  and House's bands lock DnB at its ⅔ lag, 116 BPM) is sure (confidence ≥ 0.3, styleIn's gate) at DnB's band floor
+ *  (160 BPM) or faster, so a cuts-off pick on DnB keeps the 2–3 s pre-drop cuts its drops come through: Techno / House
+ *  picks on 6 DnB tracks 6/17 → 12/17 drops (false 10 → 9), Psytrance 5/17 → 11/17 (10 → 11); at ≥ 0.5 Techno keeps
+ *  8/17. Not from 150: fx_psy150 reads 150.00–150.18. ⚠️ fx_house's free read finds its 4/3 lag (165) at .30 in its
+ *  break, so a 4/4 fill there would arm (scratchpad/drops). */
+export const cutsOn = (p: Preset, free: { bpm: number; confidence: number } | null) => p.cuts !== false || (!!free && free.confidence >= 0.3 && free.bpm >= PRESETS.dnb.bpm![0])
 
 // The 4/4 family (dsp_genre_melodic §4): one knob set for psytrance, techno and house; only the tempo tells them apart, and
 // their real ranges overlap, so the classifier keeps one 4/4 class (techno) and Psytrance / House are hand picks. kick

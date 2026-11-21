@@ -10,7 +10,7 @@ import type { Drum } from './drums'
 import { rms } from './energy'
 import { createFeatures } from './features'
 import type { WorkletMsg } from './onset.worklet'
-import { PRESETS, type Genre, type PresetId } from './presets'
+import { cutsOn, PRESETS, type Genre, type PresetId } from './presets'
 import { createSettings, parseSettings, workletBands, type AudioSettings } from './settings'
 import { createStyle, type StyleIn, type StyleOut } from './style'
 import { arrangement, burst, crossfade, GROOVES, kick, mix, norm, pattern, rng, room, SR, T0, tone, wobble, type Groove, type Stem } from './synth'
@@ -127,7 +127,7 @@ function inputs(x: Float32Array, genre: PresetId, bpm: number) {
       let high = 0
       for (let j = lo; j <= hi; j++) high += Math.hypot(spec[2 * j], spec[2 * j + 1]) / (hi - lo + 1)
       const low = PRESETS[genre].low === 'sub' ? f.raw.sub : f.raw.sub + f.raw.reese // as app.ts
-      out.push({ low, high, total: rms(x.subarray(e - SR / FPS_APP, e)), kick, beat: ((now - T0) * bpm) / 60, cuts: PRESETS[genre].cuts !== false, now })
+      out.push({ low, high, total: rms(x.subarray(e - SR / FPS_APP, e)), kick, beat: ((now - T0) * bpm) / 60, cuts: cutsOn(PRESETS[genre], { bpm, confidence: 1 }), now }) // as app.ts: a sure band-free read at `bpm`
     }
     return out
   }
