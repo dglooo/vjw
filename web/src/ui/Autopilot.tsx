@@ -57,6 +57,7 @@ export function AutoChip() {
       <form
         className="line"
         title={SECONDS_HINT}
+        noValidate // min / max / step drive the arrows; a typed 47 or 7 commits too and parseAutopilot snaps it (45, 10)
         onSubmit={(e) => {
           e.preventDefault()
           ;(document.activeElement as HTMLElement | null)?.blur() // commits (onBlur), and the hotkeys work again
