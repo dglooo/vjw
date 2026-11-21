@@ -6,7 +6,7 @@ import { PRESETS } from './audio/presets'
 import { parseSettings } from './audio/settings'
 import { ZERO_SYNC } from './audio/sync'
 import { bindable, createRemap, evaluate, gain, level, restyle, sourceGroups, sources, sourcesFor, SOURCE_IDS, type Binding, type Clocked, type Sources } from './bind'
-import type { FrameInput } from './frame'
+import { heardAt, type FrameInput } from './frame'
 import type { EffectDef } from './fx/types'
 import { model } from './scenes/model'
 import { particleCount, particles } from './scenes/particles'
@@ -55,6 +55,15 @@ describe('sources', () => {
     expect(at(-0.05)).toBeCloseTo(0.4, 12)
     expect(at(0, 9)).toBe(1)
     expect(src().onset).toBe(0)
+  })
+
+  test('onset on line-in: its age runs from the capture clock + the input latency, whatever the output device reports (heardAt)', () => {
+    const now = 100 // ctx.currentTime: the newest captured sample, where a line-in onset is stamped on arrival
+    const lineIn = (outputLag: number, age = 0) => src({ lastOnset: { t: now - age, strength: 4 }, audioNow: heardAt(false, now - outputLag, now, 0.01) }).onset
+    expect(lineIn(0.02)).toBeCloseTo(Math.exp(-0.01 / 0.12), 12) // the room heard it 10 ms (the input latency) ago
+    expect(lineIn(0.25)).toBeCloseTo(lineIn(0.02), 12) // a Bluetooth output 250 ms behind holds nothing at the peak
+    expect(lineIn(0.25, 0.05)).toBeCloseTo(Math.exp(-0.06 / 0.12), 12)
+    expect(heardAt(true, 42, now, 0.01)).toBe(42) // a file: the output clock, what our speakers play now
   })
 
   test('beat, bar and confidence come from the sync, lfo from the time', () => {
