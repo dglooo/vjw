@@ -5,7 +5,7 @@ import { defaults } from '../doc'
 import type { Input } from '../fx/types'
 import { factory, factoryRefs } from '../presets'
 import { BUILTIN } from '../scenes/builtin'
-import { chainState, frame, type LookValues } from './chain'
+import { chainState, frame, PROBE, type LookValues } from './chain'
 import { FINISH, PALETTES, paramInputs, put, putLook, screen, signal, specHi, VS3, type Signal } from './host'
 import look from './look.json'
 
@@ -185,14 +185,14 @@ test('params.json = every registered scene\'s rows (regenerate: npx vitest run -
   await expect(json).toMatchFileSnapshot('./params.json')
 })
 
-test("C12c size: create(gl, size) hands the tile's size to the chain's three targets at create; without a size it hands shotSize()", async () => {
+test("C12c size: create(gl, size) hands the tile's size to the chain's three targets at create (the servo's probe keeps PROBE²); without a size it hands shotSize()", async () => {
   vi.stubGlobal('document', { createElement: () => canvas })
   const gl = { deleteFramebuffer() {}, deleteTexture() {} } as unknown as WebGL2RenderingContext // dispose()'s calls
   for (const [size, want] of [[[300, 200], [300, 200]], [undefined, [640, 360]]] as const) {
     T.fits.length = 0
     const n = VS3[0].create(gl, size)
     await vi.waitFor(() => expect(n.hidden!()).toBe(false), { timeout: 10_000 }) // start() resolved
-    expect(T.fits, String(size)).toEqual([want, want, want]) // hist[0], hist[1], lensRT (the bloom fits on its first apply)
+    expect(T.fits, String(size)).toEqual([want, want, want, [PROBE, PROBE]]) // hist[0], hist[1], lensRT, the probe (the bloom fits on its first apply)
     n.dispose!()
   }
   vi.unstubAllGlobals()
