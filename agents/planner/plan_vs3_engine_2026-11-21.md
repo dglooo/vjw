@@ -580,6 +580,14 @@ Invoke the `ponytail` skill (full) before writing code.
   - A filter has no servo. A scene whose `faithful()` is true skips it: `e` reads 1 (N3).
 - **Tests (Vitest):** `E1 law`: at a 10× error `e` moves by at most × 1.0155 per frame; it settles on `target / mean` inside [.6, 1]. `E2 no lift` (N3): mean .005, target .19: `e` ≤ 1 after 0.3 s. `E3 faithful`: `e` is 1. `E4 NaN mean` (N4): `e` keeps its value. `E6 reset snaps; stale does not` (N2). `E7 sources`: the `UPDATE` source keeps the old `e` for a non-finite value.
 - **Done-check:** gates. The app is unchanged (not wired).
+- **Changed during implementation:** (S3b.1 coder, 2026-11-21)
+  - The 1 × 1 pair stores ln e, not e. A new texture's zeros are e 1, so `createChain` needs no clear (no GL state touched outside a pass), and the half-float dead zone near the target shrinks from about ±4.7 % to about ±1–2 % at 60 fps. **S3b.2:** FINISH multiplies by `exp(texelFetch(uExp, ivec2(0), 0).r)`.
+  - `expose(e, mean, u)` takes `frame()`'s new `servo` field (`Servo`: UPDATE's uniforms `uTarget`, `uK`, `uX`, `uLo`, on ln e) in place of `(target, dtl)`. JS and GLSL then run the same law line for line.
+  - The reset snap is the law's whole step at once: `e × target / mean`, clamped (uK 1, uX 1). For a new native (e 1) this equals the plan's `target / mean`. Back on stage, it lands on the target from any old e, because the probe reads the picture at the e on screen.
+  - faithful(): `uLo` 0 pins e at 1 on that frame. The mode change that flips faithful() is the scene's own cut on the same frame.
+  - UPDATE also guards `isnan(m)`: on ANGLE Metal (M4) `max(NaN, .01)` returns .01, so before this guard a NaN texel read as a black frame and e climbed × 1.02 per frame. Now it holds (real-GPU check `scratchpad/vs3-engine/s3b1/update.mjs`).
+  - New test IDs: `E5a` (the probe grid on sharp synthetic line art at 1.93 and 5.09 MP, ±.02, CPU) and `E9` (`servo()` on the fake: probe, then mipmaps, then UPDATE; the pair swaps; a filter runs nothing). The plan's `E5` (real stills) stays in S3b.2. `host.test.ts` C12c now lists the probe's fit.
+  - API for S3b.2: `chain.servo(cf.servo, (e) => finish!({ ..., uRes: [PROBE, PROBE], uProbe: 1, uExp: e }))` after `apply()`. It returns the texture for the full-size FINISH's `uExp`. It leaves the 1 × 1 viewport bound.
 
 ### S3b.2 [ ] (only if gate W fails at G3) The exposure servo in the host
 Invoke the `ponytail` skill (full) before writing code.

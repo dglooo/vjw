@@ -1,6 +1,7 @@
 // The vs3 post chain's pure part (agents/planner/plan_vs3_engine_2026-11-21.md § CP1 contract; design_vs3_engine
 // § Variant A, S1, S3 "wiring", S4): per frame, which passes run and their uniforms, every piece of state passed in, so
 // Vitest covers it without a browser (like gl/post.ts). The GL half (S3.1, at the end): createChain's targets and passes.
+// S3b.1: the exposure servo (design Amendment 2 with the skeptic's N2-N4): expose()'s law, frame()'s `servo`, UPDATE.
 // vs3: the friends' three.js engine, used with permission (2026-11-19). Rewritten as text into TypeScript from
 // donor/vs3/visual_kit/src/: engine/engine.js:150-198 (its header: "engine.js — three.js render engine, faithful to the
 // original composer"; the macros, the mirror and feedback uniforms, :188 the tint), engine/post-shaders.js:162-198
@@ -34,6 +35,7 @@ export interface SceneFacts {
   hint?: { mirror?: number; persist?: number; steady?: boolean } | null // signal only
   wet: number; grain: number; lateTrails: number; filter: boolean // wet: fxWet(), limitless only, else 1; lateTrails: LATE_TRAILS, else 0
   bloomRow: number; gainBase: number; vigRange: number // the row's bloomMul, base.brightness, the width of vignette's range
+  faithful?: boolean // the scene's faithful() (morphogen 2.0's fixed maps author their final colours): no servo, e 1 (N3)
 }
 /** The limiter's last drawn values. */
 export interface Light { glow: number; stock: number; gain: number; vig: number; lens: number; persist: number; react: number }
@@ -58,7 +60,12 @@ export interface ChainFrame {
   lens: Uniforms | null // null until S5.1
   finish: { uAber: number; uVig: number; uGain: number; uGrain: number }
   kick: number; react: number // `hot`; the limited react gain
+  servo: Servo | null // the exposure servo's UPDATE uniforms; null: a filter, which has none
 }
+/** UPDATE's uniforms, on ln e: uK = dtl / τ, uX = ln(LIGHT_X ** dtl), the most e moves by in a frame, uLo = ln of e's
+ *  floor. A reset (N2): uK 1 and uX 1 (above the range's ln(1 / .6)), so the whole step lands at once. A faithful()
+ *  scene: uLo 0, so e reads 1 (N3). */
+export interface Servo { uTarget: number; uK: number; uX: number; uLo: number }
 
 const SYM_FADE = 0.5 // s: a fold change's crossfade
 const TILE_W = 9.5 // the tile glide's spring
@@ -67,6 +74,16 @@ const smooth01 = (x: number) => (x >= 1 ? 1 : x <= 0 ? 0 : x * x * (3 - 2 * x))
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 /** `cur` moved toward `to` by at most `step`; no `cur` (the light state is null): `to`. */
 const toward = (cur: number | undefined, to: number, step: number) => (cur === undefined ? to : cur + clamp(to - cur, -step, step))
+
+/** knob: the exposure servo (design Amendment 2, rev N3 / N4; original renderer/main.js:2361-2375, 2576-2588): τ in s,
+ *  e's floor (its top is 1: no lift, N3), the frame-mean luma it holds at base brightness. */
+export const SERVO = { TAU: 2.5, LO: 0.6, TARGET: 0.19 }
+/** UPDATE's law in JS, line for line: ln e moves by uK × ln(target / mean), at most uX, inside [uLo, 0]; a non-finite
+ *  result keeps the old e (N4). `e` and the result are the gain itself (the pair stores its log). */
+export function expose(e: number, mean: number, u: Readonly<Servo>): number {
+  const l = Math.log(e), n = clamp(clamp(l + u.uK * Math.log(u.uTarget / Math.max(mean, 0.01)), l - u.uX, l + u.uX), u.uLo, 0)
+  return Number.isFinite(n) ? Math.exp(n) : e
+}
 
 /** stepTiles (post-shaders.js:162-184): the exact critically damped step on the log of the tile count, frame-rate
  *  independent, with the zoom rate capped so a long jump (1 to 6) travels at an even speed instead of lunging at the start. */
@@ -130,6 +147,7 @@ function stepSym(f: ChainState['sym'], target: number, dt: number) {
  *  limiter (plan § The light limiter, final text: design Amendment 1 with the skeptic's N1, N2, N4, N5, N6), and the
  *  skips read the limited values, so a pass finishes its ramp before it skips. `K`: the limiter's knobs. */
 export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: number, st: ChainState, palMid: readonly number[], dt: number, dtl: number, t: number, aspect: number, K: Knobs = KNOBS): ChainFrame {
+  const snap = st.reset // N2: the servo snaps on the reset flag only, never on `stale` (persist back from 0)
   if (st.reset) {
     st.sym.to = st.tiles.y = null // the fold fade and the tile glide snap: their first-call path
     st.light = null // N2: every limited value takes its target on this frame
@@ -195,6 +213,8 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
     mirror, feedback, warp, bloom: strength >= 1e-3 ? strength : 0, lens: null, // under 1e-3 the bloom pass skips
     finish: { uAber: v.aber * (0.22 + hot), uVig: vig, uGain: gain, uGrain: sc.grain }, // uAber: host.ts:243
     kick: hot, react,
+    // the servo's target scales with the drawn brightness, as the original's with its slider (main.js:2576)
+    servo: sc.filter ? null : { uTarget: (SERVO.TARGET * gain) / sc.gainBase, uK: snap ? 1 : dtl / SERVO.TAU, uX: snap ? 1 : Math.log(x), uLo: sc.faithful ? 0 : Math.log(SERVO.LO) },
   }
 }
 
@@ -318,17 +338,39 @@ void main() {
   outColor = vec4(col, 1.0);
 }`
 
+/** The servo's probe, px square: 4 096 bilinear samples of the finished frame (S3b.2 draws them, FINISH's uProbe); its
+ *  mipmaps' top level holds their mean. */
+export const PROBE = 64
+/** The exposure servo's update (design Amendment 2, with N3, N4): one fragment moves e by frame()'s Servo, reading the
+ *  probe's mean on the GPU (no readback). The 1 × 1 pair stores ln e, so a new texture's zeros are e 1. */
+export const UPDATE = `#version 300 es
+precision highp float;
+uniform sampler2D uProbe, uExp; // the probe (its luma in r), mipmapped; the old ln e
+uniform float uTarget, uK, uX, uLo;
+out vec4 outColor;
+void main() {
+  float l = texelFetch(uExp, ivec2(0), 0).r, m = texelFetch(uProbe, ivec2(0), ${Math.log2(PROBE)}).r; // m: the frame-mean luma
+  float n = clamp(clamp(l + uK * log(uTarget / max(m, 0.01)), l - uX, l + uX), uLo, 0.0);
+  if (isnan(m) || isnan(n) || isinf(n)) n = l; // N4: a NaN mean keeps the old e (max(NaN, .01) is NaN by the spec, .01 on ANGLE Metal)
+  outColor = vec4(n, 0.0, 0.0, 1.0);
+}`
+
 /** The chain's GL half (design C11, C12): three owned half-float targets, allocated here at the layer's size, so no
- *  visible frame allocates (a size change re-fits them on that frame, as three's target and the bloom's). The warp
- *  writes hist[k] from the scene and hist[1 − k], the bloom its own targets, so no pass samples its draw target. It binds
- *  only its own targets; the caller keeps the GL state (the host's guard). */
+ *  visible frame allocates (a size change re-fits them on that frame, as three's target and the bloom's), and the
+ *  servo's three at fixed sizes. The warp writes hist[k] from the scene and hist[1 − k], the bloom its own targets, so no
+ *  pass samples its draw target. It binds only its own targets; the caller keeps the GL state (the host's guard).
+ *  ponytail: without EXT_color_buffer_float the targets are RGBA8, which store ln e ≤ 0 as 0: the servo holds e at 1. */
 export function createChain(gl: WebGL2RenderingContext, w: number, h: number) {
   const hist = [renderTarget(true, true), renderTarget(true, true)] // persistent: the trails survive a governor step
   const lensRT = renderTarget(true) // S5.1's lens writes it
   const all = [...hist, lensRT]
   for (const t of all) t.fit(w, h)
+  // the servo's, at fixed sizes: the probe, mipmapped (its top level: the mean), and the 1 × 1 pair of ln e (born 1 × 1)
+  const probe = renderTarget(true, false, { min: gl.NEAREST_MIPMAP_NEAREST }), exp = [renderTarget(true), renderTarget(true)]
+  probe.fit(PROBE, PROBE)
   let k = 0 // the warp writes hist[k] and reads hist[1 − k]; then the two swap
-  let warp: ProgramInfo | undefined
+  let j = 0 // UPDATE writes exp[j] and reads exp[1 − j], the e on screen; then the two swap
+  let warp: ProgramInfo | undefined, update: ProgramInfo | undefined
   return {
     /** The chain over `src` (the scene, w × h); returns the texture the finish reads. */
     apply(src: WebGLTexture, w: number, h: number, f: ChainFrame, bloom: ReturnType<typeof createBloom>): WebGLTexture {
@@ -344,9 +386,24 @@ export function createChain(gl: WebGL2RenderingContext, w: number, h: number) {
       if (f.bloom > 0) tex = bloom.apply(tex, w, h, f.bloom) // into its own targets
       return tex // the lens (S5.1): tex into lensRT
     },
-    /** Deletes the targets; the program stays in the engine's cache. */
+    /** The exposure servo, after apply() and before the finish (S3b.2): `drawProbe` draws the finished frame into the bound
+     *  probe (FINISH with uProbe on and uExp = `e`, the ln e on screen now); its mipmaps make the mean; UPDATE writes the
+     *  next ln e. Returns it: the finish's uExp. A filter (`u` null) runs nothing and keeps e at 1. */
+    servo(u: Readonly<Servo> | null, drawProbe: (e: WebGLTexture) => void): WebGLTexture {
+      const e = exp[1 - j].attachments[0]
+      if (!u) return e
+      bindFramebufferInfo(gl, probe) // with its viewport
+      drawProbe(e)
+      bindFramebufferInfo(gl, exp[j]) // first, so no bound framebuffer holds the texture the mipmaps are made of
+      gl.bindTexture(gl.TEXTURE_2D, probe.attachments[0])
+      gl.generateMipmap(gl.TEXTURE_2D)
+      draw((update ??= program(VS, UPDATE)), { ...u, uProbe: probe.attachments[0], uExp: e })
+      j = 1 - j
+      return exp[1 - j].attachments[0]
+    },
+    /** Deletes the targets; the programs stay in the engine's cache. */
     dispose() {
-      for (const t of all) {
+      for (const t of [...all, probe, ...exp]) {
         gl.deleteFramebuffer(t.framebuffer)
         gl.deleteTexture(t.attachments[0])
       }
@@ -354,6 +411,6 @@ export function createChain(gl: WebGL2RenderingContext, w: number, h: number) {
   }
 }
 
-/** The warp compiled off the main thread into the engine's cache, under apply()'s key (fx/glsl.ts's VS is the engine's,
- *  glsl.test.ts): no compile on a visible frame (C12, host rule 5). */
-export const warmChain = () => programAsync(VS, WARP)
+/** The warp and the servo's update compiled off the main thread into the engine's cache, under apply()'s and servo()'s
+ *  keys (fx/glsl.ts's VS is the engine's, glsl.test.ts): no compile on a visible frame (C12, host rule 5). */
+export const warmChain = () => Promise.all([programAsync(VS, WARP), programAsync(VS, UPDATE)])

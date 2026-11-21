@@ -1,19 +1,20 @@
 // vs3/chain.ts (plan_vs3_engine S1.1, S1.2): the donor's per-frame wiring for the macros, the mirror and the feedback,
-// and the light limiter, with the state passed in. No GL. S3.1: createChain on a recording fake (below).
+// and the light limiter, with the state passed in. No GL. S3.1: createChain on a recording fake (below). S3b.1: the
+// exposure servo (at the end).
 import { expect, test, vi } from 'vitest'
 import { createBloom } from '../gl/bloom'
 import { heatStep } from '../gl/post'
-import { chainState, clock, createChain, drastic, frame, KNOBS, reactTo, warmChain, WARP, type ChainFrame, type ChainState, type Knobs, type Light, type LookValues, type SceneFacts } from './chain'
+import { chainState, clock, createChain, drastic, expose, frame, KNOBS, PROBE, reactTo, SERVO, UPDATE, warmChain, WARP, type ChainFrame, type ChainState, type Knobs, type Light, type LookValues, type SceneFacts, type Servo } from './chain'
 import type { Signal } from './host'
 
 /** engine.ts takes the page's canvas + WebGL at import, so a recording fake stands for it. A target: a framebuffer, its
  *  texture, its size; a fit() that changes the size stands for the engine's texImage2D (a persistent target gets a new
  *  texture, as the engine's resample does), a program() cache miss for its compileShader. The fake GL keeps the bound
  *  framebuffer; each draw records it, the program's source and its uniforms. Every fake object has its own id, so
- *  toEqual tells them apart. */
+ *  toEqual tells them apart. A generateMipmap records as a draw 'mipmap' of the bound texture. */
 const H = vi.hoisted(() => {
-  type T = { framebuffer: object; attachments: object[]; width: number; height: number; hdr: boolean; persistent: boolean; fit(w: number, h: number): void }
-  const E = { bound: null as object | null, draws: [] as { fb: object | null; fs: string; u: Record<string, unknown> }[], alloc: 0, compile: 0, targets: [] as T[], cache: new Set<string>(), n: 0 }
+  type T = { framebuffer: object; attachments: object[]; width: number; height: number; hdr: boolean; persistent: boolean; tex: { min?: number }; fit(w: number, h: number): void }
+  const E = { bound: null as object | null, tex: null as object | null, draws: [] as { fb: object | null; fs: string; u: Record<string, unknown> }[], alloc: 0, compile: 0, targets: [] as T[], cache: new Set<string>(), n: 0 }
   const id = () => ({ id: ++E.n })
   const program = (vs: string, fs: string) => {
     if (!E.cache.has(vs + '\0' + fs)) {
@@ -23,9 +24,9 @@ const H = vi.hoisted(() => {
     return { fs }
   }
   const draw = (info: { fs: string }, u: Record<string, unknown>) => void E.draws.push({ fb: E.bound, fs: info.fs, u })
-  const renderTarget = (hdr = false, persistent = false) => {
+  const renderTarget = (hdr = false, persistent = false, tex: { min?: number } = {}) => {
     const t: T = {
-      framebuffer: id(), attachments: [id()], width: 1, height: 1, hdr, persistent,
+      framebuffer: id(), attachments: [id()], width: 1, height: 1, hdr, persistent, tex,
       fit(w, h) {
         if (t.width === w && t.height === h) return
         E.alloc++
@@ -41,8 +42,10 @@ const H = vi.hoisted(() => {
   }
   const engine = { program, draw, renderTarget, fullscreenProgram, programAsync: async (vs: string, fs: string) => void program(vs, fs) }
   const gl = {
-    BLEND: 0x0be2, ONE: 1, viewport() {}, enable() {}, disable() {}, blendFunc() {},
+    BLEND: 0x0be2, ONE: 1, TEXTURE_2D: 0x0de1, NEAREST_MIPMAP_NEAREST: 0x2700, viewport() {}, enable() {}, disable() {}, blendFunc() {},
     bindFramebuffer: (_: number, fb: object | null) => void (E.bound = fb),
+    bindTexture: (_: number, t: object | null) => void (E.tex = t),
+    generateMipmap: () => void E.draws.push({ fb: E.bound, fs: 'mipmap', u: { tex: E.tex } }),
   } as unknown as WebGL2RenderingContext
   return { E, engine, gl }
 })
@@ -494,27 +497,141 @@ test('C11b skip: mirror and feedback false: no warp draw, the bloom reads src; w
   expect(E.draws).toEqual([])
 })
 
-test('C12a no allocation after create: createChain allocates the three targets at w × h; after warmChain() an apply at w × h that turns the warp on allocates nothing and compiles nothing', async () => {
+test('C12a no allocation after create: createChain allocates the three targets at w × h and the servo\'s three; after warmChain() an apply at w × h that turns the warp on, and a servo frame, allocate nothing and compile nothing', async () => {
   E.cache.clear() // nothing compiled yet
   const n = E.targets.length
   const c = createChain(gl, W, HT)
-  expect(E.targets.slice(n).map((t) => [t.hdr, t.persistent, t.width, t.height])).toEqual([[true, true, W, HT], [true, true, W, HT], [true, false, W, HT]])
+  expect(E.targets.slice(n).map((t) => [t.hdr, t.persistent, t.width, t.height])).toEqual([[true, true, W, HT], [true, true, W, HT], [true, false, W, HT], [true, false, PROBE, PROBE], [true, false, 1, 1], [true, false, 1, 1]])
   const bloom = createBloom(gl, 8, 0.3), compiled = E.compile
   await warmChain()
-  expect(E.compile).toBe(compiled + 1) // the warp, off the visible frames
+  expect(E.compile).toBe(compiled + 2) // the warp and UPDATE, off the visible frames
   const [alloc, compile] = [E.alloc, E.compile]
   c.apply(SRC, W, HT, cfOf(false, false, false), bloom)
   c.apply(SRC, W, HT, cfOf(true, true, false), bloom) // a glide turns the warp on
   expect(E.draws.at(-1)!.fs).toBe(WARP)
+  c.servo(at({}).servo, () => {})
+  expect(E.draws.at(-1)!.fs).toBe(UPDATE)
   expect([E.alloc - alloc, E.compile - compile]).toEqual([0, 0])
 })
 
-test('C12b re-fit: a size change re-fits the three targets once', () => {
+test('C12b re-fit: a size change re-fits the three targets once; the servo\'s keep their sizes', () => {
   const n = E.targets.length
   const c = createChain(gl, W, HT), mine = E.targets.slice(n), bloom = createBloom(gl, 8, 0.3)
   const alloc = E.alloc
   c.apply(SRC, 320, 180, cfOf(true, true, false), bloom)
   c.apply(SRC, 320, 180, cfOf(true, true, false), bloom)
   expect(E.alloc - alloc).toBe(3)
-  expect(mine.map((t) => [t.width, t.height])).toEqual([[320, 180], [320, 180], [320, 180]])
+  expect(mine.map((t) => [t.width, t.height])).toEqual([[320, 180], [320, 180], [320, 180], [PROBE, PROBE], [1, 1], [1, 1]])
+})
+
+// S3b.1: the exposure servo (plan § S3b.1; design Amendment 2; skeptic N2, N3, N4)
+/** The servo's uniforms on a frame after the first (no reset), the stock look with `v` and `f` over it. */
+const servoU = (v: Partial<LookValues> = {}, f: Partial<SceneFacts> = {}) => {
+  const st = chainState()
+  at(v, st, f)
+  return at(v, st, f).servo!
+}
+/** e after `n` frames over a plant whose mean is m0 × e: the picture's light scales with e. */
+const settle = (u: Servo, m0: number, e = 1, n = 1500) => {
+  for (let i = 0; i < n; i++) e = expose(e, m0 * e, u)
+  return e
+}
+const T19 = SERVO.TARGET // the target at base brightness
+
+test('E1 law: at a 10× error e moves by at most × 1.0155 per frame; it settles on target / mean inside [.6, 1]', () => {
+  const u = servoU()
+  expect(u).toEqual({ uTarget: expect.closeTo(T19, 12), uK: DT / 2.5, uX: Math.log(X), uLo: Math.log(0.6) })
+  for (const e of [0.6, 0.8, 1]) {
+    const down = expose(e, 10 * T19, u), up = expose(e, T19 / 10, u)
+    expect(e / down).toBeLessThanOrEqual(1.0155)
+    if (e > 0.6) expect(down).toBeLessThan(e)
+    expect(up / e).toBeLessThanOrEqual(1.0155)
+  }
+  expect(settle(u, T19 / 0.75)).toBeCloseTo(0.75, 3)
+  expect(settle(u, T19 / 0.3)).toBeCloseTo(0.6, 12) // the floor
+  expect(settle(u, T19 / 2, 0.6)).toBe(1) // the top
+  expect(servoU({ brightness: 2.4 }).uTarget).toBeCloseTo((T19 * 2.4) / 1.4, 12) // the target scales with brightness
+})
+
+test('E2 no lift (N3): mean .005, target .19: e ≤ 1 after 0.3 s, from any start', () => {
+  const u = servoU()
+  for (let e = 0.6, i = 0; i < 18; i++) expect((e = expose(e, 0.005, u))).toBeLessThanOrEqual(1)
+  for (let e = 1, i = 0; i < 18; i++) expect((e = expose(e, 0.005, u))).toBe(1)
+})
+
+test('E3 faithful (N3): a faithful() scene: e is 1, on its first frame and after; a filter has no servo', () => {
+  const first = at({}, chainState(), { faithful: true }).servo!
+  for (const u of [first, servoU({}, { faithful: true })]) for (const [e, mean] of [[0.6, 0.5], [0.8, 0.05], [1, 1]]) expect(expose(e, mean, u)).toBe(1)
+  expect(at({}, chainState(), { filter: true }).servo).toBeNull()
+})
+
+test('E4 NaN mean (N4): e keeps its value; an Inf mean takes the capped step down, a black frame reads .01: both finite', () => {
+  const u = servoU()
+  expect(expose(0.8, NaN, u)).toBe(0.8)
+  expect(expose(0.8, Infinity, u)).toBeCloseTo(0.8 / X, 12)
+  expect(expose(0.8, 0, u)).toBeCloseTo(0.8 * 19 ** (DT / 2.5), 12)
+})
+
+test('E6 reset snaps; stale does not (N2): st.reset takes the whole step at once, from any old e; persist back from 0 takes one frame of the law', () => {
+  const st = chainState()
+  for (let i = 0; i < 30; i++) at({ persist: 0 }, st) // no trails: the history is stale
+  const stale = at({ persist: 0.5 }, st)
+  expect(stale.warp.uHist).toBe(0) // the history's stale frame
+  expect(stale.servo).toMatchObject({ uK: DT / 2.5, uX: Math.log(X) })
+  expect(expose(1, 0.5, stale.servo!)).toBeCloseTo((T19 / 0.5) ** (DT / 2.5), 12)
+  st.reset = true
+  const reset = at({ persist: 0.5 }, st).servo!
+  expect([reset.uK, reset.uX]).toEqual([1, 1])
+  expect(expose(1, 0.25, reset)).toBeCloseTo(0.76, 12) // target / mean
+  expect(expose(0.9, 0.25 * 0.9, reset)).toBeCloseTo(0.76, 12) // the probe read the picture at the old e
+  expect(expose(1, 0.5, reset)).toBeCloseTo(0.6, 12) // clamped
+  expect(at({ persist: 0.5 }, st).servo!.uK).toBe(DT / 2.5) // the next frame: the law again
+})
+
+test('E7 sources (N4): UPDATE reads the probe top level and keeps the old e for a non-finite value', () => {
+  expect(UPDATE).toContain(`texelFetch(uProbe, ivec2(0), ${Math.log2(PROBE)})`)
+  expect(UPDATE).toContain('max(m, 0.01)')
+  expect(UPDATE).toContain('if (isnan(m) || isnan(n) || isinf(n)) n = l;')
+})
+
+// Skeptic planner note 4: the probe point-samples 4 096 of up to 5.09 M pixels. Sharp line art (2 px rings, 48 spokes
+// 1.5 px wide, white on black) at the two sizes the gates judge: the 1.93 MP harness and the 5.09 MP fullscreen. A grid
+// period commensurate with the lines aliases (1080p with 6 px rings: −.027; scratchpad/vs3-engine/s3b1/grid.mjs).
+test('E5a probe grid: on line art the PROBE × PROBE bilinear samples at the texel centres hold the full mean within ±.02', () => {
+  for (const [w, h, ring] of [[1728, 1117, 6], [1728, 1117, 17.45], [2994, 1700, 13]]) { // a 32² probe misses the second by .027, a 16² the first by .051
+    const img = new Uint8Array(w * h), seg = (2 * Math.PI) / 48
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const dx = x + 0.5 - w / 2, dy = y + 0.5 - h / 2, r = Math.hypot(dx, dy), a = Math.atan2(dy, dx) + Math.PI
+      img[y * w + x] = +(r % ring < 2 || Math.abs((a % seg) - seg / 2) * r < 0.75)
+    }
+    const px = (x: number, y: number) => img[Math.min(h - 1, Math.max(0, y)) * w + Math.min(w - 1, Math.max(0, x))]
+    let probe = 0
+    for (let j = 0; j < PROBE; j++) for (let i = 0; i < PROBE; i++) { // a texture() at uv = (i + .5, j + .5) / PROBE
+      const fx = ((i + 0.5) / PROBE) * w - 0.5, fy = ((j + 0.5) / PROBE) * h - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0
+      probe += (px(x0, y0) * (1 - tx) + px(x0 + 1, y0) * tx) * (1 - ty) + (px(x0, y0 + 1) * (1 - tx) + px(x0 + 1, y0 + 1) * tx) * ty
+    }
+    const full = img.reduce((s, l) => s + l, 0) / img.length
+    expect(full, `${w}×${h} ring ${ring}`).toBeGreaterThan(0.1) // dense: ±.02 is a real bound
+    expect(Math.abs(probe / PROBE ** 2 - full), `${w}×${h} ring ${ring}`).toBeLessThanOrEqual(0.02)
+  }
+})
+
+test('E9 servo() on the fake: the probe draws first, into the mipmapped PROBE² target, with the e on screen; then its mipmaps, then UPDATE into the other half of the pair; the pair swaps; a filter runs nothing; no readback', () => {
+  const n = E.targets.length, c = createChain(gl, W, HT), [probe, e0, e1] = E.targets.slice(n + 3), u = servoU()
+  expect([probe.width, probe.height, probe.tex.min]).toEqual([PROBE, PROBE, gl.NEAREST_MIPMAP_NEAREST])
+  expect([e0, e1].map((t) => [t.hdr, t.width, t.height])).toEqual([[true, 1, 1], [true, 1, 1]])
+  let seen: unknown[] = []
+  E.draws.length = 0
+  const out = c.servo(u, (e) => void seen.push(e, E.bound))
+  expect(seen).toEqual([e1.attachments[0], probe.framebuffer]) // a new pair's zeros: ln e 0, e 1
+  expect(E.draws.map((d) => d.fs)).toEqual(['mipmap', UPDATE])
+  expect(E.draws[0]).toEqual({ fb: e0.framebuffer, fs: 'mipmap', u: { tex: probe.attachments[0] } }) // the probe unbound
+  expect(E.draws[1]).toMatchObject({ fb: e0.framebuffer, u: { ...u, uProbe: probe.attachments[0], uExp: e1.attachments[0] } })
+  expect(out).toBe(e0.attachments[0])
+  seen = []
+  expect(c.servo(u, (e) => void seen.push(e))).toBe(e1.attachments[0]) // the next frame reads what this one wrote
+  expect(seen).toEqual([e0.attachments[0]])
+  E.draws.length = 0
+  expect(c.servo(null, () => { throw new Error('a filter draws no probe') })).toBe(e1.attachments[0])
+  expect(E.draws).toEqual([])
 })
