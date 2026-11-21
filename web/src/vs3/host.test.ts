@@ -107,17 +107,30 @@ test('put: the values into the params, mode back to its name, a mode index out o
   expect(P).toEqual({ mode: 'cross', fill: 0.1, own: 1 })
 })
 
-test("V3 look inputs: every vs3 native ends with the 15 shipped look keys in group look, base + its row as defaults (K1), look.json's ranges; mirror a long 0..12; the 4 macros bindable floats 0..1 at .5 (R1); bloomMul and brightness never bound", () => {
+test("V3 look inputs: every vs3 native ends with the 15 look keys of S2.2 and S3.2 in group look, then lens and lensStyle (V6), base + its row as defaults (K1), look.json's ranges; mirror a long 0..12; the 4 macros bindable floats 0..1 at .5 (R1); bloomMul and brightness never bound", () => {
   const ranges = look.ranges as Record<string, number[]>, rows = look.scenes as Record<string, object | undefined>, folds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
   const keys = ['bloomMul', 'aber', 'vignette', 'brightness', 'mirror', 'tiles', 'twist', 'slice', 'spin', 'persist', 'zoom', 'trails', 'chaos', 'heat', 'react']
   for (const d of VS3) {
     const want: Record<string, number> = { ...look.base, ...rows[d.id.slice(11)] }
-    expect(d.inputs.filter((i) => i.group === 'look'), d.id).toHaveLength(15)
-    expect(d.inputs.slice(-15), d.id).toEqual(keys.map((k) => k === 'mirror'
+    expect(d.inputs.filter((i) => i.group === 'look'), d.id).toHaveLength(17)
+    expect(d.inputs.slice(-17, -2), d.id).toEqual(keys.map((k) => k === 'mirror'
       ? { name: k, type: 'long', group: 'look', values: folds, labels: folds.map(String), default: want[k] }
       : { name: k, type: 'float', group: 'look', default: want[k], min: ranges[k][0], max: ranges[k][1], ...(k === 'bloomMul' || k === 'brightness' ? { bindable: false } : {}) }))
     for (const k of ['react', 'chaos', 'trails', 'heat']) expect(d.inputs.find((i) => i.name === k), `${d.id} ${k}`).toEqual({ name: k, type: 'float', group: 'look', default: 0.5, min: 0, max: 1 }) // no bindable: false
   }
+})
+
+test("V6 lens inputs: every vs3 native ends with lens, a bindable float on look.json's range at its row's value (0 on every row), and lensStyle, a select of the 7 lensStyles at 0; putLook hands both to frame()", () => {
+  const rows = look.scenes as Record<string, { lens?: number } | undefined>
+  for (const d of VS3) {
+    expect(rows[d.id.slice(11)]?.lens ?? look.base.lens, d.id).toBe(0)
+    expect(d.inputs.slice(-2), d.id).toEqual([
+      { name: 'lens', type: 'float', group: 'look', default: 0, min: 0, max: 1 },
+      { name: 'lensStyle', type: 'long', group: 'look', values: [0, 1, 2, 3, 4, 5, 6], labels: look.lensStyles, default: 0 },
+    ])
+  }
+  expect(look.lensStyles).toHaveLength(7)
+  expect(putLook({ ...look.base } as LookValues, { lens: 0.7, lensStyle: 4 })).toMatchObject({ lens: 0.7, lensStyle: 4 })
 })
 
 test('M1 hot preset: ★ magma — Magmatic Eye on vs3 morphogen2 carries its post and macros; each look key a look input of the native, inside look.ranges; heat ≥ .75', () => {
