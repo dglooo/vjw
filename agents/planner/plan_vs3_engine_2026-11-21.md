@@ -330,7 +330,7 @@ Env: `VW`, `VH` (viewport), `SEC` (120), `LIMIT` (ms), `FIRST=1`. Exit 0 = PASS,
 
 ## Steps
 
-### S0.1 [ ] C5: a cue to the scene on stage starts no fade
+### S0.1 [x] C5: a cue to the scene on stage starts no fade
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the director never fades a scene into itself. Today one cached Live is then drawn twice per frame (skeptic C5).
 - **Lane, box, deps:** A · 45 min · none.
