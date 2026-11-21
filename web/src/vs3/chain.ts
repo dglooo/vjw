@@ -17,8 +17,9 @@ import type { Signal } from './host'
 /** knob: the light limiter's (design Amendment 1, tuned on gate H2). LIGHT_X: uGain and the glow follow by at most ×/÷ 4
  *  per s; KNOB_S, VIG_S: s for react, lens and the persist fall, and for vignette, to cross their range; DYN: the share of
  *  the stock glow's own move a setting may add; GLOW_SEED: the level a zeroed glow grows back from; DT_MAX: the cap of
- *  dtl; REACT_MAX: the react gain's ceiling. */
-export const KNOBS = { LIGHT_X: 4, KNOB_S: 0.5, VIG_S: 1, DYN: 1, GLOW_SEED: 1, DT_MAX: 1 / 60, REACT_MAX: 2 }
+ *  dtl; REACT_MAX: the react gain's ceiling. KICK_COMP (S3c): the scene's own kick light (its kick and onKick) ×
+ *  min(1, (stock gain / uGain) ** KICK_COMP): 1 lands it at the stock luma steps at any brightness above stock, 0 is off. */
+export const KNOBS = { LIGHT_X: 4, KNOB_S: 0.5, VIG_S: 1, DYN: 1, GLOW_SEED: 1, DT_MAX: 1 / 60, REACT_MAX: 2, KICK_COMP: 1 }
 export type Knobs = typeof KNOBS
 /** heat and chaos (engine.js:150-151): .25× at 0, 1× at .5, 4× at 1. */
 export const drastic = (p: number) => 4 ** ((p - 0.5) * 2)
@@ -60,6 +61,7 @@ export interface ChainFrame {
   lens: Uniforms | null // null until S5.1
   finish: { uAber: number; uVig: number; uGain: number; uGrain: number }
   kick: number; react: number // `hot`; the limited react gain
+  kickGain: number // reactTo's factor on the scene's kick and onKick (KNOBS.KICK_COMP); 1 at or below stock and for a filter
   servo: Servo | null // the exposure servo's UPDATE uniforms; null: a filter, which has none
 }
 /** UPDATE's uniforms, on ln e: uK = dtl / τ, uX = ln(LIGHT_X ** dtl), the most e moves by in a frame, uLo = ln of e's
@@ -78,11 +80,14 @@ const toward = (cur: number | undefined, to: number, step: number) => (cur === u
 /** knob: the exposure servo (design Amendment 2, rev N3 / N4; original renderer/main.js:2361-2375, 2576-2588): τ in s,
  *  e's floor (its top is 1: no lift, N3), the frame-mean luma it holds at base brightness. */
 export const SERVO = { TAU: 2.5, LO: 0.6, TARGET: 0.19 }
-/** UPDATE's law in JS, line for line: ln e moves by uK × ln(target / mean), at most uX, inside [uLo, 0]; a non-finite
- *  result keeps the old e (N4). `e` and the result are the gain itself (the pair stores its log). */
-export function expose(e: number, mean: number, u: Readonly<Servo>): number {
-  const l = Math.log(e), n = clamp(clamp(l + u.uK * Math.log(u.uTarget / Math.max(mean, 0.01)), l - u.uX, l + u.uX), u.uLo, 0)
-  return Number.isFinite(n) ? Math.exp(n) : e
+/** UPDATE's law in JS, line for line: ln e moves by uK × the error, at most uX, inside [uLo, 0]; a non-finite result
+ *  or a NaN share keeps the old e (N4). The error: ln(target / mean); above .3 of the pixels at luma .85 or more (the
+ *  original's washout regime, main.js:2579-2580, S3c), −(share − .3) × 2.2 when that pulls harder. `e` and the result
+ *  are the gain itself (the pair stores its log); `share`: the probe's share at luma .85 or more. */
+export function expose(e: number, mean: number, u: Readonly<Servo>, share = 0): number {
+  const d = Math.log(u.uTarget / Math.max(mean, 0.01)), err = share > 0.3 ? Math.min(d, (0.3 - share) * 2.2) : d
+  const l = Math.log(e), n = clamp(clamp(l + u.uK * err, l - u.uX, l + u.uX), u.uLo, 0)
+  return Number.isFinite(n) && !Number.isNaN(share) ? Math.exp(n) : e
 }
 
 /** stepTiles (post-shaders.js:162-184): the exact critically damped step on the log of the tile count, frame-rate
@@ -212,7 +217,7 @@ export function frame(v: LookValues, sc: SceneFacts, s: Readonly<Signal>, hit: n
   return {
     mirror, feedback, warp, bloom: strength >= 1e-3 ? strength : 0, lens: null, // under 1e-3 the bloom pass skips
     finish: { uAber: v.aber * (0.22 + hot), uVig: vig, uGain: gain, uGrain: sc.grain }, // uAber: host.ts:243
-    kick: hot, react,
+    kick: hot, react, kickGain: Math.min(1, (G0 / G) ** K.KICK_COMP), // the scene's own kick light × uGain stays at the stock's
     // the servo's target scales with the drawn brightness, as the original's with its slider (main.js:2576)
     servo: sc.filter ? null : { uTarget: (SERVO.TARGET * gain) / sc.gainBase, uK: snap ? 1 : dtl / SERVO.TAU, uX: snap ? 1 : Math.log(x), uLo: sc.faithful ? 0 : Math.log(SERVO.LO) },
   }
@@ -229,9 +234,13 @@ export function clock(now: number, seen: number, engineFrame: number, drawnFrame
 
 const LEVELS = ['sub', 'mids', 'highs', 'air', 'energy'] as const // analyzer.js:466-471, besides the kick
 /** Writes the reacted signal for the scene: s.kick = cf.kick; the levels the donor scales, times cf.react, each at most 1.
- *  The impulses (onKick, onMid, onHigh) stay: their light passes the flash gate. */
+ *  The impulses (onKick, onMid, onHigh) are not reacted: their light passes the flash gate. The kick and onKick ×
+ *  cf.kickGain (S3c): the finish multiplies the scene's own kick light by uGain, so above stock brightness it would step
+ *  past the stock's.
+ *  ponytail: a scene's kick motion and its onKick > .55 accents shrink with it; per-scene light-only reads if that shows. */
 export function reactTo(s: Signal, cf: ChainFrame): void {
-  s.kick = cf.kick
+  s.kick = cf.kick * cf.kickGain
+  s.onKick *= cf.kickGain
   for (const k of LEVELS) s[k] = reacted(s[k], cf.react)
 }
 
@@ -341,17 +350,21 @@ void main() {
 /** The servo's probe, px square: 4 096 bilinear samples of the finished frame (S3b.2 draws them, FINISH's uProbe); its
  *  mipmaps' top level holds their mean. */
 export const PROBE = 64
-/** The exposure servo's update (design Amendment 2, with N3, N4): one fragment moves e by frame()'s Servo, reading the
- *  probe's mean on the GPU (no readback). The 1 × 1 pair stores ln e, so a new texture's zeros are e 1. */
+/** The exposure servo's update (design Amendment 2, with N3, N4; S3c: the washout regime): one fragment moves e by
+ *  frame()'s Servo, reading the probe's mean and share on the GPU (no readback). The 1 × 1 pair stores ln e, so a new
+ *  texture's zeros are e 1. The original's rate (× e^(.08 err) per 11-frame batch, main.js:2417, 2588: τ 2.3 s at 60
+ *  fps) is ours at τ 2.5; its err clamp at ±1 is left out, as uX caps the step. */
 export const UPDATE = `#version 300 es
 precision highp float;
-uniform sampler2D uProbe, uExp; // the probe (its luma in r), mipmapped; the old ln e
+uniform sampler2D uProbe, uExp; // the probe (its luma in r, step(.85, luma) in g), mipmapped; the old ln e
 uniform float uTarget, uK, uX, uLo;
 out vec4 outColor;
 void main() {
-  float l = texelFetch(uExp, ivec2(0), 0).r, m = texelFetch(uProbe, ivec2(0), ${Math.log2(PROBE)}).r; // m: the frame-mean luma
-  float n = clamp(clamp(l + uK * log(uTarget / max(m, 0.01)), l - uX, l + uX), uLo, 0.0);
-  if (isnan(m) || isnan(n) || isinf(n)) n = l; // N4: a NaN mean keeps the old e (max(NaN, .01) is NaN by the spec, .01 on ANGLE Metal)
+  float l = texelFetch(uExp, ivec2(0), 0).r;
+  vec2 m = texelFetch(uProbe, ivec2(0), ${Math.log2(PROBE)}).rg; // the frame-mean luma; the share at luma .85 or more
+  float d = log(uTarget / max(m.r, 0.01)), err = m.g > 0.3 ? min(d, (0.3 - m.g) * 2.2) : d; // washout: original main.js:2579
+  float n = clamp(clamp(l + uK * err, l - uX, l + uX), uLo, 0.0);
+  if (isnan(m.r) || isnan(m.g) || isnan(n) || isinf(n)) n = l; // N4: a NaN mean or share keeps the old e (max(NaN, .01) is NaN by the spec, .01 on ANGLE Metal)
   outColor = vec4(n, 0.0, 0.0, 1.0);
 }`
 

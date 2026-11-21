@@ -614,6 +614,20 @@ Invoke the `ponytail` skill (full) before writing code.
   - Expected at G3b, W2: ★ mandolo at 15 s (mean .244 in the coder's run, .169 at G3) stays above 1.4 × its thumb (.141). The target at brightness 2.4 (.326) is above the W2 line, so the servo does not pull it down. Lever: `SERVO.TARGET` (S3b.1 note).
   - Harness setup: in a fresh worktree, delete `web/scene-marks.json` before each page load. The dev mirror writes `{"stars": {}}` on the first load. On the next load, a held vs3 built-in re-creates its native every frame (vs3 Ink: 289 creates in 5 s), so the layer never starts and the stage stays black, on the pre build too (`scratchpad/vs3-engine/s3b2/debug5.mjs`).
 
+### S3c [x] (lead-added after G3b) Two levers: the kick light for brightness; the washout regime in the servo
+- **Source:** § Gate record G3b, the lead's calls. **Files:** `src/vs3/chain.ts`, `src/vs3/chain.test.ts` (+ one comment in `src/vs3/host.ts`).
+- **Built:** (1) `reactTo()` scales the scene's `kick` and `onKick` by `cf.kickGain` = min(1, (stock gain / limited uGain) ** `KNOBS.KICK_COMP`), on by default (1); tests KC1, KC2. (2) UPDATE / `expose()`: the share (the probe's g mip) over .30 gives the error −(share − .30) × 2.2; tests E7 (updated), E11, E12/E13. Real-GPU check: UPDATE = `expose()` on 13 rows, ANGLE Metal M4.
+- **Changed during implementation:** (S3c coder, 2026-11-21)
+  - Over .30, the error is the harder of the two pulls, min(ln(target / mean), −(share − .30) × 2.2), not the washout's alone (the donor's if-else). Our mean law has no deadband (the donor's hot regime starts at 1.4 × target), so the donor's order would weaken our pull on a frame that is hot and over the line: ★ rose colony at G3b, 15 s (mean .619, share .319, target .326): −.64 today, −.042 with the washout's alone. At or under .30, today's law is unchanged. Left out: the donor's error clamp at ±1 (uX caps the step). Rate: the donor's × e^(.08 err) per 11-frame batch is τ 2.3 s; ours stays τ 2.5.
+  - `KICK_COMP` is an exponent: 1 = full compensation, 0 = off, in between = partial. A filter (limitless) gets 1. Every vs3 built-in's default brightness is 1.4, so S-all (defaults) is bit-identical.
+  - The factor also scales kick-driven motion and events: Mandala's leap and kick zoom, and the `onKick > .55` accents (Idol, Citadel, Oracle, Relic, Ingot, Gate, Fluid, Grove, Visage, Descent, Spacetime, the flight scenes). At brightness 2.4 they shrink × .583; the accents' 8 s fallbacks stay. As briefed.
+  - Not scaled: `onMid` / `onHigh` (the snare's ⚡ `mid`: Synapse's nodes, Sand, Vesica). Their light still gets × uGain above stock.
+- **Coder check (:5176, Kanine from 52 s, h2 / w as G3b; logs in the worktree's `scratchpad/s3c/`, out files `scratchpad/vs3-engine/*.s3c*.json`):**
+  - Mandala at the bright set (S-jump.hold values), rule (a) still FAIL: steps 23 / 13 / 9 / 7 / 6, max per s 10 / 6 / 6 / 4 / 4. A/B on the same build with `KICK_COMP` 0, interleaved: 25 / 26 / 27, max 6 / 8 / 6 (G3b: 33 / 27, max 7 / 8). The drop's kick-locked steps (6.6–15 s of the window) are gone. The rest sit in the first 0.6–5.2 s: there e is .61–.68 and the frame swings .12 ↔ .74 per kick (the kick zoom of the Kali fractal under the top glow).
+  - ★ rose colony (W-top2), W1 still FAIL: share at 5 / 15 / 30 s .561 / .004 / .018 and .555 / .004 / .036. e is .600 (the floor) through both washouts (0–8 s, 24–26 s; share .46–.99). The probe matches the stage within .015.
+  - S-stress, Idol: 1 step, PASS (a) (G3b: 4). Spacetime: 5 steps, max 5 per s, FAIL (a) (G3b: 8, max 4). Its 5 steps are the drop's onset (luma .06 → .78), not the kick.
+  - Frame time, Mandala at the bright set, 1.93 MP: billed gpuMs p95 13.81 ms (p50 13.62), 0 of 300 late. The chain-off arm is 7.64 ms. The +6.2 ms is S3.2's bloom figure, which existed before S3c.
+
 ### S5.1 [ ] The lens: uniform maths, shader, pass
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the 7 lens styles as one pass of the chain, with their per-frame maths. Not reachable from the panel until S5.2.
