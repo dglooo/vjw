@@ -533,7 +533,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - C12-cue.
 - **Note:** S4.1 merges before this step, or right after it. Until then a user copy with the legacy fx doubles its trails on `dev`.
 
-### S3.3 [ ] One hot preset carries its look (for the user's check)
+### S3.3 [x] One hot preset carries its look (for the user's check)
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the factory preset Magmatic Eye loads its macros and post values, so the user can pick one hot preset in W.
 - **Lane, box, deps:** B · 45 min · S3.2.
