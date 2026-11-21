@@ -456,7 +456,7 @@ test('a build bakes scene-marks.json in (user 2026-11-20): a stored mark or star
   lib.setStar('builtin:glitch', true) // a visitor's change: stored, and only it, so a later build's defaults still reach the rest
   expect(JSON.parse(b.kv.get('vjw.stars')!)).toEqual({ 'builtin:demo-fluid': false, 'builtin:glitch': true })
   expect(b.open().get('builtin:glitch')!.star).toBe(true)
-  for (const junk of [null, 5, 'x', [1], { favourite: 'builtin:tunnel', stars: [true] }]) {
+  for (const junk of [null, 5, 'x', [1], { favourite: 'builtin:tunnel', stars: [true] }, { stars: {} }]) { // the last: a fresh mirror's
     const none = await loaded(browser(undefined, junk)) // no defaults: today's library
     expect([none.playlist(), none.marks().favourite]).toEqual([STARRED, new Set()])
   }
