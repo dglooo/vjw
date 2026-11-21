@@ -1,20 +1,22 @@
 import { describe, expect, test } from 'vitest'
 import { createMidi, mappingsOf, parse, scale, type Access, type Mapping, type ParamTarget } from './midi'
+import look from './vs3/look.json'
 
 const P: ParamTarget = { kind: 'param', scene: 's1', layer: 0, node: 'gen', input: 'zoom', lo: 0.5, hi: 2, label: 'zoom' }
 const CC21 = { kind: 'cc', ch: 1, num: 21 } as const
 const PAD36 = { kind: 'note', ch: 1, num: 36 } as const
 
-/** A memory store (JSON, as localStorage keeps it) and a fake app: the scene on stage, the params set, the keys pressed. */
+/** A memory store (JSON, as localStorage keeps it) and a fake app: the scene on stage and its layer 0 gen's ref (no
+ *  other node), the params set, the keys pressed. */
 function rig(stored: unknown = null) {
   const kept = { v: stored }
   const calls = { param: [] as [string, number][], key: [] as string[] }
-  let scene = 's1'
+  let scene = 's1', gen = 'native/video'
   const midi = createMidi(
     { load: () => kept.v, save: (m) => void (kept.v = JSON.parse(JSON.stringify(m))) },
-    { scene: () => scene, param: (t, v) => void calls.param.push([t.input, v]), key: (code) => void calls.key.push(code) },
+    { scene: () => scene, ref: (layer, node) => (layer === 0 && node === 'gen' ? gen : null), param: (t, v) => void calls.param.push([t.input, v]), key: (code) => void calls.key.push(code) },
   )
-  return { midi, kept, calls, stage: (s: string) => void (scene = s) }
+  return { midi, kept, calls, stage: (s: string, ref = gen) => void ((scene = s), (gen = ref)) }
 }
 
 type FakeInput = { name: string; state: string; onmidimessage: ((e: MIDIMessageEvent) => void) | null }
@@ -154,4 +156,57 @@ test('storage: the mappings come back after a reload; a corrupt entry is left ou
   ]
   expect(mappingsOf([...junk, ...again])).toEqual(again)
   for (const x of [null, 'x', {}, 5]) expect(mappingsOf(x)).toEqual([])
+})
+
+describe("C7 '*': a look knob follows the vs3 scene on stage", () => {
+  const STAR: ParamTarget = { kind: 'param', scene: '*', layer: 0, node: 'gen', input: 'zoom', lo: 0.9, hi: 1.3, label: 'zoom · any vs3 scene' }
+
+  test('C7a the stage node is native/video: a * CC for zoom does not reach app.param', async () => {
+    const { midi, calls, kept } = rig([{ ctl: CC21, target: STAR }])
+    const { a, send } = access('x')
+    await midi.start(async () => a)
+    send(0, 0xb0, 21, 127)
+    send(0, 0xb0, 21, 0)
+    expect(calls.param).toEqual([])
+    expect(kept.v).toEqual([{ ctl: CC21, target: STAR }]) // the drop saves nothing
+  })
+
+  test('C7b on native/vs3-ink it does, with the scaled value, and on the next vs3 scene; off vs3 or off its node: nothing', async () => {
+    const { midi, calls, stage } = rig([{ ctl: CC21, target: STAR }, { ctl: { ...CC21, num: 22 }, target: { ...STAR, layer: 1 } }])
+    const { a, send } = access('x')
+    await midi.start(async () => a)
+    stage('builtin:vs3-ink', 'native/vs3-ink')
+    send(0, 0xb0, 21, 127)
+    stage('builtin:vs3-mandala', 'native/vs3-mandala') // another vs3 scene: the same knob drives its zoom
+    send(0, 0xb0, 21, 0)
+    send(0, 0xb0, 22, 64) // its layer 1: no node there
+    stage('builtin:milk-x', 'milk/x') // a MilkDrop scene
+    send(0, 0xb0, 21, 64)
+    expect(calls.param).toEqual([['zoom', 1.3], ['zoom', 0.9]])
+  })
+
+  test('C7c a stored * target for a scene row is left out by mappingsOf; one per look key is kept, a learnt one reloads', async () => {
+    const keys = Object.keys(look.base)
+    expect(keys).toHaveLength(18)
+    const ok = keys.map((input, num): Mapping => ({ ctl: { ...CC21, num }, target: { ...STAR, input } }))
+    const rows = ['speed', 'complexity', 'opacity', 'hit', 'palette', 'toString'].map((input): Mapping => ({ ctl: CC21, target: { ...STAR, input } }))
+    expect(mappingsOf([...rows, ...ok])).toEqual(ok)
+    const { midi, kept } = rig()
+    const { a, send } = access('x')
+    await midi.start(async () => a)
+    midi.setLearn(true)
+    midi.arm({ ...STAR, input: 'heat' })
+    send(0, 0xb0, 21, 5)
+    expect(rig(kept.v).midi.get().maps).toEqual([{ ctl: CC21, target: { ...STAR, input: 'heat' } }])
+  })
+
+  test('C7d a mapping with a scene id behaves as before: its own scene only, whatever the node', async () => {
+    const { midi, calls, stage } = rig([{ ctl: CC21, target: { ...P, input: 'heat' } }])
+    const { a, send } = access('x')
+    await midi.start(async () => a)
+    send(0, 0xb0, 21, 127) // s1 on stage, its node native/video
+    stage('s2', 'native/vs3-ink') // a vs3 native in another scene: the knob does not follow
+    send(0, 0xb0, 21, 0)
+    expect(calls.param).toEqual([['heat', 2]])
+  })
 })

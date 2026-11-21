@@ -2,10 +2,13 @@
 // onto a layer input of one scene, or a note-on (pad) onto a hotkey's action. Pure: the MIDIAccess, the app's panel and
 // keys come in, so Vitest runs it without a browser. ui/Midi.tsx wires it to the app.
 import type { SceneId } from './doc'
+import LOOK from './vs3/look.json'
 
 export interface Control { kind: 'cc' | 'note'; ch: number; num: number } // ch 1–16
-/** A layer input of `scene` (gl/live.ts panel.setValue's path); a CC 0–127 maps onto [lo, hi]. */
-export interface ParamTarget { kind: 'param'; scene: SceneId; layer: number; node: 'gen' | 'layer' | number; input: string; lo: number; hi: number; label: string }
+/** A layer input of `scene` (gl/live.ts panel.setValue's path); a CC 0–127 maps onto [lo, hi]. `'*'` (plan_vs3_engine
+ *  S7.2, C7): a vs3 look input (vs3/look.json's keys), on whatever vs3 native is at `layer` / `node` of the scene on
+ *  stage; any other node there is never written. */
+export interface ParamTarget { kind: 'param'; scene: SceneId | '*'; layer: number; node: 'gen' | 'layer' | number; input: string; lo: number; hi: number; label: string }
 /** A pad presses this app.ts hotkey (e.code): one code path with the keyboard's. */
 export interface KeyTarget { kind: 'key'; code: string }
 export type Target = ParamTarget | KeyTarget
@@ -48,15 +51,18 @@ const target = (t: unknown) =>
   (t.kind === 'key'
     ? typeof t.code === 'string' && Object.hasOwn(KEYS, t.code)
     : t.kind === 'param' && typeof t.scene === 'string' && int(t.layer, 0, 3) && (t.node === 'gen' || t.node === 'layer' || int(t.node, 0, 99)) &&
-      typeof t.input === 'string' && finite(t.lo) && finite(t.hi) && typeof t.label === 'string')
-/** The mappings of a stored or baked value (the trust boundary): a corrupt one, or a pad on a slider or a knob on an
- *  action, is left out. */
+      typeof t.input === 'string' && (t.scene !== '*' || Object.hasOwn(LOOK.base, t.input)) && finite(t.lo) && finite(t.hi) && typeof t.label === 'string')
+/** The mappings of a stored or baked value (the trust boundary): a corrupt one, a pad on a slider or a knob on an
+ *  action, or a `'*'` one on anything but a look key, is left out. */
 export const mappingsOf = (x: unknown): Mapping[] =>
   Array.isArray(x) ? x.filter((m): m is Mapping => rec(m) && control(m.ctl) && target(m.target) && ((m.target as Target).kind === 'param') === ((m.ctl as Control).kind === 'cc')) : []
 
 /** `store`: where the mappings live (library.ts: vjw.midi, mirrored and baked with the marks). `app`: the scene on
- *  stage, its input set, a hotkey pressed. */
-export function createMidi(store: { load(): unknown; save(maps: Mapping[]): void }, app: { scene(): SceneId; param(t: ParamTarget, v: number): void; key(code: string): void }) {
+ *  stage, the ref of a node in it (null: none there), its input set, a hotkey pressed. */
+export function createMidi(
+  store: { load(): unknown; save(maps: Mapping[]): void },
+  app: { scene(): SceneId; ref(layer: number, node: ParamTarget['node']): string | null; param(t: ParamTarget, v: number): void; key(code: string): void },
+) {
   let state: MidiState = { on: false, inputs: [], learn: false, armed: null, maps: mappingsOf(store.load()), error: null }
   let access: Access | null = null
   const subs = new Set<() => void>()
@@ -79,7 +85,8 @@ export function createMidi(store: { load(): unknown; save(maps: Mapping[]): void
     }
     const t = state.maps.find((x) => same(x.ctl, ctl))?.target
     if (t?.kind === 'key') app.key(t.code)
-    else if (t && t.scene === app.scene()) app.param(t, scale(m.val, t.lo, t.hi)) // ponytail: another scene's knob waits
+    // ponytail: another scene's knob waits; a '*' one drives a vs3 native only (C7), else it drops: no write, no undo step
+    else if (t && (t.scene === '*' ? app.ref(t.layer, t.node)?.startsWith('native/vs3-') : t.scene === app.scene())) app.param(t, scale(m.val, t.lo, t.hi))
   }
   /** The connected inputs, listed and heard: on start and on every hot-plug. */
   function scan() {
