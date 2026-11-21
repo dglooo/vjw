@@ -454,7 +454,8 @@
   color: inherit;
   cursor: pointer;
 }
-.presets header button {
+.presets header button,
+.analysis header button {
   padding: 3px 9px;
   background: #121212cc;
   border: 1px solid #ffffff2a;
@@ -518,6 +519,55 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* The analysis screen (Analysis.tsx): the window wide under the bar, above a file's transport. It stays while the bar
+   fades (a screen to watch hands-off); the stage plays on behind it. */
+.analysis {
+  position: absolute;
+  inset: 58px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 10px 12px 12px;
+  background: #0b0b0bf0;
+  border: 1px solid #ffffff17;
+  border-radius: 10px;
+  pointer-events: auto;
+}
+#ui:has(> .bar.transport) > .analysis {
+  bottom: 54px;
+}
+.analysis header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font: 12px/1.4 ui-monospace, Menlo, monospace;
+}
+.analysis header .name {
+  opacity: 0.55;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.analysis header button {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.analysis header button:first-of-type {
+  margin-left: auto;
+}
+.analysis canvas {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.analysis .off {
+  margin: auto;
+  font-size: 18px;
+  text-align: center;
+  opacity: 0.7;
+}
+
 .presets .fav {
   position: absolute;
   top: 4px;

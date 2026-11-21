@@ -4,6 +4,7 @@ import { createArrangement, shouldCut, SILENT_RMS, type ArrangeOut } from './aud
 import { createDonor, mixStep, type DonorIn } from './audio/donor'
 import { BAND_COUNT, createEnergy, rms } from './audio/energy'
 import { createFeatures } from './audio/features'
+import { createHistory } from './audio/history'
 import { meter } from './audio/meter' // the HUD's input meter (dsp_linein_2026-11-16 fix 5): fed here, read live by the overlay
 import { analyser, analyser2k, analyser4k, analyserL, analyserR, audioNow, configure, ctx, featQueue, hitQueue, inputLatency, odfQueue, onsetQueue, player, recDest, togglePlay } from './audio/input'
 import { createMelody } from './audio/melody'
@@ -185,7 +186,10 @@ addEventListener('keydown', (e) => {
     case 'Escape':
       setPanel(false)
       setShader(false)
-      store.patch({ browse: false })
+      store.patch({ browse: false, analysisView: false })
+      break
+    case 'KeyY': // the analysis screen (ui/Analysis.tsx)
+      store.patch({ analysisView: !store.getSnapshot().analysisView })
       break
     case 'KeyW': // the preset browser (ui/Presets.tsx): Q, the donor's key for theirs, is the quality's here
       store.patch({ browse: !store.getSnapshot().browse })
@@ -289,6 +293,7 @@ const idle: FrameInput = { ...f }
 const FLAT = new Float32Array(analyser.frequencyBinCount) // a waveform at 0
 const REST = { gain: 1, flash: 0 } // postFor at rest
 const features = createFeatures() // kick/snare/hats envelopes from the worklet's hits (S1.4)
+const history = createHistory() // the analysis screen's record (ui/Analysis.tsx), every frame, open or not
 const settings = createSettings(localStorage, ctx.sampleRate) // vjw.audio: the user's sens, the preset pick
 // The manual BPM lock (user 2026-11-20): the stored BPM holds the grid's tempo until cleared (sync.ts setManual).
 // T, [ and ] move a held one in the sync; it is stored back, so a reload keeps it.
@@ -416,6 +421,7 @@ function frame(now: number) {
   let kickThisFrame = false
   for (const h of drain(hitQueue)) {
     features.hit(h)
+    history.hit(h.drum)
     if (DEBUG) hits[h.drum]++
     hits8.push(h) // S4.3: the classifier's 8 s kick/hat window (newest last)
     if (h.drum === 'kick') kickThisFrame = true // S5.3: a kick was drained this frame
@@ -546,6 +552,9 @@ function frame(now: number) {
   // S5.3: the live heat post pass (postFor at rest = identity: the engine skips it).
   const post = off ? REST : postFor(arrangeOut.heat, dropAt > 0 ? f.time - dropAt : Infinity, f.sync.beat, f.sync.bpm, f.sync.confidence)
   sources(f, src)
+  // the analysis screen's frame: the detectors as they read it, before the user's gain and mute and Off; ⚡ as the
+  // previous render's budget left it
+  history.frame(f.time, src, f.sync, arrangeOut, flashOnsets)
   gain(src, st) // the Sources tab's gain and mute, on every source once all are in, before anything reads them; off: all 0
   const styled = restyle(src, rmFrom, rmTo, rmW, styledOut) // after gain(): the built-ins read the muted sources too
   analysis.off = off // every binding bypassed: a bound input reads its stored value (live.ts)
@@ -597,4 +606,4 @@ function frame(now: number) {
   }
 }
 requestAnimationFrame(frame)
-export { director, meter, src, settings } // ?bench drives the autopilot (bench.ts); the Sources tab reads `src`/`settings` live (S6.1), the overlay `meter`
+export { director, history, meter, src, settings } // ?bench drives the autopilot (bench.ts); the Sources tab reads `src`/`settings` live (S6.1), the overlay `meter`, the analysis screen `history`

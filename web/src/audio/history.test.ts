@@ -1,0 +1,55 @@
+import { expect, test } from 'vitest'
+import type { ArrangeOut } from './arrange'
+import { BUILD, DROP, L, LANES, createBuckets, createHistory, range, xAt, type Sample } from './history'
+import { ZERO_SYNC } from './sync'
+
+const blank = (): Sample => Object.fromEntries(LANES.map((l) => [l, 0])) as Sample
+const QUIET: ArrangeOut = { build: 0, drop: 0, heat: 0, energy: 0, sparse: false, fired: null, confirmed: null }
+
+test('a bucket counts the hits, keeps the levels peak and the last pitch', () => {
+  const b = createBuckets(20, 0.5)
+  const s = blank()
+  for (let f = 0; f < 600; f++) {
+    s.kick = f % 15 === 0 ? 1 : 0 // a kick every .25 s
+    s.sub = (f % 30) / 30 // a saw, its peak 29/30 in every .5 s bucket
+    s.pitch = f / 600
+    b.add(f / 60, s)
+  }
+  expect(b.get(0, L.kick)).toBe(2)
+  expect(b.get(0, L.sub)).toBeCloseTo(29 / 30)
+  expect(b.get(0, L.pitch)).toBeCloseTo(29 / 600) // the bucket's last frame
+  expect(b.get(19, L.kick)).toBe(2)
+  expect(b.get(-1, L.kick)).toBeNaN() // never heard
+})
+
+test('the timeline window holds the last 30 s; older buckets are gone from the ring', () => {
+  const h = createHistory()
+  for (let f = 0; f <= 40 * 60; f++) h.frame((f + 0.5) / 60, {}, ZERO_SYNC, QUIET, []) // mid-bucket: no float holes
+  const [i0, i1] = range(h.recent, h.now, 30)
+  expect(i1 - i0 + 1).toBe(1800)
+  for (let i = i0; i <= i1; i++) expect(h.recent.get(i, L.kick)).toBe(0)
+  expect(h.recent.get(i1 - 35 * 60, L.kick)).toBeNaN() // 35 s back: overwritten (the ring holds 34 s)
+})
+
+test('an event lands at its age on the strip: now at the right edge, span s back at the left', () => {
+  expect(xAt(100, 100, 30, 96, 1200)).toBe(1296)
+  expect(xAt(70, 100, 30, 96, 1200)).toBe(96)
+  expect(xAt(85, 100, 30, 96, 1200)).toBe(696)
+})
+
+test('sections: a breakdown builds, a fired drop holds until the next breakdown; ⚡ counts each new onset once', () => {
+  const h = createHistory()
+  const flashes: number[] = []
+  const at = (t: number, a: Partial<ArrangeOut>) => {
+    h.frame(t, {}, ZERO_SYNC, { ...QUIET, ...a }, flashes)
+    const i = Math.floor(t / h.recent.width)
+    return [h.recent.get(i, L.section), h.recent.get(i, L.flash)]
+  }
+  expect(at(1, {})).toEqual([0, 0])
+  expect(at(2, { sparse: true })).toEqual([BUILD, 0])
+  flashes.push(2.9, 3)
+  expect(at(3, { fired: 0.8 })).toEqual([DROP, 2])
+  expect(at(4, {})).toEqual([DROP, 0]) // the drop section holds; the same onsets never count twice
+  expect(at(5, { sparse: true })).toEqual([BUILD, 0])
+  expect(at(6, {})).toEqual([0, 0]) // a breakdown that ends with no drop
+})

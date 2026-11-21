@@ -32,10 +32,10 @@ const SHAPES = ['pulse', 'meter', 'ring', 'flash', 'line']
 const [PULSE, METER, RING, FLASH, LINE] = [0, 1, 2, 3, 4]
 /** A tile's first shape, where the meter is not the clearest. */
 const FIRST: Record<string, number> = { kick: PULSE, snare: FLASH, hats: RING, drop: FLASH, onset: PULSE, beat: FLASH, bar: RING, wobble: LINE, lfo: LINE }
-const PALETTE = [[57, 135, 229], [217, 89, 38], [25, 158, 112], [201, 133, 0], [213, 81, 129], [12, 163, 12], [144, 133, 233], [230, 103, 103]]
-const [PAGE, SURFACE, INK, INK2, BASE] = ['#070707', '#141413', '#f0efec', '#c3c2b7', '#383835']
+export const PALETTE = [[57, 135, 229], [217, 89, 38], [25, 158, 112], [201, 133, 0], [213, 81, 129], [12, 163, 12], [144, 133, 233], [230, 103, 103]] // the analysis screen's too
+export const [PAGE, SURFACE, INK, INK2, BASE] = ['#070707', '#141413', '#f0efec', '#c3c2b7', '#383835']
 const [GOOD, WARNING, CRITICAL] = ['#0ca30c', '#fab219', '#d03b3b'] // the input meter: under −6 dBFS, to −3, over (the HUD's)
-const FONT = 'ui-monospace, Menlo, monospace' // fixed-width: a changing value does not shift
+export const FONT = 'ui-monospace, Menlo, monospace' // fixed-width: a changing value does not shift
 const NONE: Sources = {}
 
 const OURS = sourceGroups().filter((g) => g.label !== 'camera' && g.label !== 'band' && !DONOR_GROUPS.includes(g)).map((g) => g.ids)
