@@ -4,6 +4,7 @@ import { allowDevices, player, selectDevice, start, togglePlay } from '../audio/
 import { FLOOR } from '../audio/meter'
 import { allowCameras, selectCamera, setVideo } from '../camera/camera'
 import { badge } from '../quality'
+import { Analysis } from './Analysis'
 import { Bpm } from './Bpm'
 import { AllowClips } from './Clips'
 import { Midi } from './Midi'
@@ -219,6 +220,12 @@ export function Overlay() {
         {s.compiling && <span className="hint">{s.compiling}</span>}
         <span className="scene">{s.sceneName}</span>
         <PresetSelect />
+        {s.edited === 'builtin:calibration' && (
+          // the analysis screen from the Calibration scene in one click (it has no presets: the picker's room)
+          <button aria-pressed={s.analysisView} title="What the analyser heard over the last 30 s · Y" onClick={() => store.patch({ analysisView: !s.analysisView })}>
+            Analysis · Y
+          </button>
+        )}
         <AnalyserSelect />
         <GenreSelect />
         <SensitivitySelect />
@@ -272,6 +279,7 @@ export function Overlay() {
         </div>
       )}
       <Presets />
+      <Analysis />
       {s.needsStart && (
         <button className="start" onClick={() => void start()}>
           Start
