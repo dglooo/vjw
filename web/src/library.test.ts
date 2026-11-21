@@ -641,6 +641,12 @@ test('C8e a migrated copy of each vs3 scene: frame() draws no fold and no feedba
   }
 })
 
+test('C8g a legacy vs3 Limitless copy (its vs3 node a filter) gets the zeros on that node and keeps its fx', () => {
+  const d = legacy('u-g', { ref: 'native/tunnel' }, [{ ref: 'native/vs3-limitless' }, { ref: 'own/feedback-zoom', values: { decay: 0.85, rotate: 0 } }]) // builtin:vs3-limitless's layer, 2026-11-21
+  const [l] = d.layers
+  expect(chainOffForLegacy(structuredClone(d)).layers[0]).toStrictEqual({ ...l, fx: [{ ref: 'native/vs3-limitless', values: OFF }, l.fx[1]] })
+})
+
 test('C8f put() (Save as, import) and load() both give the migrated copy; a knob the doc holds survives a reload', async () => {
   const b = browser()
   const lib = await loaded(b)

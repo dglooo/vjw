@@ -78,14 +78,17 @@ const GROUP = 'vjw.group'
 
 const LEGACY_FX = new Set(['isf/Mirror', 'isf/Kaleidoscope', 'own/feedback-zoom'])
 /** C8 (plan_vs3_engine S4.1): a vs3 copy saved before the post chain approximated the chain's fold and feedback with
- *  these layer fx. They stay; `trails: 0, mirror: 0` on the vs3 generator turn the chain's feedback and fold off, so the
- *  two never run together. Per layer: a `native/vs3-` generator, one of the fx, neither knob in its values. In place.
+ *  these layer fx. They stay; `trails: 0, mirror: 0` on the vs3 node turn the chain's feedback and fold off, so the two
+ *  never run together. Per layer holding one of the fx: each `native/vs3-` node, the generator or a filter (Limitless),
+ *  with neither knob in its values. In place.
  *  ponytail: a doc saved after the chain that adds one of the fx to a vs3 layer with both knobs untouched reads as legacy
  *  at its next save or load; one knob edit restores it. Upgrade path: a `v: 2` stamp at the next SceneDoc format change. */
 export function chainOffForLegacy(d: SceneDoc) {
-  for (const { gen, fx } of d.layers)
-    if (gen.ref.startsWith('native/vs3-') && fx.some((n) => LEGACY_FX.has(n.ref)) && gen.values?.trails === undefined && gen.values?.mirror === undefined)
-      gen.values = { ...gen.values, trails: 0, mirror: 0 }
+  for (const { gen, fx } of d.layers) {
+    const nodes = [gen, ...fx]
+    if (nodes.some((n) => LEGACY_FX.has(n.ref)))
+      for (const n of nodes) if (n.ref.startsWith('native/vs3-') && n.values?.trails === undefined && n.values?.mirror === undefined) n.values = { ...n.values, trails: 0, mirror: 0 }
+  }
   return d
 }
 
