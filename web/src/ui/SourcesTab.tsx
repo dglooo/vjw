@@ -85,7 +85,7 @@ export function AnalyserSelect() {
  *  pickToPatch, and both show `pick ?? 'auto'`, so the two stay in step (SourcesTab.test.ts). */
 const pickGenre = (value: string) => settings.patch(pickToPatch('picker', value, settings.get(), store.getSnapshot().style.detected))
 
-const GENRE_HINT = 'The analyser profile per genre (the Sources tab preset): its tempo range and kick/snare knobs. auto follows the detected genre (dnb, dubstep or techno); psy and house are hand picks.'
+const GENRE_HINT = 'The analyser profile per genre (the Sources tab preset): its tempo range and kick/snare knobs. auto follows the detected genre (dnb, dubstep or techno); psy and house are hand picks. A scene with its own genre (E panel) puts its kick/snare knobs and bands in force while it is on stage (the tempo range stays auto\'s); a pick here wins over it.'
 const SENS_HINT = 'Kick and snare detector sensitivity for the genre profile: low = fewer hits (thresholds × 1.15), mid = the profile as tuned, high = more hits (× 0.87), more false ones too. A hit\'s light stays flash-gated.'
 const ANALYSERS = [['ours', 'ours'], ['donor', 'vs2'], ['vs3', 'vs3'], ['off', 'off']] as const
 
@@ -110,6 +110,7 @@ function Seg<V extends string>({ label, hint, value, options, set }: { label: st
 export function AudioMenu() {
   const s = useSyncExternalStore(settings.onChange, settings.get)
   const detected = useSyncExternalStore(store.subscribe, () => store.getSnapshot().style.detected)
+  const scene = useSyncExternalStore(store.subscribe, () => store.getSnapshot().sceneGenre)
   return (
     <>
       <Seg label="Analyser" hint={ANALYSER_HINT} value={s.analyser} options={ANALYSERS} set={(analyser) => settings.patch({ analyser })} />
@@ -119,7 +120,7 @@ export function AudioMenu() {
             label="Genre"
             hint={GENRE_HINT}
             value={s.pick ?? 'auto'}
-            options={[['auto', s.auto && detected ? `auto · ${detected}` : 'auto'], ...(Object.keys(PRESETS) as PresetId[]).map((id) => [id, id] as const)]}
+            options={[['auto', scene ? `scene: ${scene}` : s.auto && detected ? `auto · ${detected}` : 'auto'], ...(Object.keys(PRESETS) as PresetId[]).map((id) => [id, id] as const)]}
             set={pickGenre}
           />
           <Seg
@@ -182,7 +183,7 @@ export function SourcesTab() {
           <input
             type="checkbox"
             checked={s.auto}
-            onChange={(e) => settings.patch(pickToPatch('toggle', e.currentTarget.checked, s, detected()))}
+            onChange={(e) => settings.patch(pickToPatch('toggle', e.currentTarget.checked, s, detected(), store.getSnapshot().sceneGenre))}
           />
           <span>Auto-style</span>
         </label>

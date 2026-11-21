@@ -327,6 +327,12 @@ if (DEBUG || /camprobe|bench/.test(location.search))
 let rev = 0
 let sent = ''
 let configured: PresetId = 'default'
+// The top bar's preset (activePreset without the scene's genre: a hand pick, else Auto's), the previous frame's: the
+// tempo window's and the arrangement's. They follow the music, so a cut to a scene with its own genre (user 2026-11-21)
+// moves neither: another window reads another tempo (House's 107–143 BPM candidates on a 174 track: 116), so the grid
+// would re-lock or, after a seek, stay hidden; and sub alone in place of sub + reese can read as a breakdown, the cut
+// back as its drop.
+let song: PresetId = 'default'
 function sendConfig() {
   const b = workletBands(settings.get(), configured)
   const key = bandKey(b)
@@ -445,22 +451,26 @@ function frame(now: number) {
   const lvl = f.energy.level
   // S5.3: the arrangement runs every frame (before style.update, so its freeze can hold through a breakdown: those
   // lack drums). low = the kick-gated sustained bass (bands.ts `held`; sub alone under a 4/4 preset, as `cuts` the
-  // previous frame's preset's), high = the log grid's ≥ 4 kHz bands, total = the frame's RMS (the −60 dBFS silence floor
-  // lives in arrange.ts), cuts = the previous frame's preset's.
+  // previous frame's `song`'s), high = the log grid's ≥ 4 kHz bands, total = the frame's RMS (the −60 dBFS silence floor
+  // lives in arrange.ts), cuts = the previous frame's `song`'s.
   let high = 0
   for (let i = highStart; i < BAND_COUNT; i++) high += eb[i]
-  arrangeOut = arrangement.update({ low: PRESETS[configured].low === 'sub' ? features.raw.sub : features.raw.sub + features.raw.reese, high, total: frameRms, kick: kickThisFrame, beat: f.sync.confidence >= 0.3 ? f.sync.beat : null, cuts: PRESETS[configured].cuts !== false, now: f.time })
+  arrangeOut = arrangement.update({ low: PRESETS[song].low === 'sub' ? features.raw.sub : features.raw.sub + features.raw.reese, high, total: frameRms, kick: kickThisFrame, beat: f.sync.confidence >= 0.3 ? f.sync.beat : null, cuts: PRESETS[song].cuts !== false, now: f.time })
   const freeze = (lvl.bass < SILENCE && lvl.mid < SILENCE && lvl.treb < SILENCE) || arrangeOut.sparse
   styleOut = style.update(styleIn({ kick8, hat8, bpm: f.sync.bpm, confidence: f.sync.confidence, wobble: features.raw.wobbleDepth, bass: total > 0 ? (features.raw.sub + features.raw.reese) / total : 0, families: { dnb: fdn, dubstep: fdu, techno: fte }, freeze }), now / 1000)
-  // A manual pick (incl. the ?preset= dev hook) locks the classifier; else Auto follows `detected`.
-  const active = activePreset(DEBUG_PRESET ? { ...st, pick: DEBUG_PRESET } : st, styleOut.detected)
+  // A manual pick (incl. the ?preset= dev hook) locks the classifier; else the on-stage scene's genre (the store's, as
+  // the previous frame left it); else Auto follows `detected`. The worklet, the fill and the Auto-style map take it;
+  // the tempo window and the arrangement keep `song`.
+  const pin = DEBUG_PRESET ? { ...st, pick: DEBUG_PRESET } : st
+  song = activePreset(pin, styleOut.detected)
+  const active = activePreset(pin, styleOut.detected, store.getSnapshot().sceneGenre)
   if (active !== configured) {
     configured = active
-    sendConfig() // T1: Dubstep's floors and reese band follow Auto too
+    sendConfig() // T1: Dubstep's floors and reese band follow Auto too; a scene's genre re-sends on its cut and back
   }
-  // S3.2: the active preset's band drives the tempo range; a change snaps the running grid one octave toward it. A
-  // manual BPM skips both until cleared, so a band change made meanwhile applies then.
-  const band = PRESETS[active].bpm
+  // S3.2: the top bar's band drives the tempo range; a change snaps the running grid one octave toward it. A manual BPM
+  // skips both until cleared, so a band change made meanwhile applies then.
+  const band = PRESETS[song].bpm
   if (band !== lastBand && !sync.manual()) {
     lastBand = band
     tempo.setRange(band)
@@ -564,7 +574,8 @@ function frame(now: number) {
   const { doc, errors } = live(id)
   const snap = store.getSnapshot()
   if (id !== snap.edited) edits.clear() // undo is per edited scene (design S3): open, Save as, the autopilot
-  if (doc.name !== snap.sceneName || id !== snap.edited) store.patch({ sceneName: doc.name, edited: id })
+  const genre = doc.genre ?? null // its genre profile: the next frame puts it in force, the audio chip names it
+  if (doc.name !== snap.sceneName || id !== snap.edited || genre !== snap.sceneGenre) store.patch({ sceneName: doc.name, edited: id, sceneGenre: genre })
   if (presetDue?.scene === id) {
     // the cue's preset (presets.ts, by name) onto its scene, as the preset picker would; one gone since: none. Before
     // the render, so the scene's first frame is the preset's. It glides on the scene on stage (a cue of the same

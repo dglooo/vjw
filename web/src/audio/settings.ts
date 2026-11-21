@@ -126,16 +126,18 @@ export function createSettings(kv: Kv, sampleRate = RATE) {
 /** The analysis switch (the A hotkey, a MIDI pad): Off, or back on in the mode Off turned off (ours if none). */
 export const toggleAnalysis = (s: AudioSettings): Pick<AudioSettings, 'analyser'> => ({ analyser: s.analyser === 'off' ? (s.resume ?? 'ours') : 'off' })
 
-/** The preset in force (design C4): a hand pick wins, else the detected genre while Auto is on, else Default. */
-export const activePreset = (s: AudioSettings, detected: Genre | null): PresetId => s.pick ?? (s.auto ? (detected ?? 'default') : 'default')
+/** The preset in force (design C4): a hand pick wins, else the on-stage scene's genre (doc.ts, user 2026-11-21), else the
+ *  detected genre while Auto is on, else Default. Without `scene`: the top bar's, which app.ts's tempo window and
+ *  arrangement keep, so a cut moves neither the beat grid nor the arrangement's input. */
+export const activePreset = (s: AudioSettings, detected: Genre | null, scene?: PresetId | null): PresetId => s.pick ?? scene ?? (s.auto ? (detected ?? 'default') : 'default')
 
 /** The C4 state machine (design C4): a picker value, or an Auto-toggle move, becomes the `patch` it applies. Pure: a
  * hand pick locks (auto untouched, the pick wins), "Auto" re-enters Follow (`auto: true, pick: null` — even from Manual,
  * so the dropdown, the checkbox and the active preset all agree), and a toggle-off locks whatever preset is active
- * *now* — not null. */
-export function pickToPatch(kind: 'picker' | 'toggle', value: string | boolean, s: AudioSettings, detected: Genre | null): Partial<Pick<AudioSettings, 'auto' | 'pick'>> {
+ * *now* (the on-stage scene's genre too) — not null. */
+export function pickToPatch(kind: 'picker' | 'toggle', value: string | boolean, s: AudioSettings, detected: Genre | null, scene?: PresetId | null): Partial<Pick<AudioSettings, 'auto' | 'pick'>> {
   if (kind === 'picker') return value === 'auto' ? { auto: true, pick: null } : { pick: value as PresetId }
-  return value ? { auto: true, pick: null } : { auto: false, pick: activePreset(s, detected) }
+  return value ? { auto: true, pick: null } : { auto: false, pick: activePreset(s, detected, scene) }
 }
 
 /** The sensitivity's factor on the active preset's kick and snare thresholds (user 2026-11-21): the snare floor and

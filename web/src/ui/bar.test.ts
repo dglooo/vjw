@@ -9,6 +9,11 @@ test('audioSummary: analyser · genre · sensitivity, as the audio chip reads th
   expect(audioSummary({ ...s, analyser: 'donor', auto: false, pick: 'house', sensitivity: 'high' }, 'dnb')).toBe('vs2 · house · high') // a hand pick, not the detected
   expect(audioSummary({ ...s, analyser: 'vs3', pick: 'psy', sensitivity: 'low' }, 'techno')).toBe('vs3 · psy · low')
   expect(audioSummary({ ...s, analyser: 'off', pick: 'psy', sensitivity: 'high' }, 'dnb')).toBe('analysis off') // no scene hears genre or sensitivity then
+  // the on-stage scene's genre (user 2026-11-21): in force under no hand pick, and the chip says so
+  expect(audioSummary(s, 'dnb', 'psy')).toBe('ours · scene: psy · mid')
+  expect(audioSummary({ ...s, pick: 'house' }, 'dnb', 'psy')).toBe('ours · house · mid') // a hand pick wins
+  expect(audioSummary(s, 'dnb', null)).toBe('ours · auto dnb · mid') // a scene without one: Auto
+  expect(audioSummary({ ...s, analyser: 'off' }, 'dnb', 'psy')).toBe('analysis off')
 })
 
 test("inputLabel: the device's label, the file's name, else the call to pick one", () => {

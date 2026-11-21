@@ -219,6 +219,9 @@
 }
 
 /* 3 Audio: the analysis summary and the BPM (dim while unsure, amber when held) */
+.bar .audio .name {
+  max-width: 24ch; /* `ours · scene: dubstep · high` whole (a scene's own genre); short of room, the names on the left give way */
+}
 .chip .bpm {
   display: inline-flex;
   align-items: center;

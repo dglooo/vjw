@@ -26,6 +26,9 @@ test('pickToPatch: toggle — on follows, off keeps the preset active *now* as t
   expect(pickToPatch('toggle', false, st(true, null), null)).toEqual({ auto: false, pick: 'default' })
   // Already off (Manual): the pick stays whatever it is
   expect(pickToPatch('toggle', false, st(false, 'dubstep'), 'dnb')).toEqual({ auto: false, pick: 'dubstep' })
+  // The on-stage scene's genre (user 2026-11-21) is what is active under no pick, so the lock keeps it; a pick still wins
+  expect(pickToPatch('toggle', false, st(true, null), 'dnb', 'house')).toEqual({ auto: false, pick: 'house' })
+  expect(pickToPatch('toggle', false, st(true, 'dnb'), 'dubstep', 'house')).toEqual({ auto: false, pick: 'dnb' })
 })
 
 // The top bar's genre select (user 2026-11-21) and this tab's picker share one change (SourcesTab.tsx pickGenre: the

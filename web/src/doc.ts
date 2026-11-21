@@ -1,6 +1,7 @@
 // The scene format (design E4), pure: what the library stores and `live` renders. `parseScene`/`parseLibrary` are the
 // trust boundary for imported JSON: they check shapes and numbers, clamp ranges, drop unknown keys and return fresh
 // objects. `values` holds only overrides of the effect's defaults.
+import { PRESETS, type PresetId } from './audio/presets'
 import { PHASES, type Binding, type Shape } from './bind'
 import type { EffectDef, Input, InputType, Value } from './fx/types'
 
@@ -10,8 +11,10 @@ export type MaskMode = 'person' | 'background' // camera CP1: cut out the person
 export type Clip = 'inside' | 'outside' // the show composition: inside or outside the scene's frame (scenes/frame.ts)
 export interface NodeDoc { ref: string; code?: string; credit?: string; values?: Record<string, Value>; bind?: Record<string, Binding> }
 export interface LayerDoc { gen: NodeDoc; fx: NodeDoc[]; blend: Blend; opacity: number; speed: number; res: number; mask?: MaskMode; clip?: Clip; bind?: Partial<Record<'opacity' | 'speed', Binding>> }
-// layers: 1..4, bottom first; created: ms since 1970, a user scene's (its place in the autopilot after the built-ins)
-export interface SceneDoc { v: 1; id: SceneId; name: string; star: boolean; created?: number; layers: LayerDoc[] }
+// layers: 1..4, bottom first; created: ms since 1970, a user scene's (its place in the autopilot after the built-ins);
+// genre: the analyser's genre profile while the scene is on stage, under no hand pick (user 2026-11-21, app.ts frame()),
+// absent = the top bar's
+export interface SceneDoc { v: 1; id: SceneId; name: string; star: boolean; created?: number; genre?: PresetId; layers: LayerDoc[] }
 export interface LibraryFile { v: 1; scenes: SceneDoc[] }
 
 export const CODE_MAX = 65536 // knob: chars of inline shader code per node
@@ -111,6 +114,7 @@ export function parseScene(x: unknown): SceneDoc {
   if (!Array.isArray(o.layers) || o.layers.length < 1 || o.layers.length > LAYERS_MAX) fail('layers', `not an array of 1..${LAYERS_MAX} layers`)
   const d: SceneDoc = { v: 1, id: str(o.id, 'id'), name: str(o.name, 'name'), star: o.star, layers: o.layers.map((l, i) => layer(l, `layers[${i}]`)) }
   if (o.created !== undefined) d.created = num(o.created, 'created')
+  if (typeof o.genre === 'string' && Object.hasOwn(PRESETS, o.genre)) d.genre = o.genre as PresetId // another value is dropped: the scene follows the top bar
   return d
 }
 

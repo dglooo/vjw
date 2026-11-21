@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
 import { director, settings } from '../app'
 import { activePreset } from '../audio/settings'
-import { PRESETS } from '../audio/presets'
+import { PRESETS, type PresetId } from '../audio/presets'
 import { BAND_COUNT } from '../audio/energy'
 import { BIND_DEFAULTS, bindable, PHASES, sourceGroups, type Binding, type Shape } from '../bind'
 import { defaults, TEXT_MAX, type Blend, type Clip, type LayerDoc, type MaskMode, type NodeDoc, type SceneId } from '../doc'
@@ -86,7 +86,8 @@ function AutoHint({ source }: { source: string }) {
   const s = useSyncExternalStore(settings.onChange, settings.get)
   const detected = useSyncExternalStore(store.subscribe, () => store.getSnapshot().style.detected)
   const id = useSnap('edited')
-  const target = s.auto && id.startsWith('builtin:') ? PRESETS[activePreset(s, detected)].map[source] : undefined
+  const genre = useSnap('sceneGenre')
+  const target = s.auto && id.startsWith('builtin:') ? PRESETS[activePreset(s, detected, genre)].map[source] : undefined
   return target ? <span className="hint">→ {target} (auto-style)</span> : null
 }
 
@@ -467,6 +468,21 @@ export function GenOptions() {
   ))
 }
 
+const GENRE = 'The analyser genre profile while this scene is on stage: its kick/snare knobs and bands (the tempo range and the drop detection follow the top bar). follow = none, the top bar\'s; a genre picked in the top bar wins. Saved with the scene.'
+/** The scene's genre profile (doc.ts `genre`, user 2026-11-21): one undo step, saved with the scene. */
+function GenreRow({ id }: { id: SceneId }) {
+  return (
+    <Param label="genre">
+      <select aria-label="Scene genre" title={GENRE} value={live(id).doc.genre ?? ''} onChange={(e) => panel.setGenre((e.target.value || undefined) as PresetId | undefined)}>
+        <option value="">follow</option>
+        {(Object.keys(PRESETS) as PresetId[]).map((g) => (
+          <option key={g}>{g}</option>
+        ))}
+      </select>
+    </Param>
+  )
+}
+
 /** A file op's result, for the note under the header: its error, or what it did. */
 export type Say = (err: string | null, what: string, done: string) => void
 
@@ -660,6 +676,7 @@ function Open({ id }: { id: SceneId }) {
       <SceneHead id={id} say={say}>
         <Gpu />
       </SceneHead>
+      <GenreRow id={id} />
       {note && (
         <p key={note.text} className={note.err ? 'err' : 'note'} onAnimationEnd={() => setNote(undefined)}>
           {note.text}

@@ -1,6 +1,7 @@
 // The panel's edits to a scene (design E6), pure: `gl/live.ts` applies each one to the edited scene's live instance. A
 // built-in is immutable, so a scene's first edit clones it into `docs` under the same id; every edit marks it dirty
 // (unsaved: the library clears that on save, S6). Each op takes the scene's current doc, as `live` finds it.
+import type { PresetId } from './audio/presets'
 import type { Binding } from './bind'
 import type { Blend, Clip, LayerDoc, MaskMode, NodeDoc, SceneDoc, SceneId } from './doc'
 import type { Value } from './fx/types'
@@ -89,6 +90,15 @@ export function setClip(doc: SceneDoc, layer: number, c: Clip | undefined): Clip
   const old = l.clip
   if (c === undefined) delete l.clip
   else l.clip = c
+  return old
+}
+
+/** The scene's genre profile (doc.ts): a preset id, undefined clears it (the scene follows the top bar). */
+export function setGenre(doc: SceneDoc, g: PresetId | undefined): PresetId | undefined {
+  const d = editable(doc)
+  const old = d.genre
+  if (g === undefined) delete d.genre
+  else d.genre = g
   return old
 }
 

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { PRESETS } from './audio/presets'
 import { SOURCE_IDS, type Binding } from './bind'
 import { defaults, parseLibrary, parseScene, type SceneDoc } from './doc'
 import type { EffectDef } from './fx/types'
@@ -80,6 +81,13 @@ describe('parseScene', () => {
     expect(parseScene(doc()).layers[0].clip).toBeUndefined()
     expect(parseScene(withLayer({ clip: 'inside' }))).toStrictEqual(withLayer({ clip: 'inside' }))
     expect(parseScene(withLayer({ clip: 'outside', mask: 'person' }))).toStrictEqual(withLayer({ clip: 'outside', mask: 'person' }))
+  })
+
+  test('genre is optional (user 2026-11-21): absent by default, every preset id round-trips, any other value is dropped and the scene loads', () => {
+    expect(parseScene(doc())).not.toHaveProperty('genre')
+    for (const g of Object.keys(PRESETS)) expect(parseScene(doc({ genre: g })), g).toStrictEqual(doc({ genre: g }))
+    for (const g of ['jazz', 'Psytrance', 'DNB', 'toString', '__proto__', '', 5, null, true, ['dnb'], { id: 'dnb' }]) expect(parseScene(doc({ genre: g })), String(g)).toStrictEqual(doc())
+    expect(parseLibrary({ v: 1, scenes: [doc({ genre: 'house' }), doc({ id: 'u-2', genre: 'polka' })] }).map((d) => d.genre)).toEqual(['house', undefined]) // an import keeps both scenes
   })
 
   test('code may be exactly CODE_MAX chars; opacity, speed and res clamp', () => {
