@@ -565,6 +565,14 @@ test('E3 faithful (N3): a faithful() scene: e is 1, on its first frame and after
   expect(at({}, chainState(), { filter: true }).servo).toBeNull()
 })
 
+test("E10 faithful glow (original main.js:15700): a faithful() frame has no resting glow, so heat lifts none; the energy term stays", () => {
+  const hot = { heat: 0.98, brightness: 2.4 }, fixed = { strength: 0.12, gain: 0, kick: 0 } // morphogen 2.0's fixed modes
+  expect(at(hot, chainState(), { bloom: fixed }).bloom).toBeGreaterThan(1) // the haze: 9 × (.12 × heat's 4^.96)²
+  expect(at(hot, chainState(), { bloom: fixed, faithful: true }).bloom).toBe(0)
+  const k = 0.5 * 0.4 * drastic(0.98) // F: energy .5 × gain .4 (react .5 reads × 1); its rest .5 dropped
+  expect(at(hot, chainState(), { faithful: true }).bloom).toBeCloseTo(9 * k * k, 9)
+})
+
 test('E4 NaN mean (N4): e keeps its value; an Inf mean takes the capped step down, a black frame reads .01: both finite', () => {
   const u = servoU()
   expect(expose(0.8, NaN, u)).toBe(0.8)

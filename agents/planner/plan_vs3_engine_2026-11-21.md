@@ -606,6 +606,13 @@ Invoke the `ponytail` skill (full) before writing code.
   - H2 S-all does not rise against G3's run; once more on a window that holds a breakdown → drop (the lead sets `AT`).
   - H2 S-cut with 1 s holds and S-jump: rules (a), (b), (c) (N2).
   - `servo.mjs` exits 0. P: the servo's delta is reported (design: under .02 ms).
+- **Changed during implementation:** (S3b.2 coder, 2026-11-21)
+  - FINISH's probe luma is the luma on screen: Rec.709 of the colour clamped to [0, 1] per channel, as the canvas and gate W read it. The N4 guard tests the colour before the clamp: `any(isnan(col)) || any(isinf(col))` gives luma 0.
+  - The lead's added item: a faithful() frame has no resting glow. `frame()` uses rest 0 when `sc.faithful` is true, as the donor's `strength × (1 − faithful)` (original main.js:15700). Heat then lifts no glow on morphogen 2.0's fixed maps, because their gain and kick are 0. Test `E10`. Browser, ★ magma — Magmatic Eye, black ground: p10 luma .087 → .039, top-left corner .075 → .039 (thumb .028 / .029).
+  - `servo.mjs` E8 writes the NaN block (8 × 8 half-float texels under the probe's centre sample) into the texture FINISH reads, not into three's scene target. From the scene target, the warp's own NaN drop removes it before the probe. E8 also checks that the probe's centre texel reads 0 (the guard fired). E5 compares the probe's top mip with the same FINISH draw read back at the layer's size.
+  - The done-check "Ink at brightness 2.4 settles darker within about 5 s" does not hold under the law. The target scales with brightness (.19 × 2.4 / 1.4 = .326), and Ink's mean at 2.4 is .08–.15, so e stays 1 (no lift, N3). Browser: e 1.000 for 8 s; the stage mean equals the pre build's. The servo pulls down only where the mean passes the target: Mandala at its defaults, e .989 on peaks; ★ mandolo at 15 s, e .975.
+  - Expected at G3b, W2: ★ mandolo at 15 s (mean .244 in the coder's run, .169 at G3) stays above 1.4 × its thumb (.141). The target at brightness 2.4 (.326) is above the W2 line, so the servo does not pull it down. Lever: `SERVO.TARGET` (S3b.1 note).
+  - Harness setup: in a fresh worktree, delete `web/scene-marks.json` before each page load. The dev mirror writes `{"stars": {}}` on the first load. On the next load, a held vs3 built-in re-creates its native every frame (vs3 Ink: 289 creates in 5 s), so the layer never starts and the stage stays black, on the pre build too (`scratchpad/vs3-engine/s3b2/debug5.mjs`).
 
 ### S5.1 [ ] The lens: uniform maths, shader, pass
 Invoke the `ponytail` skill (full) before writing code.

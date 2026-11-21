@@ -163,6 +163,14 @@ test('V2 FINISH: the gain is the uniform uGain, no literal 1.4', () => {
   expect(FINISH).not.toContain('1.4')
 })
 
+test("V8 FINISH (S3b.2): uProbe and uExp; the gain × the servo's e (the pair holds ln e); the probe's luma guards isnan and isinf (N4)", () => {
+  expect(FINISH).toMatch(/uniform sampler2D [^;]*\buExp\b/)
+  expect(FINISH).toMatch(/uniform float [^;]*\buProbe\b/)
+  expect(FINISH).toContain('raw * uGain * exp(texelFetch(uExp, ivec2(0), 0).r)')
+  expect(FINISH).toContain('float l = any(isnan(col)) || any(isinf(col)) ? 0.0 :')
+  expect(FINISH).toContain('uProbe > 0.5 ? vec4(l, step(0.85, l), 0.0, 1.0)')
+})
+
 test('putLook: the look values in; a non-finite one (a bound source gone bad) keeps the last, so the limiter never latches a NaN', () => {
   const out = { bloomMul: 1, aber: 1, vignette: 0.34, brightness: 1.4 } as LookValues
   putLook(out, { bloomMul: 1.5, aber: 2, vignette: 0.5, brightness: 2, hit: 1 })
