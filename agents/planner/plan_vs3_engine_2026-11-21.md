@@ -481,7 +481,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - The same with analyser `vs3`: reported. The clamp at 1 (N6) can only darken; brighter by more than .01 blocks the merge.
   - H2 S-jump(2) at 250 ms and at 125 ms: rules (a), (b), (c).
 
-### S3.1 [ ] `createChain`: the warp pass and the chain's targets
+### S3.1 [x] `createChain`: the warp pass and the chain's targets
 Invoke the `ponytail` skill (full) before writing code.
 - **Goal:** the GL half of the chain: mirror + feedback in one pass, three owned half-float targets, programs compiled off the visible frame. Not wired into the host yet.
 - **Lane, box, deps:** B · 75 min · S1.2 (merged; `chain.ts` has one editor at a time).
