@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState, useSyncExternalStore, type DragEvent, type PointerEvent } from 'react'
+import { useEffect, useReducer, useRef, useState, useSyncExternalStore, type DragEvent } from 'react'
 import { armSet, director } from '../app'
 import { docs } from '../edit'
 import { adjustForSource, insertIndex } from '../editor/dnd'
@@ -7,6 +7,7 @@ import { panel } from '../gl/live'
 import { download, library } from '../library'
 import { BARS, importSets, reorder, seconds, setFile, type Cue, type SetList } from '../setlist'
 import { clock, store } from '../store'
+import { Icon, Pop } from './Pop'
 
 const sceneName = (id: string) => (docs.get(id) ?? library.get(id))?.name
 const short = (id: string) => id.slice(id.indexOf('/') + 1) // gl/Swirl → Swirl
@@ -20,14 +21,11 @@ const SWITCHES = {
   text: ['text', 'The text layers (X) as this cue starts'],
   analysis: ['analyser', 'The analysis (A) as this cue starts; off: the scenes hear a steady idle signal'],
 } as const
-/** A clicked button or summary keeps the focus, and a focused control eats the hotkeys; a select or a field keeps it. */
-const release = (e: PointerEvent) => {
-  if (!(e.target instanceof HTMLSelectElement || e.target instanceof HTMLInputElement)) (document.activeElement as HTMLElement | null)?.blur()
-}
 
-/** The top bar's Set menu (setlist.ts, user 2026-11-20: the groundwork): pick, make, rename or delete a set; add the
- *  scene on stage with its preset as a cue; drag the cues into order by their names; give each its bars or a hold and
- *  a transition into it; delete one; arm / disarm the set (app.ts armSet). Armed, its summary reads the cue on stage.
+/** The top bar's Set menu (setlist.ts, user 2026-11-20: the groundwork; a popover since 2026-11-21): pick, make, rename
+ *  or delete a set; add the scene on stage with its preset as a cue; drag the cues into order by their names; give each
+ *  its bars or a hold and a transition into it; delete one; arm / disarm the set (app.ts armSet). Armed, its button
+ *  reads the cue on stage.
  *  Step 2 (user 2026-11-21): export the set or all sets as a .json file, import one (the button, or a drop on the menu);
  *  a timeline strip, the cues as blocks sized by their bars: armed, the cue on stage lit with a playhead through it on
  *  the bar clock, a click plays a block's cue from the next bar line (director.jump); the blocks drag into order too;
@@ -130,28 +128,41 @@ export function SetMenu() {
     drag.current = k
   }
   return (
-    <details
-      className="midi setlist"
-      onPointerUp={release}
-      onToggle={(e) => {
-        setOpen(e.currentTarget.open)
-        if (!e.currentTarget.open) setNote(null)
-      }}
+    // A set file dropped on the button or the menu comes in; audio: the document's drop plays it
+    <span
+      className="drop"
       onDrop={(e) => {
         const f = e.dataTransfer.files[0]
-        if (!f?.name.toLowerCase().endsWith('.json')) return // audio: the document's drop plays it
+        if (!f?.name.toLowerCase().endsWith('.json')) return
         e.preventDefault()
         e.stopPropagation()
         void load(f)
       }}
     >
-      <summary className={armed === null ? undefined : 'on'}>{cue || 'Set'}</summary>
-      <div className="menu">
+      <Pop
+        id="pop-set"
+        className={armed === null ? 'tool' : 'tool on'}
+        title={cue ? `The set on stage: ${cue}` : 'The set list: cues that play in place of the autopilot'}
+        label={
+          <>
+            <Icon name="list" />
+            <span className="label">{cue || 'Set'}</span>
+          </>
+        }
+        onToggle={(e) => {
+          setOpen(e.newState === 'open')
+          if (e.newState !== 'open') setNote(null)
+        }}
+      >
         {naming && set ? (
           // Not a prompt(): it blocks the main thread and the picture freezes (PresetSelect's naming). app.ts skips keys typed here.
           <form
             className="line"
-            onKeyDown={(e) => e.code === 'Escape' && setNaming(false)}
+            onKeyDown={(e) => {
+              if (e.code !== 'Escape') return
+              e.preventDefault() // the menu stays open: the next Esc closes it
+              setNaming(false)
+            }}
             onSubmit={(e) => {
               e.preventDefault()
               const name = String(new FormData(e.currentTarget).get('name')).trim()
@@ -337,7 +348,7 @@ export function SetMenu() {
             left out: {d}
           </p>
         ))}
-      </div>
-    </details>
+      </Pop>
+    </span>
   )
 }

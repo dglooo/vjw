@@ -1,313 +1,170 @@
 #ui {
+  /* One token set for the top bar, its popovers and the file transport (user 2026-11-21). Dark glass with no blur (a
+     backdrop blur costs GPU every frame, ui/panel.css); one accent, amber, for state only (on, armed, locked, held);
+     red for the alarms (clipping, recording). --ink-3 keeps 4.5:1 on the glass over a white stage. */
+  --ink: #ececec;
+  --ink-2: #b4b4b4;
+  --ink-3: #8c8c8c;
+  --glass: #0c0c0ceb;
+  --raise: #ffffff12; /* hover */
+  --press: #ffffff21; /* held down, or its popover open */
+  --line: #ffffff1c;
+  --accent: #f2c14e;
+  --accent-bg: #f2c14e21;
+  --accent-line: #f2c14e70;
+  --alarm: #ff5a4f;
   pointer-events: none; /* the stage and the document drop target stay reachable */
   font: 13px/1.4 system-ui, sans-serif;
   color: #d8d8d8;
 }
+#ui ::selection {
+  background: #ffffff3a;
+}
 
+/* The bars: the top one (five groups) and the file transport at the bottom. Nothing in them wraps. */
 .bar {
   position: absolute;
   inset: 0 0 auto;
   isolation: isolate; /* the gradient (::before, z-index −1) stays behind the items */
   display: flex;
   align-items: center;
-  gap: 10px; /* 16 px left the controls alone wider than a 1440 px screen (user 2026-11-21) */
-  padding: 12px 18px 28px;
+  gap: 8px;
+  padding: 10px 12px 22px;
+  font-size: 12px;
+  white-space: nowrap;
   pointer-events: auto;
 }
-/* The bar fades item by item, not as a group, so the REC dot can stay: a forgotten take is never invisible. So does a
-   lit CLIP: the DJ trims the mixer without touching the mouse. */
 .bar::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(#000b, #0000);
-}
-.bar::before,
-.bar > * {
-  transition: opacity 0.5s ease, color 0.5s ease;
-}
-.bar.hidden {
-  pointer-events: none;
-}
-.bar.hidden::before,
-.bar.hidden > :not(.rec, .clip.on) {
-  opacity: 0;
-}
-:root:has(.bar.hidden) {
-  cursor: none; /* the cursor hides with the bar */
+  background: linear-gradient(#0009, #0000);
 }
 
-/* Save as preset… (Panel.tsx PresetSelect): a name field in place of the select */
-.bar .preset {
+/* A group: one glass strip; its controls are flat, lit on hover. Input and scene sit left, audio, tools and status
+   right. */
+.bar > .group {
   display: flex;
-  gap: 6px;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 3px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: 0 6px 18px -8px #000;
 }
-.bar select,
-.bar button,
-.bar .preset input,
-.bar .bpm input,
-.bar .setlist .at input {
-  max-width: 40ch;
-  padding: 5px 8px;
+.bar > .audio {
+  margin-left: auto;
+}
+/* Short of room, the input's and the scene's names give way (an ellipsis, the whole name in the title), never a wrap */
+.bar > :is(.src, .deck),
+.bar .src .chip {
+  flex-shrink: 1;
+  min-width: 0;
+}
+.bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
   font: inherit;
   color: inherit;
-  background: #121212cc;
-  border: 1px solid #ffffff2a;
+  background: none;
+  border: 0;
   border-radius: 6px;
-}
-
-/* The file transport (Overlay.tsx): the same bar at the bottom, its gradient flipped */
-.bar.transport {
-  inset: auto 0 0;
-  gap: 10px;
-  padding: 28px 18px 12px;
-}
-.bar.transport::before {
-  background: linear-gradient(#0000, #000b);
-}
-/* Docked under an editor screen (user 2026-11-20), which ends above it: the bar never covers the code or the list. */
-.bar.transport.docked {
-  padding: 0 12px 12px; /* 30 px of controls: a 42 px strip */
-}
-#ui:has(> .transport.docked) > :is(.editor, .shader) {
-  bottom: 42px;
-}
-.transport input[type='range'] {
-  flex: 1;
-  margin: 0 6px;
-  accent-color: #d8d8d8;
-}
-.transport .time {
-  min-width: 11ch;
-  text-align: right;
-  opacity: 0.55;
-  font-variant-numeric: tabular-nums;
-}
-
-.bar button[aria-pressed='false'] {
-  text-decoration: line-through; /* "Video" off: the camera picture is hidden */
-  color: #8888;
-}
-
-.hint {
-  opacity: 0.55;
-}
-
-/* One line at any width (user 2026-11-21): no item in the top bar wraps, and none is pushed past the edge. The hints (the
-   track name) and the scene name take only the room left over (no base width), cut with an ellipsis. Still short of room,
-   the quality badge and the device, camera and preset selects give way, then the analyser, genre and sens selects; a
-   select stops at 10ch, still clickable. A flex-shrink factor weighs each item's width (30 against 1: the first group
-   goes nearly alone). The menus (details) keep wrapping inside; their summaries are nowrap already. */
-.bar > :not(details) {
-  white-space: nowrap;
-}
-.bar > :is(.hint, .scene, .quality) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.bar > :is(.hint, .scene) {
-  flex: 1 1 0;
-  max-width: max-content;
-}
-.bar > :is(.quality, select) {
-  flex-shrink: 30;
-}
-.bar > select {
-  min-width: 10ch;
-}
-.bar > select:is([aria-label='Analyser'], [aria-label='Genre'], [aria-label='Sensitivity']) {
-  flex-shrink: 1;
-}
-
-.scene {
-  margin-left: auto;
-  opacity: 0.55;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.bpm {
-  display: flex; /* the BPM field (Bpm.tsx): the live BPM, or a manual lock in the lock's amber */
-  gap: 6px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.06em;
-}
-.bpm.unsure {
-  opacity: 0.35; /* (c) not trusted: the scenes react to energy and onsets only */
-}
-.bpm label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.bar .bpm input {
-  width: 6ch;
-  text-align: right;
-}
-.bpm.unsure:focus-within {
-  opacity: 1;
-}
-.bar .bpm.held input {
-  color: #f2c14e;
-  border-color: #f2c14e88;
-}
-
-/* The MIDI menu (Midi.tsx): a summary in the bar, the menu under it */
-.midi {
-  position: relative;
-}
-.midi summary {
-  padding: 5px 8px;
-  white-space: nowrap;
-  list-style: none;
   cursor: pointer;
-  background: #121212cc;
-  border: 1px solid #ffffff2a;
-  border-radius: 6px;
+  transition: opacity 0.5s ease, background-color 0.12s, color 0.12s;
 }
-.midi summary::-webkit-details-marker {
-  display: none;
+.bar button:hover {
+  background: var(--raise);
 }
-.midi .menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 280px;
-  max-height: 60vh;
-  overflow-y: auto;
-  padding: 10px;
-  background: #0b0b0bf0;
-  border: 1px solid #ffffff17;
-  border-radius: 10px;
+.bar button:active,
+.bar button:has(+ .pop:popover-open) {
+  background: var(--press);
 }
-.midi .line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+.bar button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: none;
 }
-.midi .map {
-  justify-content: space-between;
-  flex-wrap: nowrap;
+.bar button:is([aria-pressed='true'], .on) {
+  color: var(--accent);
+  background: var(--accent-bg);
 }
-.midi p {
-  margin: 0;
+.bar .icon {
+  justify-content: center;
+  width: 26px;
+  padding: 0;
 }
-.midi .err {
-  color: #ff6b6b;
+.bar :focus-visible,
+.pop :focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
 }
-.bar .midi button[aria-pressed='false'] {
-  text-decoration: none; /* not the Video toggle's strike-through: off is the label */
-  color: inherit;
+.ico {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
-.bar .midi button:is([aria-pressed='true'], .on) {
-  color: #f2c14e;
-  border-color: #f2c14e88;
+.ico-rec,
+.ico-play,
+.ico-pause {
+  fill: currentColor;
+  stroke: none;
 }
-/* The Set menu (SetList.tsx) wears the MIDI menu's look; armed, its summary in the lock's amber. Its cues drag into
-   order by their names, the insert line above the row a drop lands before (the add button: the end). */
-.setlist .menu {
-  width: 380px;
+[aria-pressed='true'] > .ico-star {
+  fill: currentColor;
 }
-.bar .setlist summary.on,
-.setlist .cue.on > span {
-  color: #f2c14e;
-  border-color: #f2c14e88;
-}
-.setlist .cue {
-  flex-wrap: wrap; /* its switches on a second line */
-}
-.setlist .cue .at {
-  display: flex;
-  flex-basis: 100%;
-  gap: 6px;
-  padding-left: 1.4em;
-}
-.bar .setlist .cue .at :is(select, input) {
-  max-width: none;
-  opacity: 0.8;
-}
-.bar .setlist .cue .at input {
-  width: 7ch;
-}
-.setlist .cue > span {
-  flex: 1;
+.bar .name {
+  min-width: 0;
+  max-width: 16ch;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: grab;
 }
-.setlist .cue.gone > span {
-  text-decoration: line-through; /* its scene is gone: the cue sits out */
-  opacity: 0.55;
+.bar .sep {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: var(--line);
 }
-.bar .setlist .cue select {
-  max-width: 11ch;
-}
-.setlist .ins {
-  box-shadow: 0 -3px 0 #f2c14e;
-}
-/* The timeline strip (SetList.tsx): a block per cue, its width by its bars (a hold: a short ∞ block), the cue on stage
-   lit (the MIDI menu's .on), a jump's cue outlined until its bar line, the playhead through the cue on stage; the
-   insert line left of the block a drop lands before (past the last: right of it). */
-.setlist .strip {
-  position: relative;
-  flex: none; /* a scroll container: in the menu's column it would shrink to nothing when the list overflows */
-  display: flex;
-  gap: 2px;
-  overflow-x: auto;
-}
-.bar .setlist .strip button {
-  min-width: 22px;
-  padding: 4px 5px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-align: left;
-  font-size: 11px;
-}
-.setlist .strip .next {
-  outline: 1px dashed #f2c14e;
-  outline-offset: -3px;
-}
-.setlist .strip .gone {
-  text-decoration: line-through;
-  opacity: 0.55;
-}
-.setlist .strip .ins {
-  box-shadow: -3px 0 0 #f2c14e;
-}
-.setlist .strip .end {
-  box-shadow: 3px 0 0 #f2c14e;
-}
-.setlist .strip .head {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 2px;
-  background: #fff;
-  pointer-events: none;
+.bar kbd {
+  min-width: 16px;
+  box-sizing: border-box;
+  padding: 0 3px;
+  font: 500 10px/14px system-ui, sans-serif;
+  text-align: center;
+  color: var(--ink-3);
+  border: 1px solid var(--line);
+  border-radius: 4px;
 }
 
-/* Learn mode: the sliders a click arms */
-.midi-learn [data-midi] {
-  outline: 1px dashed #f2c14e;
-  outline-offset: 2px;
-  cursor: crosshair;
+/* 1 Input: the source, its level, CLIP and the camera's state on one chip. Clipping rings the chip red and lights CLIP;
+   on line-in the name reads the fix (the full text: the chip's title and the popover). */
+.chip.input .name.warn {
+  color: var(--alarm);
 }
-
-/* The input meter (dsp_linein_2026-11-16 fix 5) */
+.chip.input.clipping {
+  box-shadow: inset 0 0 0 1px var(--alarm);
+}
 .level {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .level meter {
-  width: 96px;
-  height: 8px;
+  width: 56px;
+  height: 6px;
 }
 .level meter::-webkit-meter-bar {
   background: #ffffff1f;
@@ -324,56 +181,468 @@
   background: #ff4d4d;
 }
 .level span {
-  min-width: 8ch;
-  opacity: 0.55;
+  min-width: 7.5ch;
+  font-size: 11px;
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 .clip {
-  padding: 1px 7px;
-  transition: opacity 0.5s ease; /* not the bar's colour fade: the light comes on at once */
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  color: #ff4d4d66;
-  border: 1px solid #ff4d4d40;
+  padding: 0 5px;
+  font: 600 9.5px/15px system-ui, sans-serif;
+  letter-spacing: 0.1em;
+  color: #ff5a4f80;
+  border: 1px solid #ff5a4f45;
   border-radius: 4px;
+  transition: opacity 0.5s ease; /* not a colour fade: the light comes on at once */
 }
 .clip.on {
   color: #fff;
   background: #e5302f;
   border-color: #e5302f;
 }
-.hint.warn {
-  opacity: 1;
-  color: #ff6b6b;
+.cam {
+  display: flex;
+  color: var(--ink-3);
+}
+.cam.warn {
+  color: var(--alarm);
 }
 
-.lock {
-  padding: 1px 9px;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #f2c14e;
-  border: 1px solid #f2c14e88;
-  border-radius: 999px;
-}
-
-.quality {
-  opacity: 0.55;
-  font-variant-numeric: tabular-nums; /* the counter doesn't jitter */
-}
-
-.rec {
+/* 2 Scene: ‹ name ›, the preset and its star, the hold */
+.bar .deck .name {
+  max-width: 26ch;
+  padding: 0 4px;
   font-weight: 600;
-  letter-spacing: 0.14em;
-  color: #ff4d4d;
 }
-.rec::before {
-  content: '● ';
-  color: #ff4d4d; /* its own colour: the word fades with the bar, the dot stays */
+.bar .preset .name {
+  max-width: 16ch;
 }
-.bar.hidden .rec {
-  color: transparent;
+
+/* 3 Audio: the analysis summary and the BPM (dim while unsure, amber when held) */
+.chip .bpm {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.chip .bpm small {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.chip .bpm.unsure {
+  opacity: 0.45;
+}
+.chip .bpm.held {
+  color: var(--accent);
+}
+.chip .bpm .ico {
+  width: 12px;
+  height: 12px;
+}
+
+/* 4 Tools. Text is on by default: off, it is struck through (the text layers are hidden), not lit. */
+.bar .tool.text[aria-pressed='true'] {
+  color: inherit;
+  background: none;
+}
+.bar .tool.text[aria-pressed='true']:hover {
+  background: var(--raise);
+}
+.bar .tool.text[aria-pressed='false'] {
+  color: var(--ink-3);
+}
+.bar .tool.text[aria-pressed='false'] .label {
+  text-decoration: line-through;
+}
+.bar .tool .label {
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bar .rec .ico {
+  color: #ff5a4fb0;
+}
+.bar .rec.on {
+  color: var(--alarm);
+  background: #ff5a4f21;
+}
+.bar .rec.on .ico {
+  color: var(--alarm);
+}
+.bar .drop {
+  display: contents; /* the Set menu's drop target, no box of its own */
+}
+
+/* 5 Status */
+.bar > .status {
+  gap: 10px;
+  padding: 0 10px;
+  font-size: 11px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums; /* the counters don't jitter */
+}
+
+/* Idle: the bar fades item by item, not as a group, so a lit CLIP and the REC dot stay: the DJ trims the mixer without
+   touching the mouse, and a forgotten take is never invisible. An open popover fades with it, as the panels do. */
+.bar::before,
+.bar > .group,
+.bar > .group > :not(button),
+.bar.transport > :not(button),
+.pop {
+  transition: opacity 0.5s ease, background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+}
+.bar.hidden {
+  pointer-events: none;
+}
+.bar.hidden::before,
+.bar.hidden > .group > :not(.clipping, .rec.on),
+.bar.hidden .drop > button,
+.bar.hidden .pop,
+.bar.transport.hidden > * {
+  opacity: 0;
+}
+.bar.hidden > .group,
+.bar.hidden .clipping,
+.bar.hidden .rec.on {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+.bar.hidden .clipping > :not(.clip),
+.bar.hidden .rec.on > :not(.ico) {
+  opacity: 0;
+}
+:root:has(.bar.hidden) {
+  cursor: none; /* the cursor hides with the bar */
+}
+
+/* A popover (Pop.tsx): under its button, flipped left at the right edge; light dismiss and Esc are the browser's. */
+.pop {
+  position-area: bottom span-right;
+  position-try-fallbacks: flip-inline;
+  inset: auto;
+  margin: 6px 0 0;
+  box-sizing: border-box;
+  min-width: 230px;
+  max-width: 340px;
+  max-height: calc(100vh - 70px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+  font-size: 12px;
+  white-space: normal;
+  color: var(--ink);
+  background: #0b0b0bf5;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 18px 40px -10px #000;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff2e transparent;
+}
+.pop:popover-open {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pop h3,
+.pop .seg > span,
+.pop .bpm > span {
+  margin: 6px 4px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.pop h3:first-child,
+.pop .seg:first-child > span {
+  margin-top: 0;
+}
+.pop p {
+  margin: 2px 4px;
+}
+.pop .hint {
+  opacity: 1;
+  color: var(--ink-2);
+}
+.pop .err {
+  color: var(--alarm);
+}
+.pop button,
+.pop select,
+.pop input {
+  height: 26px;
+  box-sizing: border-box;
+  padding: 0 9px;
+  font: inherit;
+  color: inherit;
+  background: #ffffff0d;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.pop button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.pop button:hover {
+  background: var(--raise);
+  border-color: #ffffff30;
+}
+.pop button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pop :is(button[aria-pressed='true'], .on) {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: var(--accent-line);
+}
+.pop input:focus {
+  border-color: #ffffff59;
+}
+.pop .line,
+.pop .seg,
+.pop .bpm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.pop .seg > span,
+.pop .bpm > span {
+  flex-basis: 100%;
+}
+/* An option of a list (a device, a camera): the pick lit, its check shown */
+.pop .opt {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  background: none;
+  border-color: transparent;
+}
+.pop .opt .ico-check {
+  visibility: hidden;
+}
+.pop .opt[aria-pressed='true'] {
+  background: none;
+  border-color: transparent;
+}
+.pop .opt[aria-pressed='true'] .ico-check {
+  visibility: visible;
+}
+.pop .bpm input {
+  width: 8ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.pop .bpm.unsure input {
+  color: var(--ink-3);
+}
+.pop .bpm.held input {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.pop .bpm .ico {
+  width: 13px;
+  height: 13px;
+}
+
+/* The MIDI menu (Midi.tsx) */
+.pop-midi {
+  width: 280px;
+}
+.pop .map {
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+/* Learn mode: the sliders a click arms */
+.midi-learn [data-midi] {
+  outline: 1px dashed #f2c14e;
+  outline-offset: 2px;
+  cursor: crosshair;
+}
+
+/* The Set menu (SetList.tsx). Its cues drag into order by their names, the insert line above the row a drop lands
+   before (the add button: the end). */
+.pop-set {
+  width: 380px;
+  max-width: none;
+}
+.pop-set .cue.on > span {
+  color: var(--accent);
+}
+.pop-set .cue {
+  flex-wrap: wrap; /* its switches on a second line */
+}
+.pop-set .cue .at {
+  display: flex;
+  flex-basis: 100%;
+  gap: 6px;
+  padding-left: 1.4em;
+}
+.pop-set .cue .at :is(select, input) {
+  max-width: none;
+  opacity: 0.8;
+}
+.pop-set .cue .at input {
+  width: 7ch;
+}
+.pop-set .cue > span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: grab;
+}
+.pop-set .cue.gone > span {
+  text-decoration: line-through; /* its scene is gone: the cue sits out */
+  opacity: 0.55;
+}
+.pop-set .cue select {
+  max-width: 11ch;
+}
+.pop-set .ins {
+  box-shadow: 0 -3px 0 #f2c14e;
+}
+/* The timeline strip (SetList.tsx): a block per cue, its width by its bars (a hold: a short ∞ block), the cue on stage
+   lit, a jump's cue outlined until its bar line, the playhead through the cue on stage; the insert line left of the
+   block a drop lands before (past the last: right of it). */
+.pop-set .strip {
+  position: relative;
+  flex: none; /* a scroll container: in the menu's column it would shrink to nothing when the list overflows */
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+}
+.pop-set .strip button {
+  min-width: 22px;
+  padding: 4px 5px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: left;
+  font-size: 11px;
+}
+.pop-set .strip .next {
+  outline: 1px dashed #f2c14e;
+  outline-offset: -3px;
+}
+.pop-set .strip .gone {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+.pop-set .strip .ins {
+  box-shadow: -3px 0 0 #f2c14e;
+}
+.pop-set .strip .end {
+  box-shadow: 3px 0 0 #f2c14e;
+}
+.pop-set .strip .head {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: #fff;
+  pointer-events: none;
+}
+
+/* The file transport (Overlay.tsx): the same bar at the bottom, its gradient flipped */
+.bar.transport {
+  inset: auto 0 0;
+  padding: 22px 12px 10px;
+}
+.bar.transport::before {
+  background: linear-gradient(#0000, #0009);
+}
+.bar.transport > button {
+  justify-content: center;
+  min-width: 34px;
+  height: 28px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+}
+.bar.transport > button:hover {
+  background: #1d1d1deb;
+}
+/* Docked under an editor screen (user 2026-11-20), which ends above it: the bar never covers the code or the list. */
+.bar.transport.docked {
+  padding: 0 12px 7px; /* 28 px of controls: a 42 px strip */
+}
+#ui:has(> .transport.docked) > :is(.editor, .shader) {
+  bottom: 42px;
+}
+.transport input[type='range'] {
+  flex: 1;
+  margin: 0 6px;
+  accent-color: var(--ink);
+}
+.transport .time {
+  min-width: 11ch;
+  text-align: right;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Narrower screens: one line always, nothing squeezed (user 2026-11-21: «Allow au», «preset: (» at 1440). Under 1600 px
+   the input's dB number and the tools' icons go (names and keys stay); under 1300 the tools' names (icons and keys
+   stay, the name in the title and to a screen reader); under 1100 the keys and the input and audio summaries. */
+@media (width < 1600px) {
+  .level span {
+    display: none;
+  }
+}
+@media (1300px <= width < 1600px) {
+  .bar .tool:not(.rec) > .ico {
+    display: none;
+  }
+}
+@media (width < 1300px) {
+  .bar .tool .label,
+  .chip .bpm small {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .bar .chip.input .name {
+    max-width: 12ch;
+  }
+}
+@media (width < 1100px) {
+  .bar kbd {
+    display: none;
+  }
+  .bar :is(.chip.input, .audio) .name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .bar .deck .name {
+    max-width: 12ch;
+  }
+  .bar .preset .name {
+    max-width: 8ch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar,
+  .bar *,
+  .bar::before,
+  .pop {
+    transition: none !important;
+  }
+}
+
+.hint {
+  opacity: 0.55;
 }
 
 .start {

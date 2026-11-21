@@ -58,8 +58,9 @@ function BandForm() {
 }
 
 const ANALYSER_HINT = 'ours: our detectors drive every scene. vs2: the donor-style core (visual system 2) drives the syn_* inputs. vs3: the vs3 scenes hear through the friends\' vs3 analyser (kick, onsets, levels, spectrum); every other scene as ours. off · A: no reaction, every scene plays its own look on a steady idle signal (levels at their middle, no hits, no beat grid), a bound input at its slider value; A turns the mode before back on. A hit\'s light stays flash-gated in every mode.'
-/** The analyser pick (plan_audio_donor_mode S3.3; 'vs3', audio/vs3.ts): in the top bar and on this tab, one setting, so
- *  the two stay in step. app.ts ramps src.donorMix toward 'donor' in 2 s; 'vs3' switches the vs3 scenes at once. */
+/** The analyser pick (plan_audio_donor_mode S3.3; 'vs3', audio/vs3.ts): on this tab and in the top bar's audio popover
+ *  (AudioMenu), one setting, so the two stay in step. app.ts ramps src.donorMix toward 'donor' in 2 s; 'vs3' switches
+ *  the vs3 scenes at once. */
 export function AnalyserSelect() {
   const a = useSyncExternalStore(settings.onChange, () => settings.get().analyser)
   return (
@@ -72,7 +73,6 @@ export function AnalyserSelect() {
         settings.patch({ analyser: e.currentTarget.value as typeof a })
       }}
     >
-      {/* no "analyser:" word: a select is as wide as its widest option, and the top bar is full (user 2026-11-21) */}
       <option value="ours">ours</option>
       <option value="donor">vs2</option>
       <option value="vs3">vs3</option>
@@ -81,58 +81,57 @@ export function AnalyserSelect() {
   )
 }
 
-/** The genre pick (`auto` or a preset id), from the top bar's select and this tab's: one write through pickToPatch, and
- *  both show `pick ?? 'auto'`, so the two stay in step (SourcesTab.test.ts). */
+/** The genre pick (`auto` or a preset id), from the top bar's audio popover and this tab's select: one write through
+ *  pickToPatch, and both show `pick ?? 'auto'`, so the two stay in step (SourcesTab.test.ts). */
 const pickGenre = (value: string) => settings.patch(pickToPatch('picker', value, settings.get(), store.getSnapshot().style.detected))
 
 const GENRE_HINT = 'The analyser profile per genre (the Sources tab preset): its tempo range and kick/snare knobs. auto follows the detected genre (dnb, dubstep or techno); psy and house are hand picks.'
-/** The genre profile in the top bar (user 2026-11-21), short labels; under Auto it names the detected genre. Hidden while
- *  the analyser is off: no scene hears it then. */
-export function GenreSelect() {
-  const s = useSyncExternalStore(settings.onChange, settings.get)
-  const detected = useSyncExternalStore(store.subscribe, () => store.getSnapshot().style.detected)
-  if (s.analyser === 'off') return null
+const SENS_HINT = 'Kick and snare detector sensitivity for the genre profile: low = fewer hits (thresholds × 1.15), mid = the profile as tuned, high = more hits (× 0.87), more false ones too. A hit\'s light stays flash-gated.'
+const ANALYSERS = [['ours', 'ours'], ['donor', 'vs2'], ['vs3', 'vs3'], ['off', 'off']] as const
+
+/** One setting as a row of one-click buttons, the current one pressed. */
+function Seg<V extends string>({ label, hint, value, options, set }: { label: string; hint: string; value: V; options: readonly (readonly [V, string])[]; set: (v: V) => void }) {
   return (
-    <select
-      aria-label="Genre"
-      title={GENRE_HINT}
-      value={s.pick ?? 'auto'}
-      onChange={(e) => {
-        e.currentTarget.blur() // a focused select would eat hotkeys as type-ahead
-        pickGenre(e.currentTarget.value)
-      }}
-    >
-      <option value="auto">{s.auto && detected ? `genre: auto · ${detected}` : 'genre: auto'}</option>
-      {(Object.keys(PRESETS) as PresetId[]).map((id) => (
-        <option key={id} value={id}>
-          genre: {id}
-        </option>
+    <div className="seg" role="group" aria-label={label} title={hint}>
+      <span>{label}</span>
+      {options.map(([v, text]) => (
+        <button key={v} aria-pressed={v === value} onClick={() => set(v)}>
+          {text}
+        </button>
       ))}
-    </select>
+    </div>
   )
 }
 
-const SENS_HINT = 'Kick and snare detector sensitivity for the genre profile: low = fewer hits (thresholds × 1.15), mid = the profile as tuned, high = more hits (× 0.87), more false ones too. A hit\'s light stays flash-gated.'
-/** The detector sensitivity beside the genre pick (user 2026-11-21; settings.ts workletBands scales the active preset's
- *  kick and snare thresholds). Hidden while the analyser is off, as the genre pick. */
-export function SensitivitySelect() {
+/** The top bar's audio popover (user 2026-11-21): the analyser, the genre profile (under auto, the detected genre) and
+ *  the detector sensitivity (settings.ts workletBands scales the active preset's kick and snare thresholds), one write
+ *  path each with this tab, so the two stay in step. Genre and sensitivity hide while the analyser is off: no scene
+ *  hears them then. */
+export function AudioMenu() {
   const s = useSyncExternalStore(settings.onChange, settings.get)
-  if (s.analyser === 'off') return null
+  const detected = useSyncExternalStore(store.subscribe, () => store.getSnapshot().style.detected)
   return (
-    <select
-      aria-label="Sensitivity"
-      title={SENS_HINT}
-      value={s.sensitivity ?? 'mid'}
-      onChange={(e) => {
-        e.currentTarget.blur() // a focused select would eat hotkeys as type-ahead
-        const v = e.currentTarget.value
-        settings.patch({ sensitivity: v === 'low' || v === 'high' ? v : undefined }) // mid = no field
-      }}
-    >
-      <option value="low">sens: low</option>
-      <option value="mid">sens: mid</option>
-      <option value="high">sens: high</option>
-    </select>
+    <>
+      <Seg label="Analyser" hint={ANALYSER_HINT} value={s.analyser} options={ANALYSERS} set={(analyser) => settings.patch({ analyser })} />
+      {s.analyser !== 'off' && (
+        <>
+          <Seg
+            label="Genre"
+            hint={GENRE_HINT}
+            value={s.pick ?? 'auto'}
+            options={[['auto', s.auto && detected ? `auto · ${detected}` : 'auto'], ...(Object.keys(PRESETS) as PresetId[]).map((id) => [id, id] as const)]}
+            set={pickGenre}
+          />
+          <Seg
+            label="Sensitivity"
+            hint={SENS_HINT}
+            value={s.sensitivity ?? 'mid'}
+            options={[['low', 'low'], ['mid', 'mid'], ['high', 'high']]}
+            set={(v) => settings.patch({ sensitivity: v === 'mid' ? undefined : v })} // mid = no field
+          />
+        </>
+      )}
+    </>
   )
 }
 
