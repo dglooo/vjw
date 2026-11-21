@@ -36,10 +36,10 @@ export function Icon({ name }: { name: keyof typeof PATHS }) {
 
 /** A bar button and its popover (the Popover API: an outside click or Esc closes it, one is open at a time), anchored
  *  under the button and flipped left at the right edge (CSS anchor positioning, overlay.css .pop). */
-export function Pop(p: { id: string; className: string; title?: string; label: ReactNode; onToggle?: ToggleEventHandler<HTMLDivElement>; children: ReactNode }) {
+export function Pop(p: { id: string; className: string; title?: string; disabled?: boolean; label: ReactNode; onToggle?: ToggleEventHandler<HTMLDivElement>; children: ReactNode }) {
   return (
     <>
-      <button className={p.className} title={p.title} popoverTarget={p.id} style={{ anchorName: `--${p.id}` }}>
+      <button className={p.className} title={p.title} disabled={p.disabled} popoverTarget={p.id} style={{ anchorName: `--${p.id}` }}>
         {p.label}
       </button>
       <div id={p.id} popover="auto" className={`pop ${p.id}`} style={{ positionAnchor: `--${p.id}` }} onToggle={p.onToggle}>
