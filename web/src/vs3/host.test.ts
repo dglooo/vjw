@@ -3,6 +3,7 @@
 import { expect, test, vi } from 'vitest'
 import { defaults } from '../doc'
 import type { Input } from '../fx/types'
+import { factory, factoryRefs } from '../presets'
 import { BUILTIN } from '../scenes/builtin'
 import { chainState, frame, type LookValues } from './chain'
 import { FINISH, PALETTES, paramInputs, put, putLook, screen, signal, specHi, VS3, type Signal } from './host'
@@ -117,6 +118,24 @@ test("V3 look inputs: every vs3 native ends with the 15 shipped look keys in gro
       : { name: k, type: 'float', group: 'look', default: want[k], min: ranges[k][0], max: ranges[k][1], ...(k === 'bloomMul' || k === 'brightness' ? { bindable: false } : {}) }))
     for (const k of ['react', 'chaos', 'trails', 'heat']) expect(d.inputs.find((i) => i.name === k), `${d.id} ${k}`).toEqual({ name: k, type: 'float', group: 'look', default: 0.5, min: 0, max: 1 }) // no bindable: false
   }
+})
+
+test('M1 hot preset: ★ magma — Magmatic Eye on vs3 morphogen2 carries its post and macros; each look key a look input of the native, inside look.ranges; heat ≥ .75', () => {
+  const ranges = look.ranges as Record<string, number[]>, d = VS3.find((x) => x.id === 'native/vs3-morphogen2')!
+  const v = factory(d.id).find((p) => p.name === '★ magma — Magmatic Eye')!.values
+  for (const k of Object.keys(v).filter((k) => k in ranges)) {
+    expect(d.inputs.find((i) => i.name === k)?.group, k).toBe('look')
+    expect(v[k] as number, k).toBeGreaterThanOrEqual(ranges[k][0])
+    expect(v[k] as number, k).toBeLessThanOrEqual(ranges[k][1])
+  }
+  expect(v.heat).toBeGreaterThanOrEqual(0.75) // its macro
+  expect(v.brightness).toBe(2.4) // and its post
+})
+
+test('M2 only one: no other factory preset holds a look key (S7.1 deletes this test)', () => {
+  const keys = Object.keys(look.ranges)
+  expect(factoryRefs.flatMap((r) => factory(r).filter((p) => Object.keys(p.values).some((k) => keys.includes(k))).map((p) => `${r} ${p.name}`)))
+    .toEqual(['native/vs3-morphogen2 ★ magma — Magmatic Eye'])
 })
 
 test('V4 built-ins: no vs3 built-in doc carries isf/Mirror, isf/Kaleidoscope or own/feedback-zoom; its only fx is a vs3 filter (Limitless)', () => {

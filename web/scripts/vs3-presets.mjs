@@ -2,9 +2,10 @@
 // (user 2026-11-20: presets «как у них»; 2026-11-21: all of them). Reads the friends' FACTORY_PRESETS table in
 // donor/vs3/visual_system_3/renderer/main.js AS TEXT (the literal turned into JSON, never evaluated) and maps each
 // preset's palette and its scene's rows (mode, model, sliders, checkboxes) onto our inputs (vs3/params.json + the palette
-// select). The post chain and the macros have no input here (the post-chain epic): dropped and counted, as is a custom
-// palette (the preset then leaves the palette as it is). A preset whose look needs what we lack (no native, a scene row
-// with no input, a logo or a scene on the LED wall) is dropped whole, with its reason, and so is one that would be
+// select). The post chain and the macros: only LOOK_NOW's presets carry theirs (the keys with an input so far); the rest
+// are dropped and counted, as is a custom palette (the preset then leaves the palette as it is). A preset whose look
+// needs what we lack (no native, a scene row with no input, a logo or a scene on the LED wall) is dropped whole, with
+// its reason, and so is one that would be
 // another's twin here. The thumbs are the donor's jpgs (vendor/thumbs/presets/index.json names them), copied under
 // their own file names. Also writes web/src/vs3/look.json, the post chain's defaults, ranges and scene rows (the end).
 // usage (cwd web/): node scripts/vs3-presets.mjs [path/to/main.js]
@@ -51,16 +52,25 @@ const drop = (k) => (dropped[k] = (dropped[k] ?? 0) + 1)
 // Scene rows with no look while at these values, so no input needs them: morphogen 2.0's legacy cream flag (the scene
 // turns it into its mode), its logo chip (no logo here) and its regrow / clear buttons' counters.
 const IDLE = { cream: false, logo: 0, regrowN: 0, clearN: 0 }
+// plan_vs3_engine S3.3: the one hot preset for the user's check carries its post and macro values, on the look inputs
+// shipped so far (vs3/host.ts LOOK_KEYS); S7.1 deletes LOOK_NOW (every preset its whole look).
+const LOOK_NOW = {
+  keys: ['bloomMul', 'aber', 'vignette', 'brightness', 'mirror', 'tiles', 'twist', 'slice', 'spin', 'persist', 'zoom', 'trails', 'chaos', 'heat', 'react'],
+  names: ['★ morphogen 2.0 · magma — Magmatic Eye'],
+}
 /** The preset's values on our inputs, or why its look cannot be had here. A custom palette (limitless: its own
  *  colours, from the clip it was tuned on) is none of ours: the preset leaves the palette as it is. */
 function map(full, p) {
-  const name = OURS[p.scene] ?? p.scene, inputs = params[name]
+  const name = OURS[p.scene] ?? p.scene, inputs = params[name], hot = LOOK_NOW.names.includes(full)
   if (!inputs) return `no vs3 native "${p.scene}" here`
   const values = p.palette === 'custom' ? {} : { palette: palettes.indexOf(p.palette) }
   if (values.palette < 0) return `palette "${p.palette}"`
   for (const [k, v] of Object.entries(p)) {
-    if (k === 'post' || k === 'macros') Object.keys(v).forEach((x) => drop(`${k}.${x}`))
-    else if (k === 'sceneParams') Object.keys(v).filter((s) => s !== p.scene).forEach((s) => drop(`sceneParams.${s}`))
+    if (k === 'post' || k === 'macros') {
+      for (const [x, y] of Object.entries(v))
+        if (hot && LOOK_NOW.keys.includes(x)) values[x] = y
+        else drop(`${k}.${x}`)
+    } else if (k === 'sceneParams') Object.keys(v).filter((s) => s !== p.scene).forEach((s) => drop(`sceneParams.${s}`))
     else if (k !== 'scene' && (k !== 'palette' || v === 'custom')) drop(k)
   }
   const own = Object.entries(p.sceneParams?.[p.scene] ?? {}).filter(([k, v]) => IDLE[k] !== v), none = own.filter(([k]) => !inputs.some((x) => x.name === k)).map(([k]) => k)
