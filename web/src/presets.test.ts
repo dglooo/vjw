@@ -54,7 +54,7 @@ test('presetOf: the preset the values match; one edit makes it custom, the edit 
   const cur = { ...defaults(def), ...factory(def.id)[2].values }
   expect(presetOf(factory(def.id), cur)?.name).toBe('★ ring — Welcome To Tendril')
   const mine = { name: 'mine', values: savable(def, { ...cur, fill: 0.9 }) }
-  expect(Object.keys(mine.values)).toEqual(['palette', 'mode', 'speed', 'shape', 'complexity', 'density', 'fill', 'contrast', 'bloomMul', 'aber', 'vignette', 'brightness', 'mirror', 'tiles', 'twist', 'slice', 'spin', 'persist', 'zoom', 'trails', 'chaos', 'heat', 'react', 'lens', 'lensStyle']) // no ⚡ hit; the look's inputs (vs3e S2.2, S3.2, S5.2)
+  expect(Object.keys(mine.values)).toEqual(['palette', 'mode', 'speed', 'shape', 'complexity', 'density', 'fill', 'contrast', 'mirror', 'persist', 'zoom', 'spin', 'bloomMul', 'aber', 'vignette', 'brightness', 'hueDrift', 'lens', 'lensStyle', 'tiles', 'twist', 'slice', 'react', 'chaos', 'trails', 'heat']) // no ⚡ hit; the look's inputs, look.json's 18 in its order (vs3e S2.2, S3.2, S5.2, S6.1)
   const list = [...factory(def.id), mine]
   expect(presetOf(list, { ...cur, fill: 0.9 })?.name).toBe('mine')
   expect(presetOf(list, { ...cur, fill: 0.91 })).toBeUndefined() // custom

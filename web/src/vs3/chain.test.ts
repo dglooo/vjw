@@ -195,6 +195,21 @@ test('D10 motion clock (C6): the spin angle follows dt, not dtl', () => {
   expect(cf.warp.uAngle).toBe(c.angle)
 })
 
+test('U1 hue rate (S6.1): hueDrift 1 over 1 s of dt → .035 turn, on the layer clock (dt, not dtl); hueDrift 0 → no change; wrapped into [0, 1)', () => {
+  const st = chainState()
+  for (let i = 0; i < 60; i++) at({ hueDrift: 1 }, st, {}, 0, DT, DT / 4) // App.jsx:92: hueDrift · dt · .035
+  expect(st.hue).toBeCloseTo(0.035, 12)
+  const h = st.hue
+  for (let i = 0; i < 60; i++) at({ hueDrift: 0 }, st)
+  expect(st.hue).toBe(h)
+  st.hue = 0.99
+  at({ hueDrift: 1 }, st, {}, 0, 1) // one second of the layer clock across the wrap
+  expect(st.hue).toBeCloseTo(0.025, 12)
+  st.hue = 0
+  at({ hueDrift: -1 }, st) // a value under the range (a MIDI range past it) turns back, still inside [0, 1)
+  expect(st.hue).toBeCloseTo(1 - 0.035 / 60, 12)
+})
+
 test('the warp reads the reacted mids and sub, as the donor engine reads the reacted signal', () => {
   const st = chainState(), cf = at({ react: 1 }, st) // gain 2: mids .4 → .8, sub .3 → .6
   expect(cf.react).toBe(2)

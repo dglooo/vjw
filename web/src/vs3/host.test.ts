@@ -6,7 +6,7 @@ import type { Input } from '../fx/types'
 import { factory, factoryRefs } from '../presets'
 import { BUILTIN } from '../scenes/builtin'
 import { chainState, frame, PROBE, type LookValues } from './chain'
-import { FINISH, PALETTES, paramInputs, put, putLook, screen, signal, specHi, VS3, type Signal } from './host'
+import { FINISH, grainOf, PALETTES, paramInputs, put, putLook, screen, signal, specHi, turnHue, VS3, type Signal } from './host'
 import look from './look.json'
 
 const fsId = 'node:fs' // the app tsconfig has no node types (serpent.test.ts T-F2d)
@@ -107,30 +107,85 @@ test('put: the values into the params, mode back to its name, a mode index out o
   expect(P).toEqual({ mode: 'cross', fill: 0.1, own: 1 })
 })
 
-test("V3 look inputs: every vs3 native ends with the 15 look keys of S2.2 and S3.2 in group look, then lens and lensStyle (V6), base + its row as defaults (K1), look.json's ranges; mirror a long 0..12; the 4 macros bindable floats 0..1 at .5 (R1); bloomMul and brightness never bound", () => {
+test("V3 look inputs: every vs3 native has the 15 look keys of S2.2 and S3.2 in group look (V7: all 18, in order), base + its row as defaults (K1), look.json's ranges; mirror a long 0..12; the 4 macros bindable floats 0..1 at .5 (R1); bloomMul and brightness never bound", () => {
   const ranges = look.ranges as Record<string, number[]>, rows = look.scenes as Record<string, object | undefined>, folds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
   const keys = ['bloomMul', 'aber', 'vignette', 'brightness', 'mirror', 'tiles', 'twist', 'slice', 'spin', 'persist', 'zoom', 'trails', 'chaos', 'heat', 'react']
   for (const d of VS3) {
     const want: Record<string, number> = { ...look.base, ...rows[d.id.slice(11)] }
-    expect(d.inputs.filter((i) => i.group === 'look'), d.id).toHaveLength(17)
-    expect(d.inputs.slice(-17, -2), d.id).toEqual(keys.map((k) => k === 'mirror'
+    expect(keys.map((k) => d.inputs.find((i) => i.name === k)), d.id).toEqual(keys.map((k) => k === 'mirror'
       ? { name: k, type: 'long', group: 'look', values: folds, labels: folds.map(String), default: want[k] }
       : { name: k, type: 'float', group: 'look', default: want[k], min: ranges[k][0], max: ranges[k][1], ...(k === 'bloomMul' || k === 'brightness' ? { bindable: false } : {}) }))
     for (const k of ['react', 'chaos', 'trails', 'heat']) expect(d.inputs.find((i) => i.name === k), `${d.id} ${k}`).toEqual({ name: k, type: 'float', group: 'look', default: 0.5, min: 0, max: 1 }) // no bindable: false
   }
 })
 
-test("V6 lens inputs: every vs3 native ends with lens, a bindable float on look.json's range at its row's value (0 on every row), and lensStyle, a select of the 7 lensStyles at 0; putLook hands both to frame()", () => {
+test("V6 lens inputs: every vs3 native has lens, a bindable float on look.json's range at its row's value (0 on every row), and lensStyle, a select of the 7 lensStyles at 0; putLook hands both to frame()", () => {
   const rows = look.scenes as Record<string, { lens?: number } | undefined>
   for (const d of VS3) {
     expect(rows[d.id.slice(11)]?.lens ?? look.base.lens, d.id).toBe(0)
-    expect(d.inputs.slice(-2), d.id).toEqual([
+    expect(['lens', 'lensStyle'].map((k) => d.inputs.find((i) => i.name === k)), d.id).toEqual([
       { name: 'lens', type: 'float', group: 'look', default: 0, min: 0, max: 1 },
       { name: 'lensStyle', type: 'long', group: 'look', values: [0, 1, 2, 3, 4, 5, 6], labels: look.lensStyles, default: 0 },
     ])
   }
   expect(look.lensStyles).toHaveLength(7)
   expect(putLook({ ...look.base } as LookValues, { lens: 0.7, lensStyle: 4 })).toMatchObject({ lens: 0.7, lensStyle: 4 })
+})
+
+test("V7 all 18 (S6.1): every vs3 native ends with the 18 look inputs, look.json's keys in its order, in group look; hueDrift a bindable float 0..1 at 0; putLook hands it to frame()", () => {
+  const keys = Object.keys(look.base)
+  expect(keys).toHaveLength(18)
+  for (const d of VS3) {
+    expect(d.inputs.filter((i) => i.group === 'look').map((i) => i.name), d.id).toEqual(keys)
+    expect(d.inputs.slice(-18).map((i) => i.name), d.id).toEqual(keys) // after the ⚡ inputs, the palette and the scene's rows
+    expect(d.inputs.find((i) => i.name === 'hueDrift'), d.id).toEqual({ name: 'hueDrift', type: 'float', group: 'look', default: 0, min: 0, max: 1 })
+  }
+  expect(putLook({ ...look.base } as LookValues, { hueDrift: 0.6 }).hueDrift).toBe(0.6)
+})
+
+/** A three Color as these tests read it (three is untyped here, three/three.d.ts). */
+type C3 = { r: number; g: number; b: number; copy(c: C3): C3; clone(): C3; offsetHSL(h: number, s: number, l: number): C3; getHSL(t: object): { h: number; s: number } }
+const Y = (c: C3) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+/** Every slot of the 24 palettes (linear, as PAL holds them) turned by turnHue in 36 steps of a turn, from the source
+ *  colour each time as the host turns pal[]: `f`'s complaints. */
+const turns = async (f: (src: C3, out: C3, h: number) => string | null) => {
+  const { Color } = await import('three')
+  const { PRESETS } = await import('./kit/lib/palette.js')
+  const bad: string[] = []
+  expect(PRESETS).toHaveLength(24)
+  for (const p of PRESETS as { name: string; colors: string[] }[]) for (const hex of p.colors) for (let k = 0; k < 36; k++) {
+    const src: C3 = new Color(hex), why = f(src, turnHue(src, k / 36, new Color()) as C3, k / 36)
+    if (why) bad.push(`${p.name} ${hex} ${k}: ${why}`)
+  }
+  return bad
+}
+
+test('U2 gamut (C10): each of the 24 palettes × 5 slots stays inside [0, 1] over a full turn in 36 steps', async () => {
+  expect(await turns((_, c) => ([c.r, c.g, c.b].every((x) => x >= 0 && x <= 1) ? null : `${c.r} ${c.g} ${c.b}`))).toEqual([])
+})
+
+test("U4 luma steady (S6.1): over the turn each slot keeps its Rec.709 luma (±1e-9) and takes the donor's hue (offsetHSL's, ±1e-6) where it has one; h 0 is a plain copy", async () => {
+  expect(await turns((src, c, h) => {
+    if (Math.abs(Y(c) - Y(src)) > 1e-9) return `luma ${Y(src)} → ${Y(c)}`
+    const donor = src.clone().offsetHSL(h, 0, 0).getHSL({}), ours = c.getHSL({}), d = Math.abs(((((ours.h - donor.h) % 1) + 1.5) % 1) - 0.5)
+    return donor.s > 0.01 && ours.s > 0.01 && d > 1e-6 ? `hue ${donor.h} → ${ours.h}` : null
+  })).toEqual([])
+  const { Color } = await import('three')
+  const c: C3 = new Color('#7b3ff2'), out = turnHue(c, 0, new Color())
+  expect([out.r, out.g, out.b]).toEqual([c.r, c.g, c.b]) // no HSL round trip at 0
+})
+
+test('U3 grain fact: uGrain is 0 for lasers, morphogen2, the 3 recursive-flight scenes (crystal, pearl, spiral: their donor grain 0 too) and a filter (limitless); 1 else', async () => {
+  vi.stubGlobal('document', { createElement: () => canvas })
+  const zero: string[] = [], s: Signal = { onKick: 0, kick: 0, onMid: 0, onHigh: 0, sub: 0, mids: 0, highs: 0, air: 0, energy: 0, specHi: new Float32Array(192) }
+  for (const d of VS3) {
+    const g = grainOf((await d.load()).default(), d.kind === 'filter') // the scene object's own grain, as start() reads it
+    const facts = { hint: null, wet: 1, grain: g, lateTrails: 0, filter: d.kind === 'filter', bloomRow: 1, gainBase: look.base.brightness, vigRange: 0.8 }
+    expect(frame({ ...look.base } as LookValues, facts, s, 0, chainState(), [0.5, 0.5, 0.5], 1 / 60, 1 / 60, 0, 16 / 9).finish.uGrain, d.id).toBe(g)
+    if (g !== 1) zero.push(`${d.id.slice(11)} ${g}`)
+  }
+  vi.unstubAllGlobals()
+  expect(zero).toEqual(['lasers 0', 'crystal 0', 'pearl 0', 'spiral 0', 'morphogen2 0', 'limitless 0'])
 })
 
 test('M1 hot preset: ★ magma — Magmatic Eye on vs3 morphogen2 carries its post and macros; each look key a look input of the native, inside look.ranges; heat ≥ .75', () => {
@@ -182,6 +237,12 @@ test("V8 FINISH (S3b.2): uProbe and uExp; the gain × the servo's e (the pair ho
   expect(FINISH).toContain('raw * uGain * exp(texelFetch(uExp, ivec2(0), 0).r)')
   expect(FINISH).toContain('float l = any(isnan(col)) || any(isinf(col)) ? 0.0 :')
   expect(FINISH).toContain('uProbe > 0.5 ? vec4(l, step(0.85, l), 0.0, 1.0)')
+})
+
+test("V9 FINISH grain (S6.1): the donor's grain line after the vignette, × uGrain, rolled by uGrainT in its hash", () => {
+  expect(FINISH).toMatch(/uniform float [^;]*\buGrain\b[^;]*\buGrainT\b/)
+  expect(FINISH).toContain('float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7)) + uGrainT) * 43758.5453); }') // post-shaders.js:229
+  expect(FINISH).toContain('col *= 1.0 - uVig * dot(d, d) * 2.4;\n  col += (hash(uv * vec2(1287.0, 718.0)) - 0.5) * 0.028 * uGrain;') // :250, vUv → uv
 })
 
 test('putLook: the look values in; a non-finite one (a bound source gone bad) keeps the last, so the limiter never latches a NaN', () => {

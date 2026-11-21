@@ -9,7 +9,8 @@
 // mirror and feedback, the scene's fxHint / fxWet), the scene's own `bloom` field through our gl/bloom.ts (the natives'
 // internal bloom; strength as the donor engine.js:193, × the look's bloomMul), the lens (the look's lens and
 // lensStyle: the donor LensShader's 7 styles), then the donor finish (FinishShader:
-// aberration, the look's brightness × the exposure servo's e and its soft tone map, vignette) into the bound FB; the servo
+// aberration, the look's brightness × the exposure servo's e and its soft tone map, vignette, grain) into the bound FB; the
+// palette's 5 slots turned by the look's hueDrift (frame()'s st.hue) at their luma on the CPU, no pass (turnHue); the servo
 // (chain.ts servo()) reads the same finish drawn into its 64² probe first. The look inputs (vs3/look.json:
 // the macros, the warp's knobs, the light) reach all of it through frame()'s light limiter; the built-ins carry no fx.
 // Colour: a donor ShaderMaterial writes display values (no colorspace chunk; PAL holds three's linear-converted hex, as
@@ -32,7 +33,7 @@ import type { NativeDef } from '../gl/scene'
 import { ease, MORPH_S } from '../presets'
 import { MODEL_SPIKE } from '../scenes/model'
 import { rose } from '../scenes/shatter'
-import { chainState, clock, createChain, frame, hotLook, PROBE, reactTo, warmChain, type LookValues, type SceneFacts } from './chain'
+import { chainState, clock, createChain, frame, hotLook, PROBE, reactTo, warmChain, type LookKey, type LookValues, type SceneFacts } from './chain'
 import LOOK from './look.json'
 import PARAMS from './params.json'
 
@@ -94,19 +95,25 @@ export function screen<T>(R: Screen, rt: { width: number; height: number }, made
 }
 
 /** uExp: the exposure servo's 1 × 1 ln e (vs3/chain.ts servo()). uProbe 1: the servo's probe draw (64², chain.ts PROBE)
- *  writes the luma on screen and step(.85, luma), not the colour. */
+ *  writes the luma on screen and step(.85, luma), not the colour. uGrain (S6.1): the donor's film grain, ± .014 per
+ *  pixel, rolled by uGrainT (the layer's seconds) every frame, as the kit's (no take recording there; engine.js:235);
+ *  the layer target is RGBA8, so it clamps at black as the donor's screen does. */
 export const FINISH = `#version 300 es
 precision highp float;
 uniform sampler2D uSrc, uExp;
 uniform vec2 uRes;
-uniform float uAber, uVig, uFaithful, uGain, uProbe;
+uniform float uAber, uVig, uFaithful, uGain, uProbe, uGrain, uGrainT;
 out vec4 outColor;
-void main() { // donor engine/post-shaders.js FinishShader, the grain and the watermark left out
+// vs3: the friends' three.js engine, used with permission (2026-11-19); donor/vs3/visual_kit/src/engine/post-shaders.js
+// ("post-shaders.js — the original post pipeline, extracted verbatim (masked)"), FinishShader: hash() at :229, the grain at :250
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7)) + uGrainT) * 43758.5453); }
+void main() { // donor engine/post-shaders.js FinishShader, the watermark left out
   vec2 uv = gl_FragCoord.xy / uRes, d = uv - 0.5, off = d * uAber * 0.003;
   vec3 raw = vec3(texture(uSrc, uv + off).r, texture(uSrc, uv).g, texture(uSrc, uv - off).b), col = raw * uGain * exp(texelFetch(uExp, ivec2(0), 0).r); // BRIGHTNESS: the look's brightness, limited, × the servo's e
   col /= 1.0 + dot(col, vec3(0.2126, 0.7152, 0.0722)) * 0.9; // the soft tone map: no palette whites out
   col = mix(col, max(raw, 0.0), uFaithful); // a filter's picture skips the grade (original main.js:2130, uGainF 1)
   col *= 1.0 - uVig * dot(d, d) * 2.4;
+  col += (hash(uv * vec2(1287.0, 718.0)) - 0.5) * 0.028 * uGrain;
   float l = any(isnan(col)) || any(isinf(col)) ? 0.0 : dot(clamp(col, 0.0, 1.0), vec3(0.2126, 0.7152, 0.0722)); // N4: a NaN or Inf pixel reads black
   outColor = uProbe > 0.5 ? vec4(l, step(0.85, l), 0.0, 1.0) : vec4(col, 1.0);
 }`
@@ -148,8 +155,9 @@ type Lib = Awaited<ReturnType<typeof open>>
  *  `panelRows` (ours, morphogen 2.0): the scene's own panel's sliders, from its stripped buildPanel. */
 interface Rows { params?: Record<string, unknown>; paramLabels?: Record<string, Record<string, string | null>>; paramOrder?: string[]; modes?: string[]; models?(): string[]; panelRows?: [key: string, min: number, max: number, label: string, group?: string][] }
 /** The donor scene as the host reads it (research §1). `fxHint`: signal sets it per mode, main stage's `steady`; `fxWet`:
- *  limitless's tune dry / wet (engine.js:152-153); `faithful`: morphogen 2.0's fixed maps (original main.js:2398-2405). */
-interface Scene extends Rows { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null }; fxHint?: SceneFacts['hint']; fxWet?(): number; faithful?(): boolean }
+ *  limitless's tune dry / wet (engine.js:152-153); `faithful`: morphogen 2.0's fixed maps (original main.js:2398-2405);
+ *  `grain`: the finish's grain (grainOf). */
+interface Scene extends Rows { scene: { traverse(f: (o: { geometry?: { dispose(): void }; material?: { dispose(): void } }) => void): void }; camera: unknown; update(s: Signal, dt: number, t: number): void; resize?(w: number, h: number): void; bloom?: { strength: number; gain: number; kick?: number }; source?: { sourceTexture: WebGLTexture | null }; fxHint?: SceneFacts['hint']; fxWet?(): number; faithful?(): boolean; grain?: number }
 
 // The donor panel's slider order for a scene without paramOrder (original renderer/main.js:7523, addSceneRows).
 const ORDER = ['speed', 'shape', 'complexity', 'density', 'fill', 'tilt', 'open', 'morph', 'edge', 'contrast', 'growth', 'movement', 'curl', 'relief', 'pattern', 'form', 'rig', 'room', 'color', 'phase', 'formation', 'screen', 'colors', 'wall', 'chase', 'strips']
@@ -184,13 +192,34 @@ export function put(P: Record<string, unknown>, ps: readonly Input[], v: Readonl
  *  frame, shown as the original shows a dropped clip (its faithful path, main.js:2397): no grade, no resting bloom.
  *  `pointer`: the scene reads the stage's pointer (feed()); opt-in per native, the rest keep the dead stub. */
 export interface Look { palette: string; mid?: true; filter?: true; pointer?: true }
-/** The look inputs shipped so far (plan_vs3_engine S2.2, S3.2, S5.2), group `look`, after the scene's rows; the rest of
- *  look.json's keys draw at their defaults. bloomMul and brightness are never bound (design F3): light on the music only
- *  through ⚡. The selects (SELECTS: labels by value; a preset's glide switches them at its midpoint): `mirror`, the
- *  fold's segment count (the fold fades); `lensStyle`, look.json's lensStyles = LENS's uStyle (frame() ducks the lens
- *  amount to swap it). `lens`: the amount, slewed by the limiter (× a filter's wet there). */
-const LOOK_KEYS = ['bloomMul', 'aber', 'vignette', 'brightness', 'mirror', 'tiles', 'twist', 'slice', 'spin', 'persist', 'zoom', 'trails', 'chaos', 'heat', 'react', 'lens', 'lensStyle'] as const
+/** The look inputs (plan_vs3_engine S2.2, S3.2, S5.2, S6.1): all 18 of look.json's keys, in its order (the donor's post
+ *  keys, then the macros), group `look`, after the scene's rows. bloomMul and brightness are never bound (design F3):
+ *  light on the music only through ⚡. The selects (SELECTS: labels by value; a preset's glide switches them at its
+ *  midpoint): `mirror`, the fold's segment count (the fold fades); `lensStyle`, look.json's lensStyles = LENS's uStyle
+ *  (frame() ducks the lens amount to swap it). `lens`: the amount, slewed by the limiter (× a filter's wet there).
+ *  `hueDrift`: the palette's turn rate (frame()'s st.hue). */
+const LOOK_KEYS = Object.keys(LOOK.base) as LookKey[]
 const UNBOUND: readonly string[] = ['bloomMul', 'brightness']
+/** The finish's grain (S6.1; donor engine.js:243 `sc.grain ?? 1`, without its × wet): the scene's own `grain` (0 on
+ *  main stage, morphogen 2.0 and the recursive-flight three: crystal, pearl, spiral), else 1; a filter's picture none. */
+export const grainOf = (sc: { grain?: number }, filter: boolean) => (filter ? 0 : (sc.grain ?? 1))
+type Rgb = { r: number; g: number; b: number; copy(c: Rgb): Rgb; offsetHSL(h: number, s: number, l: number): Rgb } // a three Color
+const luma = (c: Rgb) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+/** `c` into `out` (three Colors, linear as PAL holds them), turned `h` turns at c's luma (S6.1, design C10): the donor's
+ *  hue (offsetHSL = palette.js:182-185's setHSL), then scaled back to c's Rec.709 luma, and mixed toward that grey where
+ *  a channel would pass 1, so it stays in gamut; scaling and the grey keep the hue. Colour only: the donor's turn at
+ *  constant HSL lightness moves the luma with the hue (vs3 Ink at hueDrift 1: frame-mean luma .054 → .218 and 9 steps
+ *  > .10 in 15 s, 0 at hueDrift 0). h 0: a plain copy, as the donor skips it (palette.js:181). */
+export function turnHue<T extends Rgb>(c: Rgb, h: number, out: T): T {
+  out.copy(c)
+  if (!h) return out
+  const y = luma(c), t = luma(out.offsetHSL(h, 0, 0)), s = t > 0 ? y / t : 0
+  const m = Math.max(out.r, out.g, out.b) * s, k = m > 1 ? (1 - y) / (m - y) : 1, at = (x: number) => Math.min(1, y + (x * s - y) * k) // min: the float error past 1
+  out.r = at(out.r)
+  out.g = at(out.g)
+  out.b = at(out.b)
+  return out
+}
 const SELECTS: Partial<Record<string, string[]>> = { mirror: Array.from({ length: LOOK.ranges.mirror[1] + 1 }, (_, i) => String(i)), lensStyle: LOOK.lensStyles }
 const ROWS = LOOK.scenes as Record<string, Partial<LookValues> | undefined>
 /** The node's look values into `out`, each frame. A non-finite one (a bound source gone bad) keeps the last value: the
@@ -216,10 +245,12 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
   const P = sc.params ?? {}
   let rt = L.fit(null, 16, 16, 1), prev = 0, prevMid = 0, w = 0, h = 0
   // the chain (vs3/chain.ts): its state, the look's values (look.json's defaults under the node's), the scene's facts
-  const st = chainState(), values = { ...d }, mid3 = [0, 0, 0]
+  const st = chainState(), values = { ...d }, mid3 = [0, 0, 0], tint = new L.Color()
+  /** `c` into `out`, turned by the hue drift (turnHue): pal[] stays unrotated, so nothing accumulates. */
+  const turn = <T extends Rgb>(c: Rgb, out: T) => turnHue(c, st.hue, out)
   const facts: SceneFacts = {
     bloom: sc.bloom, filter: !!look.filter, bloomRow: d.bloomMul, gainBase: LOOK.base.brightness, vigRange: LOOK.ranges.vignette[1] - LOOK.ranges.vignette[0],
-    lateTrails: (LOOK.lateTrails as Record<string, number | undefined>)[name] ?? 0, wet: 1, grain: 0, hint: null,
+    lateTrails: (LOOK.lateTrails as Record<string, number | undefined>)[name] ?? 0, wet: 1, grain: grainOf(sc, !!look.filter), hint: null,
   }
   await Promise.all([guard('compileAsync', () => (R.setRenderTarget(rt), R.compileAsync(sc.scene, sc.camera))), warmChain()])
   finish ??= fullscreenProgram(FINISH)
@@ -242,7 +273,8 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
         // donor's PaletteEngine), at once on the first draw or back on stage. ponytail: on the layer's clock, so a
         // layer at speed ≠ 1 fades at its pace; the gap is wall time (the layer clock stops off stage).
         palIx = pi
-        from.forEach((c, i) => c.copy(pal[i]))
+        from.forEach((c, i) => turn(pal[i], c)) // the colours on screen, then the drift starts over: the donor's set() (palette.js:168-171)
+        st.hue = 0
         to.forEach((c, i) => c.set(L.PRESETS[pi].colors[i]))
         palK = now - seen > GAP_MS ? 1 : 0
         if (palK) pal.forEach((c, i) => c.copy(to[i]))
@@ -260,7 +292,7 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
       facts.hint = sc.fxHint ?? null // as the last update() left them: frame() runs before update(), whose signal it reacts
       facts.wet = sc.fxWet?.() ?? 1
       facts.faithful = !!sc.faithful?.() // its mode as put() wrote it: no servo (N3), no resting glow
-      const cf = frame(values, facts, s, hit, st, pal[2].toArray(mid3), f.dt, dtl, f.time, f.width / f.height) // pal[2]: SLOTS' mid
+      const cf = frame(values, facts, s, hit, st, turn(pal[2], tint).toArray(mid3), f.dt, dtl, f.time, f.width / f.height) // pal[2]: SLOTS' mid, as drawn (the donor's tint reads PAL.mid after the drift; one frame behind it)
       reactTo(s, cf) // the kick as drawn (I-FL1: the limiter's slew) and the levels × react; onKick on the raw rise; both × kickGain
       prev = hit
       prevMid = mid
@@ -269,7 +301,7 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
       guard('render', () => {
         rt = L.fit(rt, f.width, f.height, 1)
         if (f.width !== w || f.height !== h) sc.resize?.((w = f.width), (h = f.height)) // px, not the donor's CSS px: the scenes read the aspect
-        pal.forEach((c, i) => L.PAL[SLOTS[i]].copy(c)) // the uniforms hold PAL's slots: this scene's colours for its draw
+        pal.forEach((c, i) => turn(c, L.PAL[SLOTS[i]])) // the uniforms hold PAL's slots: this scene's colours for its draw, turned by its drift
         screen(R, rt, made, () => {
           R.setRenderTarget(rt)
           sc.update(s, f.dt, f.time)
@@ -282,7 +314,7 @@ async function start(gl: WebGL2RenderingContext, L: Lib, sc: Scene, look: Look, 
       // UnrealBloomPass: its composite is k × Σ factors (3 at radius .4) × blur, alpha 3k too, and the additive blend is
       // SRC_ALPHA, ONE on a half-float target, so the colour lands × 3k unclamped); a pass that is off is skipped
       const lit = chain.apply(texture(rt), f.width, f.height, cf, bloom) // binds its own targets
-      const fin = { uSrc: lit, ...cf.finish, uFaithful: look.filter ? 1 : 0 } // uGrain: no uniform until S6.1
+      const fin = { uSrc: lit, ...cf.finish, uGrainT: f.time, uFaithful: look.filter ? 1 : 0 }
       // the exposure servo (S3b.2): this frame finished into the probe at the e on screen, then UPDATE; its e lands now
       const uExp = chain.servo(cf.servo, (e) => finish!({ ...fin, uRes: [PROBE, PROBE], uProbe: 1, uExp: e })) // leaves its 1 × 1 target bound
       gl.bindFramebuffer(gl.FRAMEBUFFER, out)
