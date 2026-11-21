@@ -9,6 +9,7 @@
 // into the library (E4), where `live` finds every scene.
 import { bindFramebufferInfo, createTexture, type ProgramInfo } from 'twgl.js'
 import { ctx } from '../audio/input'
+import type { PresetId } from '../audio/presets'
 import { analysis, bindable, idle, level, type Binding, type BindState, type Sources } from '../bind'
 import { cam } from '../camera/camera'
 import * as users from '../camera/users' // users.use(): a bare use() reads as React's hook to the rules-of-hooks lint
@@ -684,6 +685,7 @@ const op = {
   setBlend: (layer: number, b: Blend) => restructure((d) => edit.setBlend(d, layer, b), (l) => l.setBlend(layer, b)),
   setMask: (layer: number, m: MaskMode | undefined) => restructure((d) => edit.setMask(d, layer, m), (l) => l.setMask(layer, m)),
   setClip: (layer: number, c: Clip | undefined) => restructure((d) => edit.setClip(d, layer, c), (l) => l.setClip(layer, c)),
+  setGenre: (g: PresetId | undefined) => restructure((d) => edit.setGenre(d, g), () => {}), // app.ts reads the doc's per frame: nothing to mirror
   setValue(p: edit.NodePath, input: string, v: Value | undefined) {
     const l = edited()
     const old = edit.setValue(l.doc, p, input, v)
@@ -793,6 +795,8 @@ export const panel = {
   setMask: (layer: number, m: MaskMode | undefined) => act(() => op.setMask(layer, m), (old) => op.setMask(layer, old)),
   /** The show composition: 'inside' | 'outside' the scene's frame layer, undefined = none. */
   setClip: (layer: number, c: Clip | undefined) => act(() => op.setClip(layer, c), (old) => op.setClip(layer, old)),
+  /** The scene's genre profile (doc.ts), undefined = none: app.ts puts it in force while the scene is on stage. */
+  setGenre: (g: PresetId | undefined) => act(() => op.setGenre(g), (old) => op.setGenre(old)),
   /** Preview only (design S2): never saved, never undone. */
   mute: (layer: number, on: boolean) => edited().mute(layer, on),
   /** A pasted Shadertoy `mainImage` (spec §4.4, design E5) as a new top layer. Returns why not (too long, its compile

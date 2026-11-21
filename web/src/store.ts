@@ -1,5 +1,5 @@
 import type { Drum } from './audio/drums'
-import type { Genre } from './audio/presets'
+import type { Genre, PresetId } from './audio/presets'
 import type { SceneId } from './doc'
 import type { QualityMode } from './quality'
 
@@ -26,6 +26,7 @@ export interface UiSnapshot {
   panel: boolean // open (key E)
   editRev: number // +1 per structural edit: the panel re-renders on it, never per frame
   edited: SceneId // the scene it edits: the current one, the incoming one during a fade
+  sceneGenre: PresetId | null // that scene's genre profile (doc.ts `genre`), null: none; app.ts puts it in force under no hand pick
   gpuMs: number | null // that scene's GPU median in ms, 4×/s; null without a GPU timer
   nodeErrors: string[] // that scene's build errors (unknown refs, compile logs, bad bindings)
   style: { detected: Genre | null; confidence: number } // the classifier's pick, 4×/s (S4.3); the badge reads it (S6.2)
@@ -54,7 +55,7 @@ export interface UiSnapshot {
 let snap: UiSnapshot = {
   devices: [], source: null, needsStart: true, sceneName: '', bpm: 0, confident: false,
   hold: false, recording: false, quality: '60-adaptive', scale: 1, drops: 0, compiling: null, debug: null, debugSync: null,
-  panel: false, editRev: 0, edited: '', gpuMs: null, nodeErrors: [], style: { detected: null, confidence: 0 },
+  panel: false, editRev: 0, edited: '', sceneGenre: null, gpuMs: null, nodeErrors: [], style: { detected: null, confidence: 0 },
   editor: false, shader: false, cameras: [], camera: null, camLive: false, camVideo: true, camError: null, camFail: null,
   clip: false, clipHint: false, muted: [], text: true, armedSet: null, cue: '', browse: false, analysisView: false,
 }

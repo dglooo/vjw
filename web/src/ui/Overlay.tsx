@@ -304,7 +304,7 @@ export function Overlay() {
             label={
               <>
                 <Icon name="sliders" />
-                <span className="name">{audioSummary(a, s.style.detected)}</span>{' '}
+                <span className="name">{audioSummary(a, s.style.detected, s.sceneGenre)}</span>{' '}
                 <span className={a.bpm ? 'bpm held' : s.confident ? 'bpm' : 'bpm unsure'}>
                   {bpm > 0 ? Math.round(bpm) : '—'} <small>BPM</small>
                   {a.bpm && <Icon name="lock" />}

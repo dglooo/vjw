@@ -405,6 +405,18 @@ test('activePreset: all 40 combinations of auto, pick and detected', () => {
   }
 })
 
+test("activePreset with the on-stage scene's genre (user 2026-11-21): a hand pick wins, else the scene's genre, else Auto", () => {
+  const at = (pick: PresetId | null, scene: PresetId | null, detected: Genre | null, auto = true) => activePreset({ ...DEFAULTS, auto, pick }, detected, scene)
+  expect(at('house', 'psy', 'dnb')).toBe('house') // the top bar's (or the Sources tab's) hand pick
+  expect(at('default', 'psy', 'dnb')).toBe('default') // a hand pick of Default too
+  expect(at(null, 'psy', 'dnb')).toBe('psy') // the scene's genre over the detected one
+  expect(at(null, 'psy', 'dnb', false)).toBe('psy') // and with Auto off, nothing picked
+  expect([at(null, null, 'dnb'), at(null, null, null), at(null, null, 'dnb', false)]).toEqual(['dnb', 'default', 'default']) // no genre: as before
+  const ids = Object.keys(PRESETS) as PresetId[]
+  for (const pick of [null, ...ids]) for (const scene of [null, ...ids]) for (const d of [null, 'dnb', 'dubstep', 'techno'] as const) for (const auto of [true, false])
+    expect(at(pick, scene, d, auto), `${pick} ${scene} ${d} ${auto}`).toBe(pick ?? scene ?? (auto && d ? d : 'default')) // 392 states
+})
+
 // --- the worklet config builder (plan S2.5) ---
 
 const cfg = (pick: PresetId | null = null, custom: CustomBand[] = [], over: Partial<AudioSettings> = {}): AudioSettings => ({
@@ -467,6 +479,21 @@ test('workletBands sensitivity: Mid (no field) sends every preset its own knobs,
   const at = (sensitivity?: 'low' | 'high') => workletBands(cfg(null, [], { sensitivity }), 'default').knobs
   expect([at('high').kick, at().kick, at('low').kick]).toEqual([1.35 * 0.87, 1.35, 1.35 * 1.15]) // High < Mid < Low
   expect(at('high').kickSlow).toBeGreaterThan(at('low').kickSlow) // a longer follower reads a kick higher: more kicks
+})
+
+test("a cut to a scene with its own genre and back (user 2026-11-21): the worklet config goes out with the scene's knobs, then Auto's again; the tempo window keeps the top bar's preset", () => {
+  // app.ts frame(): `configured` = activePreset(settings, detected, the scene's genre), sent when its bandKey changed;
+  // `song` = activePreset(settings, detected) sets the tempo window and the arrangement's low and cuts, so a cut never
+  // changes the band: the grid is never re-ranged nor snapped, and its BPM lock holds.
+  const sent = (scene: PresetId | null, d: Genre | null = 'dnb', s = cfg()) => workletBands(s, activePreset(s, d, scene))
+  expect(bandKey(sent('house'))).not.toBe(bandKey(sent(null))) // the cut in: a send…
+  expect(sent('house').knobs).toEqual({ ...KNOBS, minGap: 0.3 }) // …with House's knobs
+  expect(sent(null).knobs).toEqual(KNOBS) // the cut back: DnB's again, a send
+  expect(PRESETS[activePreset(cfg(), 'dnb')].bpm).toEqual([160, 185]) // `song` on both sides of the cut: DnB's window
+  // a genre whose knobs and bands are in force already sends nothing: Psytrance or House under Auto's Techno, DnB under DnB
+  for (const [scene, d] of [['psy', 'techno'], ['house', 'techno'], ['dnb', 'dnb'], ['default', null]] as const) expect(bandKey(sent(scene, d)), scene).toBe(bandKey(sent(null, d)))
+  expect(bandKey(sent('house', 'dnb', cfg('dubstep')))).toBe(bandKey(sent(null, 'dnb', cfg('dubstep')))) // a hand pick wins: no send
+  expect(sent('house', 'dnb', cfg(null, [], { sensitivity: 'high' })).knobs.kick).toBeCloseTo(KNOBS.kick * 0.87, 12) // the sensitivity scales it too
 })
 
 test("G1 + G2 (dsp_genre_melodic §4): Psytrance and House are hand picks with Techno's 4/4 knobs (kick minGap 0.3 s, no cut drops, the arrangement's low = sub); the classifier never scores them", () => {
