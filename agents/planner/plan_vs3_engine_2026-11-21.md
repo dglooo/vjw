@@ -805,6 +805,13 @@ Invoke the `ponytail` skill (full) before writing code.
 - **Tests:** L1, L1b, L2 and L6 must stay green untouched. L4, L5 and N5a follow the knob: update their expected numbers and say so.
 - **Done-check:** gates.
 - **Lead gate:** the failing row reruns PASS. The lead compares the row's distribution before and after (billed p95 and step counts), not single runs.
+- **Changed during implementation:** (S8.2 coder, 2026-11-21, dispatch 1: `REACT_MAX`) No `KNOBS` value changed: no tried value fixes the row.
+  - Method: this worktree on :5176 (hmr off, a fresh server per value), `h2.mjs` with the rows `S82-hot3` (Orange Rose, lissafucker, big bang) and `S82-def` (Ink, Mandala), Kanine from 52 s, SEC 15. One knob per run, the others at the dev values. Out files: `scratchpad/vs3-engine/h2.S82-*.s82-*.json`.
+  - `REACT_MAX` 2 → 1 (the hot presets react as stock) leaves the pairs: Orange Rose max 5/s → 5/s, lissafucker 6/s → 6/s. At .5 Orange Rose rises to 7/s, lissafucker stays at 5/s and (a) fails (4 steps/s). Below 1 the defaults lose react gain too (react .5 = gain 1). At .5 they stop reacting visibly: Mandala's luma max falls from .41 to .09 and its pairs from 10 to 0.
+  - One more knob alone, for the proposal: `KICK_COMP` 3, `DYN` 0, `LIGHT_X` 2. Orange Rose and lissafucker stay at 5–6 pairs/s with each. The preset's own light keys at stock also leave 5–8 pairs/s: brightness 1.4, heat .5, and the Signal `fill` .5.
+  - Cause: the swing is in the Signal scene's picture, drawn from the raw spectrum (mode analyzer) and the raw waveform (mode lissajous). No chain light value carries it, so no limiter knob reaches it. big bang passes in this worktree (max 2–3 pairs/s at every value; G7 had 4/s): it is at the noise edge.
+  - Tests: no change. Note for a later `REACT_MAX` step: L6 expects react .9 → gain 1.8, so L6 cannot stay untouched below 1.8. L7, N2a and the warp-reacted test expect gain 2.
+  - Proposed next lever (the lead's call; not a `KNOBS` value): a swing limiter on a hot vs3 layer that counts WCAG pairs. That is the toy limiter's upgrade path in `gl/post.ts` `toyLimit`, which caps the step but not the swing. Until then: waive the two Signal presets, or keep them out of the rotation.
 
 ## Acceptance mapping
 Spec: `thoughts/spec_vs3_engine.md` § Requirements (l. 21-37). "gate" = a lead-run gate of § Gates.
