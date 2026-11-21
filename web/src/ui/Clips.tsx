@@ -4,6 +4,7 @@ import { newLayer, newNode } from '../edit'
 import { live, panel } from '../gl/live'
 import { video } from '../scenes/video'
 import { clock, store } from '../store'
+import { Icon } from './Pop'
 
 // The clip library's UI (clips.ts): native/video's clip row (E and L), the bar's one-click Allow, and the page's drop.
 const FOLDERS = 'showDirectoryPicker' in globalThis // Chrome / Edge; elsewhere only drops
@@ -15,8 +16,6 @@ export function ClipRow({ value, set }: { value: string; set: (v: string) => voi
   useRev()
   const [cur, pick] = useState(value) // the panel never re-renders on a value edit: the row keeps its own
   const list = clips.all()
-  const folder = clips.folder()
-  const ask = clips.ask()
   return (
     <>
       <label className="row">
@@ -38,17 +37,7 @@ export function ClipRow({ value, set }: { value: string; set: (v: string) => voi
         </select>
       </label>
       <div className="clips">
-        {FOLDERS && (
-          <button title="A folder of your clips: kept for the next visit, never uploaded" onClick={() => void clips.pick()}>
-            {folder ? `Folder: ${folder}` : 'Clips folder…'}
-          </button>
-        )}
-        {ask && <button onClick={() => void clips.allow()}>Allow «{ask}»</button>}
-        {folder && (
-          <button className="x" aria-label="Forget the clips folder" onClick={() => void clips.forget()}>
-            ×
-          </button>
-        )}
+        <ClipsFolder />
         {!list.length && <span className="hint">or drop video files here</span>}
         <ul>
           {list.map((c) => (
@@ -67,12 +56,35 @@ export function ClipRow({ value, set }: { value: string; set: (v: string) => voi
   )
 }
 
+/** The clips folder: pick one, allow the stored one again, forget it (native/video's clip row and the bar's input
+ *  popover); with no folder picker (not Chrome / Edge), the drop's hint. */
+export function ClipsFolder() {
+  useRev()
+  const folder = clips.folder()
+  const ask = clips.ask()
+  if (!FOLDERS) return <span className="hint">Drop video files anywhere</span>
+  return (
+    <>
+      <button title="A folder of your clips: kept for the next visit, never uploaded" onClick={() => void clips.pick()}>
+        {folder ? `Folder: ${folder}` : 'Clips folder…'}
+      </button>
+      {ask && <button onClick={() => void clips.allow()}>Allow «{ask}»</button>}
+      {folder && (
+        <button className="x" aria-label="Forget the clips folder" onClick={() => void clips.forget()}>
+          ×
+        </button>
+      )}
+    </>
+  )
+}
+
 /** The bar's one click for a stored clips folder that Chrome asks about again; absent otherwise. */
 export function AllowClips() {
   const ask = useSyncExternalStore(clips.onChange, clips.ask)
   return ask ? (
-    <button title="Your clips folder from the last visit: one click lets the app read it again" onClick={() => void clips.allow()}>
-      Allow clips «{ask}»
+    <button title={`Your clips folder «${ask}» from the last visit: one click lets the app read it again`} onClick={() => void clips.allow()}>
+      <Icon name="folder" />
+      <span className="name">Allow clips «{ask}»</span>
     </button>
   ) : null
 }
