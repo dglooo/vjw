@@ -4,6 +4,7 @@ import { BUILD, L, range, xAt } from '../audio/history'
 import { player } from '../audio/input'
 import { PRESETS } from '../audio/presets'
 import { activePreset } from '../audio/settings'
+import { download } from '../library'
 import { FONT, INK, INK2, PALETTE, SURFACE } from '../scenes/calib'
 import { clock, store } from '../store'
 
@@ -318,12 +319,18 @@ export function Analysis() {
   return open ? <Open /> : null
 }
 
-/** Its header: the detected genre, the active audio preset with how it was chosen, the sensitivity and the analyser. */
+/** Its header: the detected genre, the active audio preset with how it was chosen, the sensitivity and the analyser;
+ *  Export saves the history as JSON (history.report). */
 function Open() {
   const s = useSyncExternalStore(settings.onChange, settings.get)
   const detected = useSyncExternalStore(store.subscribe, () => store.getSnapshot().style.detected)
   const conf = useSyncExternalStore(store.subscribe, () => store.getSnapshot().style.confidence)
   const close = () => store.patch({ analysisView: false })
+  const save = () => {
+    const src = store.getSnapshot().source
+    const name = src?.kind === 'file' ? src.name : null
+    download(`analysis ${name?.replace(/\.[^.]*$/, '') ?? 'line-in'}.json`, JSON.stringify(history.report(name)))
+  }
   return (
     <div className="analysis" role="dialog" aria-label="Analysis" onPointerUp={(e) => e.target instanceof HTMLButtonElement && e.target.blur()}>
       <header>
@@ -334,6 +341,9 @@ function Open() {
         </span>
         <span>sens {s.sensitivity ?? 'mid'}</span>
         <span>analyser {s.analyser === 'donor' ? 'vs2' : s.analyser}</span>
+        <button title="The history as JSON: the last 30 s at 60 per s, a file's whole length at 2 per s" onClick={save}>
+          Export JSON
+        </button>
         <button aria-label="Close" title="Close · Esc / Y" onClick={close}>
           ×
         </button>

@@ -2,7 +2,7 @@
 // records every frame as the detectors read it, before the user's gain, mute and Off (bind.ts gain()), into
 // fixed-width time buckets: `recent`, the last 34 s at 60 per s on the frame clock (ui/Analysis.tsx's timeline), and
 // `track`, the playing file's whole length at ≤ 2 per s on the file's own clock, so a seek back overwrites what it
-// plays again (the overview). Pure, so Vitest runs it in Node.
+// plays again (the overview, the JSON export). Pure, so Vitest runs it in Node.
 import type { ArrangeOut } from './arrange'
 import type { Drum } from './drums'
 import type { Sync } from './sync'
@@ -73,6 +73,21 @@ export function range(b: Buckets, now: number, span: number): [i0: number, i1: n
 /** A time's x on a strip that ends at `now` on its right edge (`x0` + `w`) and starts `span` s before at `x0`. */
 export const xAt = (t: number, now: number, span: number, x0: number, w: number) => x0 + w * (1 - (now - t) / span)
 
+/** Buckets i0..i1 as JSON columns: `t0` the first one's start (s on its clock), `bucket` the width, per lane its values
+ *  rounded to 3 decimals, null where nothing was heard. */
+export function dump(b: Buckets, i0: number, i1: number) {
+  const data = Object.fromEntries(
+    LANES.map((l, j) => [
+      l,
+      Array.from({ length: i1 - i0 + 1 }, (_, k) => {
+        const x = b.get(i0 + k, j)
+        return Number.isNaN(x) ? null : Math.round(x * 1000) / 1000
+      }),
+    ]),
+  ) as Record<Lane, (number | null)[]>
+  return { t0: i0 * b.width, bucket: b.width, n: i1 - i0 + 1, lanes: LANES, data }
+}
+
 /** The file playing (input.ts player): its clock, length and source, to tell a new file from a seek. */
 export interface FileClock { currentTime: number; duration: number; src: string }
 
@@ -121,6 +136,13 @@ export function createHistory() {
         h.track.add(Math.min(file.currentTime, (h.track.n - 0.5) * h.track.width), rec) // its end lands in the last bucket
       }
       rec.kick = rec.snare = rec.hats = 0
+    },
+    /** The export (user brief, for the audio-dsp formula review): the timeline's last 30 s (`t0` in s before now) and
+     *  the file's whole length (`t0` 0 = its start), each as dump()'s columns. */
+    report(name: string | null) {
+      const [i0, i1] = range(h.recent, h.now, 30)
+      const recent = dump(h.recent, i0, i1)
+      return { v: 1, app: 'VeeJay Wizard', kind: 'analysis', track: name, exported: new Date().toISOString(), recent: { ...recent, t0: recent.t0 - h.now }, file: h.track && dump(h.track, 0, h.track.n - 1) }
     },
   }
   return h

@@ -74,3 +74,20 @@ test('the overview stays at ≤ 2 buckets per s and within 2 MB, however long th
     expect(b.n * b.width).toBeCloseTo(d)
   }
 })
+
+test('the export: the last 30 s and the whole file as lane columns, null where nothing was heard', () => {
+  const h = createHistory()
+  const file = { currentTime: 0, duration: 60, src: 'blob:a' }
+  for (let f = 0; f <= 31 * 60; f++) {
+    if (f === 20 * 60) file.currentTime = 40 // a seek: 20–40 s of the file unheard
+    h.frame(f / 60, { sub: 0.5 }, ZERO_SYNC, QUIET, [], { ...file, currentTime: file.currentTime + (f % 1200) / 60 })
+  }
+  const r = h.report('a.flac')
+  expect(r).toMatchObject({ v: 1, kind: 'analysis', track: 'a.flac', recent: { n: 1800, bucket: 1 / 60, lanes: LANES }, file: { n: 120, bucket: 0.5 } })
+  expect(r.recent.t0).toBeCloseTo(-30, 1)
+  for (const l of LANES) expect(r.recent.data[l]).toHaveLength(1800)
+  expect(r.file!.data.sub[0]).toBe(0.5)
+  expect(r.file!.data.sub[60]).toBeNull() // 30 s: skipped by the seek
+  expect(r.file!.data.sub[84]).toBe(0.5) // 42 s: played after it
+  expect(createHistory().report(null).file).toBeNull() // line-in: no file section
+})
