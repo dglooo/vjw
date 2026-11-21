@@ -552,9 +552,9 @@ function frame(now: number) {
   // S5.3: the live heat post pass (postFor at rest = identity: the engine skips it).
   const post = off ? REST : postFor(arrangeOut.heat, dropAt > 0 ? f.time - dropAt : Infinity, f.sync.beat, f.sync.bpm, f.sync.confidence)
   sources(f, src)
-  // the analysis screen's frame: the detectors as they read it, before the user's gain and mute and Off; ⚡ as the
-  // previous render's budget left it
-  history.frame(f.time, src, f.sync, arrangeOut, flashOnsets)
+  // the analysis screen's frame: the detectors as they read it, before the user's gain and mute and Off (a file's own
+  // clock while it plays: the overview); ⚡ as the previous render's budget left it
+  history.frame(f.time, src, f.sync, arrangeOut, flashOnsets, store.getSnapshot().source?.kind === 'file' && !player.paused ? player : null)
   gain(src, st) // the Sources tab's gain and mute, on every source once all are in, before anything reads them; off: all 0
   const styled = restyle(src, rmFrom, rmTo, rmW, styledOut) // after gain(): the built-ins read the muted sources too
   analysis.off = off // every binding bypassed: a bound input reads its stored value (live.ts)

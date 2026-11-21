@@ -1,16 +1,17 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { history, settings } from '../app'
 import { BUILD, L, range, xAt } from '../audio/history'
+import { player } from '../audio/input'
 import { PRESETS } from '../audio/presets'
 import { activePreset } from '../audio/settings'
 import { FONT, INK, INK2, PALETTE, SURFACE } from '../scenes/calib'
-import { store } from '../store'
+import { clock, store } from '../store'
 
 // The analysis screen (user 2026-11-21, «экран анализа»: what the system hears in a track). A Canvas2D timeline of the
 // last 30 s from app.ts `history`, a row per signal: the drums as ticks, the low end and the melody as levels, the
 // pitch class as blocks, the beat grid behind every row (a line per beat, a heavier numbered one per bar), the
-// arrangement's sections. Its own rAF at ≤ 30 draws per s, only while open: closed, nothing of it runs but app.ts's
-// record. No GL: the stage plays on behind it untouched.
+// arrangement's sections; under it, with a file, the whole track (a click seeks there). Its own rAF at ≤ 30 draws per s,
+// only while open: closed, nothing of it runs but app.ts's record. No GL: the stage plays on behind it untouched.
 // Colours: the calibration view's validated dark palette (dataviz reference), in slot order per strip; text in ink.
 const SPAN = 30 // s on the timeline
 const FPS = 30 // draws per s, at most
@@ -18,6 +19,7 @@ const GUTTER = 120 // px: each row's label and live value
 const PAD = 8
 const GAP = 10 // px between two strips
 const AXIS = 16 // px over the rows: the time labels
+const OVERVIEW = 56 // px: the whole track
 const NOTES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 const [C1, C2, C3, C4] = PALETTE.map(([r, g, b]) => `rgb(${r} ${g} ${b})`)
 
@@ -40,6 +42,8 @@ const ROWS: readonly { label: string; lane: number; kind: Kind; h: number; color
 const UNITS = ROWS.reduce((a, r) => a + r.h, 0)
 const STRIPS = ROWS.filter((r) => r.strip).length
 
+let ov: { y: number; h: number } | null = null // the overview as last drawn: a click's target
+
 /** One frame of the screen, `w` × `h` CSS px. */
 function draw(c: CanvasRenderingContext2D, w: number, h: number) {
   const b = history.recent
@@ -47,7 +51,8 @@ function draw(c: CanvasRenderingContext2D, w: number, h: number) {
   const [i0, i1] = range(b, now, SPAN)
   const tw = w - GUTTER - PAD
   const X = (i: number) => xAt(i * b.width, now, SPAN, GUTTER, tw)
-  const k = (h - AXIS - PAD - STRIPS * GAP) / UNITS // the rows fill the height
+  const file = store.getSnapshot().source?.kind === 'file' ? history.track : null
+  const k = (h - AXIS - PAD - STRIPS * GAP - (file ? GAP + OVERVIEW : 0)) / UNITS // the rows fill the height
   c.clearRect(0, 0, w, h)
   c.font = `12px ${FONT}`
   c.textBaseline = 'middle'
@@ -224,6 +229,53 @@ function draw(c: CanvasRenderingContext2D, w: number, h: number) {
     c.textAlign = 'right'
     c.fillText(value, GUTTER - 8, r.y + r.h / 2)
   }
+  ov = file ? { y: y + GAP, h: OVERVIEW } : null
+  if (file && ov) {
+    // The whole track: per pixel column its buckets' peak energy, as a bar coloured by section (none: ink, a build,
+    // a drop); a fired drop as a line; the playhead. A part never heard stays empty.
+    // ponytail: redrawn at the timeline's rate, ≤ 1 rect per column; cache it per bucket if it ever bills
+    const { y: oy, h: oh } = ov
+    c.fillStyle = SURFACE
+    c.fillRect(GUTTER, oy, tw, oh)
+    const cols = Math.max(1, Math.floor(tw))
+    const n = file.n
+    let style = -1 // the section whose colour is set
+    for (let col = 0; col < cols; col++) {
+      const k1 = Math.max(Math.floor(((col + 1) * n) / cols), Math.floor((col * n) / cols) + 1)
+      let [e, sec, fired] = [NaN, 0, 0]
+      for (let k = Math.floor((col * n) / cols); k < k1 && k < n; k++) {
+        const v = file.get(k, L.energy)
+        if (Number.isNaN(v)) continue
+        e = Number.isNaN(e) ? v : Math.max(e, v)
+        sec = Math.max(sec, file.get(k, L.section))
+        fired = Math.max(fired, file.get(k, L.fired))
+      }
+      if (Number.isNaN(e)) continue
+      const x = GUTTER + (col * tw) / cols
+      if (sec !== style || fired > 0) {
+        c.fillStyle = sec ? (sec === BUILD ? C1 : C2) : INK2
+        c.globalAlpha = sec ? 0.9 : 0.45
+        style = sec
+      }
+      c.fillRect(x, oy + oh - 2 - e * (oh - 4), tw / cols, e * (oh - 4) + 2)
+      if (fired > 0) {
+        c.globalAlpha = 1
+        c.fillRect(x - 1, oy, 2, oh)
+        style = -1
+      }
+    }
+    c.globalAlpha = 1
+    const d = player.duration
+    if (Number.isFinite(d) && d > 0) {
+      c.fillStyle = INK
+      c.fillRect(GUTTER + (player.currentTime / d) * tw - 1, oy - 2, 2, oh + 4)
+    }
+    c.textAlign = 'left'
+    c.fillStyle = INK
+    c.fillText(`${clock(player.currentTime)} / ${clock(d)}`, PAD, oy + oh * 0.3)
+    c.fillStyle = INK2
+    c.fillText('click to seek', PAD, oy + oh * 0.72)
+  }
 }
 
 /** The canvas and its loop: mounted only while the screen is open and the analysis on. */
@@ -247,7 +299,17 @@ function Timeline() {
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
   }, [])
-  return <canvas ref={ref} />
+  return (
+    <canvas
+      ref={ref}
+      onClick={(e) => {
+        const r = e.currentTarget.getBoundingClientRect()
+        const [x, y] = [e.clientX - r.left, e.clientY - r.top]
+        const d = player.duration
+        if (ov && y >= ov.y && y <= ov.y + ov.h && x >= GUTTER && Number.isFinite(d)) player.currentTime = ((x - GUTTER) / (r.width - GUTTER - PAD)) * d
+      }}
+    />
+  )
 }
 
 /** The analysis screen (key Y; Esc, Y or × closes it): closed, nothing but this one subscription. */

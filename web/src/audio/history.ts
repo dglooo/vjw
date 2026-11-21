@@ -1,7 +1,8 @@
 // The analysis screen's memory (user 2026-11-21, «экран анализа»: what the app hears in the music over time). app.ts
 // records every frame as the detectors read it, before the user's gain, mute and Off (bind.ts gain()), into
-// fixed-width time buckets: `recent`, the last 34 s at 60 per s on the frame clock (ui/Analysis.tsx's timeline).
-// Pure, so Vitest runs it in Node.
+// fixed-width time buckets: `recent`, the last 34 s at 60 per s on the frame clock (ui/Analysis.tsx's timeline), and
+// `track`, the playing file's whole length at ≤ 2 per s on the file's own clock, so a seek back overwrites what it
+// plays again (the overview). Pure, so Vitest runs it in Node.
 import type { ArrangeOut } from './arrange'
 import type { Drum } from './drums'
 import type { Sync } from './sync'
@@ -21,6 +22,9 @@ const PEAK = L.sub // lanes [PEAK, LAST) keep their peak, the ones before count
 const LAST = L.pitch
 const RECENT_HZ = 60
 const RECENT_N = 2048 // 34 s at 60 per s: the 30 s timeline and some slack
+const TRACK_HZ = 2 // the overview's buckets per s, at most
+export const TRACK_BYTES = 2 << 20 // … and its memory
+const BUCKET_BYTES = 4 * LANES.length + 8 // the lanes' Float32s and the index's Float64
 
 export type Buckets = ReturnType<typeof createBuckets>
 /** `n` buckets of `width` s: bucket i (= floor(t / width)) lives in slot i mod n, so the newest n stay held. A frame in a
@@ -54,6 +58,12 @@ export function createBuckets(n: number, width: number) {
   }
 }
 
+/** The overview's buckets for a file of `duration` s: ≤ TRACK_HZ per s within TRACK_BYTES, so a long mix gets wider ones. */
+export function trackBuckets(duration: number) {
+  const n = Math.max(1, Math.min(Math.floor(duration * TRACK_HZ), Math.floor(TRACK_BYTES / BUCKET_BYTES)))
+  return createBuckets(n, duration / n)
+}
+
 /** The buckets of the last `span` s up to `now`, oldest first: [i0, i1]. */
 export function range(b: Buckets, now: number, span: number): [i0: number, i1: number] {
   const i1 = Math.floor(now / b.width)
@@ -63,19 +73,25 @@ export function range(b: Buckets, now: number, span: number): [i0: number, i1: n
 /** A time's x on a strip that ends at `now` on its right edge (`x0` + `w`) and starts `span` s before at `x0`. */
 export const xAt = (t: number, now: number, span: number, x0: number, w: number) => x0 + w * (1 - (now - t) / span)
 
+/** The file playing (input.ts player): its clock, length and source, to tell a new file from a seek. */
+export interface FileClock { currentTime: number; duration: number; src: string }
+
 export function createHistory() {
   const rec = Object.fromEntries(LANES.map((l) => [l, 0])) as Sample
   let seen = -Infinity // the newest ⚡ onset counted
+  let key = '' // the file `track` holds, and its length
+  let dur = 0
   const h = {
     recent: createBuckets(RECENT_N, 1 / RECENT_HZ),
+    track: null as Buckets | null,
     now: 0, // the newest frame's time, s on the frame clock
     /** A hit drained this frame (app.ts's drain loop). */
     hit(d: Drum) {
       rec[d]++
     },
     /** The frame at `t` (f.time): `s` the sources before gain(), the grid, the arrangement, the flash budget's onsets
-     *  (live.ts, newest last). */
-    frame(t: number, s: Readonly<Record<string, number>>, sync: Sync, a: ArrangeOut, flashes: readonly number[]) {
+     *  (live.ts, newest last) and the file playing (null: none, paused or line-in). */
+    frame(t: number, s: Readonly<Record<string, number>>, sync: Sync, a: ArrangeOut, flashes: readonly number[], file: FileClock | null) {
       rec.sub = s.sub
       rec.reese = s.reese
       rec.tonal = s.tonal
@@ -97,6 +113,13 @@ export function createHistory() {
       seen = flashes.at(-1) ?? seen
       h.recent.add(t, rec)
       h.now = t
+      if (file && file.duration > 0 && Number.isFinite(file.duration)) {
+        if (file.src !== key || file.duration !== dur || !h.track) {
+          h.track = trackBuckets((dur = file.duration))
+          key = file.src
+        }
+        h.track.add(Math.min(file.currentTime, (h.track.n - 0.5) * h.track.width), rec) // its end lands in the last bucket
+      }
       rec.kick = rec.snare = rec.hats = 0
     },
   }

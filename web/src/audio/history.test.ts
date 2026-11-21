@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import type { ArrangeOut } from './arrange'
-import { BUILD, DROP, L, LANES, createBuckets, createHistory, range, xAt, type Sample } from './history'
+import { BUILD, DROP, L, LANES, TRACK_BYTES, createBuckets, createHistory, range, trackBuckets, xAt, type Sample } from './history'
 import { ZERO_SYNC } from './sync'
 
 const blank = (): Sample => Object.fromEntries(LANES.map((l) => [l, 0])) as Sample
@@ -24,7 +24,7 @@ test('a bucket counts the hits, keeps the levels peak and the last pitch', () =>
 
 test('the timeline window holds the last 30 s; older buckets are gone from the ring', () => {
   const h = createHistory()
-  for (let f = 0; f <= 40 * 60; f++) h.frame((f + 0.5) / 60, {}, ZERO_SYNC, QUIET, []) // mid-bucket: no float holes
+  for (let f = 0; f <= 40 * 60; f++) h.frame((f + 0.5) / 60, {}, ZERO_SYNC, QUIET, [], null) // mid-bucket: no float holes
   const [i0, i1] = range(h.recent, h.now, 30)
   expect(i1 - i0 + 1).toBe(1800)
   for (let i = i0; i <= i1; i++) expect(h.recent.get(i, L.kick)).toBe(0)
@@ -41,7 +41,7 @@ test('sections: a breakdown builds, a fired drop holds until the next breakdown;
   const h = createHistory()
   const flashes: number[] = []
   const at = (t: number, a: Partial<ArrangeOut>) => {
-    h.frame(t, {}, ZERO_SYNC, { ...QUIET, ...a }, flashes)
+    h.frame(t, {}, ZERO_SYNC, { ...QUIET, ...a }, flashes, null)
     const i = Math.floor(t / h.recent.width)
     return [h.recent.get(i, L.section), h.recent.get(i, L.flash)]
   }
@@ -52,4 +52,25 @@ test('sections: a breakdown builds, a fired drop holds until the next breakdown;
   expect(at(4, {})).toEqual([DROP, 0]) // the drop section holds; the same onsets never count twice
   expect(at(5, { sparse: true })).toEqual([BUILD, 0])
   expect(at(6, {})).toEqual([0, 0]) // a breakdown that ends with no drop
+})
+
+test('a seek back overwrites the bucket it plays again, never adds to it', () => {
+  const b = createBuckets(8, 0.5)
+  const kick = { ...blank(), kick: 1 }
+  b.add(1.2, kick)
+  b.add(1.3, kick)
+  b.add(3, blank()) // the seek forward…
+  b.add(1.4, kick) // …and back into bucket 2
+  expect(b.get(2, L.kick)).toBe(1)
+  expect(b.get(4, L.kick)).toBeNaN() // skipped over: never heard
+})
+
+test('the overview stays at ≤ 2 buckets per s and within 2 MB, however long the file', () => {
+  expect(trackBuckets(600).n).toBe(1200) // 2 per s exactly
+  for (const d of [10.2, 600, 18_000]) {
+    const b = trackBuckets(d)
+    expect(b.width).toBeGreaterThanOrEqual(0.5)
+    expect(b.bytes).toBeLessThanOrEqual(TRACK_BYTES)
+    expect(b.n * b.width).toBeCloseTo(d)
+  }
 })
