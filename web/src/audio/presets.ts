@@ -13,7 +13,7 @@ export interface Preset {
   map: Readonly<Record<string, string>> // built-in source -> new source while Auto-style is on
   proto?: { kickPerBeat: number; hatsPerBeat: number; wobble: number; bass: number } // classifier (genres only)
   knobs: Knobs // the worklet's drum knobs (drums.ts): floors, snare threshold, kick trigger and its follower
-  cuts?: false // a deep bass cut doesn't arm a drop (arrange.ts `cuts`, drop v2 (2)); missing = it does
+  cuts?: false // a deep bass cut doesn't arm a drop below DnB tempo (cutsOn → arrange.ts `cuts`, drop v2 (2)); missing = it does
   low?: 'sub' // the arrangement's `low` (app.ts) reads the sub band alone; missing = sub + reese
 }
 
@@ -26,6 +26,13 @@ const BANDS: Preset['bands'] = { kick: [40, 150], snare: [1000, 5000], hats: [70
 const inside = (bpm: number, [lo, hi]: Band) => bpm >= lo && bpm <= hi
 export const snapOctave = (bpm: number, band: Band): 'double' | 'halve' | 'none' =>
   inside(bpm, band) ? 'none' : inside(2 * bpm, band) ? 'double' : inside(bpm / 2, band) ? 'halve' : 'none'
+
+/** The arrangement's `cuts` (arrange.ts): the preset's, or on while a sure grid (confidence ≥ 0.3, styleIn's gate)
+ *  runs at DnB's band floor (160 BPM) or faster, so a cuts-off pick on DnB keeps the 2–3 s pre-drop cuts its drops come
+ *  through (Psytrance on 6 DnB tracks: 5/17 → 6/17 drops). Not from 150: fx_psy150's grid reads 150.00–150.18, and on
+ *  those tracks > 150 adds 2 false drops for no hit. ⚠️ Techno's and House's bands lock DnB at 116 BPM (⅔), so under those
+ *  picks this never fires (scratchpad/drops). */
+export const cutsOn = (p: Preset, bpm: number, confidence: number) => p.cuts !== false || (confidence >= 0.3 && bpm >= PRESETS.dnb.bpm![0])
 
 // The 4/4 family (dsp_genre_melodic §4): one knob set for psytrance, techno and house; only the tempo tells them apart, and
 // their real ranges overlap, so the classifier keeps one 4/4 class (techno) and Psytrance / House are hand picks. kick

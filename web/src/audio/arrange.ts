@@ -15,7 +15,7 @@ export interface ArrangeIn {
   total: number // broadband RMS of the frame (energy.ts `rms`); at or below `silence` = no music
   kick: boolean // a kick hit was drained this frame
   beat: number | null // sync.beat (continuous) while sync is confident
-  cuts: boolean // a deep cut arms a drop: the active preset's `cuts` (presets.ts; off under Dubstep)
+  cuts: boolean // a deep cut arms a drop: presets.ts `cutsOn` (the active preset's `cuts`, off under Dubstep and 4/4 below DnB tempo)
   now: number // s
 }
 export interface ArrangeOut {

@@ -5,7 +5,7 @@ import { knee } from './features'
 import { createBank } from './bands'
 import { createDrums } from './drums'
 import { rms } from './energy'
-import { PRESETS } from './presets'
+import { cutsOn, PRESETS } from './presets'
 import { arrangement, mix, SR, T0 } from './synth'
 
 const N = 512 // the worklet's FFT (as drums.test.ts), hop and render quantum; one frame per 6 quanta, 62.5 fps
@@ -198,6 +198,16 @@ test('build decays (τ 1 s) when a breakdown ends without a drop', () => {
   expect(fires(r)).toEqual([])
   expect(r[i].build).toBeGreaterThan(0.1)
   expect(r[i + 30].build).toBeCloseTo(r[i].build * Math.exp(-0.5), 3) // 0.5 s later
+})
+
+test('cutsOn: a preset with cuts off (4/4, Dubstep) cuts on a confident grid at DnB tempo (a 4/4 hand pick on DnB); at its own tempo or on an unsure grid its value holds', () => {
+  for (const id of ['techno', 'house', 'psy', 'dubstep'] as const) {
+    expect(cutsOn(PRESETS[id], 174, 0.3), id).toBe(true)
+    expect(cutsOn(PRESETS[id], 132, 1), id).toBe(false)
+    expect(cutsOn(PRESETS[id], 150.2, 1), id).toBe(false) // fx_psy150's grid reads 150.00x through its 1-bar fill
+    expect(cutsOn(PRESETS[id], 174, 0.29), id).toBe(false)
+  }
+  expect(cutsOn(PRESETS.dnb, 0, 0)).toBe(true)
 })
 
 test('shouldCut: a confident drop (≥ 0.6) cuts, weak or missing never, and a hold blocks even a confident one', () => {
