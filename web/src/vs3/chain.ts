@@ -1,11 +1,15 @@
 // The vs3 post chain's pure part (agents/planner/plan_vs3_engine_2026-11-21.md § CP1 contract; design_vs3_engine
 // § Variant A, S1, S3 "wiring", S4): per frame, which passes run and their uniforms, every piece of state passed in, so
-// Vitest covers it without a browser (like gl/post.ts). The GL half (createChain) is S3.1.
+// Vitest covers it without a browser (like gl/post.ts). The GL half (S3.1, at the end): createChain's targets and passes.
 // vs3: the friends' three.js engine, used with permission (2026-11-19). Rewritten as text into TypeScript from
 // donor/vs3/visual_kit/src/: engine/engine.js:150-198 (its header: "engine.js — three.js render engine, faithful to the
 // original composer"; the macros, the mirror and feedback uniforms, :188 the tint), engine/post-shaders.js:162-198
 // ("post-shaders.js — the original post pipeline, extracted verbatim (masked)"; stepTiles, stepSym and, at :155-160, their
 // constants) and core/analyzer.js:464-473 ("analyzer.js — audio -> visual signal pipeline"; what react scales).
+import { bindFramebufferInfo, type ProgramInfo } from 'twgl.js'
+import { VS } from '../fx/glsl'
+import type { createBloom } from '../gl/bloom'
+import { draw, program, programAsync, renderTarget } from '../gl/engine'
 import { heatStep } from '../gl/post'
 import type { Signal } from './host'
 
@@ -210,3 +214,146 @@ export function reactTo(s: Signal, cf: ChainFrame): void {
   s.kick = cf.kick
   for (const k of LEVELS) s[k] = reacted(s[k], cf.react)
 }
+
+// vs3: the friends' three.js engine, used with permission (2026-11-19). Ported as text into GLSL ES 3.00 from
+// donor/vs3/visual_kit/src/lib/fx.js (its header: "Core image-feedback machinery — the MilkDrop lineage. FeedbackPass:
+// blends the current frame over a warped copy of frame history (zoom / rotate / swirl / wobble), which is what produces
+// silk, smear, tunnels, and recursive detail. MirrorShader: bilateral / quad / n-fold kaleidoscopic symmetry — the
+// "totem" look."): MirrorShader's fragment shader (:25-130) and FeedbackPass's (:151-176) as one pass, :172-174 verbatim.
+/** The warp (design S3): the mirror's uv transform (slice → tiles → twist → fold) samples the scene, then the warped,
+ *  faded history goes under it: max(cur, history × persist × tint × edge), the donor feedback reading the mirror's
+ *  output at the same pixel. Its output is the new history. uHist 0 ignores the history (N2: the first fed-back frame). */
+export const WARP = `#version 300 es
+precision highp float;
+uniform sampler2D uSrc, uPrev; // the scene; the history (hist[1 - k])
+uniform vec2 uRes;
+uniform float uSegments, uSegFrom, uSegMix, uAspect, uAngle, uTiles, uTwist, uSlice, uWet;
+uniform float uPersist, uZoom, uRotate, uSwirl, uWobble, uTime, uHist;
+uniform vec3 uTint;
+out vec4 outColor;
+float hash1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
+// identity on [0, 1]; the +0.5 phase is load-bearing (without it every frame turns 180°)
+vec2 mirrorWrap(vec2 uv) { return abs(fract(uv * 0.5 + 0.5) * 2.0 - 1.0); }
+// the symmetry fold for one segment count, sampled: 0 off, 1 mirror-x, 2 quad, >= 3 kaleido. The mirror line slides in
+// from the frame edge as wet rises; the kaleido opens from the centre as an iris of radius sqrt(wet) of the corner.
+vec4 folded(vec2 uv, float segs, float wet) {
+  float fold = 1.0 - 0.5 * wet;
+  float iris = 0.0;
+  vec2 plain = uv;
+  if (segs >= 0.5 && segs < 1.5) {
+    uv.x = uv.x < fold ? uv.x : 2.0 * fold - uv.x;
+  } else if (segs >= 1.5 && segs < 2.5) {
+    uv.x = uv.x < fold ? uv.x : 2.0 * fold - uv.x;
+    uv.y = uv.y < fold ? uv.y : 2.0 * fold - uv.y;
+  } else if (segs >= 2.5) {
+    vec2 p = (uv - 0.5) * vec2(uAspect, 1.0);
+    float r = length(p);
+    float a = atan(p.y, p.x) + uAngle;
+    float seg = 6.2831853 / segs;
+    a = mod(a, seg);
+    a = abs(a - seg * 0.5);
+    p = vec2(cos(a), sin(a)) * r;
+    uv = p / vec2(uAspect, 1.0) + 0.5;
+    if (wet < 1.0) {
+      float R = sqrt(wet) * length(vec2(0.5 * uAspect, 0.5));
+      iris = wet > 0.0 ? smoothstep(R - 0.0025, R + 0.0025, r) : 1.0;
+    }
+  }
+  vec4 col = texture(uSrc, mirrorWrap(uv));
+  if (iris > 0.0) col = mix(col, texture(uSrc, mirrorWrap(plain)), iris);
+  return col;
+}
+void main() {
+  vec2 vUv = gl_FragCoord.xy / uRes, uv = vUv;
+  float wet = clamp(uWet, 0.0, 1.0); // limitless's dry / wet; every other scene leaves it at 1
+  if (uSlice > 0.001) { // alternating shear slabs, deterministic per band
+    float band = floor(uv.y * 12.0);
+    float dir = mod(band, 2.0) * 2.0 - 1.0;
+    uv.x += uSlice * wet * dir * (0.15 + 0.25 * hash1(band));
+  }
+  if (uTiles > 1.0001) { // mirror-repeat wallpaper; dry, one cell is the frame and the count grows around the centre
+    vec2 t = uv * uTiles;
+    if (wet < 1.0) {
+      float n0 = floor(uTiles);
+      float d0 = mod(n0 * 0.5 + 0.5, 2.0) - 1.0;
+      float d1 = mod(n0 * 0.5 + 1.0, 2.0) - 1.0;
+      float d = mix(d0, d1, uTiles - n0);
+      t = (uv - 0.5) * pow(uTiles, wet) + 0.5 + d * wet;
+    }
+    vec2 cell = floor(t);
+    vec2 f = t - cell;
+    if (mod(cell.x, 2.0) > 0.5) f.x = 1.0 - f.x;
+    if (mod(cell.y, 2.0) > 0.5) f.y = 1.0 - f.y;
+    uv = f;
+  }
+  if (abs(uTwist) > 0.001) { // vortex: rotation strongest at the centre
+    vec2 p = (uv - 0.5) * vec2(uAspect, 1.0);
+    float r = length(p);
+    float a = atan(p.y, p.x) + uTwist * wet * exp(-r * 1.6);
+    p = vec2(cos(a), sin(a)) * r;
+    uv = p / vec2(uAspect, 1.0) + 0.5;
+  }
+  vec4 m = folded(uv, uSegments, wet);
+  if (uSegMix < 1.0) m = mix(folded(uv, uSegFrom, wet), m, uSegMix);
+  vec3 col = m.rgb;
+  if (uHist > 0.5) { // the feedback: the history zoomed, rotated, swirled, wobbled, faded at the frame edge
+    vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0);
+    float r = length(p);
+    float ang = uRotate + uSwirl * (0.55 - r) * 0.12;
+    float c = cos(ang), s = sin(ang);
+    p = mat2(c, -s, s, c) * p / uZoom;
+    p += uWobble * 0.004 * vec2(
+      sin(uTime * 0.7 + p.y * 9.0),
+      cos(uTime * 0.9 + p.x * 8.0));
+    vec2 huv = p / vec2(uAspect, 1.0) + 0.5;
+    vec3 hist = texture(uPrev, clamp(huv, 0.0, 1.0)).rgb;
+    float edge = smoothstep(0.0, 0.03, huv.x) * smoothstep(1.0, 0.97, huv.x)
+               * smoothstep(0.0, 0.03, huv.y) * smoothstep(1.0, 0.97, huv.y);
+    hist *= uPersist * uTint * edge;
+    col = max(col, hist);
+  }
+  // One NaN or Inf pixel from any scene would live forever in the
+  // history and bloom would grow it into black squares: drop it.
+  if (any(isnan(col)) || any(isinf(col))) col = vec3(0.0);
+  outColor = vec4(col, 1.0);
+}`
+
+/** The chain's GL half (design C11, C12): three owned half-float targets, allocated here at the layer's size, so no
+ *  visible frame allocates (a size change re-fits them on that frame, as three's target and the bloom's). The warp
+ *  writes hist[k] from the scene and hist[1 − k], the bloom its own targets, so no pass samples its draw target. It binds
+ *  only its own targets; the caller keeps the GL state (the host's guard). */
+export function createChain(gl: WebGL2RenderingContext, w: number, h: number) {
+  const hist = [renderTarget(true, true), renderTarget(true, true)] // persistent: the trails survive a governor step
+  const lensRT = renderTarget(true) // S5.1's lens writes it
+  const all = [...hist, lensRT]
+  for (const t of all) t.fit(w, h)
+  let k = 0 // the warp writes hist[k] and reads hist[1 − k]; then the two swap
+  let warp: ProgramInfo | undefined
+  return {
+    /** The chain over `src` (the scene, w × h); returns the texture the finish reads. */
+    apply(src: WebGLTexture, w: number, h: number, f: ChainFrame, bloom: ReturnType<typeof createBloom>): WebGLTexture {
+      for (const t of all) t.fit(w, h) // a no-op at the same size
+      let tex = src
+      if (f.mirror || f.feedback) {
+        bindFramebufferInfo(gl, hist[k])
+        // both samplers on every draw: a sampler left unset keeps its unit's last texture, maybe this draw target
+        draw((warp ??= program(VS, WARP)), { ...f.warp, uSrc: src, uPrev: hist[1 - k].attachments[0], uRes: [w, h] })
+        tex = hist[k].attachments[0]
+        k = 1 - k
+      }
+      if (f.bloom > 0) tex = bloom.apply(tex, w, h, f.bloom) // into its own targets
+      return tex // the lens (S5.1): tex into lensRT
+    },
+    /** Deletes the targets; the program stays in the engine's cache. */
+    dispose() {
+      for (const t of all) {
+        gl.deleteFramebuffer(t.framebuffer)
+        gl.deleteTexture(t.attachments[0])
+      }
+    },
+  }
+}
+
+/** The warp compiled off the main thread into the engine's cache, under apply()'s key (fx/glsl.ts's VS is the engine's,
+ *  glsl.test.ts): no compile on a visible frame (C12, host rule 5). */
+export const warmChain = () => programAsync(VS, WARP)

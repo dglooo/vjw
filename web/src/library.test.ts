@@ -9,6 +9,8 @@ import { chainState, frame, type LookValues } from './vs3/chain'
 import type { Signal } from './vs3/host'
 import look from './vs3/look.json'
 
+vi.mock('./gl/engine', () => ({})) // vs3/chain's GL half imports it (it takes the page's canvas + WebGL at import); unused here
+
 const B: Binding = { source: 'bass', amount: 1, attack: 0, release: 0.15, min: 0, max: 1 }
 const scene = (id: string, over: Partial<SceneDoc> = {}): SceneDoc => ({
   v: 1, id, name: id, star: false, layers: [{ gen: { ref: 'native/tunnel' }, fx: [], blend: 'normal', opacity: 1, speed: 1, res: 1 }], ...over,
