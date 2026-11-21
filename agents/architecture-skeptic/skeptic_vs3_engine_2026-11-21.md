@@ -1,6 +1,7 @@
 # Challenge: vs3 engine design (macros, post chain, palettes, full presets)
 
 ## TL;DR
+- **Recheck 2026-11-21 (§4): PASS with findings.** All 12 original findings are CLOSED. The recheck opens 5 MEDIUM and 1 LOW; none blocks planning. Variant A is safe to plan with the §4 plan items. The lines below are the first round's record.
 - **Verdict: BLOCKED** (3 HIGH, 6 MEDIUM, 3 LOW). Variant A's structure holds: the donor order is exact, the warp cannot run away, analysis-off and the toy limiter need no code. Its safety and look assumptions do not hold yet.
 - **HIGH C1:** heat, react and brightness amplify the gated kick glow and the ungated energy glow. 11 of 173 presets push the kick glow increment to 4× today's or more. F2 bounds neither path. **HIGH C2:** the knobs that control the whole frame's light jump in one frame on an undo, a slider click or a MIDI CC. **HIGH C3:** the trails move ahead of the bloom, but the donor's auto-exposure servo stays out. The donor built that servo to stop exactly this washout.
 - **Design facts corrected:** the harness renders 1728×1118 = 1.93 MP, not 7.7 MP, because 60-adaptive halves each side. This host, a MacBook Air 15" M4 on a 6016×3384 display, renders 5.09 MP (C4). A fade between two set-list cues of one scene draws one Live twice per frame (C5).
@@ -103,3 +104,97 @@
 - **Variant C: a valid pick only if the lead or the user decides the macros must follow across scenes.**
   - It shares the chain, so C1–C3, C5, C6 and C10–C12 apply.
   - It removes C7 (a `LookTarget` kind) and C9 (persistent macros), at about twice A's size.
+
+## §4 Recheck (2026-11-21)
+
+### Freshness (recheck)
+- Input: `agents/system-designer/design_vs3_engine_2026-11-21.md` § Skeptic response, lines 460–900 at `320d418` (`dev`), all of it:
+  - TL;DR, the pre-picks, the designer's additions, the findings table
+  - Amendment 1: terms, the rule, knobs, caps, user times, contracts rev 2, guarantees, bounds, cost to the look, F1–F6 rev 2
+  - Amendment 2: gate W, step 3b
+  - Amendments 3: C4–C12
+  - cost table rev 2, step plan rev 2 with L1–L6, gates H2 / W / P, files, risks rev 2, gaps G10–G13, decision, recommendation
+- Lead calls, taken as given: the 3 extra limiter legs stay; the limiter ships before the first light knob; 3b may lift the auto-exposure non-goal if W fails; `DYN` 1 stands.
+- Code re-read (unchanged since `00ebbec`):
+  - `audio/vs3.ts:123, :127`: kick ≤ 1.2, energy ≤ 1.1
+  - `gl/engine.ts:64-68`: `programAsync`; `gl/live.ts:890-894`: the warm-up runs natives one at a time
+  - `vs3/host.ts:13-16, :106, :207, :271`
+  - `library.ts:80, :175-177, :208`: both `put()` and `load()` pass through `own()`
+  - `vs3/kit/scenes/morphogen2.js:108, :1115`: `faithful()`
+  - `agents/hardening.md:80, :94`
+- Donor, as text:
+  - `K/core/analyzer.js:464-481`: react is applied before the attack
+  - `O/main.js:1151-1154`: a NaN froze the exposure; the screen stayed black until reload
+  - `O/main.js:2398-2405, :2566-2588`: the servo's regimes
+- Limiter arithmetic, re-derived by hand:
+  - x·f′(x) ≤ 1/3.6, with the maximum at x = 1/.9.
+  - L4's 2.345.
+  - The 1.9 s and 2.0 s settle times.
+  - The persist fall's worst frame is 11.8 % of the trail field, at frame 5.
+  - "Dim settings pass exactly" holds for finite steps, not only small ones. k is linear in the levels, and a react gain ≤ 1 scales the signal terms of the numerator and the denominator alike.
+
+### Original findings
+| ID | Was | Now | Why (evidence checked) | Residual for the planner |
+|---|---|---|---|---|
+| C1 | HIGH | CLOSED | The glow (kick and energy terms, any writer) moves by at most the stock scene's own move plus ×4/s (response l. 542-549). At stock values the rule returns its target. `HEAT_RISE` and `HEAT_CAP` are deleted. H2 rows S-stress and P-hot (the 11 heat ≥ .75 presets and the 19 react ≥ .9 presets) block a merge (l. 833, 839, 842). Falsifiable through L1–L3 and those rows. | N1 (react order and ceiling), N6 (the vs3-mode clamp) |
+| C2 | HIGH | CLOSED | Every light scalar passes the limiter after every writer (l. 641). `uGain` moves ×1.0234 per frame, which is ≤ .0064 luma. Vignette, lens and react move 1/30 of their range per frame. A style change ducks the lens first. L4 tests the undo case; S-jump and L-jump test the toggles. | N2 (reset), N5 (ramps against WCAG pairs) |
+| C3 | HIGH | CLOSED | Gate W decides: share > .85 ≤ .30 and mean ≤ 1.4 × the thumb at 5, 15 and 30 s, with the defaults also run on the pre-step build. Step 3b is a measured contingency the lead accepted. | 3b must take N3 and N4 before it is built. For the 3 default rows, judge W2 against the pre-step build: their scene thumbs use other palettes (`hardening.md:80`). |
+| C4 | MED | CLOSED | The judging point is 5.09 MP. P runs at both sizes, and 0.76 ms at the harness = 2.0 / 2.64. The response's ⚠️ ("the harness runs on this GPU") holds: `scratchpad/vs3/cost-res085.out.json` shows a working GPU timer and 0/901 late frames at 25 ms billed, which rules out SwiftShader. | Log `WEBGL_debug_renderer_info` once per P run. P must hold the governor's scale: in 60-adaptive the governor can absorb the chain's milliseconds by lowering the size, and that reads as a pass. Require `minScale` 1 and `governed` 0 on both arms; `cost.mjs` prints both. |
+| C5 | MED | CLOSED | The guard sits in `director.begin`, the one function every caller reaches (`director.ts:70-78`). Tests cover [A, A] and [A, B]. | — |
+| C6 | MED | CLOSED | Light slews read `dtl` (real time, ≤ 1/60 s); motion keeps the layer's dt; L5 tests it. The cap errs slow: at 30 fps every light slew halves its real rate, and `hot` keeps 34 % per frame. | — |
+| C7 | MED | CLOSED | `'*'` applies only to `group: 'look'` inputs, only on `native/vs3-*` nodes, and only to the 18 keys at the trust boundary. Three tests. | — |
+| C8 | MED | CLOSED | `chainOffForLegacy` writes `trails: 0, mirror: 0` and keeps the fx. It is idempotent; five tests. | Call it inside `own()` (`library.ts:80`), because both `put()` (Save as, import; `library.ts:175-177`) and `load()` (`:208`) pass through `own()`. |
+| C9 | MED | CLOSED | Per-scene macros are on record as the lead's trade-off. The `Live.set` carry is deleted, and the later path is named. | — |
+| C10 | LOW | CLOSED | The donor's NaN/Inf drop is ported verbatim. `uTint` ≤ 1 per channel. Hue drift uses `offsetHSL` on unrotated sources. Tests. | — |
+| C11 | LOW | CLOSED | The chain owns three targets: the warp writes `hist[w]`, the lens writes `lensRT`. The 16-combination fake-GL test covers it. | — |
+| C12 | LOW | CLOSED | `programAsync` exists (`gl/engine.ts:64-68`), so the response's ⚠️ resolves. `warm()` runs the natives one after another (`live.ts:890-894`), so 38 vs3 warms compile each program once. | `start()` knows no draw size, because vs3 `create(gl)` takes none (`host.ts:271`). Pass the shots' size into `start()`, or the first draw re-fits the 3 targets. three's target and the bloom still fit on the first draw; that is pre-existing. |
+
+### New findings (opened or left by the amendment)
+| ID | severity | claim | evidence | failure scenario | falsification | recommended change |
+|---|---|---|---|---|---|---|
+| N1 | MEDIUM | This is the react-target erratum, in two parts. (1) The react gain multiplies the kick after its slew. At react 1, the scene's own kick light, the lens kick terms, the aberration and the zoom push reach 68 % of a kick in frame 1, not 34 %. (2) `REACT_MAX` only scales the react slew, so the lever "`REACT_MAX` down" does not lower the ceiling. | Response l. 535-536, 542. l. 601: `s.kick = reacted(cf.kick, cf.react)`. l. 640: F1, "`hot` on `dtl`, times the limited react gain". The donor applies react before its attack (`K/core/analyzer.js:466` then `:479`; energy `:470` then `:481`). `host.ts:13-16`: synapse's kick swell made 19 one-frame steps > .10 in 15 s without the slew, 0 with it. l. 568, 632, 843: `REACT_MAX` named as the ceiling and as a lever. | A preset with react ≥ .9 (19/173, `g1b.txt`) on synapse. In frame 1, s.kick = min(1, 2 × .34) = .68. The slew's envelope shrinks from a full step ≤ .29 to ≤ .15. H2 S-stress and P-hot fail. None of the listed levers (`DYN`, `LIGHT_X`, `KNOB_S`, `REACT_MAX`) acts on the scene's own light, so the plan escalates to the "last resort" (+1.5 ms). | L7 (Vitest): hit 0 → 1, react 1, `dtl` 1/60. The host's `s.kick` after one frame must be ≤ .34. L8: with `REACT_MAX` 1.5 and react 1, the react gain must be ≤ 1.5. | `hot = heatStep(hot, reacted(hit, rg), dtl)` and `s.kick = hot`: the donor's order. Set the react-gain target to `min(v.react × 2, REACT_MAX)` and slew it by `a × 2`. |
+| N2 | MEDIUM | Resets ride wall-clock gaps and an ambiguous "Fresh". (1) After a main-thread stall ≥ 250 ms with the scene on stage, the limiter takes every target at once, the history is ignored (the trail field vanishes), and 3b's `e` snaps. (2) 3b snaps `e` "on a Fresh frame", and rev 2 defines Fresh to include "persist comes back from 0". | Response l. 555, 600 (a gap sets light to null), 675 (3b snaps on Fresh), 750 (Fresh = a gap, or persist back from 0). `host.ts:106, :207`: `GAP_MS` is wall time and stands for "back on stage". `hardening.md:70`: locus compiles on a visible frame, a known stall source. `g1b.txt`: 78/173 presets have effective persist 0, so picks between presets cross 0. | (a) A stall during a 1.9 s heat undo: the rest of the undo lands in one frame and the trail field drops out, together one large step. (b) With 3b, a pick from a no-trails preset to a trails preset, or `trails` bound to audio, snaps `e` from its slow value to the instantaneous target/mean at every crossing: ×1.3–2, up to ≈ .19 luma. | Vitest: a light state mid-slew, then a frame with persist 0 → .5. `uGain` must move ≤ ×x and `e` must stay unchanged. Host test: a draw 300 ms late with no engine frame skipped must keep `st.light` and the history. H2 S-cut with 1 s holds. At 250 ms the persist fall (29 frames) never reaches 0, so the row as written never exercises this path. | Use one `reset` flag: set when the native is created, or when it was not drawn on the previous engine frame (a frame counter in `gl/engine.ts` `render()`, not wall time). Keep the history's `stale` flag separate. The limiter and the servo read `reset` only. 3b's acceptance re-runs S-cut with 1 s holds, and S-jump. |
+| N3 | MEDIUM | 3b's lift (`e` up to 1.35) sits after the limiter and drops the donor's exemptions. On dark content it multiplies the scene's own kick light, and the glow step the limiter already bounded, by up to 1.35. It lifts black frames fast, and it chases morphogen 2.0's white grounds. | Response l. 666-670: `e` on the gain in FINISH, range .6–1.35, a plain log lag toward .19 × brightness/1.4. The donor never boosts intentional darkness (`O/main.js:2566`). It skips faithful scenes (`:2569`, `:2398-2405`). It lifts only muddy frames while the music is loud, outside a .6–1.4 × target deadband (`:2582-2584`). `morphogen2.js:108, :1115`: the fixed maps are faithful. `post.ts:99-102`: on dark pixels (f′ ≈ 1) the .29 envelope scales linearly with the gain. | (a) A dark breakdown drops the mean to the .01 floor. d ln e/dt = ln 19 / 2.5 = 1.18 per s, so `e` reaches 1.35 in ≈ .25 s, and the drop's first kicks land ×1.35 (envelope .29 → .21). (b) A white-ground morphogen 2.0 mode reads ≈ .62 through our grade; `e` falls to .6 and the ground drops to ≈ .48. Our host does not wire `faithful()` today (`host.ts:243`); that gap is pre-existing. | Vitest of the law: mean .005, target .19, `dtl` 1/60; `e` after .3 s ≥ 1.3. H2 S-all with 3b on a window that holds a breakdown → drop. W with a lower bound (mean ≥ .6 × thumb) on one white-ground morphogen 2.0 preset. | Cap `e` at 1. C3 needs only the pull-down: W1 and W2 are upper bounds. Skip any scene whose `faithful()` is true. Port the lift later, with the donor's regimes, if a muddy look shows. |
+| N4 | MEDIUM | The two new recursive light states latch NaN. The limiter's `glow` latches because JS `Math.min`/`Math.max` propagate NaN. 3b's 1×1 `e` latches because the mipmapped probe mean averages a NaN texel in, and by the spec's own definition of `max`, GLSL ES `max(NaN, .01)` returns NaN. Neither recovers before a reset. | `O/main.js:1151-1154`: "one NaN band holds every envelope, energy and the exposure at NaN for the rest of the session: a black screen until reload". `K/lib/fx.js:172-173`: a NaN pixel can come from any scene. Response l. 549 (the glow recursion), 674-676 (probe → mipmap → 1×1 law). `host.ts:52, :60`: energy has no guard. C10's guard covers only the warp's history. The 4 rows with default persist 0 (crystal, pearl, spiral, descent) skip the warp; crystal, pearl and spiral are raymarchers. | A raymarcher (crystal, pearl or spiral) renders one NaN pixel with the warp off. The bloom spreads it, the probe mean turns NaN, `e` turns NaN, FINISH multiplies by NaN, and the vs3 layer renders black until a reset. Separately, one NaN energy value makes `glow` NaN; the strength is then NaN, fails the `< 1e-3` skip, and the bloom writes NaN. | Vitest: `frame()` with `s.energy` = NaN for one frame, then finite; `glow` must be finite again. GPU test: a scene target with one NaN texel; after the update `e` must be finite (one `readPixels` in the test). | In the limiter: `if (!(glow >= 0)) glow = target >= 0 ? target : 0` (flashGate's guard, `post.ts:51`). In the probe, write luma 0 where `isnan` or `isinf`. In the update, keep the old `e` when the new one is not finite. |
+| N5 | MEDIUM | H2 counts one-frame steps, and the limiter turns jumps into ramps, so the jump rows can pass while ramps still make WCAG flash pairs. Only `uGain` and the glow's follow are bounded against pairs (.385 luma/s, ≤ 1.9 pairs/s). The vignette leg (.8 × range × mean luma/s), the lens leg and the legs combined (.036 per frame = 2.2 luma/s) are not bounded. S-jump at 4 jumps/s can never show more than 2 pairs/s. | Response l. 615, 620 and 626: the leg rates; the pair argument covers `uGain` only. l. 826: the H2 metric. l. 834: S-jump at 250 ms. `hardening.md:94`: the toy limiter scored H2 = 0 while an 8 Hz strobe still pulsed .77–1.0. | Brightness and vignette on two adjacent MIDI faders, pumped together at 4 Hz on a bright frame (mean ≈ .75). Each 125 ms half-cycle swings ≈ .05 (gain) + ≈ .1 × range × mean (vignette) ≈ .12. That makes 8 opposing changes, so 4 flash pairs per second, while H2 reads 0 steps. | Count WCAG pairs on H2's recorded luma trace: opposing frame-mean changes ≥ .10, the darker side < .8. Run S-jump and L-jump toggled at 8 jumps/s on the brightest row. The finding holds if any second has > 3 pairs. | Add the pair count to H2 for S-jump, L-jump and S-cut, and run S-jump at 8 jumps/s. Set each leg's `KNOB_S` from its luma authority, so that no leg, and no sum of legs, exceeds .385 luma/s (vignette ≈ 1 s at range 1). |
+| N6 | LOW | In the vs3 analyser mode the limiter is not transparent at stock. `reacted()` clamps energy at 1, but the vs3 core emits energy up to 1.1, while the stock k0 uses the raw value. So k < k0 at stock values. | Response l. 542-543, 552, 572. `audio/vs3.ts:127`. | At defaults in 'vs3' mode, on a loud section, the glow sits below today's level. L1's 1e-6 claim fails on real levels, and step 2's ±.01 luma acceptance may trip in vs3 mode only. | L1 with energy 1.05. | Clamp k0's levels at 1 as well: the same clamp on both sides. |
+
+### Checked and holding (recheck)
+- **`r` when `stockPrev` = 0.** Only a filter (limitless) in silence has a stock of 0. When sound returns, `r` = 1 lets the glow take the stock scene's own first step, which is today's step; nothing worse.
+- **A frame drop with `dtl` capped at 1/60.** A 100 ms frame gets one 60 fps allowance: the light lags but never jumps, and `hot` keeps 34 % per frame (today 57 % at 30 fps).
+- **The look arrives.** The level follows at ×4/s. ×16 settles in 2 s; heat 0 → 1 (×256) in 4 s. The extreme case (heat 0 → 1, bloomMul .8 → 2.5 and brightness 1.36 → 2.4: ×4 400) takes ≈ 6 s; after a 1.8 s glide, the lag is about 1.8 s less.
+  - Kicks during the catch-up ratchet the level up faster: the stock's rises are taken, and its falls are clipped while the target sits above.
+  - What never arrives is the donor's ×14 kick pump. That is `DYN` 1, by the lead's call.
+  - A light knob bound to audio is compressed to its slow average.
+- **The limiter's bounds.**
+  - `uGain` and the glow's follow combined move ≤ ×1.0234 per frame (.0064 luma), because `glow` carries `uGain`.
+  - Where the glow sits at or above the stock, its kick step is the stock's in linear light. The concave curve then keeps each pixel's step ≤ the stock's.
+  - At stock values the rule is exact, except N6.
+- **The servo's own motion.** It is ≤ ×1.0155 per frame at a 10× error (.0043 luma), and the rate cap binds only beyond a 32× error. It reads the picture, not the audio, so analysis-off needs nothing. N2, N3 and N4 cover its edges.
+- **C5's guard placement.** All of these reach `begin()`: set-list cues, ← / →, the autopilot and `jump()`. A mid-fade cue back to the outgoing scene still fades, between two different scenes.
+
+### Planner notes (not findings)
+1. `DYN` 1 is a call about motion: the kick pump. A still cannot show it. At the step-3 gate, show one hot preset (Magmatic Eye) in the app on a kick-heavy track.
+2. The per-pixel stock bound needs `uGain` ≥ the base gain. With brightness below base and heat above stock, the bound loosens by up to (base/brightness)²: 6 % at 1.36. Keep the bottom of brightness's range at ≥ 1.36 (G12).
+3. Step 2 already ships brightness, bloomMul and vignette. Run H2 S-jump on those three in step 2, not first in step 3.
+4. 3b's probe point-samples 4 096 of 5.09 M pixels. Its ±.02 test needs one line-art scene (vesica, tendril or lasers).
+5. Test IDs to carry into the plan:
+   - L7 and L8 (N1)
+   - the `reset` tests (N2)
+   - the NaN tests (N4)
+   - the H2 pair counter and the 8 jumps/s S-jump (N5)
+   - L1 at energy 1.05 (N6)
+   - P with `minScale` 1 (C4)
+   - `chainOffForLegacy` inside `own()` (C8)
+   - the `start()` size (C12)
+
+### Recheck verdict
+**PASS with findings.** No BLOCKER or HIGH is open. The 12 original findings are CLOSED; the recheck opens 5 MEDIUM (N1–N5) and 1 LOW (N6).
+
+**Variant A is safe to plan.** Where each new item goes:
+- **Step 1:** N1 and N6, inside the limiter.
+- **Steps 1 and 3b:** N2, the `reset` flag.
+- **Before 3b may be built:** N3 and N4.
+- **The gates of steps 2, 3 and 5:** N5.
+- **Steps 3, 4 and 2:** the C4, C8 and C12 residuals above.
+- **B and C:** unchanged from §3.
