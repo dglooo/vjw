@@ -5,7 +5,8 @@
 // select), and its post chain and macros onto the look inputs of the same names (plan_vs3_engine S7.1); a key with no
 // input (quality, decay) is dropped and counted, as is a custom palette (the preset then leaves the palette as it is).
 // A preset whose look needs what we lack (no native, a scene row with no input, a logo or a scene on the LED wall) is
-// dropped whole, with its reason, and so is one that would be another's twin here. The thumbs are the donor's jpgs
+// dropped whole, with its reason, and so are one that would be another's twin here and one that flashes above 3 pairs
+// per second at its look (S8.2). The thumbs are the donor's jpgs
 // (vendor/thumbs/presets/index.json names them), copied under their own file names. Also writes web/src/vs3/look.json,
 // the post chain's defaults, ranges and scene rows (read first: the presets map onto its keys).
 // usage (cwd web/): node scripts/vs3-presets.mjs [path/to/main.js]
@@ -79,11 +80,15 @@ const drop = (k) => (dropped[k] = (dropped[k] ?? 0) + 1)
 // Scene rows with no look while at these values, so no input needs them: morphogen 2.0's legacy cream flag (the scene
 // turns it into its mode), its logo chip (no logo here) and its regrow / clear buttons' counters.
 const IDLE = { cream: false, logo: 0, regrowN: 0, clearN: 0 }
+// Presets whose own picture swings above the app's 3 WCAG flash pairs per second at their look, past every limiter knob
+// (plan_vs3_engine S8.2: REACT_MAX, KICK_COMP, DYN, LIGHT_X, the preset's brightness / heat / fill): the flash rule wins.
+const FLASHES = { '★ Orange Rose': 'raw-spectrum (analyzer)', '★ signal · lissajous — lissafucker': 'raw-waveform (lissajous)' }
 /** The preset's values on our inputs, or why its look cannot be had here. Its post and macro keys that are look.json's
  *  land on the look inputs of those names (plan_vs3_engine S7.1); a key the entry lacks is not written: the pick leaves
  *  that knob as it is. So does a custom palette (limitless: its own colours, from the clip it was tuned on), none of
  *  ours: the preset leaves the palette as it is. */
 function map(full, p) {
+  if (FLASHES[full]) return `flashes > 3 pairs/s at its look: ${FLASHES[full]} scope (S8.2)`
   const name = OURS[p.scene] ?? p.scene, inputs = params[name]
   if (!inputs) return `no vs3 native "${p.scene}" here`
   const values = p.palette === 'custom' ? {} : { palette: palettes.indexOf(p.palette) }

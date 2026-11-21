@@ -812,6 +812,7 @@ Invoke the `ponytail` skill (full) before writing code.
   - Cause: the swing is in the Signal scene's picture, drawn from the raw spectrum (mode analyzer) and the raw waveform (mode lissajous). No chain light value carries it, so no limiter knob reaches it. big bang passes in this worktree (max 2–3 pairs/s at every value; G7 had 4/s): it is at the noise edge.
   - Tests: no change. Note for a later `REACT_MAX` step: L6 expects react .9 → gain 1.8, so L6 cannot stay untouched below 1.8. L7, N2a and the warp-reacted test expect gain 2.
   - Proposed next lever (the lead's call; not a `KNOBS` value): a swing limiter on a hot vs3 layer that counts WCAG pairs. That is the toy limiter's upgrade path in `gl/post.ts` `toyLimit`, which caps the step but not the swing. Until then: waive the two Signal presets, or keep them out of the rotation.
+- **Changed during implementation:** (S8.2b coder, 2026-11-21, dispatch 2, the lead's call) No `KNOBS` change: the two presets are dropped. `scripts/vs3-presets.mjs` `FLASHES` drops ★ Orange Rose and ★ signal · lissajous — lissafucker by name, with the reason «flashes > 3 pairs/s at its look: raw-spectrum (analyzer) / raw-waveform (lissajous) scope (S8.2)». `presets.json` 170 → 168 (signal 7 → 5), their 2 thumbs removed, M3 counts updated (`src/presets.test.ts`). `chain.ts` and `chain.test.ts` unchanged.
 
 ## Acceptance mapping
 Spec: `thoughts/spec_vs3_engine.md` § Requirements (l. 21-37). "gate" = a lead-run gate of § Gates.

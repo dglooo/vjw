@@ -12,10 +12,10 @@ test('M3 preset keys: the factory presets of every vs3 scene (scripts/vs3-preset
   const { existsSync } = (await import(/* @vite-ignore */ fsId)) as { existsSync(p: string): boolean }
   const n = (s: string) => factory(`native/vs3-${s}`).length
   expect(Object.fromEntries(factoryRefs.map((r) => [r.slice(11), n(r.slice(11))]))).toEqual({
-    ink: 3, relic: 3, signal: 7, citadel: 3, mandala: 3, synapse: 3, fluid: 4, morphogen: 3, gate: 3, sand: 3, idol: 3, oracle: 3, anemone: 4, forge: 3, ingot: 4, spacetime: 4,
+    ink: 3, relic: 3, signal: 5, citadel: 3, mandala: 3, synapse: 3, fluid: 4, morphogen: 3, gate: 3, sand: 3, idol: 3, oracle: 3, anemone: 4, forge: 3, ingot: 4, spacetime: 4,
     pelt: 4, wisp: 5, grove: 4, descent: 5, visage: 6, chorus: 5, limitless3d: 6, vesica: 7, locus: 10, crystal: 8, pearl: 7, lasers: 12, tendril: 13, spiral: 5,
     limitless: 7, morphogen2: 10,
-  }) // 169 of the table's 173 + ★ hall; the generator lists the 4 it dropped and why
+  }) // 167 of the table's 173 + ★ hall; the generator lists the 6 it dropped and why (2 flash > 3 pairs/s, S8.2)
   for (const [ref, ps] of Object.entries(FACTORY)) {
     const def = VS3.find((d) => d.id === ref)!
     expect(new Set(ps.map((p) => p.name)).size, ref).toBe(ps.length)
